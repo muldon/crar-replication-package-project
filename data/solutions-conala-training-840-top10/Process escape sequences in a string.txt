@@ -1,0 +1,292 @@
+Query: Process escape sequences in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4020824)
+ The correct thing to do is use the 'string-escape' code to decode the string. 
+
+  >>> myString = "spam\\neggs"
+>>> decoded_string = bytes(myString, "utf-8").decode("unicode_escape") # python3 
+>>> decoded_string = myString.decode('string_escape') # python2
+>>> print(decoded_string)
+spam
+eggs
+  
+
+ Don't use the AST or eval. Using the string codecs is much safer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28314763)
+ You should use a https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals (which does not process escape sequences): 
+
+  regex= re.compile(r"\\(\d)")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37059682)
+ The actually correct and convenient answer for python 3: 
+
+  >>> import codecs
+>>> myString = "spam\\neggs"
+>>> print(codecs.escape_decode(bytes(myString, "utf-8"))[0].decode("utf-8"))
+spam
+eggs
+>>> myString = "naïve \\t test"
+>>> print(codecs.escape_decode(bytes(myString, "utf-8"))[0].decode("utf-8"))
+naïve    test
+  
+
+ Details regarding  codecs.escape_decode : 
+
+ 
+  codecs.escape_decode  is a bytes-to-bytes decoder 
+  codecs.escape_decode  decodes ascii escape sequences, such as:  b"\\n"  ->  b"\n" ,  b"\\xce"  ->  b"\xce" . 
+  codecs.escape_decode  does not care or need to know about the byte object's encoding, but the encoding of the escaped bytes should match the encoding of the rest of the object. 
+ 
+
+ Background: 
+
+ 
+ https://stackoverflow.com/a/24519338/2626865 is correct:  unicode_escape  is the incorrect solution for python3. This is because  unicode_escape  decodes escaped bytes, then decodes bytes to unicode string, but receives no information regarding which codec to use for the second operation. 
+ https://stackoverflow.com/a/4020824/2626865 is correct: avoid the AST or eval. 
+ I first discovered  codecs.escape_decode  from https://stackoverflow.com/a/23151714/2626865. As that answer states, that function is currently not documented for python 3. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42924286)
+ This table compares (some of) the different string literal prefixes in Python 2(.7) and 3(.4+):
+https://i.stack.imgur.com/pqI0q.png 
+
+ As you can see, in Python 3 there's no way to have a literal that doesn't process escapes, but does process unicode literals. To get such a string with code that works in both Python 2 and 3, use: 
+
+  br"[a-zA-Z][a-zA-Z0-9'.]*".decode('raw_unicode_escape')
+  
+
+ Actually, your example is not very good, since it doesn't have any unicode literals, or escape sequences. A better example would be: 
+
+  br"[\u03b1-\u03c9\u0391-\u03a9][\t'.]*".decode('raw_unicode_escape')
+  
+
+ In python 2: 
+
+  >>> br"[\u03b1-\u03c9\u0391-\u03a9][\t'.]*".decode('raw_unicode_escape')
+u"[\u03b1-\u03c9\u0391-\u03a9][\\t'.]*"
+  
+
+ In Python 3: 
+
+  >>> br"[\u03b1-\u03c9\u0391-\u03a9][\t'.]*".decode('raw_unicode_escape')
+"[α-ωΑ-Ω][\\t'.]*"
+  
+
+ Which is really the same thing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24704310)
+ You can prefix the string with  r  and create a https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals: 
+
+  str(contents).replace(r'\t', ' ')
+  
+
+ Raw-strings do not process escape sequences.  Below is a demonstration: 
+
+  >>> mystr = r'a\t\tb'  # Escape sequences are ignored
+>>> print(mystr)
+a\t\tb
+>>> print(mystr.replace('\t', ' '))  # This replaces tab characters
+a\t\tb
+>>> print(mystr.replace(r'\t', ' '))  # This replaces the string '\t'
+a  b
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/24519338)
+  unicode_escape  doesn't work in general 
+
+ It turns out that the  string_escape  or  unicode_escape  solution does not work in general -- particularly, it doesn't work in the presence of actual Unicode. 
+
+ If you can be sure that  every  non-ASCII character will be escaped (and remember, anything beyond the first 128 characters is non-ASCII),  unicode_escape  will do the right thing for you. But if there are any literal non-ASCII characters already in your string, things will go wrong. 
+
+  unicode_escape  is fundamentally designed to convert bytes into Unicode text. But in many places -- for example, Python source code -- the source data is already Unicode text. 
+
+ The only way this can work correctly is if you encode the text into bytes first. UTF-8 is the sensible encoding for all text, so that should work, right? 
+
+ The following examples are in Python 3, so that the string literals are cleaner, but the same problem exists with slightly different manifestations on both Python 2 and 3. 
+
+  >>> s = 'naïve \\t test'
+>>> print(s.encode('utf-8').decode('unicode_escape'))
+naÃ¯ve   test
+  
+
+ Well, that's wrong. 
+
+ The new recommended way to use codecs that decode text into text is to call  codecs.decode  directly. Does that help? 
+
+  >>> import codecs
+>>> print(codecs.decode(s, 'unicode_escape'))
+naÃ¯ve   test
+  
+
+ . (Also, the above is a UnicodeError on Python 2.) 
+
+ The  unicode_escape  codec, despite its name, turns out to assume that all non-ASCII bytes are in the Latin-1 (ISO-8859-1) encoding.  
+
+  >>> print(s.encode('latin-1').decode('unicode_escape'))
+naïve    test
+  
+
+ But that's terrible. This limits you to the 256 Latin-1 characters, as if Unicode had never been invented at all! 
+
+  >>> print('Ernő \\t Rubik'.encode('latin-1').decode('unicode_escape'))
+UnicodeEncodeError: 'latin-1' codec can't encode character '\u0151'
+in position 3: ordinal not in range(256)
+  
+
+ Adding a regular expression to solve the problem 
+
+ (Surprisingly, we do not now have two problems.) 
+
+ What we need to do is only apply the  unicode_escape  decoder to things that we are certain to be ASCII text. In particular, we can make sure only to apply it to valid Python escape sequences, which are guaranteed to be ASCII text. 
+
+ The plan is, we'll find escape sequences using a regular expression, and use a function as the argument to  re.sub  to replace them with their unescaped value. 
+
+  import re
+import codecs
+
+ESCAPE_SEQUENCE_RE = re.compile(r'''
+    ( \\U........      # 8-digit hex escapes
+    | \\u....          # 4-digit hex escapes
+    | \\x..            # 2-digit hex escapes
+    | \\[0-7]{1,3}     # Octal escapes
+    | \\N\{[^}]+\}     # Unicode characters by name
+    | \\[\\'"abfnrtv]  # Single-character escapes
+    )''', re.UNICODE | re.VERBOSE)
+
+def decode_escapes(s):
+    def decode_match(match):
+        return codecs.decode(match.group(0), 'unicode-escape')
+
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
+  
+
+  
+
+  >>> print(decode_escapes('Ernő \\t Rubik'))
+Ernő     Rubik
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41557523)
+ Using  unicode_escape  
+
+  TL;DR  You can decode bytes using the  unicode_escape  encoding to convert  \xXX  and  \uXXXX  escape sequences to the corresponding characters: 
+
+  >>> r'\xc3\x85lesund'.encode('utf-8').decode('unicode_escape').encode('latin-1')
+b'\xc3\x85lesund'
+  
+
+ 
+
+ First, encode the string to bytes so it can be decoded: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8')
+b'\\xc3\\x85\xe3\x81\x82'
+  
+
+ (I changed the string to show that this process works even for characters outside of Latin-1.) 
+
+ Here's how each character is encoded (note that あ is encoded into multiple bytes): 
+
+ 
+  \  (U+005C) -> 0x5c 
+  x  (U+0078) -> 0x78 
+  c  (U+0063) -> 0x63 
+  3  (U+0033) -> 0x33 
+  \  (U+005C) -> 0x5c 
+  x  (U+0078) -> 0x78 
+  8  (U+0038) -> 0x38 
+  5  (U+0035) -> 0x35 
+  あ  (U+3042) -> 0xe3, 0x81, 0x82 
+ 
+
+ Next, decode the bytes as  unicode_escape  to replace each escape sequence with its corresponding character: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8').decode('unicode_escape')
+'Ã\x85ã\x81\x82'
+  
+
+ Each escape sequence is converted to a separate character; each byte that is not part of an escape sequence is converted to the character with the corresponding ordinal value: 
+
+ 
+  \\xc3  -> U+00C3 
+  \\x85  -> U+0085 
+  \xe3  -> U+00E3 
+  \x81  -> U+0081 
+  \x82  -> U+0082 
+ 
+
+ Finally, encode the string to bytes again: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8').decode('unicode_escape').encode('latin-1')
+b'\xc3\x85\xe3\x81\x82'
+  
+
+ Encoding as Latin-1 simply converts each character to its ordinal value: 
+
+ 
+ U+00C3 -> 0xc3 
+ U+0085 -> 0x85 
+ U+00E3 -> 0xe3 
+ U+0081 -> 0x81 
+ U+0082 -> 0x82 
+ 
+
+ And voilà, we have the byte sequence you're looking for. 
+
+ Using  codecs.escape_decode  
+
+ As an alternative, you can use the  codecs.escape_decode  method to interpret escape sequences in a bytes to bytes conversion, as https://stackoverflow.com/users/2626865/user19087 posted in https://stackoverflow.com/a/37059682 to a similar question: 
+
+  >>> import codecs
+>>> codecs.escape_decode(r'\xc3\x85lesund'.encode('utf-8'))[0]
+b'\xc3\x85lesund'
+  
+
+ However,  codecs.escape_decode  is undocumented, so I wouldn't recommend using it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24764971)
+ You need to use a https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals for your Regex pattern (which does not process escape sequences): 
+
+  >>> import re
+>>> a = 'Builders Club The Ohio State'
+>>> re.sub(r'\bThe\b', '', a, flags=re.IGNORECASE)
+'Builders Club  Ohio State'
+>>>
+  
+
+ Otherwise,  \b  will be interpreted as a backspace character: 
+
+  >>> print('x\by')
+y
+>>> print(r'x\by')
+x\by
+>>>
+  
+
+
+

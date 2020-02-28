@@ -1,0 +1,219 @@
+Query: Load an Image from a JAR file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37054379)
+ If the jar file is on the classpath of your application and the image to be loaded is located at the root of the jar file, the image can be loaded easily by: 
+
+  URL url = getClass().getResource("/manikin.png");
+BufferedImage awtImg = ImageIO.read(url);
+Image fxImg = SwingFXUtils.toFxImage(awtImg, new Image());
+Image fxImgDirect = new Image(url.openStream());
+  
+
+ While  ImageIO  returns a  BufferedImage  this can be converted to a fx  Image  using the  SwingUtils . However the preferred way is to directly create a new  Image  instance using the  InputStream  from the  URL . 
+
+ See also https://stackoverflow.com/questions/29780369/load-image-from-a-file-inside-a-project-folder. If done right it does not matter if it is loaded from a jar file or the local file system. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12290352)
+ The way I usually embed imagery inside Java Jar files is I have a package in my  src  folder that contains all of my image files plus a single class called  Resource .  The class code is similar to the following: 
+
+  import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.net.URL;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+
+public class Resource{
+    public static BufferedImage loadImage(String imageFileName){
+        URL url = Resource.class.getResource(imageFileName);
+        if(url == null) return null;
+
+        try {
+            return ImageIO.read(url);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static ImageIcon loadIcon(String imageFileName){
+        BufferedImage i = loadImage(imageFileName);
+        if(i == null) return null;
+        return new ImageIcon(i);
+    }
+}
+  
+
+ Provided the  Resource  class and all of your image files reside in the same package, all you have to do is create a new  JLabel  with the  ImageIcon  returned by calling  loadIcon([simple filename]) .  This will work regardless of whether you're running in an IDE or from a Jar file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18379871)
+ Here's what http://docs.acle.com/javase/6/docs/api/javax/swing/ImageIcon.html#ImageIcon%28java.lang.String%29 says about the construct of ImageIcon: 
+
+ 
+   Creates an ImageIcon from the specified  file . The image will be preloaded by using MediaTracker to monit the loading state of the image. The specified String can be  a file name    a file path . 
+ 
+
+ (emphasis mine)  
+
+ Your image is not sted in a file. It isn't in your file system. It's in a jar that is itself in the classpath. And that's where you want to load it from. Wherever the jar file of your application is on the end-user's machine, your program wants to load it from this jar file. And all the resources in this jar file are available from the ClassLoader. 
+
+ So you should use 
+
+  new ImageIcon(MyClass.class.getResource("/res/background.jpg"))
+  
+
+   
+
+  new ImageIcon(MyClass.class.getClassLoader().getResource("res/background.jpg"))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9749756)
+ Path are not the same when you load data inside a JAR. 
+
+ You can use this method to load image when you run from a JAR: 
+
+  /**
+  * Create an instance of ImageIcon with the given path
+  * @param path  String - path of the image
+  * @return  ImageIcon - ImageIcon made with the image at the given path
+  */
+private ImageIcon createImageIcon(String path) {
+    if (path != null) {
+        URL tmp = getClass().getResource(path.replace("\\", "/"));
+        if(tmp!=null)
+            return new ImageIcon(tmp);
+        else
+            return new ImageIcon();
+    } else {
+        System.err.println("Couldn't find file: " + path);
+        return null;
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/23541194)
+ The images should not be loaded from the file system, but should be bundled into the app, inside your jar. 
+
+ If you put the image  foo.png  inside the jar, under the package  com.bar.resources  for example, you simply need to use 
+
+  InputStream in = getClass().getResourceAsStream("/com/bar/resources/foo.png")
+  
+
+ to load the image as an input stream. 
+
+ That will use the class loader to load the image. So, during development, if you're using a standard IDE project, you just need to put the image file in the appropriate package in your source directory: the IDE will "compile" the file by copying it to the same directory as the generated .. 
+If you're using a standard Maven/Gradle project, then it needs to be put in the appropriate package under  src/main/resources . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5310208)
+ I have no idea how this could be working in Eclipse. 
+
+ The problem is that getDocumentBase() returns location of a page, in which the applet is embedded (e.g. http://some.site.com/index.html), and you are trying to load a picture from that location. Obviously, there is no picture, just an html (or php) file, and the loading fails. 
+
+ If your goal is to load an image from inside the jar, try: 
+
+  Image img = null;
+try {
+    img = ImageIO.read(getClass().getResource("/images/tree.png"));
+} catch (IOException ex) {
+    System.err.println("Picture loading failed!");
+}
+  
+
+ where "/images/tree.png" is path to image file in your source tree. 
+
+  EDIT : If you need just to load an image from URL, you can use: 
+
+  Image img = null;
+try {
+    img = ImageIO.read(new URL("http://some.site.com/images/tree.png"));
+} catch (IOException ex) {
+    System.err.println("Picture loading failed!");
+}
+  
+
+ This method is a bit better than Applet.getImage(new URL(...)) - I had some problems when loading many images. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28498935)
+ You use incorrect way to load background image. In your code image location depends on project directory  src . You should load image from classpath but file system. You  Class.getResource  method to fix it e.g.: 
+
+  this.setContentPane(new JLabel(new ImageIcon(getClass().getResource(pathToImage))));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/8236063)
+ For one, you should use  ImageIO.read(new File("somefile.png"))  to load an  Image . Note that if there is no absolute path specified, it default to relative from the  working directory . If you're running out of eclipse, it's the project folder. Out of a jar, it's the folder the jar is in (unless otherwise specified). 
+
+ See http://docs.oracle.com/javase/tutorial/2d/images/loadimage.html for an explanation of how to load an image correctly (also says how to do it from within an applet). 
+
+ Also, you should load the image  once , then reuse it for each paint iteration: 
+
+  BufferedImage image;
+
+public nextButton() {
+    try {
+        image = ImageIO.read(new File("nextButton.png"));
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+@Override
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    g.drawImage(image, 0, 0, null);
+}
+
+@Override
+public Dimension getPreferredSize() {
+    return new Dimension(image.getWidth(), image.getHeight());
+}
+  
+
+ Let me know if this works for you (make sure to put your png in the working directory!). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7670789)
+ Instead of using  /./resources/back_img.png , use  resources/back_img.png  with  ClassLoader . 
+Here is example :  
+
+      String path = "resources/back_img.png";
+    ClassLoader cl = ImageHandler.class.getClassLoader();
+    URL imgURL = cl.getResource(path);
+    //URL imgURL = ImageHandler.class.getResource(path);
+
+    if (imgURL != null) {
+        ImageIcon icon = new ImageIcon(imgURL, description);
+        Image img = icon.getImage();
+        Image sizedImg = img.getScaledInstance(width, height, Image.SCALE_DEFAULT);
+        return new ImageIcon(sizedImg);
+    } else {
+        System.err.println("Couldn't find file: " + path);
+        return null;
+    }
+  
+
+
+

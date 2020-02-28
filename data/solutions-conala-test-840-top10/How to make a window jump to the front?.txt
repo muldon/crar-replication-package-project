@@ -1,0 +1,188 @@
+Query: How to make a window jump to the front?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36191443)
+ Add the following lines before the mainloop(): 
+
+  root.lift()
+root.attributes('-topmost',True)
+root.after_idle(root.attributes,'-topmost',False)
+  
+
+ . It makes the window come to the front when the window is generated, and it won't keep it always be in the front. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8775078)
+ If you're doing this on a Mac, use AppleEvents to give focus to Python.  
+
+  import os
+
+os.system('''/usr/bin/osascript -e 'tell app "Finder" to set frontmost of process "Python" to true' ''')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6795115)
+ Assuming you mean your application windows when you say "my other windows", you can use the  lift()  method on a Toplevel or Tk: 
+
+  root.lift()
+  
+
+ If you want the window to stay above all other windows, use:   
+
+  root.attributes("-topmost", True)
+  
+
+ Where  root  is your Toplevel or Tk. Don't forget the  -  infront of  "topmost" ! 
+
+ To make it  temporary , disable topmost right after: 
+
+  def raise_above_all(window):
+    window.attributes('-topmost', 1)
+    window.attributes('-topmost', 0)
+  
+
+ Just pass in the window you want to raise as a argument, and this should work. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25970104)
+ I didn't have any luck with the above methods, ended up having to use the win32 api directly, using a hack for the C version http://qt-project.org/forums/viewthread/6164. This worked for me:  
+
+  from win32gui import SetWindowPos
+import win32con
+
+SetWindowPos(window.winId(),
+             win32con.HWND_TOPMOST, # = always on top. only reliable way to bring it to the front on windows
+             0, 0, 0, 0,
+             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW)
+SetWindowPos(window.winId(),
+             win32con.HWND_NOTOPMOST, # disable the always on top, but leave window at its top position
+             0, 0, 0, 0,
+             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW)
+window.raise_()
+window.show()
+window.activateWindow()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12119488)
+ This works: 
+
+  # this will remove minimized status 
+# and restore window with keeping maximized/normal state
+window.setWindowState(window.windowState() & ~QtCore.Qt.WindowMinimized | QtCore.Qt.WindowActive)
+
+# this will activate the window
+window.activateWindow()
+  
+
+ Both are required for me on Win7.  
+
+  setWindowState  restores the minimized window and gives focus. But if the window just lost focus and not minimized, it won't give focus. 
+
+  activateWindow  gives focus but doesn't restore the minimized state. 
+
+ Using both has the desired effect. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32121848)
+ Recently, I had the same question on the Mac. I have combined several answers using  @MagerValp  for the Mac and  @D K  for other systems: 
+
+  import platform
+
+if platform.system() != 'Darwin':
+    root.lift()
+    root.call('wm', 'attributes', '.', '-topmost', True)
+    root.after_idle(root.call, 'wm', 'attributes', '.', '-topmost', False)
+else:
+    import os
+    from Cocoa import NSRunningApplication, NSApplicationActivateIgnoringOtherApps
+
+    app = NSRunningApplication.runningApplicationWithProcessIdentifier_(os.getpid())
+    app.activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
+
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28874281)
+ On Mac OS X PyObjC provides a cleaner and less error prone method than shelling out to osascript: 
+
+  import os
+from Cocoa import NSRunningApplication, NSApplicationActivateIgnoringOtherApps
+
+app = NSRunningApplication.runningApplicationWithProcessIdentifier_(os.getpid())
+app.activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37235492)
+ Somewhat of a combination of various other methods, this works on OS X 10.11, and Python 3.5.1 running in a venv, and should work on other platforms too. It also targets the app by process id rather than app name. 
+
+  from tkinter import Tk
+import os
+import subprocess
+import platform
+
+
+def raise_app(root: Tk):
+    root.attributes("-topmost", True)
+    if platform.system() == 'Darwin':
+        tmpl = 'tell application "System Events" to set frontmost of every process whose unix id is {} to true'
+        script = tmpl.format(os.getpid())
+        output = subprocess.check_call(['/usr/bin/osascript', '-e', script])
+    root.after(0, lambda: root.attributes("-topmost", False))
+  
+
+ You call it right before the  mainloop()  call, like so: 
+
+  raise_app(root)
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24136048)
+ You are looking for the https://developer.gnome.org/gtk3/stable/GtkWindow.html#GtkWindow--transient-for property of the modal window (which should be available in Glade). If the modal window needs to be transient to either of the two other windows, then you need to use gtk_window_set_transient_for() as needed since the modal can only be transient for one window at a time.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/28312609)
+ Set it as the  topmost  (but it will always stay in front of the others): 
+
+  win.attributes('-topmost', True) # note - before topmost
+  
+
+ To not make it  always  in front of the others, insert this code before the mainloop: 
+
+  win.lift()
+win.attributes('-topmost', True)
+win.attributes('-topmost', False)
+  
+
+ Don't forget  win.mainloop()  at the end of your code (even if in some cases it's not explicitly required) 
+
+ Other discussions on the same problem: 
+
+ 
+  https://stackoverflow.com/questions/8691655/how-to-put-a-tkinter-window-on-top-of-the-others  
+  https://stackoverflow.com/questions/1892339/make-tkinter-jump-to-the-front  
+ 
+
+
+

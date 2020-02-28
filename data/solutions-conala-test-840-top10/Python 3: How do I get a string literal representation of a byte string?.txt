@@ -1,0 +1,262 @@
+Query: Python 3: How do I get a string literal representation of a byte string?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15390521)
+ In your Python 3 example, you are interpolating into a Unicode string, not a byte string like you are doing in Python 2. 
+
+ In Python 3,  bytes  do not suppt interpolation (string fmatting  what-have-you).  
+
+ Either concatenate,  use Unicode all through and only encode when you have interpolated: 
+
+  b'x = ' + x
+  
+
+  
+
+  'x = {}'.fmat(x.decode('utf8')).encode('utf8')
+  
+
+  
+
+  x = '\u041c\u0438\u0440'  # the u prefix is igned in Python 3.3
+'x = {}'.fmat(x).encode('utf8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15390604)
+ In Python 2 you have types  str  and  unicode .  str  represents a simple byte string while  unicode  is a Unicode string. 
+
+ For Python 3, this changed: Now  str  is what was  unicode  in Python 2 and  byte  is what was  str  in Python 2. 
+
+ So when you do  ("x = %s" % '\u041c\u0438\u0440').encode("utf-8")  you can actually omit the  u  prefix, as it is implicit. Everything that is not explicitly converted in python is unicode. 
+
+ This will yield your last line in Python 3: 
+
+   ("x = %s" % '\u041c\u0438\u0440').encode("utf-8")
+  
+
+ Now how I encode  after  the final result, which is what you should always do: Take an incoming object, decode it to unicode (how ever you do that) and then, when making an output, encode it in the encoding of your choice. Don't try to handle raw byte strings. That is just ugly and deprecated behaviour. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10218221)
+ The  0x  is literal representation of hex numbers. And  L  at the end means it is a  Long  integer. 
+
+ If you just want a hex representation of the number as a string without  0x  and  L , you can use string formatting with  %x . 
+
+  >>> a = 44199528911754184119951207843369973680110397
+>>> hex(a)
+'0x1fb62bdc9e54b041e61857943271b44aafb3dL'
+>>> b = '%x' % a
+>>> b
+'1fb62bdc9e54b041e61857943271b44aafb3d'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5281939)
+  >>> r'\x03\xacgB\x16\xf3\xe1\\v\x1e\xe1\xa5\xe2U\xf0g\x956#\xc8\xb3\x88\xb4E\x9e\x13\xf9x\xd7\xc8F\xf4'.decode('string-escape')
+'\x03\xacgB\x16\xf3\xe1\\v\x1e\xe1\xa5\xe2U\xf0g\x956#\xc8\xb3\x88\xb4E\x9e\x13\xf9x\xd7\xc8F\xf4'
+  
+
+ This will work for strings that don't have  b'...'  around it. Otherwise you are encouraged to use  ast.literal_eval() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24571878)
+ The  u''  syntax  only works for string literals , e.g. defining values in source code. Using the syntax results in a  unicode  object being created, but that's not the only way to create such an object. 
+
+ You cannot make a  unicode  value from a byte string by adding  u  in front of it. But if you called  str.decode()  with the right encoding, you get a  unicode  value. Vice-versa, you can  encode   unicode  objects to byte strings with  unicode.encode() . 
+
+ Note that when displaying a  unicode  object, Python  represents  it by using the Unicode string literal syntax again (so  u'...' ), to ease debugging. You can paste the representation back in to a Python interpreter and get an object with the same value. 
+
+ Your  a  value is defined using a byte string literal, so you only need to decode: 
+
+  a = 'Entre\xc3\xa9'
+b = a.decode('utf8')
+  
+
+ Your first example created a http://en.wikipedia.org/wiki/Mojibake, a Unicode string containing Latin-1 codepoints that actually represent UTF-8 bytes. This is why you had to encode to Latin-1 first (to undo the Mojibake), then decode from UTF-8. 
+
+ You may want to read up on Python and Unicode in the https://docs.python.org/2/howto/unicode.html. Other articles of interest are: 
+
+ 
+  http://joelonsoftware.com/articles/Unicode.html by Joel Spolsky  
+  http://nedbatchelder.com/text/unipain.html by Ned Batchelder  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35299158)
+ This is mainly because strings in Python 2 are not text strings but  byte strings . 
+
+ I suppose you are in a REPL environment (a Python console). When you evaluate something in the console, you get its  printed representation  which is the same as calling  print repr()  on the expression: 
+
+  l = ['ñ']
+l[0] # should output '\xc3\xb1'
+print repr(l[0]) # should output the same
+  
+
+ This is because your console is in UTF-8 mode (if you get a different representation for  ñ  it is because your console uses some other text representation) so when you press  ñ  you are actually entering two bytes  0xc3  and  0xb1 . 
+
+ https://docs.python.org/2/library/functions.html#repr is a Python method that always returns a string. For primitive types, this string is a valid source to rebuild the value passed as parameter. This case it returns a string with a sequence of bytes that recreates another string with the  ñ  encoded as UTF-8. To see this: 
+
+  repr(l[0]) # should print a string within a string: "'\\xc3\\xb1'"
+  
+
+ So when you print it (which is the same as just evaluating in the console), you get the same string without the outer quotes and the escaped characters properly replaced. I.e: 
+
+  print repr(l[0]) # should output '\xc3\xb1'
+  
+
+ But, when you print the value, i.e:  print l[0] , then you send those two bytes to the console. As the console is in UTF-8 mode, it decodes the sequence and translate it to only one character:  ñ .  
+
+  print l[0] # should output ñ
+  
+
+ If you want to store text strings, you must use the modifier  u  before the string. This way: 
+
+  text = u'ñ'
+  
+
+ Now, when evaluating text you will see http://www.fileformat.info/info/unicode/char/f1/index.htm: 
+
+  text # should output u'\xf1'
+  
+
+ And printing it should recreate the  ñ  glyph: 
+
+  print text # should output `ñ`
+  
+
+ If you want to convert  text  into a byte string representation, you need an encoding scheme (such as UTF-8): 
+
+  text.encode('utf-8') == l[0] # should output True
+  
+
+ Similarly, it you want the Unicode representation for  l[0] , you'll need to decode those bytes: 
+
+  l[0].decode('utf-8') == text # should output True
+  
+
+ All this said, notice in Python 3, default strings are indeed Unicode Strings and you need to prefix the literal notation with  b  to produce byte strings. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9773151)
+ That 'u' is part of the external representation of the string, meaning it's a Unicode string as opposed to a byte string. It's not in the string, it's part of the type. 
+
+ As an example, you can create a new Unicode string literal by using the same synax.  
+
+  >>> sandwich = u"smörgås"
+>>> sandwich
+u'sm\xf6rg\xe5s'
+  
+
+ This creates a new Unicode string whose value is the Swedish word for sandwich. You can see that the non-English characters are represented by their Unicode code points, ö is  \xf6  and å is  \xe5 . The 'u' prefix appears just like in your example to signify that this string holds Unicode text. 
+
+ To get rid of those, you need to encode the Unicode string into some byte-oriented representation, such as UTF-8. You can do that with e.g.: 
+
+  >>> sandwich.encode("utf-8")
+'sm\xc3\xb6rg\xc3\xa5s'
+  
+
+ Here, we get a new string without the prefix 'u', since this is a byte string. It contains the bytes representing the characters of the Unicode string, with the Swedish characters resulting in multiple bytes due to the wonders of the UTF-8 encoding. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18640222)
+ You are confusing Python byte literal syntax here; you do not need to generate the literal syntax, just the byte value; the  bytes()  type accepts a sequence of  integers  too: 
+
+  >>> bytes([255])
+b'\xff'
+  
+
+ Applied to your code: 
+
+  SET_BG_COLOR = b'\xAA\x03\x03'
+for r in range(0,255):
+    red = bytes([r])
+    blue = bytes([255 - r])
+    ser.write(SET_BG_COLOR + blue + b'\x00' + red + b'\xC3') #BGR format
+  
+
+ or, simpler still: 
+
+  SET_BG_COLOR = [0xAA, 0x03, 0x03]
+for r in range(0,255):
+    ser.write(bytes(SET_BG_COLOR + [r, 0x00, 255 - r, 0xC3])) #BGR format
+  
+
+ using literal hex integer notation. 
+
+ Demo for  r = 10 : 
+
+  >>> SET_BG_COLOR = [0xAA, 0x03, 0x03]
+>>> r = 10
+>>> bytes(SET_BG_COLOR + [r, 0x00, 255 - r, 0xC3])
+b'\xaa\x03\x03\n\x00\xf5\xc3'
+  
+
+ The  hex()  function outputs 4 characters per byte; starting with a literal  0x  followed by the hex representation of the integer number. Encoded to UTF8 that's still 4 bytes,  b'\x30\x78\x30\x31'  for the integer value  10 , for example, versus  b'\x10'  for the actual byte you wanted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46534124)
+ Think about what  10 ,  20  and  30  actually are. Sure, they are numbers, but exactly that  10  is just a https://en.wikipedia.org/wiki/Decimal_representation of the actual number. Usually, there are many different representation of a single number. For example  0xA ,  0o12  and  0b1010  are different representations of the same number that is written as  10  in its decimal representation. 
+
+ So first, you should think about how to get that decimal representation of a number. Luckily, that’s very easy since the decimal representation is the general default for numbers. So you just have to convert your number into a string by calling the https://docs.python.org/3/library/functions.html#func-str: 
+
+  >>> str(10)
+'10'
+>>> str(20)
+'20'
+  
+
+ Once you do that, you have a string with the correct representation of your number. So all that’s left is asking how to convert that  string  into a  bytes  object. In Python 3, a  bytes  object is just a sequence of bytes. So in order to convert a string into a byte sequence, you have to decide how to represent each character in your string. This process is called encoding, and is done using https://docs.python.org/3/library/stdtypes.html#str.encode. For characters from the ASCII range, the actual encoding does not really matter as it is the same in all common encodings, so you can just stick with the default UTF-8: 
+
+  >>> '10'.encode()
+b'10'
+>>> '20'.encode()
+b'20'
+  
+
+ So now you have everything you need. Just combine these two things, and you can convert your numbers into a  bytes  object of its decimal representation: 
+
+  >>> str(10).encode()
+b'10'
+>>> str(20).encode()
+b'20'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/32761989)
+ You have binary data that is  not  ASCII encoded. The  \xhh  codepoints indicate your data is encoded with a different codec, and you are seeing Python produce a  representation  of the data https://docs.python.org/2/library/functions.html#repr that can be re-used as a Python literal that accurately lets you re-create the exact same value. This representation is very useful when debugging a program. 
+
+ In other words, the  \xhh  escape sequences represent individual bytes, and the  hh  is the hex value of that byte. You have 4 bytes with hex values C3, A7, C3 and B5, that do not map to printable ASCII characters so Python uses the  \xhh  notation instead. 
+
+ You instead have UTF-8 data, decode it as such: 
+
+  >>> 'Demais Subfun\xc3\xa7\xc3\xb5es 12'.decode('utf8')
+u'Demais Subfun\xe7\xf5es 12'
+>>> print 'Demais Subfun\xc3\xa7\xc3\xb5es 12'.decode('utf8')
+Demais Subfunções 12
+  
+
+ The C3 A7 bytes together encode https://codepoints.net/U+00E7, while the C3 B5 bytes encode https://codepoints.net/U+00F5. 
+
+ ASCII happens to be a subset of the UTF-8 codec, which is why all the other letters can be represented as such in the Python  repr()  output. 
+
+
+

@@ -1,0 +1,197 @@
+Query: Re-read an open file Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16208298)
+ Let's say you're opening the file with a  with  statement like you should be. Then you'd do something like this to read from your file: 
+
+  with open('somefile.txt', 'w+') as f:
+    # Note that f has now been truncated to 0 bytes, so you'll only
+    # be able to read data that you write after this point
+    f.write('somedata\n')
+    f.seek(0)  # Important: return to the top of the file before reading, otherwise you'll just read an empty string
+    data = f.read() # Returns 'somedata\n'
+  
+
+ Note the  f.seek(0)  -- if you forget this, the  f.read()  call will try to read from the end of the file, and will return an empty string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17021923)
+ Either  seek  to the beginning of the file 
+
+  with open(...) as fin:
+    fin.read()   # read first time
+    fin.seek(0)  # offset of 0
+    fin.read()   # read again
+  
+
+ or open the file again (I'd prefer this way since you are otherwise keeping the file open for an hour doing nothing between passes) 
+
+  with open(...) as fin:
+    fin.read()   # read first time
+
+with open(...) as fin:
+    fin.read()   # read again
+  
+
+  
+
+  while True:
+    with open(...) as fin:
+        for line in fin:
+            # do something 
+    time.sleep(3600)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18688032)
+ The 'w' in  glist = open(filename, 'w')  means you're opening the file in 'write' mode. You'll need to  close()  it and re-open it in 'read' mode ( open(filename, 'r') ) to print out the contents. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2107566)
+ Remember that you can always use the with statement to open and close files: 
+
+  from __future__ import with_statement
+
+with open('C:\\some_text.txt') as file:
+    data = file.readlines()
+#File is now closed
+for line in data:
+    print line
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32799811)
+ This is a Python 2 vs. Python 3 issue. 
+
+  open()  with  a+  behaves differently in the two Python versions. (Note: You reveal you're using Python  3.4.1 , but you're quoting the documentation for Python  2 !) 
+
+ (In fact, the behavior you're looking for (in " Which means ") works as intended with Python 2. I think they changed the behavior, because "appending" means "file pointer at end of file" to many folks.) 
+
+ 
+
+ Let's test this with Python3 ... 
+
+  $ python3
+Python 3.4.3 (default, Jul 28 2015, 18:20:59) 
+[GCC 4.8.4] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> lic = open('LICENSE', 'a+')
+>>> lic.read()
+''
+>>> # Hmmm, no content? EOF, obviously. Let's reset the file pointer ...
+>>> lic.seek(0)
+0
+>>> lic.read()
+'Apache License\nVersion 2.0, January 2004\n...'
+  
+
+ Same thing with Python2 ... 
+
+  $ python
+Python 2.7.6 (default, Jun 22 2015, 17:58:13) 
+[GCC 4.8.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> lic = open('LICENSE', 'a+')
+>>> lic.read()
+'Apache License\nVersion 2.0, January 2004\n...'
+>>> lic.seek(0)
+>>> lic.read()
+'Apache License\nVersion 2.0, January 2004\n...'
+  
+
+  Conclusion:  You're safe using the  seek(0)   always  after opening a file with  a+ , regardless to which Python version you use. This seems to be specific to the  a+  mode. 
+
+ 
+
+ Why does a system call behave differently across two Python versions? 
+
+ One would think file manipulation is a system call, hence it's handled by the operating system. This is different with Python, as it looks according to the https://docs.python.org/3/library/functions.html#open: 
+
+ 
+    Note:  Python doesn’t depend on the underlying operating system’s notion of text files; all the processing is done by Python itself, and is therefore platform-independent. 
+ 
+
+ BTW, this behavior has been http://bugs.python.org/issue22651 on the Python bug tracker. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16508298)
+ Once you have read a file, the file pointer has been moved to the end and no more lines will be 'found' beyond that point. 
+
+ Re-open the file or seek back to the start: 
+
+  sent_file.seek(0)
+  
+
+ Your file is  not  closed; a closed file raises an exception when you attempt to access it: 
+
+  >>> fileobj = open('names.txt')
+>>> fileobj.close()
+>>> fileobj.read()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ValueError: I/O operation on closed file
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4576382)
+ There are two potential reasons why you are seeing this behaviour. 
+
+ When you open a file for writing (with the  "w"  open mode in Python), the OS  removes  the original file and creates a totally new one. So by opening the file for reading first and  then  writing, the original reading handle refers to a file that no longer has a name (the file still exists until you close it). At that point you're reading from a different file than you're writing to. 
+
+ After you swap the order of opening so you open for writing and  then  reading, you won't necessarily be able to read the data from the file until you flush it: 
+
+  >>> writer.flush()
+>>> reader.read()
+'hello world\n'
+  
+
+ Flushing the file writes any data that might be in Python's file buffers to the OS, so that when you read from the file from the other handle, the OS will return the data. Note that Python itself doesn't know these two handles refer to the same file, but the OS does. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2106825)
+ You can reset the file pointer by calling http://docs.python.org/library/stdtypes.html#file.seek: 
+
+  file.seek(0)
+  
+
+ .  You need that line after your first  readlines() .  Note that  file  has to support random access for the above to work. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17021894)
+ You can move the cursor to the beginning of the file the following way: 
+
+  file.seek(0)
+  
+
+ Then you can successfully read it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45731188)
+ No need to close and re-open it. You just need to seek back to the file's starting point before reading it: 
+
+  with open("test.txt",'w+') as f:
+    f.write('ffff')
+    f.seek(0)
+    print(f.read())
+  
+
+
+

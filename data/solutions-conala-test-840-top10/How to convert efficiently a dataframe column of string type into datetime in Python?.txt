@@ -1,0 +1,302 @@
+Query: How to convert efficiently a dataframe column of string type into datetime in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50129940)
+ You can use the following if you want to specify tricky formats: 
+
+  df['date_col'] =  pd.to_datetime(df['date_col'], format='%d/%m/%Y')
+  
+
+ More details on  format  here: 
+
+ 
+ Python 2 https://docs.python.org/2/library/datetime.html#strftime-strptime-behavior 
+ Python 3 https://docs.python.org/3.7/library/datetime.html#strftime-strptime-behavior 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50664342)
+ f-string in a comprehension (Python 3.6+) 
+
+  pd.to_datetime([f'{y}-{m}-01' for y, m in zip(df.year, df.Months)])
+
+DatetimeIndex(['2018-01-01', '2018-02-01', '2018-03-01', '2018-04-01',
+               '2018-05-01'],
+              dtype='datetime64[ns]', freq=None)
+  
+
+ 
+
+  str.format  
+
+  pd.to_datetime(['{}-{}-01'.format(y, m) for y, m in zip(df.year, df.Months)])
+
+DatetimeIndex(['2018-01-01', '2018-02-01', '2018-03-01', '2018-04-01',
+               '2018-05-01'],
+              dtype='datetime64[ns]', freq=None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35009522)
+ You can try http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.astype.html: 
+
+  df['LastPrice'] = df['LastPrice'].astype(float)
+
+
+df = DataFrame({'Time':['1-14','1-15','1-16'],'LastPrice':['1.0','2.0','3.0']},
+                                                              columns = ['Time','LastPrice'])
+
+df['LastPrice'] = df['LastPrice'].astype(float)
+print df
+   Time  LastPrice
+0  1-14          1
+1  1-15          2
+2  1-16          3
+
+print type(df['LastPrice'][0])
+<type 'numpy.float64'>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36778907)
+ Just apply  pd.to_datetime  directly to (the string conversion of) the column, no need to use string slicing here: 
+
+  Freshman['ADMIT_DATE'] = pd.to_datetime(Freshman['ADMIT_DATE'].astype(str), format='%Y%m')
+  
+
+ There is no requirement for there to be a delimiter between the digits: 
+
+  >>> import pandas as pd
+>>> df = pd.DataFrame({'ADMIT_DATE': [200110, 201604]})
+>>> df['ADMIT_DATE'] = pd.to_datetime(df['ADMIT_DATE'].astype(str), format='%Y%m')
+>>> df
+  ADMIT_DATE
+0 2001-10-01
+1 2016-04-01
+>>> df.dtypes
+ADMIT_DATE    datetime64[ns]
+dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45101169)
+ To plot the dataframe in question using matplotlib, you may convert the column in question to datetime using  pandas.to_datetime  first. 
+
+  u = u"""i         date         value_1    event        other_event
+37       07/02/2015   265.09     07/02/2015   NaN
+38       08/02/2015   278.59     08/02/2015   NaN
+156      06/06/2015   146.07     06/06/2015   NaN
+180      30/06/2015   133.56     30/06/2015   NaN
+243      01/09/2015   280.27     01/09/2015   01/09/2015"""
+
+import io
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv(io.StringIO(u), delim_whitespace=True)
+df["event"] = pd.to_datetime(df["event"], format="%d/%m/%Y")
+
+plt.plot(df["event"], df["value_1"])
+plt.gcf().autofmt_xdate()
+plt.show()
+  
+
+ https://i.stack.imgur.com/9Pcz6.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38065980)
+ Add parameter  parse_dates  to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html for convert to  datetime : 
+
+  import pandas as pd
+import io
+
+temp=u"""Time Started,Date Submitted,Status
+10/29/2015 17:34,10/29/2015 17:34,Complete
+10/29/2015 17:35,10/29/2015 17:35,Complete
+10/29/2015 17:36,10/29/2015 17:37,Complete"""
+#after testing replace io.StringIO(temp) to filename
+df = pd.read_csv(io.StringIO(temp), parse_dates=[0,1])
+print (df)
+         Time Started      Date Submitted    Status
+0 2015-10-29 17:34:00 2015-10-29 17:34:00  Complete
+1 2015-10-29 17:35:00 2015-10-29 17:35:00  Complete
+2 2015-10-29 17:36:00 2015-10-29 17:37:00  Complete
+
+print (df.dtypes)
+Time Started      datetime64[ns]
+Date Submitted    datetime64[ns]
+Status                    object
+dtype: object
+  
+
+ Then use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.strftime.html: 
+
+  df['Date Submitted'] = df['Date Submitted'].dt.strftime('%A')
+print (df)
+         Time Started Date Submitted    Status
+0 2015-10-29 17:34:00       Thursday  Complete
+1 2015-10-29 17:35:00       Thursday  Complete
+2 2015-10-29 17:36:00       Thursday  Complete
+  
+
+ Another solution is http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.weekday_name.html (new in version 0.18.1): 
+
+  df['Date Submitted'] = df['Date Submitted'].dt.weekday_name
+print (df)
+         Time Started Date Submitted    Status
+0 2015-10-29 17:34:00       Thursday  Complete
+1 2015-10-29 17:35:00       Thursday  Complete
+2 2015-10-29 17:36:00       Thursday  Complete
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42100389)
+  UPDATE:  performance optimization... 
+
+ Let's try to optimize it a little bit 
+
+ DF shape: 50.000 x 1 
+
+  In [220]: df.head()
+Out[220]:
+                   ID
+0  020160910223200_T1
+1  020160910223200_T1
+2  020160910223203_T1
+3  020160910223203_T1
+4  020160910223206_T1
+
+In [221]: df.shape
+Out[221]: (50000, 1)
+
+In [222]: len(df)
+Out[222]: 50000
+  
+
+  
+
+  In [223]: %timeit df['ID'].apply(MeasureIDtoTime)
+1 loop, best of 3: 929 ms per loop
+
+In [224]: %timeit pd.to_datetime(df.ID.str[1:-3])
+1 loop, best of 3: 5.68 s per loop
+
+In [225]: %timeit pd.to_datetime(df.ID.str[1:-3], format='%Y%m%d%H%M%S')
+1 loop, best of 3: 267 ms per loop    ### WINNER !
+  
+
+  Conclusion:  explicitly specifying the datetime format speeds it up 21 times. 
+
+ NOTE: it's possible only if you have a constant datetime format 
+
+  OLD answer:  
+
+  In [81]: pd.to_datetime(df.ID.str[1:-3])
+Out[81]:
+0   2016-09-10 22:32:00
+1   2016-09-10 22:32:00
+2   2016-09-10 22:32:03
+3   2016-09-10 22:32:03
+4   2016-09-10 22:32:06
+5   2016-09-10 22:32:06
+6   2016-09-10 22:32:09
+7   2016-09-10 22:32:09
+8   2016-09-10 22:32:13
+9   2016-09-10 22:32:13
+Name: ID, dtype: datetime64[ns]
+  
+
+ where  df  is: 
+
+  In [82]: df
+Out[82]:
+                   ID
+0  020160910223200_T1
+1  020160910223200_T1
+2  020160910223203_T1
+3  020160910223203_T1
+4  020160910223206_T1
+5  020160910223206_T1
+6  020160910223209_T1
+7  020160910223209_T1
+8  020160910223213_T1
+9  020160910223213_T1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37693704)
+ I think you need add parameter  format  to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_datetime.html: 
+
+  print (pd.to_datetime('June 6, 2016, 11', format='%B %d, %Y, %H'))
+2016-06-06 11:00:00
+  
+
+ It works with  DataFrame  too: 
+
+  df = pd.DataFrame({'Date':['June 6, 2016, 11', 'May 6, 2016, 11']})
+print (df)
+               Date
+0  June 6, 2016, 11
+1   May 6, 2016, 11
+
+print (pd.to_datetime(df['Date'], format='%B %d, %Y, %H'))
+0   2016-06-06 11:00:00
+1   2016-05-06 11:00:00
+Name: Date, dtype: datetime64[ns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35632226)
+ You can convert to  datetime  using http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_datetime.html and then call http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.strftime.html to get it in the format you want: 
+
+  In [21]:
+a['date'] = pd.to_datetime(a['date']).dt.strftime('%m/%d/%Y')
+a
+
+Out[21]:
+   clicks        date
+0    4020  02/23/2016
+1    3718  02/24/2016
+2    2700  02/11/2016
+3    3867  02/12/2016
+4    4018  02/13/2016
+5    4760  02/14/2016
+6    4029  02/15/2016
+  
+
+ if the column is already  datetime  dtype then you can skip the  to_datetime  step 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48379940)
+ Convert the column to  datetime  using  pd.to_datetime : 
+
+  v = pd.to_datetime(df.CreationDate).dt.date
+  
+
+ Next, find the minimum date and compare to get a mask. Use the mask to filter  df . 
+
+  df[v.gt(v.min())]
+  
+
+ This removes all rows whose date is the same as the minimum date found. 
+
+
+

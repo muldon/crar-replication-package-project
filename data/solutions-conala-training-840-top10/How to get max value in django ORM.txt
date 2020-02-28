@@ -1,0 +1,96 @@
+Query: How to get max value in django ORM
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10672390)
+ https://docs.djangoproject.com/en/dev/topics/db/aggregation/ 
+
+ <a href="https://docs.djangoproject.com/en/dev/topics/db/aggregation/#cheat-sheet"#cheat-sheet  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10668593)
+  >>> from django.db.models import Max
+>>> AuthorizedEmail.objects.all().aggregate(Max('added'))
+  
+
+ And to fetch the value in the template: 
+
+  {{ item.added__max }}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20575770)
+  latest  returns the latest object in the table according to the  added  date: 
+
+  AuthorizedEmail.objects.filter(group=group).latest('added')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16547896)
+ I think you can do something like:  
+
+  MM.objects.all().values('b', 'a').annotate(max=Max('c'))
+  
+
+ Note that you need to import something to use Max:  from django.db.models import Max  
+
+  values('b', 'a')  will give  GROUP BY b, a  and  annotate(...)  will compute the MAX in your query. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10230338)
+  
+
+  SELECT x/y, * FROM XYZ ORDER BY x/y DESC LIMIT 1;
+# Or more verbose version of the #1
+SELECT x/y, id, a, b, x, y FROM XYZ GROUP BY x/y, id, a, b, x, y ORDER BY x/y DESC LIMIT 1;
+# Or
+SELECT * FROM XYZ WHERE x/y = (SELECT MAX(x/y) FROM XYZ) LIMIT 1;
+  
+
+ Thus in Django ORM: 
+
+  XYZ.objects.extra(select={'z':'x/y'}).order_by('-z')[0]
+# Or
+XYZ.objects.extra(select={'z':'x/y'}).annotate().order_by('-z')[0]
+# Or x/y=z => x=y*z
+XYZ.objects.filter(x=models.F('y') * XYZ.objects.extra(select={'z':'MAX(x/y)'})[0].z)[0]
+  
+
+  
+
+  XYZ.all().extra(select={'z':'MAX(x/y)'})[0].z
+  
+
+ does not have correct x,y and instance because the  MAX  function is evaluated among all rows, when there is no  GROUP BY , thus all instances in the returned QuerySet will have same value of  z  as  MAX(x/y) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19930802)
+ This should work on Django 1.2+ and MySQL: 
+
+  Score.objects.annotate(
+  max_date=Max('student__score__date')
+).filter(
+  date=F('max_date')
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17106600)
+ The correct solution is: 
+
+  > Participant.objects.filter(contact__in= p1.contacts.all())
+  
+
+
+

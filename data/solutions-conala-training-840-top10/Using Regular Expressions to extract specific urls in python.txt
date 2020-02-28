@@ -1,0 +1,212 @@
+Query: Using Regular Expressions to extract specific urls in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30551632)
+ You can use  r'"(http.  to get the urls within your text : 
+
+  >>> s="""<script>
+...     [irrelevant javascript code here]
+...     sources:[{file:"http://url.com/folder1/v.html",label:"label1"},
+...     {file:"http://url.com/folder2/v.html",label:"label2"},
+...     {file:"http://url.com/folder3/v.html",label:"label3"}],
+...     [irrelevant javascript code here]
+... </script>"""
+
+>>> re.findall(r'"(http.,s,re.MULTILINE|re.DOTALL)
+['http://url.com/folder1/v.html', 'http://url.com/folder2/v.html', 'http://url.com/folder3/v.html']
+  
+
+ ans for extracting the  .html 's in list of urls you can use  str.endswith  : 
+
+  >>> urls = ['http://123.45.67.89/asodibfo3ribawoifbadsoifasdf3/v.html',
+...         'http://123.45.67.89/alwefaoewifiasdof224a/v.html',
+...         'http://123.45.67.89/baoisdbfai235oubodsfb45/v.html',
+...         'http://123.45.67.89/i/0123/12345/aoief243oinsdf.jpg']
+>>> 
+>>> [i for i in urls if i.endswith('html')]
+['http://123.45.67.89/asodibfo3ribawoifbadsoifasdf3/v.html', 
+ 'http://123.45.67.89/alwefaoewifiasdof224a/v.html', 
+ 'http://123.45.67.89/baoisdbfai235oubodsfb45/v.html']
+  
+
+ Also as another general and flexible way for such tasks you can use https://docs.python.org/2/library/fnmatch.html module : 
+
+  >>> from fnmatch import fnmatch
+>>> [i for i in urls if fnmatch(i,'*.html')]
+['http://123.45.67.89/asodibfo3ribawoifbadsoifasdf3/v.html', 
+ 'http://123.45.67.89/alwefaoewifiasdof224a/v.html', 
+ 'http://123.45.67.89/baoisdbfai235oubodsfb45/v.html'] 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15313357)
+ You can match multiple aspects, including using a regular expression for the attribute value: 
+
+  import re
+soup.find_all('a', href=re.compile('http://www\.iwashere\.com/'))
+  
+
+ which matches (for your example): 
+
+  [http://www.iwashere.com/washere.html, <a href="http://www.iwashere.com/wasnot.html" ]
+  
+
+ so any  <a>  tag with a  href  attribute that has a value that starts with the string  http://www.iwashere.com/ . 
+
+ You can loop over the results and pick out just the  href  attribute: 
+
+  >>> for elem in soup.find_all('a', href=re.compile('http://www\.iwashere\.com/')):
+...     print elem['href']
+... 
+http://www.iwashere.com/washere.html
+http://www.iwashere.com/wasnot.html
+  
+
+ To match all relative paths instead, use a negative look-ahead assertion that tests if the value does  not  start with a schem (e.g.  http:  or  mailto: ), or a double slash ( //hostname/path ); any such value  must  be a relative path instead: 
+
+  soup.find_all('a', href=re.compile(r'^(?!(?:[a-zA-Z][a-zA-Z0-9+.-]*:|//))'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30551609)
+ If the format is always the same with  {file:url look for the substring between quotes following   {file: : 
+
+  s="""<script>
+    [irrelevant javascript code here]
+    sources:[{file:"http://url.com/folder1/v.html",label:"label1"},
+    {file:"http://url.com/folder2/v.html",label:"label2"},
+    {file:"http://url.com/folder3/v.html",label:"label3"}],
+    [irrelevant javascript code here]
+</script>"""
+
+
+print(re.findall("\{file\:\"(.*?)\"",s))
+['http://url.com/folder1/v.html', 'http://url.com/folder2/v.html', 'http://url.com/folder3/v.html']
+  
+
+ You could also limit your strings to search by splitting once on sources: 
+
+  s="""<script>
+    [irrelevant javascript code here]
+    sources:[{file:"http://url.com/folder1/v.html",label:"label1"},
+    {file:"http://url.com/folder2/v.html",label:"label2"},
+    {file:"http://url.com/folder3/v.html",label:"label3"}],
+    [irrelevant javascript code here]
+</script>"""
+
+print(re.findall("\{file\:\"(.*?)\"",s.split("sources:[",1)[1]))
+  
+
+ Which would remove all the other lines before  sources:[ , presuming there are not other  sources:[ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5364365)
+ You can search for "words" containing  :  and then pass them to http://docs.python.org/library/urlparse.html (renamed to  urllib.parse  in Python 3.0 and newer) to check if they are valid URLs. 
+
+ Example: 
+
+  possible_urls = re.findall(r'\S+:\S+', text)
+  
+
+ If you want to restrict yourself only to URLs starting with  http://  or  https://  (or anything else you want to allow) you can also do that with regular expressions, for example: 
+
+  possible_urls = re.findall(r'https?://\S+', text)
+  
+
+ You may also want to use some heuristics to determine where the URL starts and stops because sometimes people add punctuation to the URLs, giving new valid but unintentionally incorrect URLs, for example: 
+
+ 
+   Have you seen the new look for http://example.com/? It's a total ripoff of http://example.org/! 
+ 
+
+ Here the punctuation after the URL is not intended to be part of the URL. You can see from the automatically added links in the above text that StackOverflow implements such heuristics. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15337797)
+ You could use a regular expression in this case, yes: 
+
+  re.compile(r'name=(\d{4}-\d{4})')
+  
+
+ would match any text starting with  name=  followed by two 4-digit numbers. The grouping allows you to extract that number: 
+
+  >>> import re
+>>> cve_param = re.compile(r'name=(\d{4}-\d{4})')
+>>> cve_param.search('http://cve.mitre.org/cgi-bin/cvename.cgi?name=1999-0016][Xref').group(1)
+'1999-0016'
+  
+
+ I do notice that  usually  the CVE number is prefixed by the text  CVE- ; a regular expression that would match both forms would be: 
+
+  re.compile(r'name=(?:CVE-)?(\d{4}-\d{4})')
+  
+
+ Using a regular expression would allow you to pick out such URLs from a full body of text. If you are using a proper HTML parser on the other hand, I'd recommend parsing the URLs for constituent parts instead. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54957964)
+ With regular expressions: 
+
+  import re
+
+s = '6\' 3" ( 190 cm )'
+desired_output = re.search(r'\((.*?)\)',s).group(1).lstrip()
+
+print(desired_output)
+>>> 190 cm
+  
+
+ Without regular expressions:  
+
+  s = '6\' 3" ( 190 cm )'
+desired_output = s[s.find("(")+1:s.find(")")].lstrip()
+
+print(desired_output)
+>>> 190 cm
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41697528)
+ Do you mean something like this? 
+
+  import re
+
+text = '/course/123908/discussion_topics/394785/entries/980389/read'
+pattern = r"/course/\d{6}/discussion_topics/(?P<topic>\d{6})/entries/(?P<entry>\d{6})/read"
+
+for match in re.finditer(pattern, text):
+    topic, entry  = match.group('topic'), match.group('entry')
+    print('Topic ID={}, entry ID={}'.format(topic, entry))
+  
+
+  Output  
+
+<pre class="lang-none prettyprint-override"> Topic ID=394785, entry ID=980389
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54958019)
+  print re.findall(r'[0-9]+ cm',string)[0]
+  
+
+ where  string  is: 
+
+  '6\' 3" ( 190 cm )'
+  
+
+
+

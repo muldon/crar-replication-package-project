@@ -1,0 +1,292 @@
+Query: First non-null value per row from a list of Pandas columns
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31828559)
+ Here is a one line solution: 
+
+  [row[row.first_valid_index()] if row.first_valid_index() else None for _, row in df.iterrows()]
+  
+
+  Edit:  
+
+ This solution iterates over rows of  df .  row.first_valid_index()  returns label for first non-NA/null value, which will be used as index to get the first non-null item in each row. 
+
+ If there is no non-null value in the row,  row.first_valid_index()  would be None, thus cannot be used as index, so I need a  if-else  statement. 
+
+ I packed everything into a list comprehension for brevity. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42137824)
+ For a series this will return the first no null value: 
+
+ Creating Series s: 
+
+  s = pd.Series(index=[2,4,5,6], data=[None, None, 2, None])
+  
+
+ which creates this Series: 
+
+  2    NaN
+4    NaN
+5    2.0
+6    NaN
+dtype: float64
+  
+
+ You can get the first non-NaN value by using: 
+
+  s.loc[~s.isnull()].iloc[0]
+  
+
+ which returns 
+
+  2.0
+  
+
+ If you on the other hand have  a dataframe like this one: 
+
+  df = pd.DataFrame(index=[2,4,5,6], data=np.asarray([[None, None, 2, None], [1, None, 3, 4]]).transpose(), 
+                  columns=['a', 'b'])
+  
+
+  
+
+      a       b
+2   None    1
+4   None    None
+5   2       3
+6   None    4
+  
+
+ you can select per column the first non null value using this (for column a): 
+
+  df.a.loc[~df.a.isnull()].iloc[0]
+  
+
+ or if you want the first row containing no Null values anywhere you can use: 
+
+  df.loc[~df.isnull().sum(1).astype(bool)].iloc[0]
+  
+
+ Which returns: 
+
+  a    2
+b    3
+Name: 5, dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37938780)
+ You don't need to mess around with  first_valid_index : 
+
+  df.bfill(axis=1).iloc[:, 0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44591134)
+ You can first convert  df  to  True s where are values by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.notnull.html and get columns names by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.idxmax.html and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.lookup.html for values: 
+
+  cols = df.notnull().idxmax(axis=1)
+df['a'] = df.lookup(df.index, cols) + '/' + cols
+print (df)
+   col0 col1    col2            a
+0   NaN  red     NaN     red/col1
+1  blue  NaN     NaN    blue/col0
+2   NaN  NaN  yellow  yellow/col2
+  
+
+ Another solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.fillna.html and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sum.html: 
+
+  cols = df.notnull().idxmax(axis=1)
+df['a'] = df.fillna('').sum(axis=1) + '/' + cols
+print (df)
+   col0 col1    col2            a
+0   NaN  red     NaN     red/col1
+1  blue  NaN     NaN    blue/col0
+2   NaN  NaN  yellow  yellow/col2
+  
+
+ Another solution, thanks https://stackoverflow.com/questions/44590965/saving-only-non-null-entry-value-and-column-number-from-pandas-df-with-only-one/44591134#comment76170098_44591134 - use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.first_valid_index.html: 
+
+  cols = df.apply(pd.Series.first_valid_index, axis=1)
+df['a'] = df.lookup(cols.index, cols)  + '/' + cols
+print (df)
+   col0 col1    col2            a
+0   NaN  red     NaN     red/col1
+1  blue  NaN     NaN    blue/col0
+2   NaN  NaN  yellow  yellow/col2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31828553)
+ This is a really messy way to do this, first use  first_valid_index  to get the valid columns, convert the returned series to a dataframe so we can call  apply  row-wise and use this to index back to original df: 
+
+  In [160]:
+def func(x):
+    if x.values[0] is None:
+        return None
+    else:
+        return df.loc[x.name, x.values[0]]
+pd.DataFrame(df.apply(lambda x: x.first_valid_index(), axis=1)).apply(func,axis=1)
+​
+Out[160]:
+0     1
+1     3
+2     4
+3   NaN
+dtype: float64
+  
+
+  EDIT  
+
+ A slightly cleaner way: 
+
+  In [12]:
+def func(x):
+    if x.first_valid_index() is None:
+        return None
+    else:
+        return x[x.first_valid_index()]
+df.apply(func, axis=1)
+
+Out[12]:
+0     1
+1     3
+2     4
+3   NaN
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31858030)
+ This is nothing new, but it's a combination of the best bits of https://stackoverflow.com/a/31828559/2071807 with a list comprehension, and https://stackoverflow.com/a/31828559/2071807 that I think is easiest to understand. 
+
+ First, which columns to we want to pick our values from? 
+
+  In [95]: pick_cols = df.apply(pd.Series.first_valid_index, axis=1)
+
+In [96]: pick_cols
+Out[96]: 
+0       A
+1       B
+2       B
+3    None
+dtype: object
+  
+
+ Now how do we pick the values? 
+
+  In [100]: [df.loc[k, v] if v is not None else None 
+    ....:     for k, v in pick_cols.iteritems()]
+Out[100]: [1.0, 3.0, 4.0, None]
+  
+
+ This is ok, but we really want the index to match that of the original  DataFrame : 
+
+  In [98]: pd.Series({k:df.loc[k, v] if v is not None else None
+   ....:     for k, v in pick_cols.iteritems()})
+Out[98]: 
+0     1
+1     3
+2     4
+3   NaN
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45826294)
+ An alternative: 
+
+  a['D'] = a.apply(lambda row: ','.join(row.dropna()
+          .astype(int).astype(str)), axis=1)
+
+print(a)
+   A  B  C      D
+0  1  4  1  1,4,1
+1  2  0  2  2,0,2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50004836)
+ One way is to use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.lookup.html with https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.first_valid_index.html applied on a transposed dataframe: 
+
+  df = pd.DataFrame({'ID': [1, 2, 3, 4],
+                   'c1': ['a', '', '', ''],
+                   'c2': ['b', 'cc', '', ''],
+                   'c3': ['' , 'dd', 'ee', ''],
+                   'c4': ['', '', 'ff', 'gg']})
+
+df = df.replace('', np.nan)
+
+df['result'] = df.lookup(df.index, df.iloc[:, 1:].T.apply(pd.Series.first_valid_index))
+
+print(df)
+
+   ID   c1   c2   c3   c4 result
+0   1    a    b  NaN  NaN      a
+1   2  NaN   cc   dd  NaN     cc
+2   3  NaN  NaN   ee   ff     ee
+3   4  NaN  NaN  NaN   gg     gg
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31861396)
+ Here is another way to do it: 
+
+  In [183]: df.stack().groupby(level=0).first().reindex(df.index)
+Out[183]: 
+0     1
+1     3
+2     4
+3   NaN
+dtype: float64
+  
+
+ 
+
+ The idea here is to use  stack  to move the columns into a row index level: 
+
+  In [184]: df.stack()
+Out[184]: 
+0  A    1
+   C    2
+1  B    3
+2  B    4
+   C    5
+dtype: float64
+  
+
+ Now, if you group by the first row level -- i.e. the original index -- and take the first value from each group, you essentially get the desired result: 
+
+  In [185]: df.stack().groupby(level=0).first()
+Out[185]: 
+0    1
+1    3
+2    4
+dtype: float64
+  
+
+ All we need to do is reindex the result (using the original index) so as to
+include rows that are completely NaN: 
+
+  df.stack().groupby(level=0).first().reindex(df.index)
+  
+
+
+

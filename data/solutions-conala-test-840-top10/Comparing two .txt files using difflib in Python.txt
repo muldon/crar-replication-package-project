@@ -1,0 +1,377 @@
+Query: Comparing two .txt files using difflib in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/21790513)
+ Here is a quick example of comparing the contents of two files using Python difflib... 
+
+  import difflib
+
+file1 = "myFile1.txt"
+file2 = "myFile2.txt"
+
+diff = difflib.ndiff(open(file1).readlines(),open(file2).readlines())
+print ''.join(diff),
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/977737)
+ It sounds like you may not need difflib at all. If you're comparing line by line, try something like this: 
+
+  test_lines = open("test.txt").readlines()
+correct_lines = open("correct.txt").readlines()
+
+for test, correct in zip(test_lines, correct_lines):
+    if test != correct:
+        print "Oh no! Expected %r; got %r." % (correct, test)
+        break
+else:
+    len_diff = len(test_lines) - len(correct_lines)
+    if len_diff > 0:
+        print "Test file had too much data."
+    elif len_diff < 0:
+        print "Test file had too little data."
+    else:
+        print "Everything was correct!"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4899501)
+ How about using difflib in way that you script can handle big files? Don't load the files in memory, but iterate through the files of the files and diff in chunks. For e.g 100 lines at a time.  
+
+  import difflib
+
+d = difflib.Differ()
+
+f1 = open('bigfile1')
+f2 = open('bigfile2')
+
+b1 = []
+b2 = []
+
+for n, lines in enumerate(zip(f1,f2)):
+    if not (n % 100 == 0):
+        b1.append(lines[0])
+        b2.append(lines[1])
+    else:
+        diff = d.compare("".join(b1), "".join(b2))
+        b1 = []
+        b2 = []
+        print ''.join(list(diff))
+
+diff = d.compare("".join(b1), "".join(b2))
+print ''.join(list(diff))
+f1.close()
+f2.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17801195)
+ You can do something like this: 
+
+  import difflib, sys
+
+tl=100000    # large number of lines
+
+# create two test files (Unix directories...)
+
+with open('/tmp/f1.txt','w') as f:
+    for x in range(tl):
+        f.write('line {}\n'.format(x))
+
+with open('/tmp/f2.txt','w') as f:
+    for x in range(tl+10):   # add 10 lines
+        if x in (500,505,1000,tl-2):
+            continue         # skip these lines
+        f.write('line {}\n'.format(x))        
+
+with open('/tmp/f1.txt','r') as f1, open('/tmp/f2.txt','r') as f2:
+    diff = difflib.ndiff(f1.readlines(),f2.readlines())    
+    for line in diff:
+        if line.startswith('-'):
+            sys.stdout.write(line)
+        elif line.startswith('+'):
+            sys.stdout.write('\t\t'+line)   
+  
+
+ Prints (in 400 ms): 
+
+  - line 500
+- line 505
+- line 1000
+- line 99998
+        + line 100000
+        + line 100001
+        + line 100002
+        + line 100003
+        + line 100004
+        + line 100005
+        + line 100006
+        + line 100007
+        + line 100008
+        + line 100009
+  
+
+ If you want the line number, use enumerate: 
+
+  with open('/tmp/f1.txt','r') as f1, open('/tmp/f2.txt','r') as f2:
+    diff = difflib.ndiff(f1.readlines(),f2.readlines())    
+    for i,line in enumerate(diff):
+        if line.startswith(' '):
+            continue
+        sys.stdout.write('My count: {}, text: {}'.format(i,line))  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/977563)
+ For starters, you need to pass strings to difflib.SequenceMatcher, not files: 
+
+  # Like so
+difflib.SequenceMatcher(None, str1, str2)
+
+# Or just read the files in
+difflib.SequenceMatcher(None, file1.read(), file2.read())
+  
+
+ That'll fix your error anyway. To get the first non-matching string, I'll direct you to the wonderful world of http://docs.python.org/library/difflib.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33306429)
+ The underlying problem in your program is the problem of finding the difference between two sequences, which is a derivation of the Longest Common Subsequence Problem (LCS, see https://en.wikipedia.org/wiki/Longest_common_subsequence_problem).
+Its solution is not straightforward. In Python you can use  difflib  library to deal with this kind of problems. 
+
+  # Assuming you have already parsed the files into two lists
+
+from difflib import SequenceMatcher, Differ
+params1 = [
+    ('Data1', '123.212.2.312'),
+    ('Dog', 12),
+    ('Cat', '127.0.0.1'),
+    ('Data2', 9498),
+    ('Fish', ''),
+    ('Tiger', 9495),
+    ('Data3', 5),
+    ('Data4', 2),
+    ('Game', 55),
+    ('Tree', 280),
+    ('Falcon', 67),
+    ('Bear', 2)
+]
+params2 = [
+    ('Dog', 123),
+    ('Cat', '127.0.0.1'),
+    ('Data2', 9498),
+    ('Eagle', ''),
+    ('Tiger', 9495),
+    ('Data3', 5),
+    ('Data4', 2),
+    ('Rock', 52),
+    ('Mountain', 380),
+    ('Falcon', 627)
+]
+
+# If the order of the entries in the file is not mandatory you could sort the lists
+matcher = SequenceMatcher(None, params1, params2)
+if matcher.ratio() != 1:
+    print 'Sequences are not equal'
+    print list(Differ().compare(params1, params2)) # Prints the difference
+  
+
+ You can also get the operations that transform  params1  in  params2  with: 
+
+  matcher.get_opcodes()
+  
+
+ or the matching blocks with: 
+
+  matcher.get_matching_blocks()
+  
+
+ With this data you just have to do a little work to show the difference on the screen. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9506715)
+ http://docs.python.org/library/difflib.html#difflib.Differ can give you what you need. Assume: 
+
+  a.txt  
+
+  this 
+is 
+a 
+bunch 
+of 
+lines
+  
+
+  b.txt  
+
+  this 
+is 
+a 
+different
+bunch 
+of 
+other
+lines
+  
+
+ code like this: 
+
+  import difflib
+
+fileA = open("a.txt", "rt").readlines()
+fileB = open("b.txt", "rt").readlines()
+
+d = difflib.Differ()
+diffs = d.compare(fileA, fileB)
+lineNum = 0
+
+for line in diffs:
+   # split off the code
+   code = line[:2]
+   # if the  line is in both files or just b, increment the line number.
+   if code in ("  ", "+ "):
+      lineNum += 1
+   # if this line is only in b, print the line number and the text on the line
+   if code == "+ ":
+      print "%d: %s" % (lineNum, line[2:].strip())
+  
+
+ gives output like: 
+
+  bgporter@varese ~/temp:python diffy.py 
+4: different
+7: other
+  
+
+ You'll also want to look at the difflib code  "? "  .  
+
+ (also, in real code you'd want to use context managers to make sure the files get closed, etc etc etc) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/977552)
+ Are you sure both files exist ? 
+
+ Just tested it and i get a perfect result. 
+
+ To get the results i use something like: 
+
+  import difflib
+
+diff=difflib.ndiff(open(testFile).readlines(), open(comparisonFile).readlines())
+
+try:
+    while 1:
+        print diff.next(),
+except:
+    pass
+  
+
+ the first character of each line indicates if they are different:
+eg.: '+' means the following line has been added, etc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6613482)
+ If all you want is to extract from the files words which are one a substring of the other (including those that are identical) you could do: 
+
+  fone = set(['apple', 'orange', 'ice', 'icecream'])
+ftwo = set(['apple' ,'pear' ,'ice'])
+# transforming to sets saves to check twice for the same combination
+
+result = []
+for wone in fone:
+    for wtwo in ftwo:
+        if wone.find(wtwo) != -1 or wtwo.find(wone) != -1:
+            result.append(wone)
+            result.append(wtwo)
+for w in set(result):
+    print w
+  
+
+ Alternatively, if you want a similarity based on how strings are similar in the order of their letters, you could use as suggested by Paul in his answer one of the classes provided by difflib: 
+
+  import difflib as dl
+
+fone = set(['apple', 'orange', 'ice', 'icecream'])
+ftwo = set(['apple' ,'pear' ,'ice'])
+
+result = []
+for wone in fone:
+    for wtwo in ftwo:
+        s = dl.SequenceMatcher(None, wone, wtwo)
+        if s.ratio() > 0.6:  #0.6 is the conventional threshold to define "close matches"
+            result.append(wone)
+            result.append(wtwo)
+for w in set(result):
+    print w
+  
+
+ I did not timed either of the two samples, but I would guess the second will run much slower, as for each couple you will have to instantiate an object... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43700469)
+ Ok, 
+
+  1)  You can use solution 2 to write to a file by adding this: 
+
+  difference = set(masterfile).difference(set(usedfile))
+[Newdata.write(x) for x in difference]
+  
+
+ This is a shorthand way of doing this:  
+
+  for x in difference:
+    Newdata.write(line)
+  
+
+  However , this will just write each element in the  difference  set to the  Newdata  file. If you use this method make sure that you have the correct values in your  difference  array to start with. 
+
+  2)  I wouldn't bother using difflib, it's an extra library that isn't required to do something small like this. 
+
+  3)  This is how I would do it, without using any libraries and simple comparison statements: 
+
+  with open(r'Master_Data.txt','r') as masterdata:
+with open(r'Used_Data.txt','r') as useddata:
+    with open(r'Ready_to_use.txt','w+') as Newdata:
+
+        usedfile = [ x.strip('\n') for x in list(useddata) ] #1
+        masterfile = [ x.strip('\n') for x in list(masterdata) ] #2
+
+        for line in masterfile: #3
+            if line not in usedfile: #4
+                Newdata.write(line + '\n') #5
+  
+
+ Here's the explaination: 
+
+ First I just opened all the files like you did, just changed the names of the variables. Now, here are the pieces that I've changed 
+
+  #1  - This is a shorthanded way of looping through each line in the  Used_Data.txt  file and remove the  \n  at the end of each line, so we can compare the words properly. 
+
+  #2  - This does the same thing as  #1  except with the  Master_Data.txt  file 
+
+  #3  - I loop through each line in the  Master_Data.txt  file 
+
+  #4  - I check to see if the line is  not in  the  masterfile  array also exists in the  usedfile  array. 
+
+  #5  - If the  if  statement is true, then the line from  Master_File.txt  we are checking does not appear in  Used_Data.txt , so we write it to the  Ready_to_use.txt  file using the call  Newdata.write(line + '\n') . The reason we need the  '\n'  after is so the file knows to start a new line next time we try to write something. 
+
+
+

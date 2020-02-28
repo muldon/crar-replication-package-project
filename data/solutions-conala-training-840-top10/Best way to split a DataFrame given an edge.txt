@@ -1,0 +1,509 @@
+Query: Best way to split a DataFrame given an edge
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15449992)
+ here's a oneliner: 
+
+  zip(*dff.groupby(pd.rolling_median((1*(dff['a']=='B')).cumsum(),3,True)))[-1]
+
+[   1         2
+0  A  1.516733
+1  A  0.035646
+2  A -0.942834
+3  B -0.157334,
+    1         2
+4  A  2.226809
+5  A  0.768516
+6  B -0.015162,
+    1         2
+7  A  0.710356
+8  A  0.151429]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13358139)
+ An alternative is: 
+
+  In [36]: dff
+Out[36]:
+   a         b
+0  A  0.689785
+1  A -0.374623
+2  A  0.517337
+3  B  1.549259
+4  A  0.576892
+5  A -0.833309
+6  B -0.209827
+7  A -0.150917
+8  A -1.296696
+
+In [37]: dff['grpb'] = np.NaN
+
+In [38]: breaks = dff[dff.a == 'B'].index
+
+In [39]: dff['grpb'][breaks] = range(len(breaks))
+
+In [40]: dff.fillna(method='bfill').fillna(len(breaks))
+Out[40]:
+   a         b  grpb
+0  A  0.689785     0
+1  A -0.374623     0
+2  A  0.517337     0
+3  B  1.549259     0
+4  A  0.576892     1
+5  A -0.833309     1
+6  B -0.209827     1
+7  A -0.150917     2
+8  A -1.296696     2
+  
+
+ Or using http://docs.python.org/2/library/itertools.html to create 'grpb' is an option too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15450456)
+  
+
+  df.groupby((df.a == "B").shift(1).fillna(0).cumsum())
+  
+
+ For example: 
+
+  >>> df
+   a         b
+0  A -1.957118
+1  A -0.906079
+2  A -0.496355
+3  B  0.552072
+4  A -1.903361
+5  A  1.436268
+6  B  0.391087
+7  A -0.907679
+8  A  1.672897
+>>> gg = list(df.groupby((df.a == "B").shift(1).fillna(0).cumsum()))
+>>> pprint.pprint(gg)
+[(0,
+     a         b
+0  A -1.957118
+1  A -0.906079
+2  A -0.496355
+3  B  0.552072),
+ (1,    a         b
+4  A -1.903361
+5  A  1.436268
+6  B  0.391087),
+ (2,    a         b
+7  A -0.907679
+8  A  1.672897)]
+  
+
+ (I didn't bother getting rid of the indices; you could use  [g for k, g in df.groupby(...)]  if you liked.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48218483)
+ Using  rename_axis  +  reset_index  +  melt : 
+
+  df.rename_axis('Source')\
+  .reset_index()\
+  .melt('Source', value_name='Weight', var_name='Target')\
+  .query('Source != Target')\
+  .reset_index(drop=True)
+
+  Source Target  Weight
+0       B      A     1.0
+1       C      A     0.8
+2       D      A     0.0
+3       A      B     0.5
+4       C      B     0.0
+5       D      B     0.0
+6       A      C     0.5
+7       B      C     0.0
+8       D      C     1.0
+9       A      D     0.0
+10      B      D     0.0
+11      C      D     0.2
+  
+
+  melt  has been introduced as a function of the  DataFrame  object as of  0.20 , and for older versions, you'd need  pd.melt  instead:   
+
+  v = df.rename_axis('Source').reset_index()
+df = pd.melt(
+      v, 
+      id_vars='Source', 
+      value_name='Weight', 
+      var_name='Target'
+).query('Source != Target')\
+ .reset_index(drop=True)
+  
+
+ 
+
+    
+
+  x = np.random.randn(1000, 1000)
+x[[np.arange(len(x))] * 2] = 0
+
+df = pd.DataFrame(x)
+  
+
+  
+
+  %%timeit
+df.index.name = 'Source'
+df.reset_index()\
+  .melt('Source', value_name='Weight', var_name='Target')\
+  .query('Source != Target')\
+  .reset_index(drop=True)
+
+1 loop, best of 3: 139 ms per loop
+  
+
+  
+
+  # Wen's solution
+
+%%timeit
+df.values[[np.arange(len(df))]*2] = np.nan
+df.stack().reset_index()
+
+10 loops, best of 3: 45 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48221548)
+ Two approaches using NumPy tools - 
+
+  Approach #1  
+
+  def edgelist(df):
+    a = df.values
+    c = df.columns
+    n = len(c)
+
+    c_ar = np.array(c)
+    out = np.empty((n, n, 2), dtype=c_ar.dtype)
+
+    out[...,0] = c_ar[:,None]
+    out[...,1] = c_ar
+
+    mask = ~np.eye(n,dtype=bool)
+    df_out = pd.DataFrame(out[mask], columns=[['Source','Target']])
+    df_out['Weight'] = a[mask]
+    return df_out
+  
+
+  
+
+  In [155]: df
+Out[155]: 
+     A    B    C    D
+A  0.0  0.5  0.5  0.0
+B  1.0  0.0  0.0  0.0
+C  0.8  0.0  0.0  0.2
+D  0.0  0.0  1.0  0.0
+
+In [156]: edgelist(df)
+Out[156]: 
+   Source Target  Weight
+0       A      B     0.5
+1       A      C     0.5
+2       A      D     0.0
+3       B      A     1.0
+4       B      C     0.0
+5       B      D     0.0
+6       C      A     0.8
+7       C      B     0.0
+8       C      D     0.2
+9       D      A     0.0
+10      D      B     0.0
+11      D      C     1.0
+  
+
+  Approach #2  
+
+  # https://stackoverflow.com/a/46736275/ @Divakar
+def skip_diag_strided(A):
+    m = A.shape[0]
+    strided = np.lib.stride_tricks.as_strided
+    s0,s1 = A.strides
+    return strided(A.ravel()[1:], shape=(m-1,m), strides=(s0+s1,s1))
+
+# https://stackoverflow.com/a/48234170/ @Divakar
+def combinations_without_repeat(a):
+    n = len(a)
+    out = np.empty((n,n-1,2),dtype=a.dtype)
+    out[:,:,0] = np.broadcast_to(a[:,None], (n, n-1))
+    out.shape = (n-1,n,2)
+    out[:,:,1] = onecold(a)
+    out.shape = (-1,2)
+    return out  
+
+cols = df.columns.values.astype('S1')
+df_out = pd.DataFrame(combinations_without_repeat(cols))
+df_out['Weight'] = skip_diag_strided(df.values.copy()).ravel()
+  
+
+ 
+
+ Runtime test</h3>
+
+ Using https://stackoverflow.com/a/48218483/ : 
+
+  In [704]: x = np.random.randn(1000, 1000)
+     ...: x[[np.arange(len(x))] * 2] = 0
+     ...: 
+     ...: df = pd.DataFrame(x)
+
+# @cᴏʟᴅsᴘᴇᴇᴅ's soln
+In [705]: %%timeit
+     ...: df.index.name = 'Source'
+     ...: df.reset_index()\
+     ...:   .melt('Source', value_name='Weight', var_name='Target')\
+     ...:   .query('Source != Target')\
+     ...:   .reset_index(drop=True)
+10 loops, best of 3: 67.4 ms per loop
+
+# @Wen's soln
+In [706]: %%timeit
+     ...: df.values[[np.arange(len(df))]*2] = np.nan
+     ...: df.stack().reset_index()
+100 loops, best of 3: 19.6 ms per loop
+
+# Proposed in this post - Approach #1
+In [707]: %timeit edgelist(df)
+10 loops, best of 3: 24.8 ms per loop
+
+# Proposed in this post - Approach #2
+In [708]: %%timeit
+     ...: cols = df.columns.values.astype('S1')
+     ...: df_out = pd.DataFrame(combinations_without_repeat(cols))
+     ...: df_out['Weight'] = skip_diag_strided(df.values.copy()).ravel()
+100 loops, best of 3: 17.4 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47132369)
+ I think the best for store multiple  DataFrame s is  dict : 
+
+  rng = pd.date_range('2015-11-01 00:00:00', periods=100, freq='S')
+df = pd.DataFrame({'Date': rng, 'a': range(100)})  
+print (df.head(10))
+                 Date  a
+0 2015-11-01 00:00:00  0
+1 2015-11-01 00:00:01  1
+2 2015-11-01 00:00:02  2
+3 2015-11-01 00:00:03  3
+4 2015-11-01 00:00:04  4
+5 2015-11-01 00:00:05  5
+6 2015-11-01 00:00:06  6
+7 2015-11-01 00:00:07  7
+8 2015-11-01 00:00:08  8
+9 2015-11-01 00:00:09  9
+
+dfs={k.strftime('%Y-%m-%d %H:%M:%S'):v for k,v in 
+                 df.groupby(pd.Grouper(key='Date', freq='5S'))}
+
+print (dfs['2015-11-01 00:00:00'])
+                 Date  a
+0 2015-11-01 00:00:00  0
+1 2015-11-01 00:00:01  1
+2 2015-11-01 00:00:02  2
+3 2015-11-01 00:00:03  3
+4 2015-11-01 00:00:04  4
+
+print (dfs['2015-11-01 00:00:05'])
+                 Date  a
+5 2015-11-01 00:00:05  5
+6 2015-11-01 00:00:06  6
+7 2015-11-01 00:00:07  7
+8 2015-11-01 00:00:08  8
+9 2015-11-01 00:00:09  9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40551249)
+ Assuming the random DataFrame: 
+
+  import pandas as pd
+df = pd.DataFrame({'A': [0,1,2,0,0],
+                   'B': [1,2,3,2,3],
+                   'Count': [1,2,5,1,1],
+                   'some_attribute': ['red','blue','red','blue','red']})
+
+    A   B   Count  some_attribute
+0   0   1   1   red
+1   1   2   2   blue
+2   2   3   5   red
+3   0   2   1   blue
+4   0   3   1   red
+  
+
+ Following the code from above to instantiate a  Graph : 
+
+  import networkx as nx    
+G = nx.Graph()
+G.add_weighted_edges_from(df[["A","B", "Count"]].values, attr=df["some_attribute"].values)
+  
+
+ when inspecting an edge, it appears that the  numpy  array,  df['some_attribute'].values , gets assigned as an attribute to each edge: 
+
+  print (G.edge[0][1])
+print (G.edge[2][3])
+{'attr': array(['red', 'blue', 'red', 'blue', 'red'], dtype=object), 'weight': 1}
+{'attr': array(['red', 'blue', 'red', 'blue', 'red'], dtype=object), 'weight': 5}
+  
+
+ If I understand your intent correctly, I'm assuming you want each edge's attribute to correspond to the  df['some_attribute']  column. 
+
+ You may find it easier to create your  Graph  using http://networkx.readthedocs.io/en/stable/reference/generated/networkx.convert_matrix.from_pandas_dataframe.html, especially since you already have data formatted in a  DataFrame  object. 
+
+  G = nx.from_pandas_dataframe(df, 'A', 'B', ['Count', 'some_attribute'])
+
+print (G.edge[0][1])
+print (G.edge[2][3])
+{'Count': 1, 'some_attribute': 'red'}
+{'Count': 5, 'some_attribute': 'red'}
+  
+
+ writing to file was no problem: 
+
+  nx.write_graphml(G,"my_graph.graphml")
+  
+
+ except, I'm not a regular Gephi user so there may be another way to solve the following.  When I loaded the file with  'Count'  as the edge attribute, the Gephi graph didn't recognize edge weights by default.  So I changed the column name from  'Count'  to  'weight'  and saw the following when I loaded into Gephi: 
+
+  df.columns=['A', 'B', 'weight', 'some_attribute']
+G = nx.from_pandas_dataframe(df, 'A', 'B', ['weight', 'some_attribute'])
+nx.write_graphml(G,"my_graph.graphml")
+  
+
+ https://i.stack.imgur.com/z6qAD.jpg 
+
+ Hope this helps and that I understood your question correctly. 
+
+ Edit 
+
+ Per Corley's comment above, you can use the following if you choose to use  add_edges_from . 
+
+  G.add_edges_from([(u,v,{'weight': w, 'attr': a}) for u,v,w,a in df[['A', 'B', 'Count', 'some_attribute']].values ])
+  
+
+ There is no significant performance gain, however I find  from_pandas_dataframe  more readable. 
+
+  import numpy as np
+
+df = pd.DataFrame({'A': np.arange(0,1000000),
+                   'B': np.arange(1,1000001),
+                   'Count': np.random.choice(range(10), 1000000, replace=True),
+                   'some_attribute': np.random.choice(['red','blue'], 1000000, replace=True,)})
+
+%%timeit
+G = nx.Graph()
+G.add_edges_from([(u,v,{'weight': w, 'attr': a}) for u,v,w,a in df[['A', 'B', 'Count', 'some_attribute']].values ])
+
+1 loop, best of 3: 4.23 s per loop
+
+%%timeit
+G = nx.Graph()
+G = nx.from_pandas_dataframe(df, 'A', 'B', ['Count', 'some_attribute'])
+
+1 loop, best of 3: 3.93 s per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48736272)
+ Here's my take on it: 
+
+  from itertools import combinations
+
+def combine(batch):
+    """Combine all products within one batch into pairs"""
+    return pd.Series(list(combinations(set(batch), 2)))
+
+edges = df.groupby('Batch_ID')['Product_ID'].apply(combine).value_counts()
+edges
+#(B, C)    3
+#(A, B)    1
+#(A, C)    1
+#(D, C)    1
+  
+
+ I understand that 0-occurrence edges are not really needed. 
+
+ You can further split the index into the source and the target, if you want: 
+
+  edges = edges.reset_index()
+edges = pd.concat([edges, edges['index'].apply(pd.Series)], axis=1)
+edges.drop(['index'], axis=1, inplace=True)
+edges.columns = 'Weight','Source','Target'
+#       Weight Source Target
+#0       3      B      C
+#1       1      A      B
+#2       1      A      C
+#3       1      D      C
+  
+
+  
+
+  c = ['Source', 'Target']
+L = edges.index.values.tolist()
+edges = pd.DataFrame(L, columns=c).join(edges.reset_index(drop=True))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49523526)
+ You can do a simple breadth-first search over each node which will identify your subcomponents. You can also count the edges when you do this and return that with the subcomponents. For example given your graph structure you could do something like: 
+
+  from collections import deque
+
+def bfs(graph, start_node):
+    searched = set([start_node])
+    edge_count = 0
+    queue = deque(start_node)
+    while(len(queue)):
+        current = queue.popleft()
+        for node in graph[current]:
+            edge_count += 1                
+            if node not in searched:
+                searched.add(node)
+                queue.append(node)
+    return (searched, edge_count/2)
+
+def findSubGraphs(graph):
+    subgraphs = []
+    found = set()
+    for node in graph:
+        if node not in found:
+            (subgraph, edge_count) = bfs(graph, node)
+            found.update(subgraph)
+            subgraphs.append((subgraph, edge_count))
+    return subgraphs
+
+findSubGraphs(graph)
+  
+
+ This should return a data structure with your subgraph's nodes and the edge counts. For example: 
+
+  [({'A', 'B'}, 1.0),
+ ({'C', 'D', 'E', 'F', 'G'}, 4.0),
+ ({'H', 'I', 'J'}, 2.0),
+ ({'K', 'L', 'M'}, 2.0)]
+  
+
+
+

@@ -1,0 +1,166 @@
+Query: Symlinks on windows?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20511634)
+ os.symlink works on Python 3.3 using Windows 8.1 with an NTFS filesystem. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17174733)
+ The  os.path.islink()  docstring states: 
+
+  Test for symbolic link.
+On WindowsNT/95 and OS/2 always returns false
+  
+
+ In Windows the links are ending with  .lnk , for files and folders, so you could create a function adding this extension and checking with  os.path.isfile()  and  os.path.isfolder() , like: 
+
+  mylink = lambda path: os.path.isfile(path + '.lnk') or  os.path.isdir(path + '.lnk')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4388195)
+ I put the following into Lib/site-packages/sitecustomize.py 
+
+  import os
+
+__CSL = None
+def symlink(source, link_name):
+    '''symlink(source, link_name)
+       Creates a symbolic link pointing to source named link_name'''
+    global __CSL
+    if __CSL is None:
+        import ctypes
+        csl = ctypes.windll.kernel32.CreateSymbolicLinkW
+        csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
+        csl.restype = ctypes.c_ubyte
+        __CSL = csl
+    flags = 0
+    if source is not None and os.path.isdir(source):
+        flags = 1
+    if __CSL(link_name, source, flags) == 0:
+        raise ctypes.WinError()
+
+os.symlink = symlink
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1616216)
+ See https://github.com/jaraco/jaraco.windows/blob/master/jaraco/windows/filesystem/__init__.py (part of the http://pypi.python.org/pypi/jaraco.windows) for extensive examples on symlink operations in Windows without pywin32. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/22225651)
+ Using mklink command in subprocess create link. 
+
+  from subprocess import call
+call(['mklink', 'LINK', 'TARGET'], shell=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54573738)
+ For Python 3.x, the https://docs.python.org/3/library/pathlib.html package is in the standard library. For Python 2.7 you can use the backport https://pypi.org/project/pathlib2/. 
+
+ Both packages have a https://docs.python.org/3/library/pathlib.html#pathlib.Path.symlink_to method which should do what you want. 
+
+ From experience, Python 2 does not like to make symbolic links in Windows environments, but Python 3 supports NTFS symbolic links. Linux is happy making symlinks in either. Other environments I can't speak for. 
+
+ Here is an example usage 
+
+  In [1]: from pathlib import Path                                                                                                                                                                              
+
+In [2]: Path('textfile.txt').write_text('hello world!')                                                                                                                                                       
+Out[2]: 12
+
+In [3]: print(list(Path('.').rglob('*.*')))                                                                                                                                                                   
+[PosixPath('textfile.txt')]
+
+In [4]: Path('link-to-textfile.txt').symlink_to(Path('textfile.txt'))                                                                                                                                         
+
+In [5]: print(list(Path('.').rglob('*.*')))                                                                                                                                                                  
+[PosixPath('textfile.txt'), PosixPath('link-to-textfile.txt')]
+
+In [6]: Path('link-to-textfile.txt').read_text()                                                                                                                                                             
+Out[6]: 'hello world!'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29948999)
+ Distutils does not offer any special handling of symlinks. You can look through the https://bitbucket.org/carljm/python-distutils/src/48c42eeaee4410d76675b637bcd401b8919ff19a/filelist.py?at=default#cl-187 and see that the processing of the  MANIFEST.in  file is doing simple pattern matching, using  os.listdir  recursively, without any special handling for symlinks. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1452480)
+ On windows junctions and symbolic links have the attribute  FILE_ATTRIBUTE_REPARSE_POINT  (0x400) for reparse points. If you get the file's attributes, then detect this on? 
+
+ You could use ctypes (as stated in the other answer) to access http://msdn.microsoft.com/en-us/library/aa364944(VS.85).aspx, and detect this value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43391119)
+ If you are working with Python 2 you have a problem with infinite recursion on windows caused by self-referring symlinks. 
+
+ This script will avoid following those. Note that this is  windows-specific ! 
+
+  import os
+from scandir import scandir
+import ctypes
+
+def is_sym_link(path):
+    # http://stackoverflow.com/a/35915819
+    FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+    return os.path.isdir(path) and (ctypes.windll.kernel32.GetFileAttributesW(unicode(path)) & FILE_ATTRIBUTE_REPARSE_POINT)
+
+def find(base, filenames):
+    hits = []
+
+    def find_in_dir_subdir(direc):
+        content = scandir(direc)
+        for entry in content:
+            if entry.name in filenames:
+                hits.append(os.path.join(direc, entry.name))
+
+            elif entry.is_dir() and not is_sym_link(os.path.join(direc, entry.name)):
+                try:
+                    find_in_dir_subdir(os.path.join(direc, entry.name))
+                except UnicodeDecodeError:
+                    print "Could not resolve " + os.path.join(direc, entry.name)
+                    continue
+
+    if not os.path.exists(base):
+        return
+    else:
+        find_in_dir_subdir(base)
+
+    return hits
+  
+
+ It returns a list with all paths that point to files in the filenames list.
+ 
+
+  find("C:\\", ["file1.abc", "file2.abc", "file3.abc", "file4.abc", "file5.abc"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9551569)
+ Python 2.7 has problems with Windows symlinks. Instead of making a sym-link, make a directory junction using the  \J  option. For example: 
+
+  mklink \J link_dir target_dir
+  
+
+
+

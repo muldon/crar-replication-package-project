@@ -1,0 +1,285 @@
+Query: Unescaping Characters in a String with Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51759983)
+ If you want to remove all  \xXX  characters (non-printable ascii characters) the best way is probably like so 
+
+  import string
+
+def remove_non_printable(s):
+    return ''.join(c for c in s if c not in string.printable)
+  
+
+ Note this won't work with any non-ascii printable characters (like  é , which will be removed). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32190937)
+ Assuming you have a set of all possible characters: 
+
+  >>> characters = set('ABCabc')
+  
+
+  
+
+  >>> my_str = "abbaAC"
+>>> not_in_string = characters - set(my_str)
+>>> not_in_string
+set(['c', 'B'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9340191)
+ To prevent special treatment of  \  in a literal string you could use  r  prefix: 
+
+  s = r'\n'
+print(s)
+# -> \n
+  
+
+ If you have a string that contains a newline symbol ( ord(s) == 10 ) and you would like to convert it to a form suitable as a Python literal: 
+
+  s = '\n'
+s = s.encode('unicode-escape').decode()
+print(s)
+# -> \n
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/18152692)
+ Backslash escaping ascii control characters in the middle of unicode data is definitely a useful thing to try to accomplish. But it's not just escaping them, it's properly unescaping them when you want the actual character data back. 
+
+ There should be a way to do this in the python stdlib, but there is not. I filed a bug report: http://bugs.python.org/issue18679 
+
+ but in the mean time, here's a work around using translate and hackery: 
+
+  tm = dict((k, repr(chr(k))[1:-1]) for k in range(32))
+tm[0] = r'\0'
+tm[7] = r'\a'
+tm[8] = r'\b'
+tm[11] = r'\v'
+tm[12] = r'\f'
+tm[ord('\\')] = '\\\\'
+
+b = u"Пример\n"
+c = b.translate(tm)
+print(c) ## results in: Пример\n
+  
+
+ All the non-backslash-single-letter control characters will be escaped with the \x## sequence, but if you need something different done with those, your translation matrix can do that. This approach is not lossy though, so it works for me. 
+
+ But getting it back out is hacky too because you can't just translate character sequences back into single characters using translate. 
+
+  d = c.encode('latin1', 'backslashreplace').decode('unicode_escape')
+print(d) ## result in Пример with trailing newline character
+  
+
+ you actually have to encode the characters that map to bytes individually using latin1 while backslash escaping unicode characters that latin1 doesn't know about so that the unicode_escape codec can handle reassembling everything the right way. 
+
+  UPDATE : 
+
+ So I had a case where I needed this to work in both python2.7 and python3.3. Here's what I did (buried in a _compat.py module): 
+
+  if isinstance(b"", str):                                                        
+    byte_types = (str, bytes, bytearray)                                        
+    text_types = (unicode, )                                                    
+    def uton(x): return x.encode('utf-8', 'surrogateescape')                    
+    def ntob(x): return x                                                       
+    def ntou(x): return x.decode('utf-8', 'surrogateescape')                    
+    def bton(x): return x
+else:                                                                           
+    byte_types = (bytes, bytearray)                                             
+    text_types = (str, )                                                        
+    def uton(x): return x                                                       
+    def ntob(x): return x.encode('utf-8', 'surrogateescape')                    
+    def ntou(x): return x                                                       
+    def bton(x): return x.decode('utf-8', 'surrogateescape')    
+
+escape_tm = dict((k, ntou(repr(chr(k))[1:-1])) for k in range(32))              
+escape_tm[0] = u'\0'                                                            
+escape_tm[7] = u'\a'                                                            
+escape_tm[8] = u'\b'                                                            
+escape_tm[11] = u'\v'                                                           
+escape_tm[12] = u'\f'                                                           
+escape_tm[ord('\\')] = u'\\\\'
+
+def escape_control(s):                                                          
+    if isinstance(s, text_types):                                               
+        return s.translate(escape_tm)
+    else:
+        return s.decode('utf-8', 'surrogateescape').translate(escape_tm).encode('utf-8', 'surrogateescape')
+
+def unescape_control(s):                                                        
+    if isinstance(s, text_types):                                               
+        return s.encode('latin1', 'backslashreplace').decode('unicode_escape')
+    else:                                                                       
+        return s.decode('utf-8', 'surrogateescape').encode('latin1', 'backslashreplace').decode('unicode_escape').encode('utf-8', 'surrogateescape')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5555149)
+ If the data came from JSON, the  json  module should already have decoded these escapes for you: 
+
+  >>> import json
+>>> json.loads('"\u003Cp\u003E"')
+u' '
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2865518)
+ Here's a script which for tolerant unescaping of HTML references from web pages - it assumes that the references are e.g. in  &deg;  format with a semicolon after them though ( Preheat oven to 350&deg; F  for example):  
+
+  from htmlentitydefs import name2codepoint
+
+# Get the whitespace characters
+nums_dict = {0: ' ', 1: '\t', 2: '\r', 3: '\n'}
+chars_dict = dict((x, y) for y, x in nums_dict.items())
+nums_dict2XML = {0: '&#32;', 1: '&#09;', 2: '&#13;', 3: '&#10;'}
+chars_dict2XML = dict((nums_dict[i], nums_dict2XML[i]) for i in nums_dict2XML)
+
+s = '1234567890ABCDEF'
+hex_dict = {}
+for i in s:
+    hex_dict[i.lower()] = None
+hex_dict[i.upper()] = None
+del s
+
+def is_hex(s):
+    if not s:
+        return False
+
+    for i in s:
+        if i not in hex_dict:
+            return False
+    return True
+
+class Unescape:
+    def __init__(self, s, ignore_whitespace=False):
+        # Converts HTML character references into a unicode string to allow manipulation
+        self.s = s
+        self.ignore_whitespace = ignore_whitespace
+        self.lst = self.process(ignore_whitespace)
+
+    def process(self, ignore_whitespace):
+        def get_char(c):
+            if ignore_whitespace:
+                return c
+            else:
+                if c in chars_dict:
+                    return chars_dict[c]
+                else: return c
+
+        r = []
+        lst = self.s.split('&')
+        xx = 0
+        yy = 0
+        for item in lst:
+            if xx:
+                split = item.split(';')
+                if split[0].lower() in name2codepoint:
+                    # A character reference, e.g. '&amp;'
+                    a = unichr(name2codepoint[split[0].lower()])
+                    r.append(get_char(a)) # TOKEN CHECK?
+                    r.append(';'.join(split[1:]))
+
+                elif split[0] and split[0][0] == '#' and split[0][1:].isdigit():
+                    # A character number e.g. '&#52;'
+                    a = unichr(int(split[0][1:]))
+                    r.append(get_char(a))
+                    r.append(';'.join(split[1:]))
+
+                elif split[0] and split[0][0] == '#' and split[0][1:2].lower() == 'x' and is_hex(split[0][2:]):
+                    # A hexadecimal encoded character
+                    a = unichr(int(split[0][2:].lower(), 16)) # Hex -> base 16
+                    r.append(get_char(a))
+                    r.append(';'.join(split[1:]))
+
+                else:
+                    r.append('&%s' % ';'.join(split))
+            else:
+                r.append(item)
+            xx += 1
+            yy += len(r[-1])
+        return r
+
+def get_value(self):
+    # Convert back into HTML, preserving
+    # whitespace if self.ignore_whitespace is `False`
+    r = []
+    for i in self.lst:
+        if type(i) == int:
+            r.append(nums_dict2XML[i])
+        else:
+            r.append(i)
+    return ''.join(r)
+
+def unescape(s):
+    # Get the string value from escaped HTML `s`, ignoring
+    # explicit whitespace like tabs/spaces etc
+    inst = Unescape(s, ignore_whitespace=True)
+    return ''.join(inst.lst)
+
+if __name__ == '__main__':
+    print unescape('Preheat oven to 350&deg; F')
+print unescape('Welcome to Lorem Ipsum Inc&reg;')
+  
+
+  EDIT:  Here's a simpler solution which only replaces the character references with characters and not  &#xx;  references: 
+
+  from htmlentitydefs import name2codepoint
+
+def unescape(s):
+    for name in name2codepoint:
+        s = s.replace('&%s;' % name, unichr(name2codepoint[name]))
+    return s
+
+print unescape('Preheat oven to 350&deg; F')
+print unescape('Welcome to Lorem Ipsum Inc&reg;')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20878934)
+ You can refer this https://stackoverflow.com/q/753052/2284418.  
+
+ And edit  html_to_text  function for you want. 
+
+  from HTMLParser import HTMLParser
+n = " I <3s U &amp; you luvz me "
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def handle_entityref(self, name):
+        self.fed.append('&%s;' % name)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def html_to_text(html):
+    s = MLStripper()
+    s.feed(html)
+    return HTMLParser().unescape(s.get_data())
+
+print html_to_text(n)
+  
+
+ Output: 
+
+  I <3s U & you luvz me
+  
+
+
+

@@ -1,0 +1,255 @@
+Query: Python Pandas: Multiple aggregations of the same column
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52202359)
+  If  you've to use lists in columns.  
+
+  In [60]:  bar.groupby('grp').agg(lambda x: [x.mean(), x.std()])
+Out[60]:
+                             a                          b
+grp
+0    [2.0, 1.4142135623730951]   [5.0, 4.242640687119285]
+1    [3.0, 1.4142135623730951]  [3.5, 2.1213203435596424]
+  
+
+ Not recommended to store data like this for pandas. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12593342)
+ Would something like this work: 
+
+  In [7]: df.groupby('dummy').returns.agg({'func1' : lambda x: x.sum(), 'func2' : lambda x: x.prod()})
+Out[7]: 
+              func2     func1
+dummy                        
+1     -4.263768e-16 -0.188565
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13592901)
+ You can simply pass the functions as a list: 
+
+  In [20]: df.groupby("dummy").agg({"returns": [np.mean, np.sum]})
+Out[20]: 
+        returns          
+            sum      mean
+
+dummy                    
+1      0.285833  0.028583
+  
+
+  
+
+  In [21]: df.groupby('dummy').agg({'returns':
+                                  {'Mean': np.mean, 'Sum': np.sum}})
+Out[21]: 
+        returns          
+            Sum      Mean
+dummy                    
+1      0.285833  0.028583
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35946060)
+ With pandas http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.apply.html you can run multiple functions in a groupby aggregation. Please note for statistical functions you would need  scipy  installed. For custom functions will need to run an aggregate like  sum()  for groupwise data: 
+
+  def customfct(x,y):
+    data = x / y
+    return data.mean()
+
+def f(row):  
+    row['m_weight'] = row['weight'].mean()
+    row['var_time'] = row['Time'].var()
+    row['cov'] = row['weight'].cov(row['Time'])
+    row['odd_stat'] = customfct(row['weight'], row['Time'])
+    return row
+
+aggdf = df.groupby('Diet').apply(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45705508)
+  
+
+  In [42]: df1.groupby('City')['Name'].agg(','.join).reset_index(name='Name')
+Out[42]:
+       City                   Name
+0  Portland        Mallory,Mallory
+1   Seattle  Alice,Bob,Mallory,Bob
+  
+
+  
+
+  In [49]: df1.groupby('City', as_index=False).agg({'Name': ','.join})
+Out[49]:
+       City                   Name
+0  Portland        Mallory,Mallory
+1   Seattle  Alice,Bob,Mallory,Bob
+  
+
+ For multiple aggregations  
+
+  df1.groupby('City', as_index=False).agg(
+      {'Name': ','.join, 'Name2': ','.join, 'Number': 'max'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51305735)
+ Ted's answer is amazing. I ended up using a smaller version of that in case anyone is interested. Useful when you are looking for one aggregation that depends on values from multiple columns: 
+
+ create a dataframe 
+
+  df=pd.DataFrame({'a': [1,2,3,4,5,6], 'b': [1,1,0,1,1,0], 'c': ['x','x','y','y','z','z']})
+
+
+   a  b  c
+0  1  1  x
+1  2  1  x
+2  3  0  y
+3  4  1  y
+4  5  1  z
+5  6  0  z
+  
+
+ grouping and aggregating with apply (using multiple columns) 
+
+  df.groupby('c').apply(lambda x: x['a'][(x['a']>1) & (x['b']==1)].mean())
+
+c
+x    2.0
+y    4.0
+z    5.0
+  
+
+ grouping and aggregating with aggregate (using multiple columns) 
+
+ I like this approach since I can still use aggregate. Perhaps people will let me know why apply is needed for getting at multiple columns when doing aggregations on groups. 
+
+ It seems obvious now, but as long as you don't select the column of interest  directly after the groupby , you will have access to all the columns of the dataframe from within your aggregation function. 
+
+ only access to the selected column</h3>
+
+  df.groupby('c')['a'].aggregate(lambda x: x[x>1].mean())
+  
+
+ access to all columns since selection is after all the magic</h3>
+
+  df.groupby('c').aggregate(lambda x: x[(x['a']>1) & (x['b']==1)].mean())['a']
+  
+
+ or similarly</h3>
+
+  df.groupby('c').aggregate(lambda x: x['a'][(x['a']>1) & (x['b']==1)].mean())
+  
+
+ I hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50570029)
+  df.groupby(['Region', 'Company']).agg({'Count': 'mean', 'Amount': 'sum'}).reset_index()
+  
+
+ outputs: 
+
+    Region Company  Count  Amount
+0    XXY     AAA    766   18630
+1    XYY     BBB     66   13150
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50569955)
+ Need aggregate by single non nested dictionary and then  rename  columns: 
+
+  aggregation = {'Count':  'mean', 'Amount': 'sum'}
+cols_d = {'Count': 'Total Count', 'Amount': 'Total Amount'}
+
+df = df.groupby(['Company','Region'], as_index=False).agg(aggregation).rename(columns=cols_d)
+print (df)
+  Company Region  Total Count  Total Amount
+0     AAA    XXY          766         18630
+1     BBB    XYY           66         13150
+  
+
+ Another solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.add_prefix.html instead  rename : 
+
+  aggregation = {'Count':  'mean', 'Amount': 'sum'}
+df = df.groupby(['Company','Region']).agg(aggregation).add_prefix('Total ').reset_index()
+print (df)
+  Company Region  Total Count  Total Amount
+0     AAA    XXY          766         18630
+1     BBB    XYY           66         13150
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36340240)
+ You are getting the error because you are first selecting the  lat  column of the dataframe and doing operations on that column. Getting the  long  column through that series is not possible, you need the dataframe.  
+
+  df2 = df.groupby(['ser_no', 'CTRY_NM'])["lat", "long"].agg(np.mean)
+  
+
+ would do the same operation for both columns. If you want the column names changed, you can rename the columns afterwards: 
+
+  df2 = df.groupby(['ser_no', 'CTRY_NM'])["lat", "long"].agg(np.mean).rename(columns = {"lat": "avg_lat", "long": "avg_long"})
+  
+
+ 
+
+  In [22]:
+df2 = df.groupby(['ser_no', 'CTRY_NM'])["lat", "long"].agg(np.mean).rename(columns = {"lat": "avg_lat", "long": "avg_long"})
+df2
+Out[22]:
+                    avg_lat avg_long
+ser_no  CTRY_NM     
+1       a           1.5     21.5
+        b           3.0     23.0
+2       a           6.0     26.0
+        b           7.0     27.0
+        e           4.5     24.5
+3       b           8.5     28.5
+        d           10.0    30.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/24477065)
+ this should work: 
+
+  >>> ts = df.groupby('Val')['ID'].aggregate(lambda ts: set(ts))
+>>> ts
+Val
+A      set([1, 2])
+B         set([1])
+C      set([1, 2])
+D         set([2])
+Name: ID, dtype: object
+>>> from itertools import product
+>>> pd.DataFrame([[i, j, len(ts[i] & ts[j])] for i, j in product(ts.index, ts.index) if i < j], 
+...              columns=['v1', 'v2', 'count'])
+  v1 v2  count
+0  A  B      1
+1  A  C      2
+2  A  D      1
+3  B  C      1
+4  B  D      0
+5  C  D      1
+  
+
+
+

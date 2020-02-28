@@ -1,0 +1,346 @@
+Query: How to repeat Pandas data frame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23887956)
+ You can use the  concat  function: 
+
+  In [13]: pd.concat([x]*5)
+Out[13]: 
+   a  b
+0  1  2
+0  1  2
+0  1  2
+0  1  2
+0  1  2
+  
+
+ If you only want to repeat the values and not the index, you can do: 
+
+  In [14]: pd.concat([x]*5, ignore_index=True)
+Out[14]: 
+   a  b
+0  1  2
+1  1  2
+2  1  2
+3  1  2
+4  1  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49487460)
+ I think need https://docs.python.org/3.5/library/functions.html#divmod for repeat all rows and for repeat only one: 
+
+  N = 10
+
+a, b = divmod(N,len(df))
+print (a, b)
+3 1
+  
+
+ Solution if all columns have same dtypes with https://docs.scipy.org/doc/numpy/reference/generated/numpy.repeat.html: 
+
+  c = np.repeat(df.values, a, axis=0)
+d = np.repeat(df.values[-1], b, axis=0)
+
+df = pd.DataFrame(np.vstack((c,d)), columns=df.columns)
+print (df)
+  col1 col2 col3
+0   A1   B1   C1
+1   A1   B1   C1
+2   A1   B1   C1
+3  A13  B13  C13
+4  A13  B13  C13
+5  A13  B13  C13
+6  A27  B27  C27
+7  A27  B27  C27
+8  A27  B27  C27
+9  A27  B27  C27
+  
+
+ 
+
+ Solutions if possible different dtypes: 
+
+ Only pandas solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html: 
+
+  df = pd.concat([df] * a + [df.iloc[[-1]]] * b).sort_values('col1').reset_index(drop=True)
+print (df)
+  col1 col2 col3
+0   A1   B1   C1
+1   A1   B1   C1
+2   A1   B1   C1
+3  A13  B13  C13
+4  A13  B13  C13
+5  A13  B13  C13
+6  A27  B27  C27
+7  A27  B27  C27
+8  A27  B27  C27
+9  A27  B27  C27
+  
+
+ Solution with repeat only indices and  loc  for repeat rows: 
+
+  idx = np.hstack((np.repeat(df.index[:-1], a), np.repeat(df.index[-1], a + b)))
+df = df.loc[idx].reset_index(drop=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54563591)
+ You can use Numpy to repeat the values and reconstruct the dataframe. 
+
+  n = 3
+pd.DataFrame(np.tile(df.values, n + 1), columns = df.columns.tolist()+list('BCD'))
+
+    A   B   C   D
+0   8   8   8   8
+1   9   9   9   9
+2   7   7   7   7
+3   2   2   2   2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49567126)
+ IIUC using  reindex , then we recreate the index by using  groupby   cumcount  
+
+  s=df.reindex(df.index.tolist()*3)
+s.index=s.groupby(s.index).cumcount()+1
+s
+Out[1349]: 
+   item_a  item_b
+1       1     123
+1       7      32
+1       4      18
+2       1     123
+2       7      32
+2       4      18
+3       1     123
+3       7      32
+3       4      18
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49074286)
+ Use a combination of https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html and https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.repeat.html 
+
+  test.loc[test.index.repeat(test.times)]
+
+  id  times
+0  a      2
+0  a      2
+1  b      3
+1  b      3
+1  b      3
+2  c      1
+3  d      5
+3  d      5
+3  d      5
+3  d      5
+3  d      5
+  
+
+ 
+
+ To mimic your exact output, use  reset_index  
+
+  test.loc[test.index.repeat(test.times)].reset_index(drop=True)
+
+   id  times
+0   a      2
+1   a      2
+2   b      3
+3   b      3
+4   b      3
+5   c      1
+6   d      5
+7   d      5
+8   d      5
+9   d      5
+10  d      5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47149790)
+ I think it's cleaner/faster to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iloc.html nowadays: 
+
+  In [11]: np.full(3, 0)
+Out[11]: array([0, 0, 0])
+
+In [12]: x.iloc[np.full(3, 0)]
+Out[12]:
+   a  b
+0  1  2
+0  1  2
+0  1  2
+  
+
+ More generally, you can use https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.tile.html or https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.repeat.html with https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.arange.html: 
+
+  In [21]: df = pd.DataFrame([[1, 2], [3, 4]], columns=["A", "B"])
+
+In [22]: df
+Out[22]:
+   A  B
+0  1  2
+1  3  4
+
+In [23]: np.tile(np.arange(len(df)), 3)
+Out[23]: array([0, 1, 0, 1, 0, 1])
+
+In [24]: np.repeat(np.arange(len(df)), 3)
+Out[24]: array([0, 0, 0, 1, 1, 1])
+
+In [25]: df.iloc[np.tile(np.arange(len(df)), 3)]
+Out[25]:
+   A  B
+0  1  2
+1  3  4
+0  1  2
+1  3  4
+0  1  2
+1  3  4
+
+In [26]: df.iloc[np.repeat(np.arange(len(df)), 3)]
+Out[26]:
+   A  B
+0  1  2
+0  1  2
+0  1  2
+1  3  4
+1  3  4
+1  3  4
+  
+
+ Note: This will work with non-integer indexed DataFrames (and Series). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49567343)
+ Here is another way, which simply concatenates your df however many times you want, setting the index as a progressively increasing constant with each concatenation: 
+
+  import numpy as np
+
+period=3
+
+new_df = pd.concat([df.set_index(np.repeat(i, len(df))) for i in range(1,period+1)])
+
+>>> new_df
+   item_a  item_b
+1       1     123
+1       7      32
+1       4      18
+2       1     123
+2       7      32
+2       4      18
+3       1     123
+3       7      32
+3       4      18
+
+# Or, to have counter as a separate column rather than the index:
+new_df = pd.concat([df.assign(counter=np.repeat(i, len(df))) 
+                    for i in range(1,period+1)]).reset_index(drop=True) 
+  
+
+  Solution 2  
+
+ Seeing as, from your comment, you are looking for speedy code execution, this method is faster: 
+
+  new_df = pd.DataFrame(np.repeat([df.values],period, axis=0).reshape(-1,df.shape[1]), 
+             index=np.repeat(range(1,period+1), len(df)), columns=df.columns)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51771418)
+ A little bit hard to understand,I think this should be slightly faster than apply  
+
+ By using  reindex  and  repeat  
+
+  df.reindex(df.index.repeat(df['end']-df['start']+1)).assign(year=lambda x : x['start']+x.groupby('id').cumcount())
+Out[453]: 
+   id  start   end  year
+0   1   2009  2014  2009
+0   1   2009  2014  2010
+0   1   2009  2014  2011
+0   1   2009  2014  2012
+0   1   2009  2014  2013
+0   1   2009  2014  2014
+1   2   2010  2012  2010
+1   2   2010  2012  2011
+1   2   2010  2012  2012
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46133863)
+ You could use  set_index  and  repeat  
+
+  In [1057]: df.set_index(['id'])['v'].repeat(df['n']).reset_index()
+Out[1057]:
+  id   v
+0  A  10
+1  B  13
+2  B  13
+3  C   8
+4  C   8
+5  C   8
+  
+
+ 
+
+  
+
+  In [1058]: df
+Out[1058]:
+  id  n   v
+0  A  1  10
+1  B  2  13
+2  C  3   8
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52043894)
+ There is function from  numpy  ,  repeat  
+
+  df['New']=np.repeat(id_list,5)
+df
+Out[23]: 
+    Cost New
+0     30   A
+1     49   A
+2     98   A
+3     10   A
+4     37   A
+5     20   B
+6     10   B
+7     48   B
+8     70   B
+9     20   B
+10    30   C
+11    40   C
+12    50   C
+13    29   C
+14    90   C
+15    39   D
+16    30   D
+17    29   D
+18    50   D
+19    40   D
+  
+
+
+

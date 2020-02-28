@@ -1,0 +1,162 @@
+Query: Counting the number of non-NaN elements in a numpy ndarray matrix in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/43756040)
+ Quick-to-write alterantive 
+
+ Even though is not the fastest choice, if performance is not an issue you can use: 
+
+  sum(~np.isnan(data)) . 
+
+  
+
+  In [7]: %timeit data.size - np.count_nonzero(np.isnan(data))
+10 loops, best of 3: 67.5 ms per loop
+
+In [8]: %timeit sum(~np.isnan(data))
+10 loops, best of 3: 154 ms per loop
+
+In [9]: %timeit np.sum(~np.isnan(data))
+10 loops, best of 3: 140 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42238823)
+ An alternative, but a bit slower alternative is to do it over indexing. 
+
+  np.isnan(data)[np.isnan(data) == False].size
+
+In [30]: %timeit np.isnan(data)[np.isnan(data) == False].size
+1 loops, best of 3: 498 ms per loop 
+  
+
+ The double use of  np.isnan(data)  and the  ==  operator might be a bit overkill and so I posted the answer only for completeness.    
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/21778195)
+  np.count_nonzero(~np.isnan(data))
+  
+
+  ~  inverts the boolean matrix returned from  np.isnan . 
+
+  np.count_nonzero  counts values that is not 0\false.  .sum  should give the same result. But maybe more clearly to use  count_nonzero  
+
+ Testing speed:  
+
+  In [23]: data = np.random.random((10000,10000))
+
+In [24]: data[[np.random.random_integers(0,10000, 100)],:][:, [np.random.random_integers(0,99, 100)]] = np.nan
+
+In [25]: %timeit data.size - np.count_nonzero(np.isnan(data))
+1 loops, best of 3: 309 ms per loop
+
+In [26]: %timeit np.count_nonzero(~np.isnan(data))
+1 loops, best of 3: 345 ms per loop
+
+In [27]: %timeit data.size - np.isnan(data).sum()
+1 loops, best of 3: 339 ms per loop
+  
+
+  data.size - np.count_nonzero(np.isnan(data))  seems to barely be the fastest here. other data might give different relative speed results.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41111162)
+ If all  nan  values have been sorted to the end of each row, you can do something like this: 
+
+  (~np.isnan(a)).sum(axis = 1) - 1
+# array([3, 2, 6, 3, 0, 3])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41111167)
+ check if not nan then reverse order of columns and take argmax then subtract from number of columns 
+
+  a.shape[1] - (~np.isnan(a))[:, ::-1].argmax(1) - 1
+
+array([3, 2, 6, 3, 0, 3])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49759690)
+ This solution doesn't require the array to be sorted.  It just returns the last non nan item along axis 1.  
+
+  (~np.isnan(a)).cumsum(1).argmax(1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43925325)
+  (np.where(np.isnan(A)))[0].shape[0]  will be greater than  0  if  A  contains at least one element of  nan ,  A  could be an  n x m  matrix. 
+
+ Example: 
+
+  import numpy as np
+
+A = np.array([1,2,4,np.nan])
+
+if (np.where(np.isnan(A)))[0].shape[0]: 
+    print "A contains nan"
+else:
+    print "A does not contain nan"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/47650216)
+ Here is a solution that also works on non-contiguous arrays: 
+
+  a = np.arange(110).reshape(10, 11)[:, :10]
+
+diag = np.einsum('ii->i', a)
+# or if a is not guaranteed to be square
+# mn = min(a.shape)
+# diag = np.einsum('ii->i', a[:mn, :mn])
+save = diag.copy()
+a[...] = 0
+diag[...] = save
+
+a
+
+# array([[  0,   0,   0,   0,   0,   0,   0,   0,   0,   0],
+#        [  0,  12,   0,   0,   0,   0,   0,   0,   0,   0],
+#        [  0,   0,  24,   0,   0,   0,   0,   0,   0,   0],
+#        [  0,   0,   0,  36,   0,   0,   0,   0,   0,   0],
+#        [  0,   0,   0,   0,  48,   0,   0,   0,   0,   0],
+#        [  0,   0,   0,   0,   0,  60,   0,   0,   0,   0],
+#        [  0,   0,   0,   0,   0,   0,  72,   0,   0,   0],
+#        [  0,   0,   0,   0,   0,   0,   0,  84,   0,   0],
+#        [  0,   0,   0,   0,   0,   0,   0,   0,  96,   0],
+#        [  0,   0,   0,   0,   0,   0,   0,   0,   0, 108]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23310930)
+ Use http://www.numpy.org/: 
+
+  import numpy
+
+m=((2,0,2,2),(4,4,5,4),(0,9,4,8),(2,2,0,0))
+numpy_m = numpy.array(m)
+print numpy.sum(numpy_m == 0)
+  
+
+  First, your "matrix" is converted to a numpy array ( numpy.array(m) ). Then, each entry is checked for equality with zero ( numpy_m == 0 ). This yields a binary array. Summing over this binary array gives the number of zero elements in the original array. 
+
+ Note that numpy will be clearly efficient for larger matrices. 4x4 might be too small to see a large performance difference vs. ordinary python code, esp. if you are initializing a python "matrix" like above. 
+
+
+

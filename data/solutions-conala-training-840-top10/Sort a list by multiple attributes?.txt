@@ -1,0 +1,232 @@
+Query: Sort a list by multiple attributes?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1516265)
+ You can't, but writing the compare function is easy: 
+
+  def my_cmp(a, b):
+    return cmp(a.foo, b.foo) or cmp(b.bar, a.bar)
+L.sort(my_cmp)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48472125)
+ Here's one way: You basically re-write your sort function to take a list of sort functions, each sort function compares the attributes you want to test, on each sort test, you look and see if the cmp function returns a non-zero return if so break and send the return value. 
+You call it by calling a Lambda of a function of a list of Lambdas. 
+
+ Its advantage is that it does single pass through the data not a sort of a previous sort as other methods do. Another thing is that it sorts in place, whereas sorted seems to make a copy. 
+
+ I used it to write a rank function, that ranks a list of classes where each object is in a group and has a score function, but you can add any list of attributes. 
+Note the un-lambda-like, though hackish use of a lambda to call a setter. 
+The rank part won't work for an array of lists, but the sort will. 
+
+  #First, here's  a pure list version
+my_sortLambdaLst = [lambda x,y:cmp(x[0], y[0]), lambda x,y:cmp(x[1], y[1])]
+def multi_attribute_sort(x,y):
+    r = 0
+    for l in my_sortLambdaLst:
+        r = l(x,y)
+        if r!=0: return r #keep looping till you see a difference
+    return r
+
+Lst = [(4, 2.0), (4, 0.01), (4, 0.9), (4, 0.999),(4, 0.2), (1, 2.0), (1, 0.01), (1, 0.9), (1, 0.999), (1, 0.2) ]
+Lst.sort(lambda x,y:multi_attribute_sort(x,y)) #The Lambda of the Lambda
+for rec in Lst: print str(rec)
+  
+
+ Here's a way to rank a list of objects 
+
+  class probe:
+    def __init__(self, group, score):
+        self.group = group
+        self.score = score
+        self.rank =-1
+    def set_rank(self, r):
+        self.rank = r
+    def __str__(self):
+        return '\t'.join([str(self.group), str(self.score), str(self.rank)]) 
+
+
+def RankLst(inLst, group_lambda= lambda x:x.group, sortLambdaLst = [lambda x,y:cmp(x.group, y.group), lambda x,y:cmp(x.score, y.score)], SetRank_Lambda = lambda x, rank:x.set_rank(rank)):
+    #Inner function is the only way (I could think of) to pass the sortLambdaLst into a sort function
+    def multi_attribute_sort(x,y):
+        r = 0
+        for l in sortLambdaLst:
+            r = l(x,y)
+            if r!=0: return r #keep looping till you see a difference
+        return r
+
+    inLst.sort(lambda x,y:multi_attribute_sort(x,y))
+    #Now Rank your probes
+    rank = 0
+    last_group = group_lambda(inLst[0])
+    for i in range(len(inLst)):
+        rec = inLst[i]
+        group = group_lambda(rec)
+        if last_group == group: 
+            rank+=1
+        else:
+            rank=1
+            last_group = group
+        SetRank_Lambda(inLst[i], rank) #This is pure evil!! The lambda purists are gnashing their teeth
+
+Lst = [probe(4, 2.0), probe(4, 0.01), probe(4, 0.9), probe(4, 0.999), probe(4, 0.2), probe(1, 2.0), probe(1, 0.01), probe(1, 0.9), probe(1, 0.999), probe(1, 0.2) ]
+
+RankLst(Lst, group_lambda= lambda x:x.group, sortLambdaLst = [lambda x,y:cmp(x.group, y.group), lambda x,y:cmp(x.score, y.score)], SetRank_Lambda = lambda x, rank:x.set_rank(rank))
+print '\t'.join(['group', 'score', 'rank']) 
+for r in Lst: print r
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4010333)
+  import operator
+sorted_x = sorted(x, key=operator.attrgetter('score'))
+  
+
+ if you want to sort x in-place, you can also: 
+
+  x.sort(key=operator.attrgetter('score'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34042990)
+ Your dictionaries have no  choice ,  amount  or  count  attributes. Those are  keys , so you need to use an  itemgetter()  object instead. 
+
+  from operator import itemgetter
+
+choices.sort(key=itemgetter('choice'), reverse=True)
+choices.sort(key=itemgetter('amount'), reverse=True)
+choices.sort(key=itemhetter('count'), reverse=True)
+  
+
+ If you want to sort by multiple criteria, just sort once, with the criteria named in order: 
+
+  choices.sort(key=itemgetter('count', 'amount', 'choice'), reverse=True)
+  
+
+ You probably want to have the  database  do the sorting, however. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39961681)
+ Suppose that you have your list of  OrderRecord  elements called  the_list . 
+
+ You can sort it in-place using: 
+
+  the_list.sort(key=lambda e : int(e.ordernum))
+  
+
+ you have to convert the sort key to integer if you use the class as-is, or you have to do that in the constructor: 
+
+  self.ordernum = int(split_file[4])
+  
+
+ In which case you can directly sort like this: 
+
+  the_list.sort(key=lambda e : e.ordernum)
+  
+
+ not converting to integer could lead to false assumption that it works but it would sort  alphabetically  and thus  125  would be before  13 , which is not what you want. 
+
+ Note: if 2 objects share the same  ordernum  and you want to add a second criterion (or more...), less prioritary you can do like this (return a tuple as the sort key, using  attrgetter  which creates the tuple for you): 
+
+  the_list.sort(key=lambda e : e.attrgetter(ordernum,name))
+  
+
+ (now assuming that  e.ordernum  is already an integer type) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1516290)
+ A custom function will render your code more readable. If you have many sorting operations and you don't want to create those functions though, you can use lambda's: 
+
+  L.sort(lambda x, y: cmp(x.name, y.name) or -cmp(x.year, y.year))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1516449)
+ If your attributes are numeric, you have this. 
+
+  def mixed_order( a ):
+    return ( a.attribute1, -a.attribute2 )
+
+someList.sort( key=mixed_order )
+  
+
+ If your attributes includes strings or other more complex objects, you have some choices. 
+
+   .sort()  method is stable: you can do multiple passes.  This is perhaps the simplest.  . 
+
+  def key1( a ): return a.attribute1
+def key2( a ): return a.attribute2
+
+someList.sort( key=key2, reverse=True )
+someList.sort( key=key1 )
+  
+
+ If this is the only sort, you can define your own special-purpose comparison operators.  Minimally, you need  __eq__  and  __lt__ .   other four can be derived from these two by simple logic. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45696291)
+ It appears you could use a  list  instead of a  tuple . 
+This becomes more important I think when you are grabbing attributes instead of 'magic indexes' of a list/tuple.   
+
+ In my case I wanted to sort by multiple attributes of a class, where the incoming keys were strings. I needed different sorting in different places, and I wanted a common default sort for the parent class that clients were interacting with; only having to override the 'sorting keys' when I really 'needed to', but also in a way that I could store them as lists that the class could share 
+
+ So first I defined a helper method 
+
+  def attr_sort(self, attrs=['someAttributeString']:
+  '''helper to sort by the attributes named by strings of attrs in order'''
+  return lambda k: [ getattr(k, attr) for attr in attrs ]
+  
+
+ then to use it 
+
+  # would defined elsewhere but showing here for consiseness
+self.SortListA = ['attrA', 'attrB']
+self.SortListB = ['attrC', 'attrA']
+records = .... #list of my objects to sort
+records.sort(key=self.attr_sort(attrs=self.SortListA))
+# perhaps later nearby or in another function
+more_records = .... #another list
+more_records.sort(key=self.attr_sort(attrs=self.SortListB))
+  
+
+ This will use the generated lambda function sort the list by  object.attrA  and then  object.attrB  assuming  object  has a getter corresponding to the string names provided.  And the second case would sort by  object.attrC  then  object.attrA .    
+
+ This also allows you to potentially expose outward sorting choices to be shard alike by a consumer, a unit test, or for them to perhaps tell you how they want sorting done for some operation in your api by only have to give you a list and not coupling them to your back end implementation. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4233482)
+ A key can be a function that returns a tuple: 
+
+  s = sorted(s, key = lambda x: (x[1], x[2]))
+  
+
+ Or you can achieve the same using  itemgetter  (which is faster and avoids a Python function call): 
+
+  import operator
+s = sorted(s, key = operator.itemgetter(1, 2))
+  
+
+ And notice that here you can use  sort  instead of using  sorted  and then reassigning: 
+
+  s.sort(key = operator.itemgetter(1, 2))
+  
+
+
+

@@ -1,0 +1,189 @@
+Query: Merge Columns within a DataFrame that have the Same Name
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/44158232)
+ You can first merge df with df_ID and then take the columns end with ID. 
+
+  pd.merge(df,df_ID,on='Name')[[e for e in df.columns if e.endswith('ID') or e=='Name']]
+Out[121]: 
+   AA_ID  BB_ID  CC_ID   Name
+0     22      4      2  CTA15
+1     22      5      2  CTA16
+  
+
+ Similarly, this can be done for the df_RE df as well. 
+
+  pd.merge(df,df_RE,on='Name')[[e for e in df.columns if e.endswith('RE') or e=='Name']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51846025)
+ You can use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop_duplicates.html on  subset=['CUSTOMER_FULL_NAME']  in the  merge  with  how='left'  to keep all rows from  people  such as: 
+
+  full = pd.merge(
+    people,
+    orders.drop_duplicates(subset=['CUSTOMER_FULL_NAME'], keep='first'), #here the differance
+    left_on='FULL_NAME',
+    right_on='CUSTOMER_FULL_NAME',
+    how='left' #and add the how='left'
+)
+  
+
+ So  orders.drop_duplicates(subset=['CUSTOMER_FULL_NAME'], keep='first')  will contain only once each name and during the  merge , the matching will be with only this unique name 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48778239)
+ . It works because  pandas  can assign efficiently via index, especially when the index is unique within each dataframe. 
+
+  df1 = df1.set_index('name')
+df2 = df2.set_index('name')
+df1[['red', 'green', 'yellow']] = df2[['red', 'green', 'yellow']]
+  
+
+ Alternatively,  pd.merge  will work, as @PaulH mentioned: 
+
+  df1.merge(df2, how='left', on='name')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53215824)
+ Another way is to give b and c the same name.  At least for the merge operation. 
+
+  df1.rename({'b': 'c'}, axis=1).merge(df2)
+   a  c     d
+0  0  a  Alex
+1  1  b  Alex
+2  2  c  Alex
+3  3  d  Alex
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42725650)
+ The suffix is needed only when the merged dataframe has two columns with same name. When you merge df3, your dataframe has column names val_1 and val_2 so there is no overlap.
+You can handle that by renaming val to val_3 like this 
+
+  df = df1.merge(df2, on = 'key', suffixes=['_1','_2']).merge(df3, on = 'key').rename(columns = {'val': 'val_3'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43147557)
+ Simpliest solution is selecting by subset with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.copy.html: 
+
+  def merge(arg):
+     return df[['A', 'B', str(arg)]].copy()
+
+print (merge(5))
+   A  B   5
+0  1  1   5
+1  2  6   2
+2  2  3   7
+3  2  4  19
+  
+
+ 
+
+ Solutions with  concat  if column is  str  only convert to  str  - works nice, but slowier: 
+
+  def merge(arg):
+     return pd.concat([df.A, df.B, df[str(arg)]], axis=1 )
+
+print (merge(5))
+   A  B   5
+0  1  1   5
+1  2  6   2
+2  2  3   7
+3  2  4  19
+  
+
+ If  int : 
+
+  def merge(arg):
+     return pd.concat([df.A, df.B, df[arg]], axis=1 )
+
+print (merge(5))
+   A  B   5
+0  1  1   5
+1  2  6   2
+2  2  3   7
+3  2  4  19
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35652433)
+ You could do the following. 
+
+ First perform a left- merge  on a  groupby : 
+
+  df = pd.merge(
+    df,
+    df.some.groupby(df.id).apply(lambda g: 'Yes' if 'Yes' in g.values else 'No').reset_index(),
+    how='left')
+  
+
+ Following that, simply rename the new column to your desired name: 
+
+  >>> df.rename(columns={0: 'someIdlevel'})
+    id  some    someIdlevel
+0   1   Yes Yes
+1   1   No  Yes
+2   2   No  No
+3   3   Yes Yes
+4   3   Yes Yes
+5   3   Yes Yes
+6   4   No  No
+7   4   No  No
+8   5   No  Yes
+9   5   Yes Yes
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19643249)
+ You should be able to concat two columns using apply() and then use to_datetime().
+To remove columns from dataframe use drop() or just select columns you need: 
+
+  df['dt'] = pd.to_datetime(df.apply(lambda x: x['Date[G]'] + ' ' + x['Time[G]'], 1))
+
+
+df = df.drop(['Date[G]', 'Time[G]'], 1)
+# ..or
+# df = df[['dt', ...]]
+
+df.set_index('dt', inplace = True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52277939)
+ Comprehension</h3>
+
+  pd.DataFrame(
+    [r + (n,) for r in zip(*map(df.get, df)) for n in names],
+    columns=[*df.columns, *['name']]
+)
+
+   A  B name
+0  1  4    x
+1  1  4    y
+2  2  5    x
+3  2  5    y
+4  3  6    x
+5  3  6    y
+  
+
+
+

@@ -1,0 +1,242 @@
+Query: Django filter by hour
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2998437)
+  Entry.objects.filter(pub_date__hour = x)
+  
+
+ is not suppted as of django 1.2 - only year, month, day, week_day. 
+
+ Use something like this: 
+
+  Entry.objects.filter(pub_date__regex = '08:00')
+  
+
+  
+
+  Entry.objects.filter(pub_date__contains = '08:00')
+  
+
+ which will give you all Entry objects with the hour (over all years). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33816073)
+ That is not very clear what you are asking but here is how you can add 1 hours to the current datetime :
+ datetime.datetime.now() + datetime.timedelta(hours=1)  
+
+ Here is an example, if you search books created during the last hour : 
+
+<pre class="lang-python prettyprint-override"> import datetime
+from django.utils.timezone import now
+
+start_date = now()
+end_date = start_date - datetime.timedelta(hours=1)
+Book.objects.filter(created__range=(start_date, end_date))
+  
+
+ Check https://docs.python.org/2/library/datetime.html documentation for more information 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27659694)
+ The  DateRangeFilter  provided by  django-filter  allows you to filter across common date ranges like "today", "the past week", "last month", etc. It does not allow you to filter a queryset down to a specific date. 
+
+ You should be able to do this with a custom filter though. 
+
+  from django_filters.filters import DateFilter
+
+class WithinDateFilter(DateFilter):
+
+    def filter(self, qs, value):
+        from datetime import timedelta
+
+        if value:
+            date_value = value.replace(hour=0, minute=0, second=0)
+
+            filter_lookups = {
+                "%s__range" % (self.name, ): (
+                    value,
+                    value + timedelta(days=1),
+                ),
+            }
+
+            qs = qs.filter(**filter_lookups)
+
+        return qs
+  
+
+ This should allow you to pass in the single date through the url, and have the query be filtered to only times within that specific date. 
+
+  class MovieShowtimeFilter(django_filters.FilterSet):
+    timerange = WithinDateFilter(name='movietime')
+
+    class Meta:
+        model = MovieShowtime
+        fields = ['mixtime','maxtime','timerange']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/26722158)
+ Django 1.7 added support for custom lookups and transforms. A hour transform is implemented as follows on PostgreSQL: 
+
+  class HourExtract(models.Transform):
+    lookup_name = 'hour'
+    output_type = models.IntegerField()
+
+    def as_sql(self, compiler, connection):
+        lhs_sql, lhs_params = compiler.compile(self.lhs)
+        return "EXTRACT(hour FROM %s)" % lhs_sql, lhs_params
+
+models.DateTimeField.register_lookup(HourExtract)
+  
+
+  .filter(pub_date__hour__lte=x) and other similar queries on the hour value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4838135)
+ Probably better of using a raw SQL query like: 
+
+  Whatever.objects.raw("SELECT * FROM table WHERE TIME(pub_date) LIKE '%%08:30%%' ")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50103433)
+ I know I'm late here, but taking cues from the doc, https://docs.djangoproject.com/en/1.11/ref/models/querysets/#django.db.models.query.QuerySet.extra 
+
+ the below filter should work for you. 
+
+  store_count_events = StoreVideoEventSummary.objects.filter(
+    Timestamp__range=(start_time, end_time),
+    Customer__id=customer_id,
+    Store__StoreName=store
+).order_by(
+    'Timestamp'
+).extra(
+    select={
+        'hour': 'hour(Timestamp)'
+    }
+).values(
+    'hour'
+).annotate(
+    TotalPeople=Sum('PeopleCount')
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42963866)
+ One more elegant way is to create DataBase Function. 
+
+ Assume that we have the model that is described below. And our goal is to filter all objects which are ended before now. 
+
+  from django.db import models
+
+class SomeModel(models.Model):
+    date_start = models.DateTimeField()
+    duration = models.FloatField()
+  
+
+  
+
+  from django.db.models.expressions import Func
+from django.db.models import DateTimeField
+
+
+class Interval(Func):
+    function = 'INTERVAL'
+    template = "(%(expressions)s * %(function)s '1 %(phylum)s')"
+
+    def __init__(self, expression, phylum, **extra):
+        output_field = extra.pop('output_field', DateTimeField())
+        super(Interval, self).__init__(expression, output_field=output_field, phylum=phylum, **extra)
+  
+
+ And use it. As the first param to Interval function you can pass as F('field_name') or Value() or some Python objects. As the second params it can be: 'second', 'minute', 'hour', 'day'. 
+
+  objs = (SomeModel.objects.annotate(date_end=F('date_start') + Interval(F('duration'), 'hour')).
+filter(date_end__lte=datetime.datetime.now(pytz.utc)))
+  
+
+ 
+  Tested: Django==1.8.15, Postgres:9.4.5  
+  This implementation will work only in Postgres, for another DB you should override relevant method: 'as_postgresql', 'as_oracle'  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29706518)
+  __hour  on a  DateTimeField  is a lookup type, so you can't mix it with another lookup type like  __lte . You could construct a filter with  Q  objects, EG: 
+
+  before_ten = Q(created_at__hour=0)
+for hour in range(1, 11):
+    before_ten = before_ten | Q(created_at__hour=hour)
+query = query.filter(before_ten)
+  
+
+ If you can change your data model, it might be more convenient to save a creation time  TimeField  as well as your existing  created_at . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52113434)
+ Get the objects of last 7 days, then get objects from every hour and find the object with the greatest datetime value, exclude others. 
+
+  d = datetime.now() - timedelta(days=7)
+feeds = Feeds.objects.filter(timestamp__gte=d)
+d = d.replace(minute=0, second=0, microsecond=0)
+while d <= datetime.now():
+    temp = feeds.filter(timestamp__range=(d, d + timedelta(hours=1)))
+    if temp:
+        temp = temp.exclude(timestamp=temp.all().order_by('-timestamp')[0].timestamp)
+        for t in temp:
+            feeds = feeds.exclude(timestamp=t.timestamp)            
+    d += timedelta(hours=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/30465363)
+ just break it into two steps 
+
+  objs = StoreVideoEventSummary.objects.filter(Timestamp__range=(start_time, end_time),
+                                                   Customer__id=customer_id,
+                                                   Store__StoreName=store)\
+    .order_by("Timestamp")
+
+def date_hour(timestamp):
+   return datetime.datetime.fromtimestamp(timestamp).strftime("%x %H")
+
+groups = itertools.groupby(objs, lambda x:date_hour(x.Timestamp))
+#since groups is an iterator and not a list you have not yet traversed the list
+for group,matches in groups: #now you are traversing the list ...
+    print group,"TTL:",sum(1 for _ in matches)
+  
+
+ this allows you to group by several distinct criteria 
+
+ if you just want the hour regardless of date just change  date_hour  
+
+  def date_hour(timestamp):
+   return datetime.datetime.fromtimestamp(timestamp).strftime("%H")
+  
+
+ if you wanted to group by day of the week you just use 
+
+  def date_hour(timestamp):
+   return datetime.datetime.fromtimestamp(timestamp).strftime("%w %H")
+  
+
+
+

@@ -1,0 +1,217 @@
+Query: How do I disable the security certificate check in Python requests
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32282390)
+ Use requests.packages.urllib3.disable_warnings(). 
+
+  import requests
+
+requests.packages.urllib3.disable_warnings()
+requests.post(url='https://foo.com', data={'bar':'baz'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50159273)
+ To add to https://stackoverflow.com/a/15445989/3357935, you can disable SSL for all requests using  Session.verify = False  
+
+  import requests
+
+session = requests.Session()
+session.verify = False
+session.post(url='https://foo.com', data={'bar':'baz'})
+  
+
+ Note that  urllib3 , (which Requests uses), https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings making unverified HTTPS requests and will raise an  InsecureRequestWarning . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10668173)
+ From requests http://docs.python-requests.org/en/latest/user/advanced/#ssl-cert-verification: 
+
+ 
+   Requests can verify SSL certificates for HTTPS requests, just like a web browser. To check a host’s SSL certificate, you can use the verify argument: 
+ 
+
+  >>> requests.get('https://kennethreitz.com', verify=True)
+  
+
+ If you don't want to verify your SSL certificate, make  verify=False   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15445989)
+ From http://docs.python-requests.org/en/latest/user/advanced/#ssl-cert-verification: 
+
+ 
+   Requests can also ignore verifying the SSL certficate if you set
+   verify  to False. 
+
+  >>> requests.get('https://kennethreitz.com', verify=False)
+<Response [200]>
+  
+ 
+
+ If you're using a third-party module and want to disable the checks, here's a context manager that monkey patches  requests  and changes it so that  verify=False  is the default and suppresses the warning. 
+
+  import warnings
+import contextlib
+
+import requests
+from urllib3.exceptions import InsecureRequestWarning
+
+try:
+    from functools import partialmethod
+except ImportError:
+    # Python 2 fallback: https://gist.github.com/carymrobbins/8940382
+    from functools import partial
+
+    class partialmethod(partial):
+        def __get__(self, instance, owner):
+            if instance is None:
+                return self
+
+            return partial(self.func, instance, *(self.args or ()), **(self.keywords or {}))
+
+@contextlib.contextmanager
+def no_ssl_verification(session=requests.Session):
+    old_request = session.request
+    session.request = partialmethod(old_request, verify=False)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', InsecureRequestWarning)
+        yield
+
+    session.request = old_request
+  
+
+ And an example of how to use it: 
+
+  with no_ssl_verification():
+    requests.get('https://93.184.216.3/')
+    print('It works')
+
+requests.get('https://93.184.216.3/', verify=False)
+print('It resets back')
+
+try:
+    requests.get('https://93.184.216.3/')
+except requests.exceptions.SSLError:
+    print('It breaks')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30373147)
+ If you don't bother about certificate just use  verify=False . 
+
+  import requests
+
+url = "Write your url here"
+
+returnResponse = requests.get(url, verify=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/12865159)
+ The name of CA file to use you could pass via  verify : 
+
+  cafile = 'cacert.pem' # http://curl.haxx.se/ca/cacert.pem
+r = requests.get(url, verify=cafile)
+  
+
+ If you use  verify=True  then  requests  uses its own CA set that might not have CA that signed your server certificate. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35888911)
+ If you want to send exactly post request with verify=False option, fastest way is to use this code: 
+
+  import requests
+
+requests.api.request('post', url, data={'bar':'baz'}, json=None, verify=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45438427)
+ 
+    curl  
+  -k, --insecure 
+  (SSL) This option explicitly allows curl to perform "insecure" SSL connections and transfers. 
+  All SSL connections are attempted to be made secure by using the CA certificate bundle installed by default. 
+  All connections considered "insecure" will fail unless -k/--insecure is used. 
+ 
+
+ 
+
+ 
+   http://docs.python-requests.org/en/master/user/advanced/#ca-certificates
+  Requests can also ignore verifying the SSL certificate if you set verify to False: 
+
+  requests.get('https://kennethreitz.org', verify=False)
+<Response [200]>
+  
+  
+   . Option verify only applies to host certs.  
+ 
+
+  urlopen  don't have such a parameter. 
+
+ 
+    Note : Disable Certificate Verification is a Security Risk! 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16085737)
+ I have found an specific approach for solving a similar issue. The idea is pointing the cacert file stored at the http://hearsum.ca/blog/python-and-ssl-certificate-verification/#comment-443 and used by another ssl based applications. 
+
+ In Debian (I'm not sure if same in other distributions) the certificate files (.pem) are stored at  /etc/ssl/certs/  So, this is the code that work for me: 
+
+  import requests
+verify='/etc/ssl/certs/cacert.org.pem'
+response = requests.get('https://lists.cacert.org', verify=verify)
+  
+
+ For guessing what  pem  file choose, I have browse to the url and check which Certificate Authority (CA) has generated the certificate. 
+
+ EDIT: if you cannot edit the code (because you are running a third app) you can try to add the  pem  certificate directly into  /usr/local/lib/python2.7/dist-packages/requests/cacert.pem  (e.g. copying it to the end of the file). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31946125)
+ I don't use this in production, just some test runners. And to reiterate the https://urllib3.readthedocs.org/en/latest/security.html#insecurerequestwarning  
+
+ 
+   If you know what you are doing and would like to disable this and
+  other warnings 
+ 
+
+  import requests.packages.urllib3
+requests.packages.urllib3.disable_warnings()
+  
+
+ Edit / Update: 
+
+ The following should also work: 
+
+  import logging
+import requests
+
+# turn down requests log verbosity
+logging.getLogger('requests').setLevel(logging.CRITICAL)
+  
+
+
+

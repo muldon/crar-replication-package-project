@@ -1,0 +1,320 @@
+Query: Take screenshot in Python on Mac OS X
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13026264)
+ Here's how to capture and save a screenshot with PyObjC, based on https://stackoverflow.com/a/13024603/745 
+
+ You can capture the entire screen, or specify a region to capture. If you don't need to do that, I'd recommend just calling the  screencapture  command (more features, more robust, and quicker - the initial PyObjC import alone can take around a second) 
+
+  import Quartz
+import LaunchServices
+from Cocoa import NSURL
+import Quartz.CoreGraphics as CG
+
+
+def screenshot(path, region = None):
+    """region should be a CGRect, something like:
+
+    >>> import Quartz.CoreGraphics as CG
+    >>> region = CG.CGRectMake(0, 0, 100, 100)
+    >>> sp = ScreenPixel()
+    >>> sp.capture(region=region)
+
+    The default region is CG.CGRectInfinite (captures the full screen)
+    """
+
+    if region is None:
+        region = CG.CGRectInfinite
+
+    # Create screenshot as CGImage
+    image = CG.CGWindowListCreateImage(
+        region,
+        CG.kCGWindowListOptionOnScreenOnly,
+        CG.kCGNullWindowID,
+        CG.kCGWindowImageDefault)
+
+    dpi = 72 # FIXME: Should query this from somewhere, e.g for retina displays
+
+    url = NSURL.fileURLWithPath_(path)
+
+    dest = Quartz.CGImageDestinationCreateWithURL(
+        url,
+        LaunchServices.kUTTypePNG, # file type
+        1, # 1 image in file
+        None
+        )
+
+    properties = {
+        Quartz.kCGImagePropertyDPIWidth: dpi,
+        Quartz.kCGImagePropertyDPIHeight: dpi,
+        }
+
+    # Add the image to the destination, characterizing the image with
+    # the properties dictionary.
+    Quartz.CGImageDestinationAddImage(dest, image, properties)
+
+    # When all the images (only 1 in this example) are added to the destination, 
+    # finalize the CGImageDestination object. 
+    Quartz.CGImageDestinationFinalize(dest)
+
+
+if __name__ == '__main__':
+    # Capture full screen
+    screenshot("/tmp/testscreenshot_full.png")
+
+    # Capture region (100x100 box from top-left)
+    region = CG.CGRectMake(0, 0, 100, 100)
+    screenshot("/tmp/testscreenshot_partial.png", region=region)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4525615)
+ While not exactly what you want, in a pinch you might just use: 
+
+  os.system("screencapture screen.png")
+  
+
+ .  I'm sure a better solution exists though. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41318272)
+ One of the solutions would be to use a Python web server (tornado or whatever). 
+
+ Take a look at the following code (Python 3 version): 
+
+  pip install tornado  
+
+  from PIL import ImageGrab
+import tornado.ioloop
+import tornado.web
+
+
+class MainHandler(tornado.web.RequestHandler):
+    def get(self):
+        x = ImageGrab.grab()
+        x.show()
+        self.write("Hello, world")
+
+
+def make_app():
+    return tornado.web.Application([
+        (r"/", MainHandler),
+    ])
+
+if __name__ == "__main__":
+    app = make_app()
+    app.listen(8888)
+    tornado.ioloop.IOLoop.current().start()
+  
+
+ Minimise the IDLE window when the script is running. 
+
+ Open a browser from your phone or another computer and navigate to: 
+
+  http://[your IP address]:8888  
+
+ I cannot test this script because  ImageGrab.grab()  only works on Mac and Windows but unfortunately not on Linux. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12563505)
+ I believe that you need different solutions for different operating systems. Use http://docs.python.org/library/sys.html#sys.platform to find out on which platform you are on. The rest you have to figure out yourself, but a quick internet search revealed: 
+
+ 
+ On Linux systems, you can then take a screenshot as described here: 
+ 
+
+ https://stackoverflow.com/questions/69645/take-a-screenshot-via-a-python-script-linux 
+
+ 
+ On Windows systems, you can base your solution on this answer: 
+ 
+
+ https://stackoverflow.com/questions/3586046/fastest-way-to-take-a-screenshot-with-python-on-windows 
+
+ 
+ On Mac systems, this will help: 
+ 
+
+ https://stackoverflow.com/questions/4524723/take-screenshot-in-python-on-mac-os-x 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32576447)
+ Pillow has since added https://raw.githubusercontent.com/python-pillow/Pillow/master/PIL/ImageGrab.py support for macOS! 
+
+ However it's not in v2.9 (as of right now the latest) so I just added this file to my local module. 
+
+ The code is as below: 
+
+  #
+# The Python Imaging Library
+# $Id$
+#
+# screen grabber (macOS and Windows only)
+#
+# History:
+# 2001-04-26 fl  created
+# 2001-09-17 fl  use builtin driver, if present
+# 2002-11-19 fl  added grabclipboard support
+#
+# Copyright (c) 2001-2002 by Secret Labs AB
+# Copyright (c) 2001-2002 by Fredrik Lundh
+#
+# See the README file for information on usage and redistribution.
+#
+
+from . import Image
+
+import sys
+if sys.platform not in ["win32", "darwin"]:
+    raise ImportError("ImageGrab is macOS and Windows only")
+
+if sys.platform == "win32":
+    grabber = Image.core.grabscreen
+elif sys.platform == "darwin":
+    import os
+    import tempfile
+    import subprocess
+
+
+def grab(bbox=None):
+    if sys.platform == "darwin":
+        fh, filepath = tempfile.mkstemp('.png')
+        os.close(fh)
+        subprocess.call(['screencapture', '-x', filepath])
+        im = Image.open(filepath)
+        im.load()
+        os.unlink(filepath)
+    else:
+        size, data = grabber()
+        im = Image.frombytes(
+            "RGB", size, data,
+            # RGB, 32-bit line padding, origin lower left corner
+            "raw", "BGR", (size[0]*3 + 3) & -4, -1
+            )
+    if bbox:
+        im = im.crop(bbox)
+    return im
+
+
+def grabclipboard():
+    if sys.platform == "darwin":
+        fh, filepath = tempfile.mkstemp('.jpg')
+        os.close(fh)
+        commands = [
+            "set theFile to (open for access POSIX file \""+filepath+"\" with write permission)",
+            "try",
+                "write (the clipboard as JPEG picture) to theFile",
+            "end try",
+            "close access theFile"
+        ]
+        script = ["osascript"]
+        for command in commands:
+            script += ["-e", command]
+        subprocess.call(script)
+
+        im = None
+        if os.stat(filepath).st_size != 0:
+            im = Image.open(filepath)
+            im.load()
+        os.unlink(filepath)
+        return im
+    else:
+        debug = 0  # temporary interface
+        data = Image.core.grabclipboard(debug)
+        if isinstance(data, bytes):
+            from . import BmpImagePlugin
+            import io
+            return BmpImagePlugin.DibImageFile(io.BytesIO(data))
+        return data
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8645278)
+ There is not anything in the standard library that can do this for you. Theoretically, you might do it yourself by making os-dependent system calls with ctypes but that seems like a lot of unnecessary work to me. Here is a working script to make a screenshot using wxPython: 
+
+  import wx
+
+app = wx.App(False)
+
+s = wx.ScreenDC()
+w, h = s.Size.Get()
+b = wx.EmptyBitmap(w, h)
+m = wx.MemoryDCFromDC(s)
+m.SelectObject(b)
+m.Blit(0, 0, w, h, s, 0, 0)
+m.SelectObject(wx.NullBitmap)
+b.SaveFile("screenshot.png", wx.BITMAP_TYPE_PNG)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28064769)
+ While I do understand that this thread is close to five years old now, I'm answering this in the hope that it helps people in future. 
+
+ Here's what worked for me, based on an answer in this thread (credit goes to https://stackoverflow.com/users/700820/ponty ) : https://stackoverflow.com/questions/69645/take-a-screenshot-via-a-python-script-linux 
+
+ https://github.com/ponty/pyscreenshot 
+
+ Install: 
+
+  easy_install pyscreenshot
+  
+
+ Example: 
+
+  import pyscreenshot
+
+# fullscreen
+screenshot=pyscreenshot.grab()
+screenshot.show()
+
+# part of the screen
+screenshot=pyscreenshot.grab(bbox=(10,10,500,500))
+screenshot.show()
+
+# save to file
+pyscreenshot.grab_to_file('screenshot.png')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3942621)
+ You can check http://www.paulhammond.org/webkit2png/ (only OS X) and http://khtml2png.sourceforge.net/ (Linux) and this http://lateral.netmanagers.com.ar/weblog/posts/BB901.html (use PyQt and WebKit). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/425403)
+ 
+  You should take care of the Python version you are developing against. Especially, on a Mac, the default version of Python installed with the OS, is rather old (of course, newer versions can be installed)  
+  Don't use the OS specific libraries  
+  Take special care of 'special' UI elements, like taskbar icons (windows), ...  
+  Use forward slashes when using paths, avoid C:/, /home/..., ... Use os.path to work with paths.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27918959)
+ just select one element on the page and send the keys , 
+
+  elem = driver.find_element_by_name("your_element")
+elem.send_keys(Keys.F11)
+  
+
+ make sure that element is loaded in DOM.It worked for me. 
+
+
+

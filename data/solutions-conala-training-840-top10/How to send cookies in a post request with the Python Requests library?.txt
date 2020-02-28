@@ -1,0 +1,208 @@
+Query: How to send cookies in a post request with the Python Requests library?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7164897)
+ The latest release of Requests will build CookieJars for you from simple dictionaries. 
+
+  import requests
+
+cookies = {'enwiki_session': '17ab96bd8ffbe8ca58a78657a918558'}
+
+r = requests.post('http://wikipedia.org', cookies=cookies)
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8977165)
+ Just to extend on the previous answer, if you are linking two requests together and want to send the cookies returned from the first one to the second one (for example, maintaining a session alive across requests) you can do: 
+
+  import requests
+r1 = requests.post('http://www.yourapp.com/login')
+r2 = requests.post('http://www.yourapp.com/somepage',cookies=r1.cookies)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25092059)
+ Alternatively, you can use http://docs.python-requests.org/en/latest/user/advanced/#session-objects and observe  cookies  before and after a request: 
+
+  >>> import requests
+>>> session = requests.Session()
+>>> print(session.cookies.get_dict())
+{}
+>>> response = session.get('http://google.com')
+>>> print(session.cookies.get_dict())
+{'PREF': 'ID=5514c728c9215a9a:FF=0:TM=1406958091:LM=1406958091:S=KfAG0U9jYhrB0XNf', 'NID': '67=TVMYiq2wLMNvJi5SiaONeIQVNqxSc2RAwVrCnuYgTQYAHIZAGESHHPL0xsyM9EMpluLDQgaj3db_V37NjvshV-eoQdA8u43M8UwHMqZdL-S2gjho8j0-Fe1XuH5wYr9v'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46903877)
+ Your second response has no cookies because you set the request cookies manually in the  cookies  parameter, so the server won't send a 'Set-Cookie' header.   
+
+ Passing cookies across requests with the  cookies  parameter is not a good idea, use a http://docs.python-requests.org/en/master/user/advanced/#session-objects object instead.   
+
+  import requests
+
+def main():
+    ses = requests.Session()
+    ses.headers['User-Agent'] = 'Mozilla/5'
+    url = "https://pan.baidu.com/share/verify?surl=pK753kf&t=1508812575130&bdstoken=null&channel=chunlei&clienttype=0&web=1&app_id=250528&logid=MTUwODgxMjU3NTEzMTAuMzM2MTI4Njk5ODczMDUxNw=="
+    ref = "https://pan.baidu.com/share/init?surl=pK753kf"
+    headers = {"Referer":ref}
+    password={'pwd': 'v0vb'}
+
+    response = ses.get(ref)
+    cookieJar = ses.cookies
+    for cookie in cookieJar:
+        print(cookie.name)
+
+    response = ses.post(url, data=password, headers=headers)
+    cookieJar = ses.cookies
+    for cookie in cookieJar:
+        print(cookie.name)
+
+main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6930182)
+ I'm confused by this question. The requests library will put the cookies in the jar for you. 
+
+  import requests
+import cookielib
+
+
+URL = '...whatever...'
+jar = cookielib.CookieJar()
+r = requests.get(URL, cookies=jar)
+r = requests.get(URL, cookies=jar)
+  
+
+ The first request to the URL will fill the jar. The second request will send the cookies back to the server. The same goes for the standard library's urllib module https://docs.python.org/2/library/cookielib.html. (doc currently available for 2.x Version) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29409376)
+ The  r.cookies  jar contains all cookies that are new, that the server has sent in the current response, so any cookies that have been sent will not appear there unless the server resent them. The sent cookies will appear in  r.request.headers  (the jar is at  r.request._cookies ). If you want to preserve the cookies across multiple requests, use a http://docs.python-requests.org/en/latest/api/#requests.Session: 
+
+  session = requests.Session()
+session.get(...)  # Your first request
+session.get(...)  # Following requests pass the cookies on
+  
+
+ While using the session, you can retrieve any cookies by looking in  session.cookies . I don't know why you saw cookies sent when you didn't, I'd have to see more code. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36190283)
+ If you want to use the cookie for a web request such as a GET or POST (which mechanize.Browser does not support), you can use the requests library and the cookies as follows 
+
+  import mechanize, requests
+
+br = mechanize.Browser()
+br.open (url)
+# assuming first form is a login form
+br.select_form (nr=0)
+br.form['login'] = login
+br.form['password'] = password
+br.submit()
+# if successful we have some cookies now
+cookies = br._ua_handlers['_cookies'].cookiejar
+# convert cookies into a dict usable by requests
+cookie_dict = {}
+for c in cookies:
+    cookie_dict[c.name] = c.value
+# make a request
+r = requests.get(anotherUrl, cookies=cookie_dict)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20968155)
+ urllib is no good, use requests! 
+
+  from requests import Request, Session
+
+url = "https://webapp.pucrs.br/consulta/principal.jsp"
+s = requests.Session()
+
+p = dict(pb1 = 'dd', pb2 = 'cc')
+r = s.get(url, params = p) 
+# use the cert=/path/to/certificate.pem if you need it
+# elsewhere use verify = False to bypass ssl verification
+
+c = r.cookies
+
+# Then send back a response using those same cookies
+
+r = requests.get(other_url, cookies = c, verify = False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30130326)
+ You could have a function that builds a request with only the cookies you need from the session and send that request.  
+
+ Note: This second request does not update your session variables. So if you set another cookie using the second request, your session cookies are not updated 
+
+  import requests
+
+def generateCookie(keys, session):
+    cookie = {}
+    for k, v in session.cookies.get_dict().items():
+        if k in keys:
+            cookie[k] = v
+    return cookie
+
+
+s = requests.Session()
+r = s.get('http://httpbin.org/cookies/set', params = {'foo': 'bar', 'key': 'value', 'Larry': 'Moe'})
+
+print('Session Cookies:', s.cookies.items())
+
+p = requests.get('http://httpbin.org/cookies', cookies=generateCookie(['foo', 'Larry'], s))
+
+print(p.text)
+
+print('Session Cookies:', s.cookies.items())
+
+
+###########
+# OUTPUT
+###########
+Session Cookies: [('Larry', 'Moe'), ('foo', 'bar'), ('key', 'value')]
+{
+  "cookies": {
+    "Larry": "Moe", 
+    "foo": "bar"
+  }
+}
+
+Session Cookies: [('Larry', 'Moe'), ('foo', 'bar'), ('key', 'value')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21737100)
+ Ignore the cookie-jar, let  requests  handle cookies for you. Use a http://docs.python-requests.org/en/latest/user/advanced/#session-objects instead, it'll persist cookies and send them back to the server: 
+
+  with requests.Session() as s:
+    r = s.get(URL1)
+    r = s.post(URL2, data="username and password data payload")
+  
+
+
+

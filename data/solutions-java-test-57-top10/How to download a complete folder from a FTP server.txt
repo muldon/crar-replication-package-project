@@ -1,0 +1,404 @@
+Query: How to download a complete folder from a FTP server
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11555318)
+ By using commons-net-3.0.jar provided by Apache you can communicate with Server with FTP. 
+
+ FTPUtils Class is having core methods like connect,disconnect,upload and download methods.
+and FTPMain having main method to upload file. 
+
+  
+
+  package com.ftpclient.test;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FTPUtils {
+    public static void ftpConnect(FTPClient ftpclient, String host, String username, String password) throws IOException {
+        System.out.println("FTPUtils :: Logging in FTP..");
+        try{
+            ftpclient.connect(host);
+            if (!ftpclient.login(username, password)) {
+                throw new IOException("Supplied wrong credentials to FTP Server");
+            }
+
+            if (ftpclient.getReplyCode() != 0) {
+                System.out.println(ftpclient.getReplyString());
+            }
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP Client is not able to Connect to host");
+            throw new IOException("FTP Client is not able to Connect to host");
+        }
+        System.out.println("FTPUtils :: FTP Login Successful..");
+    }
+
+    /**
+     * disconnect to FTP server
+     * 
+     * @param ftpclient is Object which is having details of FTP server like IP, user name and password
+     * @throws IOException throws Exception
+     */
+    public static void ftpDisConnect(FTPClient ftpclient) throws IOException {
+        System.out.println("FTPUtils :: FTP Logging out..");
+        ftpclient.logout();
+        ftpclient.disconnect();
+        System.out.println("FTPUtils :: FTP Disconnected Successfully..");
+    }
+
+    /**
+     * download's file from source path to destination path by using FTP Client.
+     * 
+     * @param ftpclient is Object which is having details of FTP server like IP, user name and password
+     * @param sourcePath is String from where to download's file
+     * @param destinationPath is String to where to download's file.
+     * @return boolean true if download's with out any fail else false
+     * @throws IOException will throw any problem with file system
+     */
+    public static boolean downloadFile(FTPClient ftpclient, String sourcePath, String destinationPath) throws IOException {
+        System.out.println("FTPUtils :: RemoteFile download starts ..FTP SOURCE " + sourcePath + " DESTINATION " + destinationPath);
+        FileOutputStream fos = null;
+        boolean result = false;
+        try{            
+            ftpclient.setFileTransferMode(FTP.BINARY_FILE_TYPE);
+            ftpclient.setFileType(FTP.BINARY_FILE_TYPE);
+            File fDestination = new File(destinationPath);
+            fos = new FileOutputStream(fDestination);
+            result = ftpclient.retrieveFile(sourcePath, fos);
+            if (result) {
+                System.out.println("FTPUtils :: RemoteFile download Completed..FTP " + sourcePath);
+            }
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP is not able to Download the files from host");
+            throw new IOException("FTP is not able to Download the files from host");
+        }finally{
+            fos.close();
+        }
+        return result;
+    }
+
+    /**
+     * @param ftpclient
+     * @param sourcePath
+     * @param destinationPath
+     * @throws IOException
+     */
+    public static void uploadFile(FTPClient ftpclient, String sourcePath, String destinationPath) throws IOException {
+        FileInputStream fis = null;
+        try {
+            //
+            // Create an InputStream of the file to be uploaded
+            //
+            fis = new FileInputStream(sourcePath);
+
+            //
+            // Store file to server
+            //
+            ftpclient.storeFile(destinationPath, fis);
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP is not able to upload the files from host");
+            throw new IOException("FTP is not able to upload the files from host");
+        }finally{
+            fis.close();
+        }
+    }
+}
+  
+
+  
+
+  import java.io.IOException;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FTPMain {
+    public static void main(String[] str){
+        FTPClient ftpclient = new FTPClient();
+        try {
+            FTPUtils.ftpConnect(ftpclient, "ipaddress", "username", "password");
+            FTPUtils.uploadFile(ftpclient, "sourcePath", "destinationPath");
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4303188)
+ If your ftp server supports XCRC command it could be possible to compare checksum (CRC32) of local and remote file.
+You could iterate all files in the folder and compare its crc with local one. 
+
+  import java.io.File;
+import java.io.IOException;
+import java.net.SocketException;
+import java.util.Scanner;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class DownloadFile {
+
+ private FTPClient client = new FTPClient();
+
+ public void connect() throws SocketException, IOException {
+  client.connect("127.0.0.1");
+  client.login("user", "password");
+ }
+
+ public boolean hasXCRCSupport() throws IOException {
+  client.sendCommand("feat");
+  String response = client.getReplyString();
+  Scanner scanner = new Scanner(response);
+  while(scanner.hasNextLine()) {
+   String line = scanner.nextLine();
+   if(line.contains("XCRC")) {
+    return true;
+   }
+  }
+  return false;
+ }
+
+ public boolean isSameFile() throws IOException {
+  if(hasXCRCSupport()) {
+   File file = new File("D:/test.txt");
+   String localCRC = Integer.toHexString((int) FileUtils.checksumCRC32(file)).toUpperCase();
+   client.sendCommand("XCRC /test.txt");
+   String response = client.getReplyString().trim();
+   System.out.println(response);
+   if(response.endsWith(localCRC)) {
+    return true;
+   }
+  }
+  return false;
+ }
+ public void logout() throws IOException {
+  client.logout();
+ }
+
+ public static void main(String[] args) throws SocketException, IOException {
+  DownloadFile downloadFile = new DownloadFile();
+  downloadFile.connect();
+  if(downloadFile.isSameFile()) {
+   System.out.println("remote file is same as local");
+  }
+  downloadFile.logout();
+ }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23768745)
+ You can use http://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/ftp/FTPClient.html to do this and all other common commands needed with FTP. 
+
+  Example to delete a folder:  
+
+  FTPClient client = new FTPClient();
+client.connect(host, port);
+client.login(loginname, password);
+client.removeDirectory(directoryPathOnServer);
+client.disconnect();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29158051)
+ There are some changes since 1.7.
+Such as: 
+
+   * before 1.7
+ * FtpClient fc=new FtpClient(url,port);
+ * fc.login(user, pwd);
+ *  fc.binary();
+ *  fc.put(remotefilename);
+ *  fc.closeServer();
+ *  
+ * since 1.7
+ * FtpClient fc = FtpClient.create(url)
+ * fc.login(user, null, pwd);
+ * fc.setBinaryType();
+ * fc.put(remotefilename,true);
+ * fc.close();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48519576)
+ my project might be a help.
+https://github.com/Honwhy/commons-pool-ftp (see ftpcp branch) 
+
+  FTPCPManager ftpCPManager = new FTPCPManager();
+ftpCPManager.setUrl("ftp://127.0.0.1");
+ftpCPManager.setUsername("sa");
+ftpCPManager.setPassword("sa");
+ftpCPManager.setKeepAliveTimeout(1 * 60);
+
+ftpCPManager.setConnectTimeout(1 * 1000);
+ftpCPManager.setMaxWait(1 * 1000);
+
+CommonFAOSupport support = new CommonFAOSupport(ftpCPManager);
+
+support.downloadDirectory("/apps/data/ftp/download", 4000, 10, processService); //10 thread
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14467304)
+ if you use URI with file you can use your code but , but when you want to use ftp so you need to this kind of code; code list the name of the files under your ftp server 
+
+  import java.net.*;
+import java.io.*;
+
+public class URLConnectionReader {
+    public static void main(String[] args) throws Exception {
+        URL url = new URL("ftp://username:password@www.superland.example/server");
+        URLConnection con = url.openConnection();
+        BufferedReader in = new BufferedReader(new InputStreamReader(
+                                    con.getInputStream()));
+        String inputLine;
+        while ((inputLine = in.readLine()) != null) 
+            System.out.println(inputLine);
+        in.close();
+    }
+}
+  
+
+  EDITED  http://www.codejava.net/java-se/networking/ftp/using-urlconnection-to-list-files-and-directories-on-ftp-server 
+
+  package net.codejava.ftp;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
+
+public class FtpUrlListing {
+
+    public static void main(String[] args) {
+        String ftpUrl = "ftp://%s:%s@%s/%s;type=d";
+        String host = "www.myserver.com";
+        String user = "tom";
+        String pass = "secret";
+        String dirPath = "/projects/java";
+
+        ftpUrl = String.format(ftpUrl, user, pass, host, dirPath);
+        System.out.println("URL: " + ftpUrl);
+
+        try {
+            URL url = new URL(ftpUrl);
+            URLConnection conn = url.openConnection();
+            InputStream inputStream = conn.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+            String line = null;
+            System.out.println("--- START ---");
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            System.out.println("--- END ---");
+
+            inputStream.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14452850)
+ This is a very old and well-known problem.   
+
+ There is no way to be absolutely certain a file being written by the FTP daemon is complete.  It's even possible that the file transfer failed and then gets restarted and completed.  You must poll the file's size and set a time limit, say 5 minutes. If the size does not change during that time you assume the file is complete.   
+
+ If possible, the program that processes the file should be able to deal with partial files. 
+
+ A much better alternative is rsync, which is much more robust and deterministic. It can even be configured (via command-line option) to write the data initially to a temporary location and move it to its final destination path upon successful completion.  If the file exists where you expect it, then it is by definition complete. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14200254)
+ You could use http://commons.apache.org/net/api-3.2/org/apache/commons/net/ftp/FTPClient.html#listFiles%28%29 
+
+ This would allow you to call listFiles with... 
+
+  public static void main(String[] args) throws IOException {
+        FTPClient client = new FTPClient();
+        client.connect("c64.rulez.org");
+        client.enterLocalPassiveMode();
+        client.login("anonymous", "");
+        FTPFile[] files = client.listFiles("/pub");
+        for (FTPFile file : files) {
+            System.out.println(file.getName());
+        }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14150852)
+ You got corrupted image because the FTPClient uses TEXT_FILE_TYPE by default. So you have to set file type to binary as follows: 
+
+  client.setFileType(FTP.BINARY_FILE_TYPE);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6528005)
+ I have used the EDT FTP package, a free GPL library for FTP in Java: http://www.enterprisedt.com/products/edtftpj/overview.html 
+
+ Here is a code sample, from the Demo.java class they provide: 
+
+  ftp = new FTPClient();
+ftp.setRemoteHost("hostname");
+
+// connect
+ftp.connect();
+
+// login
+ftp.login("user", "password");
+
+// set up passive ASCII transfers
+ftp.setConnectMode(FTPConnectMode.PASV);
+ftp.setType(FTPTransferType.ASCII);
+
+// get directory and print it to console            
+String[] files = ftp.dir(".", true);
+for (int i = 0; i < files.length; i++)
+    log.debug(files[i]);
+
+// copy file to server 
+ftp.put("test.txt", "test.txt");
+
+// copy file from server
+ftp.get("test.txt" + ".copy", "test.txt");
+
+// delete file from server
+ftp.delete("test.txt");
+
+// Shut down client                
+ftp.quit();
+  
+
+
+

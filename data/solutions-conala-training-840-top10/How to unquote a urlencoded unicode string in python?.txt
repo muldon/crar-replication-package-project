@@ -1,0 +1,221 @@
+Query: How to unquote a urlencoded unicode string in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/300556)
+ This will do it if you absolutely have to have this (I really do agree with the cries of "non-standard"): 
+
+  from urllib import unquote
+
+def unquote_u(source):
+    result = unquote(source)
+    if '%u' in result:
+        result = result.replace('%u','\\u').decode('unicode_escape')
+    return result
+
+print unquote_u('Tan%u0131m')
+
+> Tanım
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22472582)
+ I guess you are decoding before urllib.unquote(): 
+
+  >>> print urllib.unquote_plus('Marie+Lafor%C3%AAt'.decode('utf-8'))  
+Marie LaforÃªt
+  
+
+ If you decode after unquote, result would be what you want: 
+
+  >>> print urllib.unquote_plus('Marie+Lafor%C3%AAt').decode('utf-8')  
+Marie Laforêt
+  
+
+ Just make sure you don't pass a unicode to urllib.unquote_plus. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30648470)
+ I encountered the same problem and used a helper function to deal with non-ascii and urllib.urlencode function (which includes quote and unquote): 
+
+  def utf8_urlencode(params):
+    import urllib as u
+    # problem: u.urlencode(params.items()) is not unicode-safe. Must encode all params strings as utf8 first.
+    # UTF-8 encodes all the keys and values in params dictionary
+    for k,v in params.items():
+        # TRY urllib.unquote_plus(artist.encode('utf-8')).decode('utf-8')
+        if type(v) in (int, long, float):
+            params[k] = v
+        else:
+            try:
+                params[k.encode('utf-8')] = v.encode('utf-8')
+            except Exception as e:
+                logging.warning( '**ERROR utf8_urlencode ERROR** %s' % e )
+    return u.urlencode(params.items()).decode('utf-8')
+  
+
+ adopted from https://stackoverflow.com/questions/22472015/unicode-url-encode-decode-with-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5139885)
+ Using either  unquote  or  unquote_plus  will give you a byte string. If you want a Unicode string then you have to decode the byte string to unicode: 
+
+  >>> print(urllib.unquote_plus('%C3%A7%C3%B6asd+fjkls%25asd').decode('utf8'))
+çöasd fjkls%asd
+>>> 
+  
+
+  
+
+  >>> print(urllib.unquote_plus('%C3%A7%C3%B6asd+fjkls%25asd'))
+Ã§Ã¶asd fjkls%asd
+>>> 
+  
+
+ Note that your input string must be a byte string: if you pass unicode to  unquote/unquote_plus  then you'll get a bit of a mess. If this is the case then encode it first: 
+
+  >>> print(urllib.unquote_plus(u'%C3%A7%C3%B6asd+fjkls%25asd'.encode('ascii')).decode('utf8'))
+çöasd fjkls%asd
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/370365)
+ there is a bug in the above version where it freaks out sometimes when there are both ascii encoded and unicode encoded characters in the string. I think its specifically when there are characters from the upper 128 range like '\xab' in addition to unicode. 
+
+ eg. "%5B%AB%u03E1%BB%5D" causes this error. 
+
+ I found if you just did the unicode ones first, the problem went away: 
+
+  def unquote_u(source):
+  result = source
+  if '%u' in result:
+    result = result.replace('%u','\\u').decode('unicode_escape')
+  result = unquote(result)
+  return result
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/300533)
+ %uXXXX is a http://en.wikipedia.org/wiki/Percent-encoding#Non-standard_implementations that has been rejected by the w3c, despite the fact that an implementation continues to live on in JavaScript land. 
+
+ The more common technique seems to be to UTF-8 encode the string and then % escape the resulting bytes using %XX. This scheme is supported by urllib.unquote: 
+
+  >>> urllib2.unquote("%0a")
+'\n'
+  
+
+ Unfortunately, if you really  need  to support %uXXXX, you will probably have to roll your own decoder. Otherwise, it is likely to be far more preferable to simply UTF-8 encode your unicode and then % escape the resulting bytes. 
+
+ A more complete example: 
+
+  >>> u"Tanım"
+u'Tan\u0131m'
+>>> url = urllib.quote(u"Tanım".encode('utf8'))
+>>> urllib.unquote(url).decode('utf8')
+u'Tan\u0131m'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9880400)
+ My guess is that  h.path  is a unicode object. Then  urllib.unquote  would return a unicode object. When  decode  is called on a unicode object at first it is converted to  str  using default encoding (which is ascii) and here you get the  'ascii' codec can't encode  exception. 
+
+ Here is a proof: 
+
+  >>> urllib.unquote(u"Foo%E2%84%A2%20Bar").decode("utf-8")
+...
+UnicodeEncodeError: 'ascii' codec can't encode characters in position 3-5: ordinal not in range(128)
+  
+
+ This should work: 
+
+  urllib.unquote(h.path.encode('utf-8')).decode("utf-8")
+  
+
+ There is a stackoverflow thread which explains why unicode doesn't work with  urllib.unquote : https://stackoverflow.com/questions/300445/how-to-unquote-a-urlencoded-unicode-string-in-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5605354)
+ 
+   Python's urllib.quote and urllib.unquote do not handle Unicode correctly 
+ 
+
+  urllib  does not handle Unicode at all. URLs don't contain non-ASCII characters, by definition. When you're dealing with  urllib  you should use only byte strings. If you want those to represent Unicode characters you will have to encode and decode them manually. 
+
+ http://en.wikipedia.org/wiki/Internationalized_Resource_Identifier can contain non-ASCII characters, encoding them as UTF-8 sequences, but Python doesn't, at this point, have an  irilib . 
+
+ 
+   Encoding the value to UTF8 also does not work: 
+ 
+
+  In [6]: print urllib.unquote(urllib.quote(u'Cataño'.encode('utf8')))
+CataÃ±o
+  
+
+ Ah, well now you're typing Unicode into a console, and doing  print -Unicode to the console. This is generally unreliable, especially in Windows and in your case http://projects.scipy.org/ipython/ipython/ticket/239. 
+
+ Type it out the long way with backslash sequences and you can more easily see that the  urllib  bit does actually work: 
+
+  >>> u'Cata\u00F1o'.encode('utf-8')
+'Cata\xC3\xB1o'
+>>> urllib.quote(_)
+'Cata%C3%B1o'
+
+>>> urllib.unquote(_)
+'Cata\xC3\xB1o'
+>>> _.decode('utf-8')
+u'Cata\xF1o'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5558247)
+ """Encoding the value to UTF8 also does not work""" ... the result of your code is a  str  object which at a guess appears to be the input encoded in UTF-8. You need to decode it or define "does not work" -- what  do  you expect? 
+
+ Note: So that we don't need to guess the encoding of your terminal and the type of your data, use  print repr(whatever)  instead of  print whatever . 
+
+  >>> # Python 2.6.6
+... from urllib import quote, unquote
+>>> s = u"Cata\xf1o"
+>>> q = quote(s.encode('utf8'))
+>>> u = unquote(q).decode('utf8')
+>>> for x in (s, q, u):
+...     print repr(x)
+...
+u'Cata\xf1o'
+'Cata%C3%B1o'
+u'Cata\xf1o'
+>>>
+  
+
+  
+
+  >>> # Python 3.2
+... from urllib.parse import quote, unquote
+>>> s = "Cata\xf1o"
+>>> q = quote(s)
+>>> u = unquote(q)
+>>> for x in (s, q, u):
+...     print(ascii(x))
+...
+'Cata\xf1o'
+'Cata%C3%B1o'
+'Cata\xf1o'
+>>>
+  
+
+
+

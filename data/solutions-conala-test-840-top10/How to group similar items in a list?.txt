@@ -1,0 +1,273 @@
+Query: How to group similar items in a list?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23339428)
+ Use https://docs.python.org/2/library/itertools.html#itertools.groupby: 
+
+  >>> from itertools import groupby
+>>> from operator import itemgetter
+>>> {k: list(g) for k, g in groupby(items, itemgetter('a'))}
+{1: [{'a': 1, 'c': 8, 'b': 9},
+     {'a': 1, 'c': 4, 'b': 5}],
+ 2: [{'a': 2, 'c': 1, 'b': 3},
+     {'a': 2, 'c': 9, 'b': 7}],
+ 3: [{'a': 3, 'c': 2, 'b': 8}]}
+  
+
+ If item are not in sorted order then you can either sort them and then use  groupby  or you can use  collections.OrderedDict (if order matters) or  collections.defaultdict  to do it in O(N) time: 
+
+  >>> from collections import OrderedDict
+>>> d = OrderedDict()
+>>> for item in items:
+...     d.setdefault(item['a'], []).append(item)
+...     
+>>> dict(d.items())
+{1: [{'a': 1, 'c': 8, 'b': 9},
+     {'a': 1, 'c': 4, 'b': 5}],
+ 2: [{'a': 2, 'c': 1, 'b': 3},
+     {'a': 2, 'c': 9, 'b': 7}],
+ 3: [{'a': 3, 'c': 2, 'b': 8}]}
+  
+
+  Update:  
+
+ I see that you only want the those keys to be returned that we didn't use for grouping, for that you'll need to do something like this: 
+
+  >>> group_keys = {'a'}
+>>> {k:[{k:d[k] for k in d.viewkeys() - group_keys} for d in g]
+                                   for k, g in groupby(items, itemgetter(*group_keys))}
+{1: [{'c': 8, 'b': 9},
+     {'c': 4, 'b': 5}],
+ 2: [{'c': 1, 'b': 3},
+     {'c': 9, 'b': 7}],
+ 3: [{'c': 2, 'b': 8}]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27659180)
+   .split("_")[0]  part should be inside a single-argument function that you pass as the second argument to  itertools.groupby . 
+
+  >>> import os, itertools
+>>> test = ['abc_1_2', 'abc_2_2', 'hij_1_1', 'xyz_1_2', 'xyz_2_2']
+>>> [list(g) for _, g in itertools.groupby(test, lambda x: x.split('_')[0])]
+[['abc_1_2', 'abc_2_2'], ['hij_1_1'], ['xyz_1_2', 'xyz_2_2']]
+>>>
+  
+
+ Having it in the  for ...  part does nothing since the result is immediately discarded. 
+
+ 
+
+ Also, it would be slightly more efficient to use https://docs.python.org/3/library/stdtypes.html#str.partition when you only want a single split: 
+
+  [list(g) for _, g in itertools.groupby(test, lambda x: x.partition('_')[0])]
+  
+
+  
+
+  >>> from timeit import timeit
+>>> timeit("'hij_1_1'.split('_')")
+1.3149855638076913
+>>> timeit("'hij_1_1'.partition('_')")
+0.7576401470019234
+>>>
+  
+
+ This isn't a major concern as both methods are pretty fast on small strings, but I figured I'd mention it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20996004)
+ Use http://docs.python.org/2/library/itertools.html#itertools.groupby to group your values: 
+
+  from itertools import groupby
+
+listOut = []
+for value, group in groupby(listIn):
+    listOut.append(next(group))
+    for i in group:
+        listOut.append(i)
+        break
+  
+
+ or, for added efficiency, as a generator: 
+
+  from itertools import groupby
+
+def reduced(it):
+    for value, group in groupby(it):
+        yield next(group)
+        for i in group:
+            yield i
+            break
+  
+
+  
+
+  >>> listIn = [1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1]
+>>> list(reduced(listIn))
+[1, 1, 0, 0, 1, 0, 0, 1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13977590)
+ I would use http://docs.python.org/2/library/collections.html#collections.defaultdict for this: 
+
+  import collections
+
+L = [u'Bus04_00_00_IB_pts_Line', u'Bus04_00_00_OB_pts_Line', u'Bus15_00_00_IB_pts_Line', u'Bus15_00_00_OB_pts_Line']
+d = collections.defaultdict(list)
+for elem in L:
+    d[elem.split('_')[0]].append(elem)
+print(dict(d))
+  
+
+ This produces: 
+
+  {u'Bus04': [u'Bus04_00_00_IB_pts_Line', u'Bus04_00_00_OB_pts_Line'],
+ u'Bus15': [u'Bus15_00_00_IB_pts_Line', u'Bus15_00_00_OB_pts_Line']}
+  
+
+ Unlike some of the other solutions proposed thus far, this works irrespective of the order in which entries appear in the input list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38647993)
+ You can use https://docs.python.org/2/library/itertools.html#itertools.groupby on the  sorted  list: 
+
+  from itertools import groupby
+
+my_list=[["apple",5],["banana",6],["orange",6],["banana",9],["orange",3],["apple",111]]
+
+my_list2 = []
+for i, g in groupby(sorted(my_list), key=lambda x: x[0]):
+    my_list2.append([i, sum(v[1] for v in g)])
+
+print(my_list2)
+# [['apple', 116], ['banana', 15], ['orange', 9]]
+  
+
+ 
+
+ Speaking of SQL  Group By  and  pre-sorting : 
+
+ 
+   The operation of  groupby()  is similar to the uniq filter in Unix. It
+  generates a break or new  group  every time the value of the key
+  function changes (which is why it is usually necessary to have  sorted 
+  the data using the same key function). That behavior  differs  from
+  SQL’s GROUP BY which aggregates common elements regardless of their
+  input order. 
+ 
+
+    
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35075226)
+ I did it in two steps, too.  Move all the numbers left, removing any zeros.  Then iterate through the list of numbers combining 2 like numbers.  I used https://docs.python.org/2/library/itertools.html#itertools.groupby to make the iterating through like numbers easier. 
+
+  groupby  returns an iterator for each group of like numbers so: 
+
+  [2,2,0,0]
+  
+
+  
+
+  [(2, [2, 2]), (0, [0, 0])]
+  
+
+ It makes it easier to process each similar group as a separate chunk. 
+
+ For groups of similar numbers like  [2,2]  or  [2,2,2] , the output will always be a list of half the length and the items in the list will all be  2*n  (for odd length lists, there is an extra last element that will just be  n ). 
+
+  from itertools import groupby
+
+def merge(line):
+    cnt = len(line)
+    # Move all numbers left, removing zeros
+    line = [num for num in line if num != 0]
+    out = []
+    # Combine like numbers
+    for num, niter in groupby(line):
+        ncnt = len(list(niter))
+        out.extend([num * 2] * (ncnt // 2))
+        if ncnt % 2:
+            out.append(num)
+    # Right pad the list with zeros to the original line length
+    out.extend([0] * (cnt - len(out)))
+    return out
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13977585)
+ You can use http://docs.python.org/library/itertools.html#itertools.groupby with a custom key function such as  lambda x: x[0:5] . 
+
+ Here's a demo that gives you a static list (i.e. not just generators): 
+
+  >>> import itertools
+>>> lst = [u'Bus04_00_00_IB_pts_Line', u'Bus04_00_00_OB_pts_Line', u'Bus15_00_00_IB_pts_Line', u'Bus15_00_00_OB_pts_Line']
+>>> [(key, list(val)) for key, val in itertools.groupby(lst, lambda x: x[0:5])]
+Out[9]:
+[(u'Bus04', [u'Bus04_00_00_IB_pts_Line', u'Bus04_00_00_OB_pts_Line']),
+ (u'Bus15', [u'Bus15_00_00_IB_pts_Line', u'Bus15_00_00_OB_pts_Line'])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37554920)
+ Use a  Counter  like so: 
+
+  >>> from collections import Counter
+>>> l1=[2,2,2,5,5,7]
+>>> c = Counter(l1)
+>>> c.items()
+dict_items([(2, 3), (5, 2), (7, 1)])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37554875)
+ You can do this using https://docs.python.org/2/library/collections.html#counter-objects: 
+
+  from collections import Counter
+
+l1 = [2, 2, 2, 5, 5, 7]
+
+l1 = Counter(l1).items()
+  
+
+ The "key" is the list element, and the "value" is the occurrence count. 
+
+ For example: 
+
+  In [7]: from collections import Counter
+
+In [8]: l1=[2,2,2,5,5,7]
+
+In [9]: Counter(l1).keys()
+Out[9]: [2, 5, 7]
+
+In [10]: Counter(l1).values()
+Out[10]: [3, 2, 1]
+
+In [11]: zip(Counter(l1).keys(), Counter(l1).values())
+Out[11]: [(2, 3), (5, 2), (7, 1)]
+
+In [12]: Counter(l1).items()
+Out[12]: [(2, 3), (5, 2), (7, 1)]
+  
+
+
+

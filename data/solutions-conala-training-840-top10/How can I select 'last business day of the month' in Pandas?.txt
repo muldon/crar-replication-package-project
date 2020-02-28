@@ -1,0 +1,192 @@
+Query: How can I select 'last business day of the month' in Pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27218711)
+ You can generate a http://pandas.pydata.org/pandas-docs/dev/timeseries.html with the last business day of each month by passing in  freq='BM' .  
+
+ For example, to create a series of the last business days of 2014: 
+
+  >>> pd.date_range('1/1/2014', periods=12, freq='BM')
+[2014-01-31 00:00:00, ..., 2014-12-31 00:00:00]
+Length: 12, Freq: BM, Timezone: None
+  
+
+ You could then use this timeseries to subset/reindex your DataFrame. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30744330)
+ My strategy would be to group by month and then select the "maximum" of each group: 
+
+ If "dt" is your DatetimeIndex object: 
+
+  last_dates_of_the_month = []
+dt_month_group_dict = dt.groupby(dt.month)
+for month in dt_month_group_dict:
+    last_date = max(dt_month_group_dict[month])
+    last_dates_of_the_month.append(last_date)
+  
+
+ The list "last_date_of_the_month" contains all occuring last dates of each month in your dataset. You can use this list to create a DatetimeIndex in pandas again (or whatever you want to do with it). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41632142)
+ pd.Instead of generating the series, you can also parse the business month end from your datetime index as this: 
+
+  df['BMonthEnd'] = (df.index + pd.offsets.BMonthEnd(1)).day
+  
+
+ Though note this currently throws a harmless warning - see http://pandas.pydata.org/pandas-docs/stable/timeseries.html#using-offsets-with-series-datetimeindex 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30756085)
+ Condla's answer came closest to what I needed except that since my time index stretched for more than a year I needed to groupby by both month and year and then select the maximum date. Below is the code I ended up with. 
+
+  # tempTradeDays is the initial DatetimeIndex
+dateRange = []  
+tempYear = None  
+dictYears = tempTradeDays.groupby(tempTradeDays.year)
+for yr in dictYears.keys():
+    tempYear = pd.DatetimeIndex(dictYears[yr]).groupby(pd.DatetimeIndex(dictYears[yr]).month)
+    for m in tempYear.keys():
+        dateRange.append(max(tempYear[m]))
+dateRange = pd.DatetimeIndex(dateRange).order()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41104484)
+ Let's say you want to get the last business days of the month up-to the end of the next two years, the following will work. 
+
+     import pandas as pd
+   import datetime
+
+   start = datetime.date.today()
+   end = datetime.date(start.year+2, 12, 31)
+   bussiness_days_rng =pd.date_range(start, end, freq='BM')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38486598)
+ This uses the U.S. Federal Holiday calendar.  It uses a list comprehension to go through every first weekday of the month between the  start_date  and  end_date , and then increments the day if it falls on a U.S. Federal Holiday or on a weekend until a valid business date is found. 
+
+  import datetime as dt
+import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar
+
+cal = USFederalHolidayCalendar()
+start_date = '2015-1-1'
+end_date = '2015-12-31'
+
+def get_business_day(date):
+    while date.isoweekday() > 5 or date in cal.holidays():
+        date += dt.timedelta(days=1)
+    return date
+
+>>> first_bday_of_month = [get_business_day(d).date() 
+                           for d in pd.date_range(start_date, end_date, freq='BMS')]
+[datetime.date(2015, 1, 2),
+ datetime.date(2015, 2, 2),
+ datetime.date(2015, 3, 2),
+ datetime.date(2015, 4, 1),
+ datetime.date(2015, 5, 1),
+ datetime.date(2015, 6, 1),
+ datetime.date(2015, 7, 1),
+ datetime.date(2015, 8, 3),
+ datetime.date(2015, 9, 1),
+ datetime.date(2015, 10, 1),
+ datetime.date(2015, 11, 2),
+ datetime.date(2015, 12, 1)]
+
+>>> cal.rules
+cal.rules
+[Holiday: New Years Day (month=1, day=1, observance=<function nearest_workday at 0x10c593578>),
+ Holiday: Dr. Martin Luther King Jr. (month=1, day=1, offset=<DateOffset: kwds={'weekday': MO(+3)}>),
+ Holiday: Presidents Day (month=2, day=1, offset=<DateOffset: kwds={'weekday': MO(+3)}>),
+ Holiday: MemorialDay (month=5, day=31, offset=<DateOffset: kwds={'weekday': MO(-1)}>),
+ Holiday: July 4th (month=7, day=4, observance=<function nearest_workday at 0x10c593578>),
+ Holiday: Labor Day (month=9, day=1, offset=<DateOffset: kwds={'weekday': MO(+1)}>),
+ Holiday: Columbus Day (month=10, day=1, offset=<DateOffset: kwds={'weekday': MO(+2)}>),
+ Holiday: Veterans Day (month=11, day=11, observance=<function nearest_workday at 0x10c593578>),
+ Holiday: Thanksgiving (month=11, day=1, offset=<DateOffset: kwds={'weekday': TH(+4)}>),
+ Holiday: Christmas (month=12, day=25, observance=<function nearest_workday at 0x10c593578>)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38486737)
+ I think by this you can get first buisness date of the month using http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases: 
+
+  In[82]:pd.date_range('1/1/2000', '12/1/2000', freq='BMS')
+
+Out[82]: 
+DatetimeIndex(['2000-01-03', '2000-02-01', '2000-03-01', '2000-04-03',
+               '2000-05-01', '2000-06-01', '2000-07-03', '2000-08-01',
+               '2000-09-01', '2000-10-02', '2000-11-01', '2000-12-01'],
+              dtype='datetime64[ns]', freq='BMS', tz=None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50559402)
+ Use BDay() from pandas.tseries.offsets 
+
+  import pandas as pd
+from pandas.tseries.offsets import BDay 
+
+M=2
+N=4
+
+start_date = pd.datetime(2015,4,1)
+end_date = pd.datetime(2015,6,30)
+
+df = pd.DataFrame(list(range(91)), pd.date_range('2015-04-01', '2015-6-30'), columns=['foo']).resample('B').last()
+
+# for month starts
+marker_dates = pd.date_range(start=start_date, end=end_date, freq='BMS')
+
+# create IntervalIndex
+bins = pd.IntervalIndex.from_tuples([ (d + (M-1)*BDay(), d + (N-1)*BDay()) for d in marker_dates ], closed='both')
+
+df.groupby(pd.cut(df.index, bins)).mean()
+#[2015-04-02, 2015-04-06]   3.333333
+#[2015-05-04, 2015-05-06]  34.000000
+#[2015-06-02, 2015-06-04]  63.000000
+
+
+# any markers
+marker_dates = [df.index[12], df.index[33], df.index[57]]
+
+# M Bday before, and N Bday after 
+bins = pd.IntervalIndex.from_tuples([ (d - M*BDay(), d + N*BDay()) for d in marker_dates ], closed='both')
+
+df.groupby(pd.cut(df.index, bins)).mean()
+#[2015-04-15, 2015-04-23]  18.428571
+#[2015-05-14, 2015-05-22]  48.000000
+#[2015-06-17, 2015-06-25]  81.428571
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41701873)
+ You can add 0*BDay()  
+
+  from pandas.tseries.offsets import BDay
+df.index = df.index.map(lambda x : x + 0*BDay())
+  
+
+ You can also use this with a Holiday calendar with CDay(calendar) in case there are holidays. 
+
+
+

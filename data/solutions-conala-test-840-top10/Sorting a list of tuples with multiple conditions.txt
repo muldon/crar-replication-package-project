@@ -1,0 +1,263 @@
+Query: Sorting a list of tuples with multiple conditions
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14299473)
+ Sort the list by name first, then sort again by score difference.  Python's  sort  is stable, meaning it will preserve order of elements that compare equal. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19183195)
+ every element is a list of 2 elements, sorting by the length of the list is useless because all of them has the same length, maybe you want to sort by the length of the first element so 
+
+  finalresult = sorted(result, key=lambda word: (-word[1], len(word[0]), word[0]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14299498)
+ Have the  key  function return a tuple, with items in decreasing order of priority: 
+
+  table.sort(reverse=True, key=lambda team: (Team.getPoints(team),
+                                           Team.getGoalDifference(team),
+                                           Team.getName(team))
+  
+
+ Alternately, you could remember a factoid from algorithms 101, and make use of the fact  .sort()  is a  stable  sort, and thus doesn't change the relative order of items in a list if they compare as equal. This means you can sort three times, in increasing order of priority: 
+
+  table.sort(reverse=True, key=Team.getName)
+table.sort(reverse=True, key=Team.getGoalDifference)
+table.sort(reverse=True, key=Team.getPoints)
+  
+
+ This will be slower, but allows you to easily specify whether each step should be done in  reverse  or not. This can be done without multiple sorting passes using  cmp_to_key() , but the comparator function would be nontrivial, something like: 
+
+  def team_cmp(t1, t2):
+    for key_func, reverse in [(Team.getName, True),
+                              (Team.getGoalDifference, True),
+                              (Team.getPoints, True)]:
+        result = cmp(key_func(t1), key_func(t2))
+        if reverse: result = -result;
+        if result: return result
+    return 0
+
+table.sort(functools.cmp_to_key(team_cmp))
+  
+
+ (Disclaimer: the above is written from memory, untested.) Emphasis is on "without multiple passes", which does not necessarily imply "faster". The overhead from the comparator function and  cmp_to_key() , both of which are implemented in Python (as opposed to  list.sort()  and  operator.itemgetter() , which should be part of the C core) is likely to be significant. 
+
+ As an aside, you don't need to create dummy functions to pass to the  key  parameters. You can access the attribute directly, using: 
+
+  table.sort(key=lambda t: t.points)
+  
+
+ or the http://docs.python.org/2/library/operator.html#operator.attrgetter operator wrapper:  
+
+  table.sort(key=attrgetter('points'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50264704)
+ You can try sorting on  group , it will have  DCM  value first ( ascending by default ), then using  subset  and  keep  option in  drop_duplicates  method : 
+
+  df.sort_values('group').drop_duplicates(subset=['ID','date'], keep='last')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19643208)
+ You can sort using for key function that return collection as result 
+
+  list_.sort(key=lambda x: [x[0], len(x[1]), x[1]])
+  
+
+  key  parameter to specify a function to be called on each list element prior to making comparisons. 
+
+ If You use collection as  key  result then It will be sorted using first comparing first elements if they are equal then seconds ones will be compared and so on... 
+
+ P.S. As I understand It is not necessary to cast third item to numeric type because if the equal is the same then for binary values lexicographical and numeric ordering will give same result  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49750062)
+ Here is one way. This assumes you want to sort by the first element (decreasing) and second element (increasing). 
+
+  m = [(5,1),(3,7),(5,7),(6,2),(8,2),(3,6),(5,3),(8,2)]
+
+res = sorted(m, key=lambda x: (-x[0], x[1]))
+
+# [(8, 2), (8, 2), (6, 2), (5, 1), (5, 3), (5, 7), (3, 6), (3, 7)]
+  
+
+ This takes advantage of 2 properties: 
+
+ 
+  sorted  has a  key  argument, which accepts an anonymous  lambda  function. 
+ In Python, tuples and lists are sorted in element order. 
+ 
+
+ 
+
+ As a note, because sorting is stable, you can split this into 2 steps: 
+
+  res_intermediate = sorted(m, key=lambda x: x[1])
+res = sorted(res_intermediate, key=lambda x: x[0], reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19644158)
+ The right solution is to use a  key  function that returns a tuple, as shown in unutbu's answer. However there is an other way of doing it. Python's sort is guaranteed to be stable, so you can do multiple sorts by different keys and achieve the output you want.
+ 
+
+  list_.sort(key=lambda x: float(x[1]))
+list_.sort(key=lambda x: len(x[1]))
+list_.sort(key=lambda x: x[0])
+  
+
+  
+
+  In [1]: list_ = [(1, '0101'), (1, '1010'), (1, '101'), (2, '01'), (2, '010'), (2, '10')]
+
+In [2]: list_.sort(key=lambda x: float(x[1]))
+   ...: list_.sort(key=lambda x: len(x[1]))
+   ...: list_.sort(key=lambda x: x[0])
+   ...: 
+
+In [3]: list_
+Out[3]: [(1, '101'), (1, '0101'), (1, '1010'), (2, '01'), (2, '10'), (2, '010')]
+  
+
+  Note : this solution resembles the three steps you described in your question  but  the steps are reversed! Sort by the primary key  last  to get the correct output. 
+
+ Also keep in mind that the algorithm used for sorting is adaptive. this means that when a sequence is already partially sorted it can use the partial order to sort more efficiently(often in linear time instead of  nlog(n) ). When you sort by multiple keys you  often  achieve this partial order, hence the multiple calls to  sort()  do not cost much. However it highly depends on the keys and the data. Sometimes it is more efficient than using tuples as keys, sometimes it's quite slower. 
+
+ 
+
+ An example of timing. Note that the two solutions take mostly the same time. 
+
+  In [9]: list_
+Out[9]: [(1, '0101'), (1, '1010'), (1, '101'), (2, '01'), (2, '010'), (2, '10')]
+
+In [10]: list_ *= 1000   # better to avoid too small benchmarks.
+
+In [11]: %%timeit
+    ...: a = sorted(list_, key=lambda x: (x[0], len(x[1]), float(x[1])))
+    ...: 
+100 loops, best of 3: 6.04 ms per loop
+
+In [12]: %%timeit
+    ...: a = sorted(list_, key=lambda x: float(x[1]))
+    ...: a.sort(key=lambda x: len(x[1]))
+    ...: a.sort(key=lambda x: x[0])
+    ...: 
+100 loops, best of 3: 5.72 ms per loop
+In [13]: import random
+    ...: data = [(random.randint(1, 1000), bin(random.randint(1, 100))[2:]) for _ in range(10000)]
+    ...: 
+
+In [14]: %%timeit
+    ...: a = sorted(data, key=lambda x: (x[0], len(x[1]), float(x[1])))
+    ...: 
+100 loops, best of 3: 15.2 ms per loop
+
+In [15]: %%timeit
+    ...: a = sorted(data, key=lambda x: float(x[1]))
+    ...: a.sort(key=lambda x: len(x[1]))
+    ...: a.sort(key=lambda x: x[0])
+    ...: 
+100 loops, best of 3: 15.1 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11584812)
+ This should work just fine: 
+
+  lst.sort(key=lambda x:x[2], reverse=True)
+  
+
+ Of course, we can avoid the lambda by: 
+
+  import operator
+lst.sort(key=operater.itemgetter(2), reverse=True)
+  
+
+ If you want to sort on multiple conditions, you can create interesting functions to return tuples (tuples will sort by first index, then second, then third ...), or you can use the fact that python's sorts are guaranteed to be stable.  So, if you want your list to be sorted primarily by weight and then by node name, you just sort first by node name and then by weight.  (the backwards order is a little counter intuitive). 
+
+ If I understand your question (after a re-read and seeing some of the comments here) you're sort can be done as follows: 
+
+  lst.sort(key=lambda x: (-x[2],x[0])) #relying on tuples
+  
+
+ This sorts primarily by weight (high numbers first) and then by node1 alphabetically for objects with the same weight. 
+
+ Note that this only works if you can negate  x[2]  to make high numbers appear first in the sort  (it wouldn't work for strings for example).  A more reliable way to accomplish the same thing (although less efficient?)  
+
+  lst.sort(key=lambda x: x[0])
+lst.sort(key=lambda x: x[2], reversed=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11602029)
+ How about this:  zip  into a list of tuples, sort the list of tuples, then "unzip"? 
+
+  l = zip(filename, human_rating, ...)
+l.sort()
+# 'unzip'
+filename, human_rating ... = zip(*l)
+  
+
+  
+
+  filename, human_rating, ... = zip(*sorted(zip(filename, human_rating, ...)))
+  
+
+  
+
+  foo = ["c", "b", "a"]
+bar = [1, 2, 3]
+foo, bar = zip(*sorted(zip(foo, bar)))
+print foo, "|", bar # prints ('a', 'b', 'c') | (3, 2, 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/19643145)
+ The key function can return a tuple.  
+
+  sorted_by_length = sorted(list_,
+                         key=lambda x: (x[0], len(x[1]), float(x[1])))
+  
+
+ This works because tuples are sorted lexicographically: (the first element of the tuple is used for sorting first, then the second element is used for breaking ties, and then the third element is used for breaking any remaining ties.) 
+
+ See the excellent http://wiki.python.org/moin/HowTo/Sorting/ for an explanation of this and other issues related to sorting. 
+
+ 
+
+  In [1]: list_ = [(1, '0101'), (1, '1010'), (1, '101'), (2, '01'), (2, '010'), (2, '10')]
+
+In [2]: sorted_by_length = sorted(list_,
+                         key=lambda x: (x[0], len(x[1]), float(x[1])))
+   ...: 
+In [3]: sorted_by_length
+Out[3]: [(1, '101'), (1, '0101'), (1, '1010'), (2, '01'), (2, '10'), (2, '010')]
+  
+
+ 
+
+ If the second element of each tuple is the string representation of an  int  in  binary, then use  int(x, 2)  instead of  float(x)  in the sort key. If they are intended to be the decimal representation of an integer, then use  int(x) . 
+
+
+

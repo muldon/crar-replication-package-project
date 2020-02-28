@@ -1,0 +1,153 @@
+Query: How do I get all the keys that are stored in the Cassandra column family with pycassa?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2540908)
+   
+
+      list(cf.get_range().get_keys())
+  
+
+ more good stuff here: http://github.com/vomjom/pycassa 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12896327)
+ You can try:  cf.get_range(column_count=0,filter_empty=False) .  
+
+  # Since get_range() returns a generator - print only the keys.
+for value in cf.get_range(column_count=0,filter_empty=False):
+    print value[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5345342)
+  get_range([start][, finish][, columns][, column_start][, column_finish][, column_reversed][, column_count][, row_count][, include_timestamp][, super_column][, read_consistency_level][, buffer_size])  
+
+ 
+   Get an iterator over rows in a
+  specified key range. 
+ 
+
+ http://pycassa.github.com/pycassa/api/pycassa/columnfamily.html#pycassa.columnfamily.ColumnFamily.get_range 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17861471)
+  
+
+  dict(cf.get_range(column_count=0,filter_empty=False)).keys()
+  
+
+ If you care about order: 
+
+  OrderedDict(cf.get_range(column_count=0,filter_empty=False)).keys()
+  
+
+ get_range returns a generator.  We can create a dict from the generator and get the keys from that. 
+
+ column_count=0 limits results to the row_key.  However, because these results have no columns we also need filter_empty. 
+
+ filter_empty=False will allow us to get the results.  However empty rows and range ghosts may be included in our result now. 
+
+ If we don't mind more overhead, getting just the first column will resolve the empty rows and range ghosts. 
+
+  dict(cf.get_range(column_count=1)).keys()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8219709)
+ As far as I know, there is no way to get a row count for a column family. You have to perform a range query over the whole column family instead. 
+
+ If  cf  is your column family, something like this should work: 
+
+  
+num_rows = len(list(cf.get_range()))
+  
+
+ However, the http://pycassa.github.com/pycassa/api/pycassa/columnfamily.html#pycassa.columnfamily.ColumnFamily.get_range indicates that this might cause issues if you have too many rows. You might have to do it in chunks, using  start  and  row_count . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8716041)
+ You must ensure your column family schema accepts UUID as key. Your code will work with a column family created as (using cassandra-cli): 
+
+  create column family MyColumnFamily
+  with column_type = 'Standard'
+  and comparator = 'AsciiType'
+  and default_validation_class = 'BytesType'
+  and key_validation_class = 'TimeUUIDType';
+  
+
+ To add values to this CF: 
+
+  import pycassa
+pool = pycassa.ConnectionPool('Keyspace1')
+cf = pycassa.ColumnFamily(pool, 'MyColumnFamily')
+cf.insert(uuid.uuid1(), {'column1': 'val1'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14229396)
+ Column families created with CQL3 cannot use the Thrift API which pycassa uses. 
+
+ You can http://www.datastax.com/dev/blog/thrift-to-cql3 if you have more questions. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12446208)
+ Make sure your values match your column family type. It appears your column family either is a BytesType or has no type associated with it, so pycassa will only accept string values. You can map all your values to  str  with a list comprehension with a nested dict comprehension (the latter requires python 2.7 and up): 
+
+  cf.insert(uuid.uuid4(), [{k: str(v) for k, v in d.iteritems()} for d in x])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42424505)
+ You can use https://stackoverflow.com/a/41484806/5741205: 
+
+  import pandas as pd
+from cassandra.cluster import Cluster
+
+def pandas_factory(colnames, rows):
+    return pd.DataFrame(rows, columns=colnames)
+
+CASSANDRA_HOST = ['172.16.X.Y','172.16.X1.Y1'] 
+CASSANDRA_PORT = 9042
+CASSANDRA_DB = "KEYSPACE"
+CASSANDRA_TABLE = "COLUMNFAMILY"
+
+cluster = Cluster(contact_points=CASSANDRA_HOST, port=CASSANDRA_PORT)
+session = cluster.connect(CASSANDRA_DB)
+
+session.row_factory = pandas_factory
+session.default_fetch_size = None
+
+query = "SELECT * FROM {}.{};".format(CASSANDRA_DB, CASSANDRA_TABLE)
+
+rslt = session.execute(query, timeout=None)
+df = rslt._current_rows
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26191460)
+ Use http://datastax.github.io/python-driver/getting_started.html#passing-parameters-to-cql-queries instead of string interpolation: 
+
+  cql = "Insert into table_name (my_key, name, my_dict) values (%s, %s, %s)"
+session.execute(cql,  (my_key, name, my_dict))
+  
+
+
+

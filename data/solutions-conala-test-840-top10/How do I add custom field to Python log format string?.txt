@@ -1,0 +1,406 @@
+Query: How do I add custom field to Python log format string?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17558764)
+ You could use a http://docs.python.org/2/library/logging.html#loggeradapter-objects so you don't have to pass the extra info with every logging call: 
+
+  import logging
+extra = {'app_name':'Super App'}
+
+logger = logging.getLogger(__name__)
+syslog = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(app_name)s : %(message)s')
+syslog.setFormatter(formatter)
+logger.setLevel(logging.INFO)
+logger.addHandler(syslog)
+
+logger = logging.LoggerAdapter(logger, extra)
+logger.info('The sky is so blue')
+  
+
+  
+
+  2013-07-09 17:39:33,596 Super App : The sky is so blue
+  
+
+ 
+
+ http://docs.python.org/2/howto/logging-cookbook.html#using-filters-to-impart-contextual-information can also be used to add contextual information. 
+
+  import logging
+
+class AppFilter(logging.Filter):
+    def filter(self, record):
+        record.app_name = 'Super App'
+        return True
+
+logger = logging.getLogger(__name__)
+logger.addFilter(AppFilter())
+syslog = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(app_name)s : %(message)s')
+syslog.setFormatter(formatter)
+logger.setLevel(logging.INFO)
+logger.addHandler(syslog)
+
+logger.info('The sky is so blue')
+  
+
+ produces a similar log record. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17558757)
+ You need to pass the dict as a parameter to extra to do it that way. 
+
+  logging.info('Log message', extra={'app_name': 'myapp'})
+  
+
+  
+
+  >>> import logging
+>>> logging.basicConfig(format="%(foo)s - %(message)s")
+>>> logging.warning('test', extra={'foo': 'bar'})
+bar - test 
+  
+
+ Also, as a note, if you try to log a message without passing the dict, then it will fail. 
+
+  >>> logging.warning('test')
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/logging/__init__.py", line 846, in emit
+    msg = self.format(record)
+  File "/usr/lib/python2.7/logging/__init__.py", line 723, in format
+    return fmt.format(record)
+  File "/usr/lib/python2.7/logging/__init__.py", line 467, in format
+    s = self._fmt % record.__dict__
+KeyError: 'foo'
+Logged from file <stdin>, line 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50613846)
+ Another way is to create a custom LoggerAdapter. This is particularly useful when you can't change the format OR if your format is shared with code that does not send the unique key (in your case  app_name ): 
+
+  class LoggerAdapter(logging.LoggerAdapter):
+    def __init__(self, logger, prefix):
+        super(LoggerAdapter, self).__init__(logger, {})
+        self.prefix = prefix
+
+    def process(self, msg, kwargs):
+        return '[%s] %s' % (self.prefix, msg), kwargs
+  
+
+ And in your code, you would create and initialize your logger as usual: 
+
+      logger = logging.getLogger(__name__)
+    # Add any custom handlers, formatters for this logger
+    myHandler = logging.StreamHandler()
+    myFormatter = logging.Formatter('%(asctime)s %(message)s')
+    myHandler.setFormatter(myFormatter)
+    logger.addHandler(myHandler)
+    logger.setLevel(logging.INFO)
+  
+
+ Finally, you would create the wrapper adapter to add a prefix as needed: 
+
+      logger = LoggerAdapter(logger, 'myapp')
+    logger.info('The world bores you when you are cool.')
+  
+
+ The output will look something like this: 
+
+  2013-07-09 17:39:33,596 [myapp] The world bores you when you are cool.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40620069)
+ Your solution doesn't work, because when you call  '%(asctime)s - %(name)s - %(levelname)s - {0} - %(message)s'.format(log_status) , a new string is created and passed to the  Formatter  and  log_status  is never used again. You would need a custom  Formatter  that creates the format string dynamically. 
+
+ But see how is this problem solved in Python official docs: https://docs.python.org/3/howto/logging-cookbook.html#adding-contextual-information-to-your-logging-output - see the example with custom  logging.Filter . 
+
+  import logging
+from random import choice
+
+class ContextFilter(logging.Filter):
+    """
+    This is a filter which injects contextual information into the log.
+
+    Rather than use actual contextual information, we just use random
+    data in this demo.
+    """
+
+    USERS = ['jim', 'fred', 'sheila']
+    IPS = ['123.231.231.123', '127.0.0.1', '192.168.0.1']
+
+    def filter(self, record):
+
+        record.ip = choice(ContextFilter.IPS)
+        record.user = choice(ContextFilter.USERS)
+        return True
+
+if __name__ == '__main__':
+    levels = (logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL)
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)-15s %(name)-5s %(levelname)-8s IP: %(ip)-15s User: %(user)-8s %(message)s')
+    a1 = logging.getLogger('a.b.c')
+    a2 = logging.getLogger('d.e.f')
+
+    f = ContextFilter()
+    a1.addFilter(f)
+    a2.addFilter(f)
+    a1.debug('A debug message')
+    a1.info('An info message with %s', 'some parameters')
+    for x in range(10):
+        lvl = choice(levels)
+        lvlname = logging.getLevelName(lvl)
+        a2.log(lvl, 'A message at %s level with %d %s', lvlname, 2, 'parameters')
+  
+
+ Output: 
+
+  2010-09-06 22:38:15,292 a.b.c DEBUG    IP: 123.231.231.123 User: fred     A debug message
+2010-09-06 22:38:15,300 a.b.c INFO     IP: 192.168.0.1     User: sheila   An info message with some parameters
+2010-09-06 22:38:15,300 d.e.f CRITICAL IP: 127.0.0.1       User: sheila   A message at CRITICAL level with 2 parameters
+2010-09-06 22:38:15,300 d.e.f ERROR    IP: 127.0.0.1       User: jim      A message at ERROR level with 2 parameters
+...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18796197)
+ Use a  unicode  format string (recommended): 
+
+  result = u" '{0}' is unicode or something: ".format(mongdb['field'])
+  
+
+ Or encode the field: 
+
+  result = " '{0}' is unicode or something: ".format(mongdb['field'].encode('utf-8'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19864787)
+ You can create a custom formatter for html templates: 
+
+  import string, cgi
+
+class Template(string.Formatter):
+    def format_field(self, value, spec):
+        if spec.endswith('h'):
+            value = cgi.escape(value)
+            spec = spec[:-1] + 's'
+        return super(Template, self).format_field(value, spec)
+
+print Template().format('{0:h} {1:d}', "<hello>", 123)
+  
+
+ Note that unlike the Martijn's answer, all conversion takes place inside the template class, no change of input data is required. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30808875)
+ You could define http://docs.python.org/howto/logging-cookbook.html#using-filters-to-impart-contextual-information which injects a value for  record.user_id . Done this way, you can define a format which includes  %(user_id)s  just like other (standard) record attributes: 
+
+  format='%(asctime)-15s %(name)-5s %(levelname)-8s user_id %(user_id)-15s: %(message)s')
+  
+
+ and then all logging calls will automatically add the  user_id  value. 
+
+ 
+
+  import logging
+
+class UserIDFilter(logging.Filter):
+    """
+    This is a filter which injects contextual information into the log.
+    """
+    from myapp.core import authenticationManager
+
+    def filter(self, record):
+        user_id = authenticationManager.current_user_id_if_authenticated()
+        user_id = "unknown" if user_id is None else str(user_id)
+        record.user_id = user_id
+        return True
+
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)-15s %(name)-5s %(levelname)-8s user_id %(user_id)-15s: %(message)s')
+
+logger = logging.getLogger(__name__)
+filt = UserIDFilter()
+logger.addFilter(filt)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26020894)
+ Add your logger to WSGI application loggers, from http://flask.pocoo.org/docs/0.10/errorhandling/#logging-to-a-file: 
+
+  if not app.debug:
+    import logging
+    from themodule import TheHandlerYouWant
+    file_handler = TheHandlerYouWant(...)
+    file_handler.setLevel(logging.WARNING)
+    app.logger.addHandler(file_handler)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53070005)
+ The "log" methods of  Logger  class (debug, info, warning, ...) can take an  extra  argument who is a dictionary which can be used as custom attributes. The https://docs.python.org/2/library/logging.html#logging.Logger.debug says: 
+
+ 
+   The second keyword argument is  extra  which can be used to pass a
+  dictionary which is used to populate the __dict__ of the LogRecord
+  created for the logging event with user-defined attributes. These
+  custom attributes can then be used as you like. For example, they
+  could be incorporated into logged messages. 
+ 
+
+ In your example, we have to add a new information in  format  attribute: 
+
+  logging.basicConfig(
+    format="%(asctime)s [%(threadName)s %(threadInfo)s] [%(levelname)s]  %(message)s",
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("{0}/{1}.log".format(logPath, fileName)),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+  
+
+ And we can call a log method like this: 
+
+  logging.info("Foo bar baz", extra={'threadInfo': 'SOME INFO'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27782157)
+  Via Flask.debug_log_format  
+
+ Just do this: 
+
+  app.debug = True
+app.debug_log_format = """-------------------------------------------------------------------------
+%(worker_id)s (levelname)s in %(module)s [%(pathname)s:%(lineno)d]:\n%(message)s
+-------------------------------------------------------------------------"""
+app.logger.log("test", extra={"worker_id": request.your_uuid_property)
+  
+
+ Example: 
+
+  import logging
+from flask import Flask, request
+app = Flask(__name__)
+
+# please replace "request.uuid" with your actual property
+log = lambda msg: app.logger.info(msg, extra={'worker_id': "request.uuid" })
+
+@app.route("/")
+def hello():
+    log("hello world")
+    return "Hello World!"
+
+if __name__ == "__main__":
+    app.debug_log_format = """-------------------------------------------------------------------------
+    %(worker_id)s in %(module)s [%(pathname)s:%(lineno)d]:
+    %(message)s
+    -------------------------------------------------------------------------"""
+    app.debug = True
+    log("hello world")
+    app.run()
+  
+
+  Via Handler and Formatter of standard logging module  
+
+ Flask uses logging any way, so you can use https://docs.python.org/2/howto/logging.html#handlers and https://docs.python.org/2/howto/logging.html#formatters to achieve outside Flask. A generic example can be found https://docs.python.org/2/howto/logging.html#configuring-logging. Advanced topic of logging configuration can be found in https://docs.python.org/2/library/logging.config.html#module-logging.config and in the https://docs.python.org/2/howto/logging-cookbook.html 
+
+ A tailored example regarding your question is: 
+
+  import logging
+from flask import Flask
+app = Flask(__name__)
+
+class CustomFormatter(logging.Formatter):
+    def format(self, record):
+        record.worker_id = "request.uuid" # replace this with your variable 
+        return super(CustomFormatter,self).format(record)
+
+@app.route("/")
+def hello():
+    app.logger.info("hello world")
+    return "Hello World!"
+
+if __name__ == "__main__":
+    custom_format = """-------------------------------------------------------------------------
+    %(worker_id)s in %(module)s [%(pathname)s:%(lineno)d]:
+    %(message)s
+    -------------------------------------------------------------------------"""
+    app.debug = True
+    ch = logging.StreamHandler()
+    ch.setFormatter(CustomFormatter(fmt=custom_format))
+    app.logger.addHandler(ch)
+    app.logger.debug("hello world")
+    app.run()
+  
+
+  Via overriding logging.Logger class  
+
+ The same objective can be achieved by override the default logger class. Combining the https://github.com/mitsuhiko/flask-extended-logging, you would be able to get your own field in the log: 
+
+  import logging
+from flask import Flask
+app = Flask(__name__)
+from flask import _request_ctx_stack
+
+CUSTOM_FORMAT = """-------------------------------------------------------------------------
+%(worker_id)s in %(module)s [%(pathname)s:%(lineno)d]:
+%(message)s
+-------------------------------------------------------------------------"""
+
+class MyLogger(logging.Logger):
+    def makeRecord(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None):
+        ctx = _request_ctx_stack.top
+        custom_extra = dict(
+            worker_id="request.uuid"
+        )
+        if ctx is not None:
+            url = ctx.request.url # please replace this with your own field
+            custom_extra["worker_id"] = url
+
+        if extra is not None:
+            extra.update(custom_extra)
+        else:
+            extra = custom_extra
+        return super(MyLogger,self).makeRecord(name, level, fn, lno, msg, args, exc_info, func=func, extra=extra)
+
+logging.setLoggerClass(MyLogger)
+
+@app.route("/")
+def hello():
+    app.logger.info("hello world")
+    return "Hello World!"
+
+if __name__ == "__main__":
+    app.debug_log_format = CUSTOM_FORMAT
+    app.debug = True
+    app.logger.debug("hello world")
+    app.run()
+  
+
+
+

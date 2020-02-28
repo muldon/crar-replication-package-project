@@ -1,0 +1,247 @@
+Query: Merge DataFrames in Pandas using the mean
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/45588690)
+ I think you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html + http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html and aggregate http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.mean.html: 
+
+  df = pd.concat([df1, df2]).groupby('time', as_index=False).mean()
+print (df)
+   time      x    y      z
+0     1  1.250  2.5  0.750
+1     2  1.750  2.5  2.375
+2     3  2.250  2.5  2.125
+3     4  2.125  2.5  1.875
+4     5  2.000  2.5  2.125
+5     6  2.250  2.5  2.250
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50312024)
+ You can using  concat  and  groupby  axis =1  
+
+  s=pd.concat([df1,df2],axis=1)
+s.groupby(s.columns.values,axis=1).mean()
+Out[116]: 
+    C1   C2   C3   C4   C5
+0  0.5  0.0  0.0  1.0  1.0
+1  0.5  0.0  0.0  1.0  1.0
+  
+
+ A nice alternative from  @cᴏʟᴅsᴘᴇᴇᴅ 
+
+  s.groupby(level=0,axis=1).mean()
+Out[117]: 
+    C1   C2   C3   C4   C5
+0  0.5  0.0  0.0  1.0  1.0
+1  0.5  0.0  0.0  1.0  1.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50312026)
+  DataFrame.add  
+
+  df3 = df2.add(df1, fill_value=0)
+df3[df1.columns.intersection(df2.columns)] /= 2
+
+    C1   C2   C3   C4   C5
+0  0.5  0.0  0.0  1.0  1.0
+1  0.5  0.0  0.0  1.0  1.0
+  
+
+ 
+
+  concat  +  groupby  
+
+  pd.concat([df1, df2], axis=1).groupby(axis=1, level=0).mean()
+    C1   C2   C3   C4   C5
+0  0.5  0.0  0.0  1.0  1.0
+1  0.5  0.0  0.0  1.0  1.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37894694)
+ Use  pd.merge()  
+
+  >>> pd.merge(dataframe1, dataframe2, on='company', how='outer')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38542786)
+ It depends what you mean by  
+
+ 
+   rows in df-1 which is same as df-2. 
+ 
+
+ since the columns are not identical.  
+
+ If you mean rows that have the same value for the intersection of columns, you can perform an http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.merge.html: 
+
+  In [13]: pd.merge(df1, df2, how='inner')
+Out[13]: 
+  company region    name  preTestScore   status
+0   comp1    2nd   Alice            31    great
+1   comp1    2nd  Mathew             2  average
+2   comp2    1st    Mark             3  average
+3   comp2    1st   Jacon             4  average
+4   comp2    2nd    Ryan            24     good
+5   comp2    2nd    Sone            31    great
+6   comp3    1st   Steve             2  average
+7   comp3    1st   Rooke             3  average
+8   comp3    2nd    Rani             2  average
+  
+
+  Edit  
+
+ If you'd like greater control for the join columns, you can use the  on , or  left_on  and  right_on  parameters of the  merge  function. If you don't, pandas will assume you mean the intersection of columns of the two dataframes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19490228)
+  In [22]: pd.merge(df1, df2, left_index=True, right_index=True, how='outer').mean(axis=1)
+Out[23]: 
+a    1
+b    3
+c    4
+d    6
+dtype: float64
+  
+
+ 
+
+ Regarding Roman's question, I find http://ipython.org/'s  %timeit  command a convenient way to benchmark code: 
+
+  In [28]: %timeit df3 = pd.concat((df1, df2)); df3.groupby(df3.index).mean()
+1000 loops, best of 3: 617 µs per loop
+
+In [29]: %timeit pd.merge(df1, df2, left_index=True, right_index=True, how='outer').mean(axis=1)
+1000 loops, best of 3: 577 µs per loop
+
+In [39]: %timeit pd.concat((df1, df2), axis=1).mean(axis=1)
+1000 loops, best of 3: 524 µs per loop
+  
+
+ In this case,  pd.concat(...).mean(...)  turns out to be a bit faster. But really we should test bigger dataframes to get a more meaningful benchmark. 
+
+ By the way, if you do not want to install IPython, equivalent benchmarks can be run using http://docs.python.org/2/library/timeit.html. It just takes a bit more setup. The http://docs.python.org/2/library/timeit.html#examples showing how to do this. 
+
+ 
+
+ Note that if  df1  or  df2  were to have duplicate entries in its index, for example like this: 
+
+  N = 1000
+df1 = pd.DataFrame([1,2,3]*N, columns=['col'], index=['a','b','c']*N)
+df2 = pd.DataFrame([4,5,6]*N, columns=['col'], index=['b','c','d']*N)
+  
+
+ then these three answers give different results: 
+
+  In [56]: df3 = pd.concat((df1, df2)); df3.groupby(df3.index).mean()
+Out[56]: 
+   col
+a    1
+b    3
+c    4
+d    6
+  
+
+  pd.merge  probably does not give the kind of answer you want: 
+
+  In [58]: len(pd.merge(df1, df2, left_index=True, right_index=True, how='outer').mean(axis=1))
+Out[58]: 2002000
+  
+
+ While  pd.concat((df1, df2), axis=1)  raises a ValueError: 
+
+  In [48]: pd.concat((df1, df2), axis=1)
+ValueError: cannot reindex from a duplicate axis
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51622450)
+ You can try this, filter your dataframe first, then groupy with mean, and join back to original dataframe on 'Trace' (which is the common column name between the dataframes are  reset_index  on results of groupby): 
+
+  df[df['Sample'].isin([3,4,5])].groupby('Trace')['Value'].mean()\
+                              .rename('Avg Value').reset_index().merge(df)
+  
+
+ Output: 
+
+     Trace  Avg Value  Sample  Value
+0      1          4       1      2
+1      1          4       2      3
+2      1          4       3      5
+3      1          4       4      6
+4      1          4       5      1
+5      2          4       1      8
+6      2          4       2      9
+7      2          4       3      5
+8      2          4       4      4
+9      2          4       5      3
+  
+
+  
+
+  df.groupby('Trace')\
+  .apply(lambda x: x.loc[x['Sample'].isin([3,4,5]),'Value'].mean())\
+  .rename('Avg Value').reset_index().merge(df)
+  
+
+ Output: 
+
+     Trace  Avg Value  Sample  Value
+0      1        4.0       1      2
+1      1        4.0       2      3
+2      1        4.0       3      5
+3      1        4.0       4      6
+4      1        4.0       5      1
+5      2        4.0       1      8
+6      2        4.0       2      9
+7      2        4.0       3      5
+8      2        4.0       4      4
+9      2        4.0       5      3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39302777)
+ I think  pandas.merge()  is the function you are looking for. Like  pd.merge(df_sum, df_mean, on = "keys") . Besides, this result can also be summarized on one  agg  function as following: 
+
+  df.groupby('keys')['values'].agg(['sum', 'mean']).reset_index()
+#  keys sum mean
+#0    1   1  1.0
+#1    2   5  2.5
+#2    3  22  5.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39302752)
+ There are several ways to do this.  Using the  merge  function off the dataframe is the most efficient. 
+
+  df_both = df_sum.merge(df_mean, how='left', on='keys')
+
+df_both
+
+Out[1]:
+   keys  sums  means
+0     1     1    1.0
+1     2     5    2.5
+2     3    22    5.5
+  
+
+
+

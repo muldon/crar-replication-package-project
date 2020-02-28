@@ -1,0 +1,187 @@
+Query: How do I parse a text string into date and time?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39034181)
+ Your code is using  LocalDate  which only parses a date - not a date and time so you are getting an error when the parse finds the space after the date. 
+
+ So you should be using  LocalDateTime  but  LocalDateTime.parse(String)  expects an ISO format date which is not the format you are using. 
+
+ So you need to use a  DateTimeFormatter  to specify the format of your input string.  
+
+  DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSX");
+LocalDateTime result = LocalDateTime.parse(convertDate, format);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19247642)
+ Try with following code 
+
+  public static Calendar parseDate(String dateTimeStr)
+            throws ParseException {
+        Calendar calendar = GregorianCalendar.getInstance();
+        String s = dateTimeStr.replace("Z", "+00:00");
+        try {
+            s = s.substring(0, 22) + s.substring(23);
+        } catch (IndexOutOfBoundsException e) {
+            throw new ParseException("Invalid length", 0);
+        }
+        Date date = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").parse(s);
+        calendar.setTime(date);
+        return calendar;
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25524508)
+ This works:        
+
+    public static void main(String[] args) throws Exception {
+   String s = "01:19 PM";
+   Date time = null;
+   DateFormat parseFormat = new SimpleDateFormat("hh:mm a", Locale.ENGLISH);
+   System.out.println(time = parseFormat.parse(s));
+  }
+  
+
+  
+
+    Thu Jan 01 13:19:00 KST 1970
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44925931)
+ The following code works. The problem is you are using "JAN" instead of "Jan".
+DateTimeFormatter does not recognize that it seems. and also change the pattern to 
+"d-MMM-yyyy". 
+
+    String date1 ="01-Jan-2017";
+  String date2 = "02-Feb-2017";
+
+  DateTimeFormatter df = DateTimeFormatter.ofPattern("d-MMM-yyyy");
+  LocalDate  d1 = LocalDate.parse(date1, df);
+  LocalDate  d2 = LocalDate.parse(date2, df);
+
+  Long datediff = ChronoUnit.DAYS.between(d1,d2);  
+  
+
+ Source: https://www.mkyong.com/java8/java-8-how-to-convert-string-to-localdate/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48818457)
+  
+
+  String text = "2020-01-01T01:01:11.123Z";
+LocalDateTime date = ZonedDateTime.parse(text)
+                                  .toLocalDateTime();
+  
+
+ To get rid of the milliseconds information, do: 
+
+  LocalDateTime date = ZonedDateTime.parse(text)
+                                  .truncatedTo(ChronoUnit.SECONDS)
+                                  .toLocalDateTime();
+  
+
+ You can also use  OffsetDateTime  in place of  ZonedDateTime . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35878647)
+ You need to use a formatter to parse single character day/month fields for  java.time.LocalDate  
+
+  DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-M-d");
+LocalDate date = LocalDate.parse("2016-2-2", formatter);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18180591)
+ Use java.text.SimpleDateFormat, it throws ParseException. 
+
+  SimpleDateFormat format=new SimpleDateFormat("yyyy-MM-dd");               
+try {
+  Date d= format.parse("1990-10-");
+} catch (ParseException e) {
+ ...
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34700080)
+ As @JB Nizet suggested, the following works 
+
+  LocalDate localDate = LocalDate.parse("2011-11-30", DateTimeFormatter.ISO_LOCAL_DATE);
+LocalDateTime localDateTime = localDate.atTime(23, 59, 59);
+System.out.println(localDateTime); // 2011-11-30T23:59:59
+  
+
+ 
+   How can I parse a date like 2011-11-30 to a LocalDateTime (with a default time)? 
+ 
+
+ 
+ Parse it first in a  LocalDate  
+ Use  LocalDateTime   atTime()  method to set your default time 
+ 
+
+ Note: Use of  DateTimeFormatter.ISO_LOCAL_DATE  is superfluous for  parse() , see https://docs.oracle.com/javase/8/docs/api/java/time/LocalDate.html#parse-java.lang.CharSequence-  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46413057)
+ It's a bug: https://bugs.openjdk.java.net/browse/JDK-8031085 
+
+ The link above also provides the workaround: using a  java.time.format.DateTimeFormatterBuilder  with a  java.time.temporal.ChronoField  for the milliseconds field: 
+
+  String text = "20170925142051591";
+DateTimeFormatter formatter = new DateTimeFormatterBuilder()
+    // date/time
+    .appendPattern("yyyyMMddHHmmss")
+    // milliseconds
+    .appendValue(ChronoField.MILLI_OF_SECOND, 3)
+    // create formatter
+    .toFormatter();
+// now it works
+formatter.parse(text);
+  
+
+ Unfortunately, there seems to be no way to parse this using only  DateTimeFormatter.ofPattern(String) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39134135)
+ You are calling the following method. 
+
+  public static OffsetDateTime parse(CharSequence text) {
+    return parse(text, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+}
+  
+
+ It uses uses  DateTimeFormatter.ISO_OFFSET_DATE_TIME  as  DateTimeFormatter  which, as stated in the https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#ISO_OFFSET_DATE_TIME, does the following: 
+
+ 
+   The ISO date-time formatter that formats or parses a date-time with an offset, such as '2011-12-03T10:15:30+01:00'. 
+ 
+
+ If you want to parse a date with a different format as in  2016-08-24T18:38:05.507+0000  you should use  OffsetDateTime#parse(CharSequence, DateTimeFormatter) . The following code should solve your problem: 
+
+  DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+OffsetDateTime.parse("2016-08-24T18:38:05.507+0000", formatter);
+  
+
+
+

@@ -1,0 +1,358 @@
+Query: How to split 1D array into 2D array in NumPy by splitting the array at the last element?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42098518)
+ Use https://docs.scipy.org/doc/numpy/reference/generated/numpy.split.html - 
+
+  np.split(a,[-1])
+  
+
+  
+
+  In [105]: a
+Out[105]: array([1, 2, 3, 4, 5, 6, 7])
+
+In [106]: np.split(a,[-1])
+Out[106]: [array([1, 2, 3, 4, 5, 6]), array([7])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11767192)
+ The 1d case can be done like this 
+
+  >>> A = np.array([0.1, 3.5, 6.5, 7.9, 11.4, 12.0, 22.3, 24.5, 26.7, 29.9])
+>>> split_at = A.searchsorted([10, 20])
+>>> B = numpy.split(A, split_at)
+  
+
+ This also works in 2d, if I understood your question correctly, for example: 
+
+  >>> A = array([[  0.1,   0. ],
+               [  3.5,   1. ],
+               [  6.5,   2. ],
+               [  7.9,   3. ],
+               [ 11.4,   4. ],
+               [ 12. ,   5. ],
+               [ 22.3,   6. ],
+               [ 24.5,   7. ],
+               [ 26.7,   8. ],
+               [ 29.9,   9. ]])
+>>> split_at = A[:, 0].searchsorted([10, 20])
+>>> B = numpy.split(A, split_at)
+>>> B
+[array([[ 0.1,  0. ],
+       [ 3.5,  1. ],
+       [ 6.5,  2. ],
+       [ 7.9,  3. ]]),
+ array([[ 11.4,   4. ],
+       [ 12. ,   5. ]]),
+ array([[ 22.3,   6. ],
+       [ 24.5,   7. ],
+       [ 26.7,   8. ],
+       [ 29.9,   9. ]])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35181688)
+ I think you want  numpy.unravel_index  
+
+  In [3]: import numpy as np
+In [4]: p = np.array([ 1,2,3,4,5,6,7,8,9,10,11,12])
+
+In [5]: p_reshape = p.reshape(4,3)
+
+In [6]: p_reshape
+Out[6]:
+array([[ 1,  2,  3],
+       [ 4,  5,  6],
+       [ 7,  8,  9],
+       [10, 11, 12]])
+
+In [7]: np.unravel_index(5, p_reshape.shape)
+Out[7]: (1, 2)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40773677)
+ If I reshape it to a 9x3 array, then a simple  list()  will turn it into a list of 3 element arrays: 
+
+  In [190]: stacked.reshape(-1,3)
+Out[190]: 
+array([[0, 0, 0],
+       [1, 1, 1],
+       [2, 2, 2],
+       [3, 3, 3],
+       [4, 4, 4],
+       [5, 5, 5],
+       [6, 6, 6],
+       [7, 7, 7],
+       [8, 8, 8]])
+In [191]: list(stacked.reshape(-1,3))
+Out[191]: 
+[array([0, 0, 0]),
+ array([1, 1, 1]),
+ array([2, 2, 2]),
+ array([3, 3, 3]),
+ array([4, 4, 4]),
+ array([5, 5, 5]),
+ array([6, 6, 6]),
+ array([7, 7, 7]),
+ array([8, 8, 8])]
+  
+
+  np.split(stacked.reshape(-1,3),9)  produces a list of 1x3 arrays. 
+
+  np.split  only works on one axis, but you want to split on the 1st 2 - hence the need for a reshape or ravel. 
+
+ And forget about  nditer .  That's a stepping stone to reworking code in cython.  It does not help with ordinary iteration - except that when used in  ndindex  it can streamline your  i,j  double loop: 
+
+  In [196]: [stacked[idx] for idx in np.ndindex(stacked.shape[:2])]
+Out[196]: 
+[array([0, 0, 0]),
+ array([1, 1, 1]),
+ array([2, 2, 2]),
+ array([3, 3, 3]),
+ array([4, 4, 4]),
+ array([5, 5, 5]),
+ array([6, 6, 6]),
+ array([7, 7, 7]),
+ array([8, 8, 8])]
+  
+
+ ====================== 
+
+ With the different  state , just stack on a different axis 
+
+  In [302]: state
+Out[302]: 
+[array([[0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8]]), array([[0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8]]), array([[0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8]])]
+In [303]: np.stack(state,axis=2).reshape(-1,3)
+Out[303]: 
+array([[0, 0, 0],
+       [1, 1, 1],
+       [2, 2, 2],
+       [3, 3, 3],
+       [4, 4, 4],
+       [5, 5, 5],
+       [6, 6, 6],
+       [7, 7, 7],
+       [8, 8, 8]])
+  
+
+  stack  is rather like  np.array , except it gives more control over where the dimension is added.  But do look at it's code. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40773213)
+ You could use https://docs.scipy.org/doc/numpy/reference/generated/numpy.split.html on a flattened version and cut into appropriate number of parts as  1D  lists, like so - 
+
+  np.split(stacked.ravel(),np.prod(stacked.shape[:2]))
+  
+
+  
+
+  In [406]: stacked
+Out[406]: 
+array([[[0, 0, 0],
+        [1, 1, 1]],
+
+       [[2, 2, 2],
+        [3, 3, 3]],
+
+       [[4, 4, 4],
+        [5, 5, 5]],
+
+       [[6, 6, 6],
+        [7, 7, 7]]])
+
+In [407]: np.split(stacked.ravel(),np.prod(stacked.shape[:2]))
+Out[407]: 
+[array([0, 0, 0]),
+ array([1, 1, 1]),
+ array([2, 2, 2]),
+ array([3, 3, 3]),
+ array([4, 4, 4]),
+ array([5, 5, 5]),
+ array([6, 6, 6]),
+ array([7, 7, 7])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52906988)
+ You just need to give  numpy.split  the indexes you need it to split the array 
+
+  a = np.array([1,1,1,2,2,1,3,3,1])
+np.split(a, np.argwhere(np.diff(a) != 0)[:,0] + 1)
+# [array([1, 1, 1]), array([2, 2]), array([1]), array([3, 3]), array([1])]
+  
+
+ 
+
+  Details  
+
+ Using  np.diff(a)  you get the differences between each consecutive element 
+
+  np.diff(a)
+# array([ 0,  0,  1,  0, -1,  2,  0, -2])
+  
+
+ The points where the differences are not equal to 0 is the points where the elements are not consecutively the same. Since you are looking for the indexes where the changes you need to do  np.diff(a) != 0  which returns: 
+
+  np.diff(a) != 0
+# array([False, False,  True, False,  True,  True, False,  True])
+  
+
+ To convert the booleans into the indexes you can use https://docs.scipy.org/doc/numpy-1.15.1/reference/generated/numpy.argwhere.html 
+
+  np.argwhere(np.diff(a) != 0)
+# array([[2],[4],[5],[7]])
+# since we only need this for 1d arrays
+np.argwhere(np.diff(a) != 0)[:,0]
+# array([2, 4, 5, 7])
+  
+
+ The you just use the aforementioned procedure to provide the correct indexes to  np.split  
+
+  np.split(a, np.argwhere(np.diff(a) != 0)[:,0])
+# [array([1, 1]), array([1, 2]), array([2]), array([1, 3]), array([3, 1])]
+  
+
+ Woops... wrong indexes... Seems we are off by 1 index. No problem, just add +1 to the results of  np.argwhere  
+
+  np.split(a, np.argwhere(np.diff(a) != 0)[:,0] + 1)
+# [array([1, 1, 1]), array([2, 2]), array([1]), array([3, 3]), array([1])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47353434)
+ You can use https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.hsplit.html#numpy.hsplit. 
+
+  x = np.arange(12).reshape((3, 4))
+np.hsplit(x, x.shape[1])
+  
+
+ This returns a list of subarrays.  Note that in the case of a 2d input, the subarrays will be shape (n, 1).  Unless you wrap a function around it to squeeze them to 1d: 
+
+  def split_1d(arr_2d):
+    """Split 2d NumPy array on its columns."""
+    split = np.hsplit(arr_2d, arr_2d.shape[1])
+    split = [np.squeeze(arr) for arr in split]
+    return split
+
+a, b, c, d = split_1d(x)
+
+a
+# array([0, 4, 8])
+
+d
+# array([ 3,  7, 11])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49269205)
+ You could try the following 
+
+  labels = np.array([1,1,1,0,1])
+np.eye(np.max(labels) + 1)[labels]
+  
+
+  
+
+  array([[ 0.,  1.],
+       [ 0.,  1.],
+       [ 0.,  1.],
+       [ 1.,  0.],
+       [ 0.,  1.]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44954195)
+  1D Case   
+
+ Assuming  I  being sorted, for a list of arrays as output - 
+
+  idx = np.unique(I, return_index=True)[1]
+out = np.split(a,idx)[1:]
+  
+
+ Another with  slicing  to get  idx  for splitting  a  - 
+
+  out = np.split(a, np.flatnonzero(I[1:] != I[:-1])+1)
+  
+
+ To get an array of lists as output - 
+
+  np.array([i.tolist() for i in out])
+  
+
+  
+
+  In [84]: a = np.arange(3)
+
+In [85]: I = np.array([0, 0, 1])
+
+In [86]: out = np.split(a, np.flatnonzero(I[1:] != I[:-1])+1)
+
+In [87]: out
+Out[87]: [array([0, 1]), array([2])]
+
+In [88]: np.array([i.tolist() for i in out])
+Out[88]: array([[0, 1], [2]], dtype=object)
+  
+
+ 
+
+  2D Case   
+
+ For  2D  case of filling into a  2D  array with groupings made from indices in two arrays  I  and  J  that represent the rows and columns where the groups are to be assigned, we could do something like this - 
+
+  ncols = 5
+lidx = I*ncols+J
+sidx = lidx.argsort() # Use kind='mergesort' to keep order
+lidx_sorted = lidx[sidx]
+unq_idx, split_idx = np.unique(lidx_sorted, return_index=True)
+out.flat[unq_idx] = np.split(a[sidx], split_idx)[1:]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35181644)
+ If I understand you correctly, you can just use: 
+
+  p_reshape[i // ncols, i % ncols]
+  
+
+  
+
+  p = np.arange(1,13)
+p_reshape = p.reshape((4,3))
+ncols = p_reshape.shape[1]
+all(p_reshape[i // ncols, i % ncols] == p[i] for i in range(p.size))
+
+True
+  
+
+
+

@@ -1,0 +1,215 @@
+Query: Getting pandas dataframe from list of nested dictionaries
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41946965)
+ Easy: 
+
+  pd.concat([pd.DataFrame(l) for l in my_list],axis=1).T
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44482496)
+ If need dict use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.html constructor with column name: 
+
+  df_interval = {}
+Years = ['2010','2011','2012']
+for key in Years:
+    df_interval[key] = pd.DataFrame({key:Night_interval[key]})
+
+print (df_interval['2012'])
+            2012
+2010-07-01    29
+2010-07-02    28
+2010-07-03    28
+2010-07-04    29
+2010-07-05    28
+  
+
+ 
+
+  df_interval = {}
+Years = ['2010','2011','2012']
+for key in Years:
+    df_interval[key] = pd.DataFrame({'a':Night_interval[key]})
+
+print (df_interval['2012'])
+             a
+2010-07-01  29
+2010-07-02  28
+2010-07-03  28
+2010-07-04  29
+2010-07-05  28
+  
+
+ Or if only one column is possible create  dict  of  Series : 
+
+  df_interval = {}
+Years = ['2010','2011','2012']
+for key in Years:
+    df_interval[key] = pd.Series(Night_interval[key], name=key)
+
+print (df_interval['2012'])
+2010-07-01    29
+2010-07-02    28
+2010-07-03    28
+2010-07-04    29
+2010-07-05    28
+Name: 2012, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41947061)
+ You can munge the list of dictionaries to be accetable to a DataFrame constructor: 
+
+  In [4]: pd.DataFrame.from_records([{'name': k, **v} for d in my_list for k,v in d.items()])
+Out[4]:
+    a    b   c   d  name
+0  23   15   5  -1     0
+1   5    6   7   9     1
+2   9   15   5   7     2
+3   5  249  92  -4     0
+4  51    5  34   1     1
+5   3    8   3  11     2
+
+In [5]: df = pd.DataFrame.from_records([{'name': k, **v} for d in my_list for k,v in d.items()])
+
+In [6]: df.set_index('name',inplace=True)
+
+In [7]: df
+Out[7]:
+       a    b   c   d
+name
+0     23   15   5  -1
+1      5    6   7   9
+2      9   15   5   7
+0      5  249  92  -4
+1     51    5  34   1
+2      3    8   3  11
+  
+
+ This requires relatively recent versions of Python for  {'name':'something', **rest}  to work. It is merely a shorthand for the following: 
+
+  In [13]: reshaped = []
+    ...: for d in my_list:
+    ...:     for k, v in d.items():
+    ...:         new = {'name': k}
+    ...:         new.update(v)
+    ...:         reshaped.append(new)
+    ...:
+
+In [14]: reshaped
+Out[14]:
+[{'a': '23', 'b': '15', 'c': '5', 'd': '-1', 'name': 0},
+ {'a': '5', 'b': '6', 'c': '7', 'd': '9', 'name': 1},
+ {'a': '9', 'b': '15', 'c': '5', 'd': '7', 'name': 2},
+ {'a': '5', 'b': '249', 'c': '92', 'd': '-4', 'name': 0},
+ {'a': '51', 'b': '5', 'c': '34', 'd': '1', 'name': 1},
+ {'a': '3', 'b': '8', 'c': '3', 'd': '11', 'name': 2}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46546992)
+ Use: 
+
+  df = pd.DataFrame({'column':d})
+  
+
+  
+
+  df = pd.Series(d).to_frame('column')
+  
+
+ 
+
+  print (df)
+                                               column
+12            {'Soccer': {'year': 2013, 'value': 31}}
+23  {'Volley': {'year': 2012, 'value': 24}, 'Yoga'...
+39  {'Baseball': {'year': 2014, 'value': 2}, 'bask...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54679177)
+ The code below recursively tries to flatten the input structure that can have lists or other dicts. When it hit the leafs, adds the content to a flattened dict and then convert it to a dataframe. 
+
+  flattened_dict = {}
+
+def flatten(obj, name = ''):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            flatten(obj[key], key)
+    elif isinstance(obj, list):
+        for e in obj:
+            flatten(e)
+    else:
+        if obj == 'null':
+            obj = None
+        flattened_dict[name] = [obj] 
+
+flatten(eg1)
+  
+
+ The result is:
+https://i.stack.imgur.com/eEZFP.png 
+
+ Please note that you have to define the null as a string. The definition for the original dict is: 
+
+  eg1 = { 
+ "my_list": {
+    "category_1": [
+        {
+            "a": "151",
+            "b": "116",
+            "c": "86"    
+        }
+    ],
+    "category_2": [
+        {
+            "d": "201",
+            "e": "211",
+            "f": "252"
+        },
+        {
+            "d": "-1 ",
+            "e": "-9",
+            "f": "-7"
+        }
+    ],
+    "category_3": {
+        "g": "Valid",
+        "h": "null",
+        "i": "Invalid",
+        "j": "Invalid"
+    },
+    "category_4": {
+        "k": "null",
+        "l": "null",
+        "m": "null",
+        "n": "null"
+    }
+}
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41947195)
+ Another solution: 
+
+  from itertools import chain
+pd.DataFrame.from_items(list(chain.from_iterable(d.iteritems() for d in my_list))).T
+  
+
+ In my experiments, this is faster than using  pd.concat  (especially when the number of "sub-dataframes" is large) at the cost of being more verbose. 
+
+
+

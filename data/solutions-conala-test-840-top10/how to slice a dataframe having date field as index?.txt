@@ -1,0 +1,410 @@
+Query: how to slice a dataframe having date field as index?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33568472)
+ I think your first approach is fine.   
+
+ If you want copy column  TRX_DATE  to index: 
+
+  df.index = pd.to_datetime(df['TRX_DATE'])
+  
+
+ If you don't want copy, only set column  TRX_DATE  to index: 
+
+  df = df.set_index(['TRX_DATE'])
+  
+
+ There is my demo:   
+
+  import pandas as pd
+import numpy as np
+import io
+import datetime as dt
+
+temp=u"""TRX_DATE;A
+2013-07-05;1
+2013-08-06;1
+2015-09-05;2
+2015-10-08;2
+2015-11-05;2
+2015-11-25;2
+2015-12-06;3"""
+
+df = pd.read_csv(io.StringIO(temp), sep=";", parse_dates=[0])
+print df
+#    TRX_DATE  A
+#0 2013-07-05  1
+#1 2013-08-06  1
+#2 2015-09-05  2
+#3 2015-10-08  2
+#4 2015-11-05  2
+#5 2015-11-25  2
+#6 2015-12-06  3
+
+print df.dtypes
+#TRX_DATE    datetime64[ns]
+#A                    int64
+#dtype: object
+
+#copy column TRX_DATE to index
+#df.index = pd.to_datetime(df['TRX_DATE'])
+#no copy, only set column TRX_DATE to index
+df = df.set_index(['TRX_DATE'])
+print df
+#            A
+#TRX_DATE
+#2013-07-05  1
+#2013-08-06  1
+#2015-09-05  2
+#2015-10-08  2
+#2015-11-05  2
+#2015-11-25  2
+#2015-12-06  3
+
+currentdate = dt.date.today()
+print currentdate
+#2015-11-06
+
+startdate = currentdate - pd.Timedelta(days=30)
+print startdate
+#2015-10-07
+
+dflast30 = df.loc[startdate:currentdate]
+print dflast30
+#            A
+#TRX_DATE
+#2015-10-08  2
+#2015-11-05  2
+
+dflast30 = dflast30.reset_index()
+print dflast30
+#    TRX_DATE  A
+#0 2015-10-08  2
+#1 2015-11-05  2
+  
+
+ Different approach, where you can create subset of your  df . No need set  datetimeindex . 
+
+  import pandas as pd
+import numpy as np
+import io
+import datetime as dt
+
+temp=u"""TRX_DATE;A
+2013-07-05;1
+2013-08-06;1
+2015-09-05;2
+2015-10-08;2
+2015-11-05;2
+2015-11-25;2
+2015-12-06;3"""
+
+df = pd.read_csv(io.StringIO(temp), sep=";", parse_dates=[0])
+print df
+#    TRX_DATE  A
+#0 2013-07-05  1
+#1 2013-08-06  1
+#2 2015-09-05  2
+#3 2015-10-08  2
+#4 2015-11-05  2
+#5 2015-11-25  2
+#6 2015-12-06  3
+
+print df.dtypes
+#TRX_DATE    datetime64[ns]
+#A                    int64
+#dtype: object
+
+currentdate = dt.date.today()
+print currentdate
+#2015-11-06
+
+startdate = currentdate - pd.Timedelta(days=30)
+print startdate
+#2015-10-07
+
+dflast30 = df[(df.TRX_DATE >= startdate) & (df.TRX_DATE <= currentdate)]
+print dflast30
+#    TRX_DATE  A
+#3 2015-10-08  2
+#4 2015-11-05  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33558861)
+ You can use a mask on the date, e.g. 
+
+  df[df['date'] > '2015-03-01']
+  
+
+ Here is a full example: 
+
+  >>> df = pd.DataFrame({'date': pd.date_range('2015-02-15', periods=5, freq='W'),
+                       'val': np.random.random(5)})
+>>> df
+        date       val
+0 2015-02-15  0.638522
+1 2015-02-22  0.942384
+2 2015-03-01  0.133111
+3 2015-03-08  0.694020
+4 2015-03-15  0.273877
+
+>>> df[df.date > '2015-03-01']
+        date       val
+3 2015-03-08  0.694020
+4 2015-03-15  0.273877
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34739853)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html: 
+
+  print df['2014-01-08' : '2014-01-10'].xs('CHF',level=2,axis=1)
+
+bid        HELN SE Equity FHZN SE Equity
+field          LAST_PRICE     LAST_PRICE
+2014-01-08         422.65         511.46
+2014-01-09         421.26         514.35
+2014-01-10         423.35         514.83
+
+#sort multicolumns
+df = df.sort_index(axis=1)
+
+he = tuple([s for s in df.columns.levels[0].tolist() if 'HE' in s[:2]])
+print he
+#('HELN SE Equity',)
+
+print df.loc['2014-01-08' : '2014-01-10', (he, slice(None), ['CHF','EUR'])]
+
+bid        HELN SE Equity
+field          LAST_PRICE
+currency              CHF
+2014-01-08         422.65
+2014-01-09         421.26
+2014-01-10         423.35
+  
+
+ http://pandas.pydata.org/pandas-docs/version/0.17.1/advanced.html#advanced-mi-slicers. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50806563)
+ Here's a functional solution using  operator.attrgetter : 
+
+  from operator import attrgetter
+
+df = pd.DataFrame({'Date': [20180131, 20180611, 20180513]})
+
+df['Date'] = pd.to_datetime(df['Date'], format='%Y%m%d')
+
+parts = ('year', 'month', 'day')
+
+df['Year'], df['Month'], df['Day'] = zip(*df['Date'].apply(attrgetter(*parts)).values)
+
+print(df)
+
+        Date  Year  Month  Day
+0 2018-01-31  2018      1   31
+1 2018-06-11  2018      6   11
+2 2018-05-13  2018      5   13
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34163934)
+ You can simply reindex the data frame when you sort it and then find the index location of the first instance of 'Open' and slice the data to there.... 
+
+  import pandas as pd
+#create dataframe
+df = pd.DataFrame({
+'Rank' : [5, 1, 10 ,6, 9],   
+'Status' : ['Closed', 'Closed', 'Open', 'Closed', 'Open']
+})
+
+# sort and reindex
+df = df.sort('Rank').reset_index()
+
+#slice to first occurrence of your value
+df.loc[: df[(df['Status'] == 'Open')].index[0], :]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50805705)
+ convert the string to datetime and use datetime-type columns'  ..   
+
+  df.date = pd.to_datetime(df.date, format='%Y%m%d')
+df['year'], df['month'], df['day'] = df.date..year, df.date..month, df.date..day
+  
+
+ after you convert the date from date to datetime, you might find that extracting the year, month & day are not even necessary as the  are readily available through the  date  column's    . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36919792)
+ you want to use  pd.IndexSlice .  It returns an object that can be used in sclicing with  loc . 
+
+ Solution</h3>
+
+  result.sort_index();
+slc = pd.IndexSlice[i, :]
+result.loc[slc, :] = sample.groupby(field).sum()
+  
+
+ Explanation</h3>
+
+  result.sort_index();  ->  pd.IndexSclice  requires the index be sorted. 
+
+  slc = pd.IndexSclice[i, :]  -> syntax to create a generic slicer to get ith group of 1st level for a  pd.MultiIndex  with 2 levels. 
+
+ 'result.loc[slc, :] = ` -> use the slice 
+
+ Demonstration</h3>
+
+  import pandas as pd
+import numpy as np
+
+
+result = pd.DataFrame([], columns=['FINLWT21'],
+                      index=pd.MultiIndex.from_product([[0, 1], [1, 7, 9, 5, 3]]))
+
+result.sort_index(inplace=True);
+slc = pd.IndexSlice[0, :]
+
+result.loc[slc, :] = [1, 2, 3, 4, 5]
+
+print result
+
+    FINLWT21
+0 1        1
+  3        2
+  5        3
+  7        4
+  9        5
+1 1      NaN
+  3      NaN
+  5      NaN
+  7      NaN
+  9      NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16176457)
+ Use  searchsorted  to find the nearest times first, and then use it to slice. 
+
+  In [15]: df = pd.DataFrame([1, 2, 3], index=[dt.datetime(2013, 1, 1), dt.datetime(2013, 1, 3), dt.datetime(2013, 1, 5)])
+
+In [16]: df
+Out[16]: 
+            0
+2013-01-01  1
+2013-01-03  2
+2013-01-05  3
+
+In [22]: start = df.index.searchsorted(dt.datetime(2013, 1, 2))
+
+In [23]: end = df.index.searchsorted(dt.datetime(2013, 1, 4))
+
+In [24]: df.ix[start:end]
+Out[24]: 
+            0
+2013-01-03  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38267232)
+ There are https://stackoverflow.com/a/29370182/190597 to slice a DataFrame with a DatetimeIndex by date. 
+
+ 
+  by slices:  df.loc[start:end] . If there are multiple date ranges, the single
+slices may be concatenated with  pd.concat .  
+  by boolean selection mask:  df.loc[mask]   
+ 
+
+ 
+
+  Using pd.concat and slices : 
+
+  import numpy as np
+import pandas as pd
+np.random.seed(2016)
+
+N = 10**2
+df = pd.DataFrame(np.random.randint(10, size=(N, 2)), 
+                  index=pd.date_range('2016-6-27', periods=N, freq='45T'))
+
+result = pd.concat([df.loc['2016-6-27':'2016-6-27 5:00'],
+                    df.loc['2016-6-27 15:00':'2016-6-27 23:59:59']])
+  
+
+  
+
+                       0  1
+2016-06-27 00:00:00  0  2
+2016-06-27 00:45:00  5  5
+2016-06-27 01:30:00  9  6
+2016-06-27 02:15:00  8  4
+2016-06-27 03:00:00  5  0
+2016-06-27 03:45:00  4  8
+2016-06-27 04:30:00  7  0
+2016-06-27 15:00:00  2  5
+2016-06-27 15:45:00  6  7
+2016-06-27 16:30:00  6  8
+2016-06-27 17:15:00  5  1
+2016-06-27 18:00:00  2  9
+2016-06-27 18:45:00  9  1
+2016-06-27 19:30:00  9  7
+2016-06-27 20:15:00  3  6
+2016-06-27 21:00:00  3  5
+2016-06-27 21:45:00  0  8
+2016-06-27 22:30:00  5  6
+2016-06-27 23:15:00  0  8
+  
+
+ 
+
+ Note that unlike most slicing syntaxes used in Python,  
+
+  df.loc['2016-6-27':'2016-6-27 5:00']
+  
+
+ is inclusive on both ends -- the slice defines a closed interval, is not a
+half-open interval. 
+
+ 
+
+  Using a boolean selection mask:   
+
+  mask = (((df.index >= '2016-6-27') & (df.index <= '2016-6-27 5:00')) 
+        | ((df.index >= '2016-6-27 15:00') & (df.index < '2016-6-28')))
+result2 = df.loc[mask]
+assert result.equals(result2)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/42773096)
+  raw_data['Mycol'] =  pd.to_datetime(raw_data['Mycol'], format='%d%b%Y:%H:%M:%S.%f')
+  
+
+ works, however it results in a Python warning of 
+A value is trying to be set on a copy of a slice from a DataFrame.
+  .loc[row_indexer,col_indexer] = value  instead 
+
+ I would guess this is due to some chaining indexing. 
+
+
+

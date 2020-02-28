@@ -1,0 +1,213 @@
+Query: How to convert a string from CP-1251 to UTF-8?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7580035)
+ Your string  d  is a Unicode string,  not  a UTF-8-encoded string! So you can't  decode()  it, you must  encode()  it to UTF-8 or whatever encoding you need. 
+
+  >>> d = u'\xc1\xe5\xeb\xe0\xff \xff\xe1\xeb\xfb\xed\xff \xe3\xf0\xee\xec\xf3'
+>>> d
+u'\xc1\xe5\xeb\xe0\xff \xff\xe1\xeb\xfb\xed\xff \xe3\xf0\xee\xec\xf3'
+>>> print d
+Áåëàÿ ÿáëûíÿ ãðîìó
+>>> a.encode("utf-8")
+'\xc3\x81\xc3\xa5\xc3\xab\xc3\xa0\xc3\xbf \xc3\xbf\xc3\xa1\xc3\xab\xc3\xbb\xc3\xad\xc3\xbf \xc3\xa3\xc3\xb0\xc3\xae\xc3\xac\xc3\xb3'
+  
+
+ (which is something you'd do at the very end of all processing when you need to save it as a UTF-8 encoded file, for example). 
+
+ If your input is in a different encoding, it's the other way around: 
+
+  >>> d = "Schoßhündchen"                 # native encoding: cp850
+>>> d = "Schoßhündchen".decode("cp850") # decode from Windows codepage
+>>> d                                   # into a Unicode string (now work with this!)
+u'Scho\xdfh\xfcndchen'
+>>> print d                             # it displays correctly if your shell knows the glyphs
+Schoßhündchen
+>>> d.encode("utf-8")                   # before output, convert to UTF-8
+'Scho\xc3\x9fh\xc3\xbcndchen'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7555361)
+ If you know for sure that you have cp1251 in your input, you can do 
+
+  d.decode('cp1251').encode('utf8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7555386)
+ If  d  is a correct Unicode string, then  d.encode('utf-8')  yields an encoded UTF-8 bytestring. Don't test it by printing, though, it might be that it just doesn't display properly because of the codepage shenanigans. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42068450)
+ 
+Your data is perfectly valid UTF-8, encoded into a URL (so URLEncoded). Your output indicates you are looking at a https://en.wikipedia.org/wiki/Mojibake, where your own software (console, terminal, text editor), is using a  different  codec to interpret the UTF-8 data. I suspect your setup is using CP-1254: 
+
+  >>> print text.encode('utf8').decode('sloppy-cp1254')  # codec from the ftfy project
+æ„›è¿ªé” adidas Energy Boost è·¯è·‘ ä½ç­’ é‹å‹• ä¼‘é–’ è·‘é‹ è·‘æ­¥ æ…¢è·‘ é¦¬æ‹‰æ¾ å¥èº«æˆ¿ æµè¡Œ çƒé‹ å¥³è£ å¥³æ¬¾ å¥³ å¥³é‹
+ï¼Šéˆæ´»ã€è¼•é‡ã€èˆ’é©å…¼å…·çš„é¸æ“‡
+ï¼Šç°¡ç´„ç¾ä»£çš„ç”¢å“è¨­è¨ˆ,å¹´è¼•å¤šæ¨£åŒ–çš„é…è‰²æ–¹æ¡ˆ,æ›´ç‚ºç¬¦åˆå¹´è¼•æ¶ˆè²»è€…çš„å¯©ç¾åå¥½
+ï¼Šç°¡å–®çš„ç·šæ¢å’Œä¹¾æ·¨çš„è¨­è¨ˆ,æä¾›äº†ç¨ç‰¹çš„ç©¿æ­çµ„åˆ
+ï¼Šé€æ°£èˆ‡ä¿è­·æ€§,çµåˆäº†ADIDASçš„å‰µæ–°ç§‘æŠ€,å‰µé€ äº†å®Œç¾çš„ç”¢å“
+  
+
+ If you don't know how to fix your terminal, I suggest you write the data to a file instead and use an editor you can tell what codec to use to read the data: 
+
+  import io
+with io.open('somefilename.txt', encoding='utf8') as f:
+    f.write(unicode_value)
+  
+
+ I also strongly recommend you use an actual HTML parser to handle the data, and not rely on regular expressions. The following code for Python 2 and 3 produces a Unicode value with the textual information from your URL: 
+
+  from bs4 import BeautifulSoup
+try:
+    from urllib import unquote
+except ImportError:
+    from urllib.parse import unquote
+
+soup = BeautifulSoup(unquote(special_text), 'html.parser')  # consider installing lxml instead
+text = soup.get_text('\n', strip=True)  # put newlines between sections
+print(text)
+  
+
+ For your input, on my Mac OSX terminal configured for handling Unicode text as UTF-8, I see: 
+
+<pre class="lang-none prettyprint-override"> 愛迪達 adidas Energy Boost 路跑 低筒 運動 休閒 跑鞋 跑步 慢跑 馬拉松 健身房 流行 球鞋 女裝 女款 女 女鞋
+＊靈活、輕量、舒適兼具的選擇
+＊簡約現代的產品設計,年輕多樣化的配色方案,更為符合年輕消費者的審美偏好
+＊簡單的線條和乾淨的設計,提供了獨特的穿搭組合
+＊透氣與保護性,結合了ADIDAS的創新科技,創造了完美的產品
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16141461)
+ Does this do what you want? 
+
+  >>> myString = u'Port 26 \xb5\xe7'
+>>> print myString.encode('latin1').decode('gbk')
+Port 26 电
+  
+
+ In fact, you can use any of these as your encoding codec: 
+
+  cp1250
+cp1252
+cp1254
+cp1256
+cp1258
+latin_1
+iso8859_3
+iso8859_9
+iso8859_15
+  
+
+ latin1 is your best choice though (most inclusive).  The cp codecs listed are all Windows based. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26099521)
+ You need to convert  byte  from a single-character string to an integer. One way to do it as follows: 
+
+   with open("test.csv", 'rb') as f: 
+    for ch in f.read():
+       byte = ord(ch)
+       ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29087870)
+ Your CSV file is encoded to CP-1252, you'd have to re-code that to UTF-8: 
+
+  r = r.decode('cp1252').encode('utf8')
+  
+
+ Your plain Python code was using UTF-8  bytes ; provided your code editor indeed saved the data as UTF-8 as your  coding: utf-8  header implies. 
+
+ Just putting a https://www.python.org/dev/peps/pep-0263/ header in your Python source file doesn't magically make all data you read from a file UTF-8 data too; it'll still need to be decoded with the correct codec  for that file . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39214252)
+ When no encoding is passed explicitly, https://docs.python.org/3.5/library/functions.html#open both for reading and for writing (not sure exactly how the preferred encoding is detected on Windows). 
+
+  
+
+  file = open(os.getcwd() + '\\myAnsi.txt', 'r')
+file = open(os.getcwd() + '\\outputAnsi.txt', 'w')
+file = open(os.getcwd() + '\\myUtf.txt', 'r')
+file = open(os.getcwd() + '\\outputUtf.txt', 'w')
+  
+
+ All four files are opened using the same encoding, both for reading and for writing. 
+
+ You have to pass  encoding='cp1252'  or  encoding='utf-8'  if you want to be sure that files are opened using these encodings: 
+
+  file = open(os.getcwd() + '\\myAnsi.txt', 'r', encoding='cp1252')
+file = open(os.getcwd() + '\\outputAnsi.txt', 'w', encoding='cp1252')
+file = open(os.getcwd() + '\\myUtf.txt', 'r', encoding='utf-8')
+file = open(os.getcwd() + '\\outputUtf.txt', 'w', encoding='utf-8')
+  
+
+ (As a side note, I'm not a Windows expert, but I think you can write  'myAnsi.txt'  instead of  os.getcwd() + '\\myAnsi.txt' .) 
+
+ 
+
+ Apart from that, you have to consider that some characters are represented in the same way with different encodings. For example, the string  hello  has the same representation in ASCII, CP-1252 or UTF-8. In general, you have to use some non-ASCII characters to see some differences: 
+
+  >>> 'hello'.encode('cp1252')
+b'hello'
+>>> 'hello'.encode('utf-8')
+b'hello'  # different encoding, same byte representation
+  
+
+ Not only that, but some byte strings can be perfectly valid in two distinct encodings, even though they can have different meanings, so that when you try to decode a file with the wrong encoding you don't get an error, but a weird string: 
+
+  >>> b'\xe2\x82\xac'.decode('utf-8')
+'€'
+>>> b'\xe2\x82\xac'.decode('cp1252')
+'â‚¬'  # same byte representation, different string
+  
+
+ 
+
+ For the record, https://docs.python.org/3.5/c-api/unicode.html to represent strings internally. Python tries to use the "shortest" representation, even though UTF-8 and UTF-16 are used without continuation bytes, so that lookups are always O(1). 
+
+ 
+
+ In short, you have read two files using the system encoding and written two files using the same encoding (therefore without any transformation). The content of the files you have read are compatible with both CP-1252 and UTF-8. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4725940)
+ Well, that Cyrillic string isn't in cp-1251. As you seem to have found out, it has been encoded "twice". Most likely somebody took a binary string in cp1251 believed it was in utf8 and encoded it in cp1252, or something like that.  
+
+ No automatic check could figure  that  out. 
+
+  >>> print 'Îêåàí Åëüçè - Ìàéæå âåñíà'.decode('utf8').encode('latin1').decode('cp1251')
+Океан Ельзи - Майже весна
+  
+
+ . The latter look like UTF8, in that it supports both single and multibyte characters, but it's not UTF8. so again some sort of incorrect transformaton has been done. Going through all possible combinations until one work is probably the only possibility. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/669790)
+ You can call http://msdn.microsoft.com/en-us/library/dd318070(VS.85).aspx to find the current ANSI codepage, which is what non-Unicode APIs use. You can also use http://msdn.microsoft.com/en-us/library/bb202786.aspx, and pass zero as the codepage (CP_ACP is defined as zero in the Windows headers) to convert a codepage string to Unicode. 
+
+
+

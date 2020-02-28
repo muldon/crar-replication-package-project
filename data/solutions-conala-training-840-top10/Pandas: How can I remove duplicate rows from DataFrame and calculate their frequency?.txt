@@ -1,0 +1,255 @@
+Query: Pandas: How can I remove duplicate rows from DataFrame and calculate their frequency?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49137137)
+  .. 
+
+  df.groupby('poo').filter(lambda x : (x['poo'].count()>=3).any())
+Out[81]: 
+   foo bar poo
+0    1   a   A
+1    2   a   A
+2    3   a   B
+3    4   b   B
+4    5   b   A
+5    6   b   A
+7    8   d   B
+8    9   e   B
+  
+
+ Or combine  value_counts  with  isin  
+
+  s=df.poo.value_counts().gt(3)
+df.loc[df.poo.isin(s[s].index)]
+Out[89]: 
+   foo bar poo
+0    1   a   A
+1    2   a   A
+2    3   a   B
+3    4   b   B
+4    5   b   A
+5    6   b   A
+7    8   d   B
+8    9   e   B
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/21559116)
+   
+
+  df1.groupby(['key','year']).size().reset_index()
+  
+
+ ... 
+
+    key  year  0
+0   a  1998  3
+1   b  2000  2
+2   b  2001  1
+3   c  1999  1
+  
+
+ as you see, that column has not been named, so you can do something like  
+
+  mydf = df1.groupby(['key','year']).size().reset_index()
+mydf.rename(columns = {0: 'frequency'}, inplace = True)
+
+mydf
+
+  key  year  frequency
+0   a  1998          3
+1   b  2000          2
+2   b  2001          1
+3   c  1999          1
+  
+
+   .reset_index()  if you want, but in that case you'll need to transform  mydf  into a dataframe, like so:  mydf = pd.DataFrame(mydf) , and only then rename the column) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/49137073)
+ This should generalise pretty easily. You'll need  groupby  +  transform  +  count , and then filter the result: 
+
+  col = 'poo'  # 'bar'
+n = 3        # 2
+
+df[df.groupby(col)[col].transform('count').ge(n)]
+
+   foo bar poo
+0    1   a   A
+1    2   a   A
+2    3   a   B
+3    4   b   B
+4    5   b   A
+5    6   b   A
+7    8   d   B
+8    9   e   B
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54303047)
+ The easiest solution for this is to use the .loc function which takes row indexes.  
+
+  (Edited to remove code identical to that written by jezrael)  
+
+ If you aren't familiar with pandas I'd suggest checking out the DataFrame.apply function since it allows broader manipulations of data (both row-wise and columns-wise). A solution would look like this: 
+
+  df["r3"] = df.apply(lambda c: abs(c["r1"] - c["r2"]), axis=0)
+  
+
+ pandas.DataFrame.apply is a powerful tool, letting you apply functions to the rows or columns in your dataset and taking advantage of pandas vectorisation.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20142659)
+ I think the idea for you could be - divide records inside each  ID  into bins by 3 records each (like http://technet.microsoft.com/en-us/library/ms175126.aspx in SQL) group by it and calculate mean. To create this numbers we can use the fact that you already have sequential numbers for each row -  measurement  level of index. So we can just divide this number by  3  to get numbers we need: 
+
+  >>> df
+                   time  value  ntile
+ID    measurement                  
+ET001 0            0.00      2      0
+      1            0.15      3      0
+      2            0.30      4      0
+      3            0.45      3      1
+      4            0.60      3      1
+      5            0.75      2      1
+      6            0.90      3      2
+ET002 0            0.00      2      0
+      1            0.16      5      0
+      2            0.32      4      0
+      3            0.45      3      1
+      4            0.60      3      1
+      5            0.75      2      1
+  
+
+ So we can use helper function like this and apply it to each group to get desired results. 
+
+  >>> def helper(x):
+...     x = x.reset_index()
+...     x = x.groupby(x['measurement'].div(3)).mean()
+...     del x['measurement']
+...     return x
+... 
+>>> df.groupby(level=0).apply(helper)
+                   time     value
+ID    measurement                
+ET001 0            0.15  3.000000
+      1            0.60  2.666667
+      2            0.90  3.000000
+ET002 0            0.16  3.666667
+      1            0.60  2.666667
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44490014)
+ Let' use  pd.cut  and  groupby : 
+
+ For two bins: 
+
+  df.assign(counts=df.groupby(pd.cut(df['values'], bins=2))['values'].transform('count'))
+  
+
+ Or if you want your bin size = 2: 
+
+  df.assign(counts=df.groupby(pd.cut(df['values'], bins=[0,2,4]))['values'].transform('count'))
+  
+
+ Output: 
+
+     id  values  counts
+0   1     2.1     2.0
+1   2     0.8     2.0
+2   3     1.0     2.0
+3   4     3.2     2.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49164966)
+ You can use groupby + nunique: 
+
+  df.groupby(by='code').pid.nunique().sort_values(ascending=False)
+Out[60]: 
+code
+B    4
+A    3
+D    1
+C    1
+Name: pid, dtype: int64
+  
+
+ To remove all rows with less than 3 in frequency count in column 'code' 
+
+  df.groupby(by='code').filter(lambda x: x.pid.nunique()>=3)
+Out[55]: 
+    pid code
+0     1    A
+1     1    B
+2     1    A
+3     1    A
+4     2    A
+5     2    A
+6     2    B
+7     2    A
+8     3    B
+11    4    A
+12    4    A
+13    4    A
+14    4    B
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28905799)
+  column.count(letter) for letter in column  will be very slow, because it's repeating the same calculation many, many times; and  pandas  works best with lots of rows and few columns.  So if you keep the data in that format, it should be pretty quick.  Here's an example with 10^6 rows: 
+
+  >>> seqs = [''.join([random.choice("ACGT") for i in range(10)]) for j in range(10**6)]
+>>> seqs[:5]
+['CTTAAGCGAA', 'TATAGGATTT', 'AAACGGTGAG', 'AGTAGGCTAC', 'CTGTTCTGCG']
+>>> df = pd.DataFrame([list(s) for s in seqs])
+>>> df.head()
+   0  1  2  3  4  5  6  7  8  9
+0  C  T  T  A  A  G  C  G  A  A
+1  T  A  T  A  G  G  A  T  T  T
+2  A  A  A  C  G  G  T  G  A  G
+3  A  G  T  A  G  G  C  T  A  C
+4  C  T  G  T  T  C  T  G  C  G
+>>> %time z = df.apply(pd.value_counts)
+CPU times: user 286 ms, sys: 0 ns, total: 286 ms
+Wall time: 285 ms
+>>> z
+        0       1       2       3       4       5       6       7       8       9
+A  249910  250452  249971  250136  250048  250025  249763  249787  250498  251008
+C  249437  249556  250270  249884  250245  249975  249888  250432  249867  249516
+G  250740  250277  250414  249847  250080  249447  249901  249638  250010  249480
+T  249913  249715  249345  250133  249627  250553  250448  250143  249625  249996
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51165035)
+ You can also user  Counter  together with  list comprehension  
+
+  from collections import Counter
+>>> [dict(k + (('frequency', v),)) for k,v in Counter(tuple(k.items()) for k in da_list).items()]
+
+[{'Surface': 'APPLE', 'BaseForm': 'apple', 'PN': 0.5, 'frequency': 2},
+ {'Surface': 'BANANA', 'BaseForm': 'banana', 'PN': 0.4, 'frequency': 2},
+ {'Surface': 'ORANGE', 'BaseForm': 'orange', 'PN': -0.1, 'frequency': 1}]
+  
+
+
+

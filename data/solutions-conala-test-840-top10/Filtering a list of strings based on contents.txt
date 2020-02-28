@@ -1,0 +1,197 @@
+Query: Filtering a list of strings based on contents
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2152908)
+ This simple filtering can be achieved in many ways with Python. The best approach is to use "list comprehensions" as follows: 
+
+  >>> lst = ['a', 'ab', 'abc', 'bac']
+>>> res = [k for k in lst if 'ab' in k]
+>>> res
+['ab', 'abc']
+>>> 
+  
+
+ Another way is to use the  filter  function: 
+
+  >>> filter(lambda k: 'ab' in k, lst)
+['ab', 'abc']
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43189773)
+ The pandas  str.contains  accepts regular expressions, which let's you test for any item in a list. Loop through each column and use str.contains: 
+
+  startstrings = ['one', 'two']
+pattern = '|'.join(startstrings)
+
+for col in df:
+    if all(df[col].apply(type) == str):
+        #Set any values to 0 if they don't contain value
+        df.ix[~df[col].str.contains(pattern), col] = 0        
+    else:
+        #Column is not all strings
+        df[col] = 0
+  
+
+  
+
+        A     B  C  D
+0     0  one1  0  0
+1     0  one1  0  0
+2  one1  two1  0  0
+3     0     0  0  0
+4     0  two1  0  0
+5  one1  two1  0  0
+6     0  one1  0  0
+7     0     0  0  0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2152907)
+ Tried this out quickly in the interactive shell: 
+
+  >>> l = ['a', 'ab', 'abc', 'bac']
+>>> [x for x in l if 'ab' in x]
+['ab', 'abc']
+>>>
+  
+
+  Because the http://docs.python.org/library/stdtypes.html#sequence-types-str-unicode-list-tuple-buffer-xrange is defined for strings to mean: "is substring of". 
+
+ Also, you might want to consider writing out the loop as opposed to using the http://docs.python.org/tutorial/datastructures.html#list-comprehensions used above: 
+
+  l = ['a', 'ab', 'abc', 'bac']
+result = []
+for s in l:
+   if 'ab' in s:
+       result.append(s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36755871)
+ If you thought the contents of letters were strings, could you convert the column of lists to strings?   
+
+  df['letters'] = df['letters'].apply(lambda x: ''.join(x)) 
+  
+
+ Then proceed to filter like you normally would 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47847849)
+ You are attempting to pass a list to  re.search , however, only strings are allowed since pattern matching is supposed to occur. Try looping over the list instead: 
+
+  import re
+l = [['hello', 'mr.', 'smith', ',', 'how', 'are', 'you', 'doing', 'today', '?'], ['the', 'weather', 'is', 'great', ',', 'and', 'python', 'is', 'awesome', '.'], ['the', 'sky', 'is', 'pinkish-blue', '.'], ['you', 'should', "n't", 'eat', 'cardboard', '.']]
+new_l = [[b for b in i if re.findall('^\w+$', b)] for i in l]
+  
+
+ Also, note that your original variable name,  list , shadows the builtin  list  function and in this case will assign the list contents to the attribute  list . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52979627)
+ From the https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.filter.html: 
+
+ 
+   Note that this routine does not filter a dataframe on its contents. The filter is applied to the labels of the index. 
+ 
+
+ From your question, it seems very much like you're trying to filter based on the contents of your dataframe. So you can use regular indexing: 
+
+  filtered_a_df = original_df[original_df['col-a'].str.contains('T2')]
+
+filtered_b_df = original_df[original_df['col-b'].between('07:00:00','09:00:00')]
+
+>>> filtered_a_df
+        col-a     col-b
+1  xyz.T2.456  09:17:00
+2  xyz.T2.456  12:57:00
+>>> filtered_b_df
+         col-a     col-b
+0  abcd.T1.123  07:57:00
+  
+
+ To further explain  filter , your conditions could work if you were trying to filter based on the index. For instance, if you have  df2  as the original dataframe but with  col-a  as your index, then you can use filter: 
+
+  df2 = original_df.set_index('col-a')
+>>> df2
+                col-b
+col-a                
+abcd.T1.123  07:57:00
+xyz.T2.456   09:17:00
+xyz.T2.456   12:57:00
+
+# In this case you can use either regex or like arguments
+>>> df2.filter(regex='T2',axis=0)
+
+               col-b
+col-a               
+xyz.T2.456  09:17:00
+xyz.T2.456  12:57:00
+  
+
+ . Going back to your original df, you can, for instance, filter columns that have  -b  in the name: 
+
+  >>> original_df.filter(like='-b',axis=1)
+      col-b
+0  07:57:00
+1  09:17:00
+2  12:57:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14447119)
+  join  is a method of strings.  That method takes any iterable and iterates over it and joins the contents together.  (The contents have to be strings, or it will raise an exception.) 
+
+ If you attempt to write the generator object directly to the file, you will just get the generator object itself, not its contents.   join  "unrolls" the contents of the generator. 
+
+ You can see what is going with a simple, explicit generator: 
+
+  def gen():
+    yield 'A'
+    yield 'B'
+    yield 'C'
+
+>>> g = gen()
+>>> print g
+<generator object gen at 0x0000000004BB9090>
+>>> print ''.join(g)
+ABC
+  
+
+ The generator doles out its contents one at a time.  If you try to look at the generator itself, it doesn't dole anything out and you just see it as "generator object".  To get at its contents, you need to iterate over them.  You can do this with a  for  loop, with the  next  function, or with any of various other functions/methods that iterate over things ( str.join  among them). 
+
+ When you say that result "is a list of string" you are getting close to the idea.  A generator (or iterable) is sort of like a "potential list".  Instead of actually  being  a list of all its contents all at once, it lets you peel off each item one at a time. 
+
+ None of the objects is a "memory address".  The string representation of a generator object (like that of many other objects) includes a memory address, so if you print it (as above) or write it to a file, you'll see that address.  But that doesn't mean that object "is" that memory address, and the address itself isn't really usable as such.  It's just a handy identifying tag so that if you have multiple objects you can tell them apart. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51378731)
+  remove  working  inplace  (return  None s), so need list comprehension with filtering: 
+
+  f = lambda x: [y for y in x['Var2'] if y != 0] if x['Var1']>0 else x['Var2']
+df['Var2'] = df.apply(f, axis = 1)
+print (df)
+   Var1    Var2
+0     1     [8]
+1     0  [6, 0]
+2     3  [1, 3]
+3     1  [5, 3]
+  
+
+
+

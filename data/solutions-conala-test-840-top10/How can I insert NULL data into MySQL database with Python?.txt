@@ -1,0 +1,246 @@
+Query: How can I insert NULL data into MySQL database with Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10745120)
+ The second argument to  execute()  should be a tuple (or list). 
+Please change your code to:    
+
+  cursor.execute("INSERT INTO tableName (Length) VALUES (%s);", (length2,))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14370784)
+ When using mysqldb and  cursor.execute() , pass the value None, not "NULL": 
+
+  value = None
+cursor.execute("INSERT INTO table (`column1`) VALUES (%s)", (value,))
+  
+
+ Found the answer http://bytes.com/topic/python/answers/166025-python-mysql-insert-null 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36898160)
+ You are inserting the  string   'NULL' , not the  NULL  value. If these values are coming from a Python structure, you need to use something else to map to the  NULL  value in SQL. 
+
+ You could use  None  for this, and only quote other values: 
+
+  def sqlquote(value):
+    """Naive SQL quoting
+
+    All values except NULL are returned as SQL strings in single quotes,
+    with any embedded quotes doubled.
+
+    """
+    if value is None:
+         return 'NULL'
+    return "'{}'".format(str(value).replace("'", "''"))
+
+sql = "INSERT INTO test VALUES ({column1}, {column2}, {column3})".format(
+    **{k: sqlquote(v) for k, v in d.items()})
+  
+
+ Note that because you have to handle  None  differently, you also have to handle proper SQL quoting! If any of your values directly or indirectly come from user-supplied data, you'd be open for SQL injection attacks otherwise. 
+
+ The above  sqlquote()  function  should  suffice for http://www.sqlite.org/lang_expr.html#litvalue, which follow standard SQL quoting rules. Different databases have different rules for this, so  tripple check your documentation . 
+
+ Personally, I'd use the http://www.sqlalchemy.org/ to generate SQL and have  it  handle quoting for you. You can configure it to produce SQL for different database engines. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31054318)
+ The expected method of inserting data is the following: 
+
+  cur.execute("INSERT INTO name (first, middle, last) VALUES (%s, %s, %s)", (f, m, l))
+  
+
+ Formatting a string like in your first example leaves your application vulnerable to SQL injection. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42415422)
+ You can test the  INFORMATION_SCHEMA.COLUMNS  table within MySQL to determine if a column accepts  NULL  values. 
+
+  SELECT `IS_NULLABLE`
+FROM INFORMATION_SCHEMA.`COLUMNS`
+WHERE `TABLE_SCHEMA` = 'SchemaName'
+AND `TABLE_NAME` = tbl
+AND `COLUMN_NAME` = col
+; # returns YES/NO
+  
+
+ You should improve the syntax of your  cursor.execute(stmt, [params])  syntax to pass in the parameter rather than hard coding it in textual sql. This will be much more reliable: 
+
+  sql = "INSERT INTO %s (%s)" % (tbl, col)
+sql += " VALUES(%s)"
+cursor.execute(sql, [val])
+connection.commit()
+  
+
+ https://dev.mysql.com/doc/connector-python/en/connector-python-api-mysqlcursor-execute.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48888459)
+ This should do it.  If you convert to a dataframe you can rename columns first.  The "dfs" entity you were creating was actually a list of dataframe entities. 
+
+  import pandas as pd
+from sqlalchemy import create_engine
+
+engine = create_engine("mysql://python:"+'pw'+"@localhost/test?charset=utf8")
+
+url = r'http://www.boerse-frankfurt.de/devisen'
+dfs = pd.read_html(url,header=0,index_col=0,encoding="UTF-8")
+
+devisen = dfs[9].dropna(axis=0, thresh=4) # Select right table and make a DF
+
+devisen.columns = devisen.columns.str.strip() # Strip extraneous characters
+
+devisen.to_sql(name='table_fx', con=engine, if_exists='append', index=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34068101)
+ Well, considering your requisites  "The data model has interaction outside of SQLAlchemy, so preferably it would be a database-level check (MySQL)"  and  'ensure that only one [.. is not null' . I think the best approach is to write a trigger like this: 
+
+  DELIMITER $$
+CREATE TRIGGER check_null_insert BEFORE INSERT 
+ON my_table
+FOR EACH ROW BEGIN
+IF CHAR_LENGTH(CONCAT_WS('', NEW.a-NEW.a, NEW.b-NEW.b, NEW.c-NEW.c)) = 1 THEN 
+    UPDATE `Error: Only one value of *test_id must be not null` SET z=0;
+END IF;
+END$$
+DELIMITER ;
+  
+
+ Some tricks and considerations: 
+
+ 
+   IF STATEMENT : In order to avoid the tedious writing of check each column is not null while others are null, I did this trick: Reduce each column to one character and check how many characters exist. Note that  NEW.a-NEW.a  always returns 1 character if  NEW.a  is an  Integer ,  NULL  returns 0 characters and the operation  NULL-NULL  returns  NULL  on MySQL.  
+   ERROR TRIGGERING : I suppose you want to raise an error, so how to do this on MySQL? You didn't mention the MySQL version. Only https://dev.mysql.com/doc/refman/5.5/en/signal.html. So the more portable way is issuing an invalid statement like:  UPDATE xx SET z=0 . If you are using MySQL 5.5 you could use:  signal sqlstate '45000' set message_text = 'Error: Only one value of *test_id must be not null';  instead of  UPDATE `Error: Only one value of *test_id must be not null` SET z=0;   
+ 
+
+ Also, I think you want to check this on updates too, so use: 
+
+  DELIMITER $$
+CREATE TRIGGER check_null_update BEFORE UPDATE 
+ON my_table
+FOR EACH ROW BEGIN
+IF CHAR_LENGTH(CONCAT_WS('', NEW.a-NEW.a, NEW.b-NEW.b, NEW.c-NEW.c)) = 1 THEN 
+    UPDATE `Error: Only one value of *test_id must be not null` SET z=0;
+END IF;
+END$$
+DELIMITER ;
+  
+
+ Or create a stored procedure and call it. 
+
+ Update 
+
+ For databases that supports  check constraints , the code is more simple, see  this example for SQL Server : 
+
+  CREATE TABLE MyTable (col1 INT NULL, col2 INT NULL, col3 INT NULL);
+GO
+
+ALTER TABLE MyTable
+ADD CONSTRAINT CheckOnlyOneColumnIsNull
+CHECK (
+  LEN(CONCAT(col1-col1, col2-col2, col3-col3)) = 1
+)
+GO
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7860349)
+  sql = """INSERT INTO pmass_experiment (user,filetype,createddate,uploaddate,time,size,located)
+    VALUES (user, ftype, date, date, time, size, located)"""
+  
+
+ Parametrize your sql and pass in the values as the second argument to  cursor.execute : 
+
+  sql = """INSERT INTO pmass_experiment (user,filetype,createddate,uploaddate,time,size,located)
+         VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+try:
+   # Execute the SQL command
+   cursor.execute(sql,(user, ftype, date, date, time, size, located))
+   # Commit your changes in the database
+   conn.commit()
+except Exception as err:
+   # logger.error(err) 
+   # Rollback in case there is any error
+   conn.rollback()
+  
+
+ It is a good habit to always parametrize your sql since this will help prevent http://www.google.com/url?sa=t&rct=j&q=sql%2binjection&source=web&cd=1&ved=0CFAQFjAA&url=http://en.wikipedia.org/wiki/SQL_injection&ei=W-OiToKbEabm0QG409iGBQ&usg=AFQjCNGcGZNbIk2jM8itxItHrCja7eJ0PQ. 
+
+  
+
+  INSERT INTO pmass_experiment (user,filetype,createddate,uploaddate,time,size,located)
+    VALUES (user, ftype, date, date, time, size, located)
+  
+
+ . An experiment in the  mysql  shell shows it inserts a row of NULL values: 
+
+  mysql> insert into foo (first,last,value) values (first,last,value);
+Query OK, 1 row affected (0.00 sec)
+mysql> select * from foo order by id desc;
++-----+-------+------+-------+
+| id  | first | last | value |
++-----+-------+------+-------+
+| 802 | NULL  | NULL |  NULL | 
++-----+-------+------+-------+
+1 row in set (0.00 sec)
+  
+
+ So I'm not sure why your are not seeing any rows committed to the database table. 
+
+ Nevertheless, the original sql is probably not doing what you intend. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22142848)
+  import mysql.connector
+import sys
+from PIL import Image
+import base64
+import cStringIO
+import PIL.Image
+
+db = mysql.connector.connect(user='root', password='abhi',
+                              host='localhost',
+                              database='cbir')
+
+image = Image.open('C:\Users\Abhi\Desktop\cbir-p\images.jpg')
+blob_value = open('C:\Users\Abhi\Desktop\cbir-p\images.jpg', 'rb').read()
+sql = 'INSERT INTO img(images) VALUES(%s)'    
+args = (blob_value, )
+cursor=db.cursor()
+cursor.execute(sql,args)
+sql1='select * from img'
+db.commit()
+cursor.execute(sql1)
+data=cursor.fetchall()
+print type(data[0][0])
+file_like=cStringIO.StringIO(data[0][0])
+img=PIL.Image.open(file_like)
+img.show()
+
+db.close()
+  
+
+ This code works fine 
+
+
+

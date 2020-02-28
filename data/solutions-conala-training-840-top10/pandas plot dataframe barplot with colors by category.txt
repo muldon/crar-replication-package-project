@@ -1,0 +1,270 @@
+Query: pandas plot dataframe barplot with colors by category
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18897358)
+ Just pass a color parameter to the plot function with a list of colors: 
+
+  df['group'].plot(kind='bar', color=['r', 'g', 'b', 'r', 'g', 'b', 'r'])
+  
+
+ If you want to plot the  value  as bars and you also want the  group  to determine the color of the bar, use: 
+
+  colors = {1: 'r', 2: 'b', 3: 'g'}
+df['value'].plot(kind='bar', color=[colors[i] for i in df['group']])
+  
+
+ You can also use something like: 
+
+  list(df['group'].map(colors))
+  
+
+ Instead of the list comprehension. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/21355951)
+  In [22]: colors = plt.cm.GnBu(np.linspace(0, 1, 10))
+
+In [23]: df.plot(kind='bar', stacked=True, figsize=(20, 10), color=colors)
+Out[23]: <matplotlib.axes._subplots.AxesSubplot at 0x10b792d90>
+  
+
+   
+
+ matplotlib has a bunch of different colormaps to choose from. Just don't use  jet . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28024152)
+ If you want to use pandas then you can first sort: 
+
+  top_colors[:10].sort(ascending=0).plot(kind='barh')
+  
+
+ Seaborn already styles your pandas plots, but you can also use: 
+
+  sns.barplot(top_colors.index, top_colors.values)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31328673)
+ I'd create a column with your colors based on category, then do the following, where ax is a matplotlib ax and df is your dataframe: 
+
+  ax.scatter(df['cpu'], df['wait'], marker = '.', c = df['colors'], s = 100)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46174007)
+ A. using a list of colors</h3>
+
+ The easiest solution to make sure to have the same colors for the same categories in both plots would be to manually specify the colors at plot creation. 
+
+  # First bar plot
+ax = sns.barplot(data=a, x='Scenario', y='Duration',
+                hue='Program', ci=None, palette=["C0", "C1", "k"])
+
+# ...
+# Second bar plot
+ax2 = sns.barplot(data=b, x='Scenario', y='Duration',
+                hue='Program', ci=None,  palette=["C0", "C1","C2", "k"])
+  
+
+ The color  "C2"  (the third color of the color cycle) is only present in the second plot where there exists a Programm C. 
+
+ B. using a dictionary</h3>
+
+ Instead of a list, you may also use a dictionary, mapping values from the  hue  column to colors.  
+
+  palette ={"A":"C0","B":"C1","C":"C2", "Total":"k"}
+
+ax = sns.barplot(data=a, x='Scenario', y='Duration', hue='Program', palette=palette)
+# ...
+ax2 = sns.barplot(data=b, x='Scenario', y='Duration', hue='Program', palette=palette)
+  
+
+ In both cases, the output would look like this: 
+https://i.stack.imgur.com/W516L.png 
+
+ C. automatic dictionary</h3>
+
+ Finally, you may create this dictionary automatically from the values from the  hue  column. The advantage here would be that you neither need to know the colors, nor the values in the respective dataframes beforehands. 
+
+  import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
+sns.set_style('darkgrid')
+fig, ax = plt.subplots()
+
+a = pd.DataFrame({'Program': ['A', 'A', 'B', 'B', 'Total', 'Total'],
+                  'Scenario': ['X', 'Y', 'X', 'Y', 'X', 'Y'],
+                  'Duration': [4, 3, 5, 4, 9, 7]})
+b = pd.DataFrame({'Program': ['A', 'A', 'B', 'B', 'C', 'C', 'Total', 'Total'],
+                  'Scenario': ['X', 'Y', 'X', 'Y', 'X', 'Y', 'X', 'Y'],
+                  'Duration': [4, 3, 5, 4, 3, 2, 12, 9]})
+
+unique = a["Program"].append(b["Program"]).unique()
+palette = dict(zip(unique, sns.color_palette()))
+palette.update({"Total":"k"})
+
+ax = sns.barplot(data=a, x='Scenario', y='Duration',
+                hue='Program', ci=None, palette=palette)
+plt.tight_layout()
+plt.figure()
+
+ax2 = sns.barplot(data=b, x='Scenario', y='Duration',
+                hue='Program', ci=None,  palette=palette)
+plt.tight_layout()
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20394326)
+ Why not plot the special bar in a separate plot command? 
+
+  import matplotlib.pyplot as plt
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+colors = list('rgbkm')
+data_y = [1,2,4,5,6]
+data_x = [1,1,1,1,1]
+
+ax.barh(data_y, data_x, color=colors, alpha=0.25)
+
+# Plot the special bar separately ...
+ax.barh([3], [1], color='b')
+
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44859711)
+ You may obtain the colors according to a colormap by defining a normalization instance with the minimum and maximum data value and map the data to a color using this normalization and a colormap of choice. Here, using the reversed copper map may make sense (see http://matplotlib.org/examples/color/colormaps_reference.html) 
+
+  norm = plt.Normalize(result["Speed"].values.min(), result["Speed"].values.max())
+colors = plt.cm.copper_r(norm(result["Speed"])) 
+  
+
+ You can then use those colors in the barplot 
+
+  sns.barplot(x="DeviceId", y="Speed", data=result, palette=colors)
+  
+
+ https://i.stack.imgur.com/t0lsX.png 
+
+ Complete code to reproduce the above: 
+
+  u = u"""DeviceId   Speed
+    1          30
+    1          35 
+    1          31
+    2          20
+    2          25
+    3          80"""
+
+import io
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+#%matplotlib inline
+
+df = pd.read_csv(io.StringIO(u), delim_whitespace=True)
+result = df.groupby(["DeviceId"])['Speed'].aggregate(np.median).reset_index()
+
+norm = plt.Normalize(result["Speed"].values.min(), result["Speed"].values.max())
+colors = plt.cm.copper_r(norm(result["Speed"]))
+
+plt.figure(figsize=(12,8))
+sns.barplot(x="DeviceId", y="Speed", data=result, palette=colors)
+plt.ylabel('Median speed', fontsize=12)
+plt.xlabel('Device ID', fontsize=12)
+plt.xticks(rotation='vertical')
+plt.show()
+  
+
+ Normalizing from  0  on may also have a nice effect with any of the sequential colormaps, 
+
+  norm = plt.Normalize(0, result["Speed"].values.max())
+colors = plt.cm.Purples(norm(result["Speed"]))
+  
+
+ <a href="https://i.stack.imgur.com/t1s49.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42987968)
+ Here is a plot that closely resembles to picture from the question. It's produced by  matplotlib.pyplot . 
+
+ https://i.stack.imgur.com/iJxiS.png 
+
+  import pandas as pd
+import matplotlib.pyplot as plt
+
+
+data = pd.DataFrame(dict(min=[10, 20],
+                          max=[50, 60],
+                          point1=[40, 50],
+                          point2=[30, 40]),
+                          index=["Series 1", "Series 2"])
+
+plt.barh(range(len(data)), data["max"]-data["min"], height=0.3, left=data["min"])
+
+plt.plot(data["point1"], range(len(data)), linestyle="", markersize=10, 
+         marker="o", color="#ff6600", label="Point 1", markeredgecolor="k")
+plt.plot(data["point2"], range(len(data)), linestyle="", markersize=10, 
+         marker="o", color="#aa0000", label="Point 2", markeredgecolor="k")
+plt.yticks(range(len(data)),data.index)
+
+plt.ylim(-1,3)
+plt.xlim(0,80)
+plt.legend()
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42694490)
+  
+
+  ax.patches[df.index.get_indexer(['B'])[0]].set_facecolor('r')
+
+ax.patches[df.index.get_indexer(['H'])[0]].set_facecolor('orange')
+  
+
+ https://i.stack.imgur.com/THAle.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31632745)
+ Seaborn's barplot returns an axis-object (not a figure). This means you can do the following: 
+
+  import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+fake = pd.DataFrame({'cat': ['red', 'green', 'blue'], 'val': [1, 2, 3]})
+ax = sns.barplot(x = 'val', y = 'cat', 
+              data = fake, 
+              color = 'black')
+ax.set(xlabel='common xlabel', ylabel='common ylabel')
+plt.show()
+  
+
+
+

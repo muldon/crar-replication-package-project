@@ -1,0 +1,448 @@
+Query: Reading unicode elements into numpy array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27261318)
+ You could use https://docs.python.org/2/library/ast.html#ast.literal_eval as follows: 
+
+  import ast
+
+my_str = u'[(12520, 12540), (16600, 16620)]'
+
+my_nparray = np.array(ast.literal_eval(my_str))
+
+print(my_nparray)
+  
+
+  
+
+  [[12520 12540]
+ [16600 16620]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27261321)
+ You could use literal_eval 
+
+  from ast import literal_eval
+import numpy as np
+s=u'[(12520, 12540), (16600, 16620)]'
+
+arr= np.array(literal_eval(s))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52280396)
+ The datatype should have tipped you off.   U30  here stands for a length 30 unicode string (Which is what you'll see if you type  len(x) .   
+
+ What you have is the string representation of a list, not a list of strings/floats/etc..  
+
+ You need to use the  ast  library here: 
+
+  x = '[[39.414, 39.498000000000005]]'
+x = ast.literal_eval(x)
+np.array(x, dtype=float)
+  
+
+  
+
+  array([[39.414, 39.498]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36706526)
+ There are many ways you can accomplish this, however, numpy arrays need to be setup in very specific ways (usually using a  dtype ) to allow unicode characters in these circumstances.  
+
+  #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import numpy as np
+
+dt = np.dtype(str, 10)
+array_unicode=np.array(['maça','banana','morangou'], dtype=dt)
+
+with open('array_unicode.txt','wb') as f:
+    np.savetxt(f, array_unicode, fmt='%s')
+  
+
+ You'll need to be aware of the string length in your array as well as the length you decide to setup within the dtype. If it's too short you'll truncate your data, if it's too long it's wasteful. I suggest you read the  http://docs.scipy.org/doc/numpy-1.9.3/reference/arrays.dtypes.html , as there are many other ways you might consider setting up the array depending on the data format. 
+
+ ↳ http://docs.scipy.org/doc/numpy-1.9.3/reference/arrays.dtypes.html 
+
+ Here's an alternative function that could do the conversion to unicode before saving: 
+
+  #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import numpy as np
+
+array_unicode=np.array([u'maça',u'banana',u'morangou'])
+
+def uniArray(array_unicode):
+    items = [x.encode('utf-8') for x in array_unicode]
+    array_unicode = np.array([items]) # remove the brackets for line breaks
+    return array_unicode
+
+with open('array_unicode.txt','wb') as f:
+    np.savetxt(f, uniArray(array_unicode), fmt='%s')
+  
+
+ Basically your  np.savetxt  will call  uniArray  for a quick conversion, then back. There might be better ways to than this, although it's been a while since I've used numpy; it's always seemed to be somewhat touchy with encodings. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36721261)
+ In Python3 ( ipthon-qt  terminal) I can do: 
+
+  In [12]: b=[u'maça', u'banana',u'morango']
+
+In [13]: np.savetxt('test.txt',b,fmt='%s')
+
+In [14]: cat test.txt
+ma�a
+banana
+morango
+
+In [15]: with open('test1.txt','w') as f:
+    ...:     for l in b:
+    ...:         f.write('%s\n'%l)
+    ...:         
+
+In [16]: cat test1.txt
+maça
+banana
+morango
+  
+
+  savetxt  in both Py2 and 3 insists on saving in 'wb', byte mode.  Your error line has that  asbytes  function. 
+
+ In my example  b  is a list, but that doesn't matter. 
+
+  In [17]: c=np.array(['maça', 'banana','morango'])
+
+In [18]: c
+Out[18]: 
+array(['maça', 'banana', 'morango'], 
+      dtype='<U7') 
+  
+
+ .  In py3 the default string type is unicode, so the  u  tag isn't needed - but is ok. 
+
+ In Python2 I get your error with a plain write 
+
+  >>> b=[u'maça' u'banana',u'morango']
+>>> with open('test.txt','w') as f:
+...    for l in b:
+...        f.write('%s\n'%l)
+... 
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+UnicodeEncodeError: 'ascii' codec can't encode character u'\xe7' in position 2: ordinal not in range(128)
+  
+
+ adding the  encode  gives a nice output: 
+
+  >>> b=[u'maça', u'banana',u'morango']
+>>> with open('test.txt','w') as f:
+...    for l in b:
+...        f.write('%s\n'%l.encode('utf-8'))
+0729:~/mypy$ cat test.txt
+maça
+banana
+morango
+  
+
+  encode  is a string method, so has to be applied to the individual elements of an array (or list). 
+
+ Back on the py3 side, if I use the  encode  I get: 
+
+  In [26]: c1=np.array([l.encode('utf-8') for l in b])
+
+In [27]: c1
+Out[27]: 
+array([b'ma\xc3\xa7a', b'banana', b'morango'], 
+      dtype='|S7')
+
+In [28]: np.savetxt('test.txt',c1,fmt='%s')
+
+In [29]: cat test.txt
+b'ma\xc3\xa7a'
+b'banana'
+b'morango'
+  
+
+ but with the correct format, the plain write works: 
+
+  In [33]: with open('test1.txt','wb') as f:
+    ...:     for l in c1:
+    ...:         f.write(b'%s\n'%l)
+    ...:         
+
+In [34]: cat test1.txt
+maça
+banana
+morango
+  
+
+ Such are the joys of mixing unicode and the 2 Python generations. 
+
+ In case it helps, here's the code for the  np.lib.npyio.asbytes  function that  np.savetxt  uses (along with the  wb  file mode): 
+
+  def asbytes(s):    # py3?
+    if isinstance(s, bytes):
+        return s
+    return str(s).encode('latin1')
+  
+
+ (note the encoding is fixed as 'latin1'). 
+
+ The  np.char  library applies a variety of string methods to the elements of a numpy array, so the  np.array([x.encode...])  can be expressed as: 
+
+  In [50]: np.char.encode(b,'utf-8')
+Out[50]: 
+array([b'ma\xc3\xa7a', b'banana', b'morango'], 
+      dtype='|S7')
+  
+
+ This can be convenient, though past testing indicates that it is not a time saver.  It still has to apply the Python method to each element. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36764848)
+ The  dtype  code for Unicode strings is  U . For work with fixed-sized blocks, the length is needed. In this case  U5  is sufficient: 
+
+<pre class="lang-python prettyprint-override"> >>> np.genfromtxt(BytesIO(input.encode()),
+                      delimiter=',',
+                      dtype=(int, int, 'U5'))
+array([(1, 3, 'Hello'), (2, 4, 'World')], 
+      dtype=[('f0', '<i8'), ('f1', '<i8'), ('f2', '<U5')])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23594981)
+ Actually, the data is being parsed correctly into https://docs.python.org/2/howto/unicode.html#the-unicode-type, not  strs . The  u  prefix indicate that the objects are  unicode . When a list, tuple, or NumPy array is printed, Python shows the  repr  of the items in the sequence. So instead of seeing the printed version of the  unicode , you see the  repr : 
+
+  In [160]: repr(u'Cristina Fern\xe1ndez de Kirchner')
+Out[160]: "u'Cristina Fern\\xe1ndez de Kirchner'"
+
+In [156]: print(u'Cristina Fern\xe1ndez de Kirchner')
+Cristina Fernández de Kirchner
+  
+
+ https://stackoverflow.com/q/1436703/190597 is to provide an unambiguous string representation for each object. The printed verson of a unicode can be ambiguous because of invisible or unprintable characters.  
+
+ If you print the DataFrame or Series, however, you'll get the printed version of the unicodes: 
+
+  In [157]: df = pd.DataFrame({'foo':np.array([u'4th of July', u'911', u'Abab', u'Abass', u'Abcar', u'Abced',
+       u'Ceded', u'Cedes', u'Cedfus', u'Ceding', u'Cedtim', u'Cedtol',
+       u'Cedxer', u'Chevrolet Corvette', u'Chuck Norris',
+       u'Cristina Fern\xe1ndez de Kirchner'], dtype=object)})
+   .....:    .....:    .....: 
+In [158]: df
+Out[158]: 
+                               foo
+0                      4th of July
+1                              911
+2                             Abab
+3                            Abass
+4                            Abcar
+5                            Abced
+6                            Ceded
+7                            Cedes
+8                           Cedfus
+9                           Ceding
+10                          Cedtim
+11                          Cedtol
+12                          Cedxer
+13              Chevrolet Corvette
+14                    Chuck Norris
+15  Cristina Fernández de Kirchner
+
+[16 rows x 1 columns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40391991)
+ You have an array of bytestrings; dtype is  S : 
+
+  In [338]: arr=np.array((b'first_element', b'element'))
+In [339]: arr
+Out[339]: 
+array([b'first_element', b'element'], 
+      dtype='|S13')
+  
+
+  astype  easily converts them to unicode, the default string type for Py3. 
+
+  In [340]: arr.astype('U13')
+Out[340]: 
+array(['first_element', 'element'], 
+      dtype='<U13')
+  
+
+ There is also a library of string functions - applying the corresponding  str  method to the elements of a string array 
+
+  In [341]: np.char.decode(arr)
+Out[341]: 
+array(['first_element', 'element'], 
+      dtype='<U13')
+  
+
+ The  astype  is faster, but the  decode  lets you specify an encoding. 
+
+ See also https://stackoverflow.com/questions/39831230/how-to-decode-a-numpy-array-of-dtype-numpy-string 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42724914)
+ Build an array that contains the hash (using built-in  hash()  function) values of the strings.  
+
+  eg = ['a', 'b', 'c', 'a']
+hashed = np.array([hash(s) for s in eg])
+result = np.equal.outer(hashed, hashed)
+  
+
+ outputs: 
+
+  [[ True False False  True]
+ [False  True False False]
+ [False False  True False]
+ [ True False False  True]]
+  
+
+ If there are only 1-character-long strings, you can use  ord()  instead of  hash() : 
+
+ 
+   Given a string of length one, return an integer representing the
+  Unicode code point of the character when the argument is a unicode
+  object, or the value of the byte when the argument is an 8-bit string.
+  For example, ord('a') returns the integer 97, ord(u'\u2020') returns
+  8224. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49134333)
+ Vectorized is used in two ways when talking about  numpy , and it`s not always clear which is meant. 
+
+ 
+ Operations that operate on all elements of an array 
+ Operations that call optimized (and in many cases multi-threaded) numerical code internally 
+ 
+
+ The second point is what makes vectorized operations much faster than a for loop in python, and the multithreaded part is what makes them faster than a list comprehension.
+When commenters here state that vectorized code is faster, they're referring to the second case as well.
+However, in the numpy documentation, vectorized only refers to the first case.
+It means you can use a function directly on an array, without having to loop through all the elements and call it on each elements.
+In this sense it makes code more concise, but isn't necessarily any faster.
+Some vectorized operations do call multithreaded code, but as far as I know this is limited to linear algebra routines.
+Personally, I prefer using vectorized operatios since I think it is more readable than list comprehensions, even if performance is identical. 
+
+ Now, for the code in question the documentation for  np.char  (which is an alias for  np.core.defchararray ), states 
+
+ 
+   The  chararray  class exists for backwards compatibility with
+   Numarray, it is not recommended for new development. Starting from numpy
+   1.4, if one needs arrays of strings, it is recommended to use arrays of
+    dtype   object_ ,  string_  or  unicode_ , and use the free functions
+   in the  numpy.char  module for fast vectorized string operations. 
+ 
+
+ So there are four ways (one not recommended) to handle strings in numpy.
+Some testing is in order, since certainly each way will have different advantages and disadvantages.
+Using arrays defined as follows: 
+
+  npob = np.array(milstr, dtype=np.object_)
+npuni = np.array(milstr, dtype=np.unicode_)
+npstr = np.array(milstr, dtype=np.string_)
+npchar = npstr.view(np.chararray)
+npcharU = npuni.view(np.chararray)
+  
+
+ This creates arrays (or chararrays for the last two) with the following datatypes: 
+
+  In [68]: npob.dtype
+Out[68]: dtype('O')
+
+In [69]: npuni.dtype
+Out[69]: dtype('<U10')
+
+In [70]: npstr.dtype
+Out[70]: dtype('S10')
+
+In [71]: npchar.dtype
+Out[71]: dtype('S10')
+
+In [72]: npcharU.dtype
+Out[72]: dtype('<U10')
+  
+
+ The benchmarks give quite a range of performance across these datatypes: 
+
+  %timeit [x.upper() for x in test]
+%timeit np.char.upper(test)
+
+# test = milstr
+103 ms ± 1.42 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+377 ms ± 3.67 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+# test = npob
+110 ms ± 659 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+<error on second test, vectorized operations don't work with object arrays>
+
+# test = npuni
+295 ms ± 1.6 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+323 ms ± 1.05 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+# test = npstr
+125 ms ± 2.52 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+125 ms ± 483 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+# test = npchar
+663 ms ± 4.94 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+127 ms ± 1.27 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+# test = npcharU
+887 ms ± 8.13 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+325 ms ± 3.23 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+  
+
+ Surprisingly, using a plain old list of strings is still the fastest.
+Numpy is competitive when the datatype is  string_  or  object_ , but once unicode is included performance becomes much worse.
+The  chararray  is by far the slowest, wether handling unicode or not.
+It should be clear why it's not recommended for use. 
+
+ Using unicode strings has a significant performance penalty.
+The https://docs.scipy.org/doc/numpy/reference/arrays.dtypes.html#string-dtype-note state the following for differences between these types  
+
+ 
+   For backward compatibility with Python 2 the  S  and  a  typestrings remain zero-terminated bytes and np.string_ continues to map to np.bytes_. To use actual strings in Python 3 use U or np.unicode_. For signed bytes that do not need zero-termination b or i1 can be used. 
+ 
+
+ In this case, where the character set does not require unicode it would make sense to use the faster  string_  type.
+If unicode was needed, you may get better performance by using a list, or a numpy array of type  object_  if other numpy functionality is needed.
+Another good example of when a list may be better is https://stackoverflow.com/questions/5064822/how-to-add-items-into-a-numpy-array?noredirect=1&lq=1 
+
+ So, takeaways from this: 
+
+ 
+ Python, while generally accepted as slow, is very performant for some common things.  Numpy is generally quite fast, but is not optimized for everything. 
+ Read the docs. If there's more than one way of doing things (and there usually is), odds are one way is better for what you're trying to do. 
+ Don't blindly assume that vectorized code will be faster - Always profile when you care about performance (this goes for any "optimization" tips). 
+ 
+
+
+

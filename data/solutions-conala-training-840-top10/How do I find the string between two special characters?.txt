@@ -1,0 +1,204 @@
+Query: How do I find the string between two special characters?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14716372)
+ You can use a greedy regex: 
+
+  re.search(r'\[(.*)\]', your_string).group(1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25196202)
+ You can split the string and limit it to two splits. 
+
+  x = info.split(';',2)[1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14716544)
+ Regular expressions are the most flexible option. 
+
+ For another approach, you can try string's http://docs.python.org/2/library/stdtypes.html#str.partition and http://docs.python.org/2/library/stdtypes.html#str.rpartition methods: 
+
+  >>> s = "[virus 1 [isolated from china]]"
+>>> s.partition('[')[-1].rpartition(']')[0]
+'virus 1 [isolated from china]'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13144782)
+ You probably want to look at Regular Expressions. They return true if they find something. 
+
+  import re
+if re.findall(regex, string):
+  print "You found it!"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24051270)
+ Regular expressions treat the backslash specially.  The backslash disables the "magic" behavior of special characters like  * . 
+
+ To actually match a backslash, you need to put two in your raw string:  r'\\foo'  
+
+ I think what confused you is that backslashes are special in strings and also special for regular expressions.  Python has raw strings to simplify your life: in a raw string, backslashes aren't special, leaving you free to think about the special way that the actual regular expression will handle the backslash. 
+
+ The regular expression compiler will see this sequence of two characters:   \*  
+
+ It will see the backslash, and remove the backslash and treat the  *  specially (disable the "magic"). 
+
+ If you are using a raw string, it's easy to create the sequence of two characters:  r'\*'  
+
+ But if you are not using a raw string, backslashes are special inside the string, so you need to double the backslash to get one:   '\\*'  
+
+  s = '\\*'
+assert len(s) == 2
+assert s[0] == '\\'
+assert s[1] == '*'
+  
+
+ If you actually want to match the pattern  \*  then you need a backslash followed by another backslash, to get the match on an actual backslash; then a backslash followed by a  * , to get the match on an actual  * . 
+
+  p = re.compile(r'\\\*')
+assert p.search(r'\*')
+  
+
+ There are two special rules about backslash in a raw string, and the two go together: a backslash can escape a quote character, and therefore you cannot end a raw string with an odd number of backslashes. 
+
+ https://docs.python.org/2/faq/design.html#why-can-t-raw-strings-r-strings-end-with-a-backslash 
+
+ EDIT: @Charles Duffy pointed out that Python's  re  module provides a function that will properly "escape" the special characters, for the times when you want to match them exactly. 
+
+  import re
+s_pat = re.escape(r'*text*')
+assert s_pat[0] == '\\'
+assert s_pat[1] == '*'
+  
+
+ If you wanted to both match literal  *  and use the special behavior of  * , one way to do it is this: 
+
+  s_pat = '(' + re.escape(r'*text*') + ')*'
+  
+
+ This is a pattern that will match zero or more occurrences of the actual string  *text*  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18051682)
+ According to http://docs.python.org/2/reference/lexical_analysis.html: 
+
+ 
+   The backslash (\) character is used to escape characters that
+  otherwise have a special meaning, such as newline, backslash itself,
+  or the quote character. 
+ 
+
+ You need to escape backslash with another backslash: 
+
+  x.replace('\\', '-')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44954354)
+ Note that  (\& | $)  matches either the  &  char and a space after it, or a space and end of string (the spaces are meaningful here!). 
+
+ Use a negated character class  [^&]*  (zero or more chars other than  & ) to simplify the regex (no need for an alternation group or lazy dot matching pattern) and then access  .group(1) : 
+
+  def extract_id_from_ref(ref):
+    m = re.search(r"Cp_6%3A([^&]*)", ref)
+    if m:
+        print(m.group(1))
+  
+
+ Note that neither  _  nor  %  are special regex metacharacters, and do not have to be escaped. 
+
+ See the https://regex101.com/r/IZ6R9D/2. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29656604)
+ You can do something like this: 
+
+  import re
+pattern_string = re.escape(left_identifier) + "(.*?)" + re.escape(right_identifier)
+pattern = re.compile(pattern_string)
+  
+
+ The escape function will automatically escape special characters.  
+
+  >>> import re
+>>> print re.escape("<b*>")
+\<b\*\>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46861094)
+ Using  str.endswith  and  enumerate : 
+
+  def overlap(string1, string2):
+    for i, s in enumerate(string2, 1):
+         if string1.endswith(string2[:i]):
+            break
+
+    return string1 + string2[i:]
+  
+
+<pre class="lang-none prettyprint-override"> >>> overlap("Hello how are you", "are you doing now?")
+
+
+>>> overlap("This is a nice ACADEMY", "DEMY you know!")
+'This is a nice ACADEMY you know!'
+  
+
+ If you were to account for trailing special characters, you'd be wanting to employ some  re  based substitution. 
+
+  import re
+string1 = re.sub('[^\w\s]', '', string1)
+  
+
+ Although note that this would remove all special characters in the first string. 
+
+ 
+
+ A modification to the above function which will find the longest matching substring (instead of the shortest) involves traversing  string2  in reverse. 
+
+  def overlap(string1, string2):
+   for i in range(len(s)):
+      if string1.endswith(string2[:len(string2) - i]):
+          break
+
+   return string1 + string2[len(string2) - i:]
+  
+
+  >>> overlap('Where did', 'did you go?') 
+'Where did you go?'  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/34407443)
+ You need to use https://docs.python.org/2/howto/regex.html#grouping: 
+
+  >>> import re
+>>> s = '235235voltaire.gpx'
+>>> re.search(r'\d+(\w+)\.gpx', s).group(1)
+'voltaire'
+  
+
+ Here we are extracting one or more alphanumeric characters right after one or more digits and right before the  .gpx  (dot has to be escaped since it has a  special meaning ). 
+
+
+

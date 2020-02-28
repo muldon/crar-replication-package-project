@@ -1,0 +1,202 @@
+Query: Unescaping escaped characters in a string using Python 3.2
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13943)
+ Isn't that what Anders' second example does? 
+
+ In 2.5 there's also a  string-escape  encoding you can apply: 
+
+  >>> mystring = r"This is \n a test \r"
+>>> mystring.decode('string-escape')
+'This is \n a test \r'
+>>> print mystring.decode('string-escape')
+This is 
+ a test 
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5555149)
+ If the data came from JSON, the  json  module should already have decoded these escapes for you: 
+
+  >>> import json
+>>> json.loads('"\u003Cp\u003E"')
+u' '
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13882)
+ The idea is that I'll read in an escaped string, and unescape it (a feature notably lacking from Python, which you shouldn't need to resort to regular expressions for in the first place). Unfortunately I'm not being tricked by the backslashes... 
+
+ Another illustrative example: 
+
+  >>> mystring = r"This is \n ridiculous"
+>>> print mystring
+This is \n ridiculous
+>>> p = re.compile( r"\\(\S)" )
+>>> print p.sub( 'bloody', mystring )
+This is bloody ridiculous
+>>> print p.sub( r'\1', mystring )
+This is n ridiculous
+>>> print p.sub( r'\\1', mystring )
+This is \1 ridiculous
+>>> print p.sub( r'\\\1', mystring )
+This is \n ridiculous
+  
+
+ What I'd like it to print is 
+
+  This is 
+ridiculous
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9340191)
+ To prevent special treatment of  \  in a literal string you could use  r  prefix: 
+
+  s = r'\n'
+print(s)
+# -> \n
+  
+
+ If you have a string that contains a newline symbol ( ord(s) == 10 ) and you would like to convert it to a form suitable as a Python literal: 
+
+  s = '\n'
+s = s.encode('unicode-escape').decode()
+print(s)
+# -> \n
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9339658)
+ Edit: Based on your last remark, you likely want to get from Unicode to some encoded representation. This is one way: 
+
+  >>> s = '\n\t'
+>>> s.encode('unicode-escape')
+b'\\n\\t'
+  
+
+ If you don't need them to be escaped then use your system encoding, e.g.: 
+
+  >>> s.encode('utf8')
+b'\n\t'
+  
+
+ You could use that in a subprocess: 
+
+  import subprocess
+proc = subprocess.Popen([ 'myutility', '-i', s.encode('utf8') ], 
+                        stdout=subprocess.PIPE, stdin=subprocess.PIPE, 
+                        stderr=subprocess.STDOUT)
+stdout,stderr = proc.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/12127534)
+ From  help(re.sub)  [emphasis mine]: 
+
+ 
+   sub(pattern, repl, string, count=0, flags=0) 
+  
+   
+     Return the string obtained by replacing the leftmost
+        non-overlapping occurrences of the pattern in string by the
+        replacement repl.   repl can be either a string or a callable;
+        if a string, backslash escapes in it are processed.   If it is
+        a callable, it's passed the match object and must return
+        a replacement string to be used. 
+   
+ 
+
+ One way to get around this is to pass a  lambda : 
+
+  >>> reg.sub(rpl, my_string )
+'I hope this This is a nicely escaped newline \n is replaced with a nicely escaped string'
+>>> reg.sub(lambda x: rpl, my_string )
+'I hope this This is a nicely escaped newline \\n is replaced with a nicely escaped string'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8691331)
+ I'm not sure if there's built-in for this, but a simple regex could be used. 
+
+  re.sub(r'(?<!\\)\\', '', filename)
+  
+
+ This would remove all backslashes (except for those following another backslash). This seems to be the behavior when you try and  echo  these values on the terminal (I've only tested this in bash). 
+
+  bash-3.2$ echo foo\\bar
+foo\bar
+bash-3.2$ echo foo\ bar
+foo bar
+bash-3.2$ echo foo\=bar
+foo=bar
+  
+
+ Here's a complete python example: 
+
+  import re
+
+def unescape(filename):
+    return re.sub(r'(?<!\\)\\', '', filename)
+
+print unescape(r'foo\ bar')
+print unescape(r'foo\=bar')
+print unescape(r'foo\\bar')
+  
+
+ Output: 
+
+  foo bar
+foo=bar
+foo\bar
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33466979)
+ I finally believe to have found the problem.  These characters above are escaped HTML inside an XML. . If you look at Independent's http://www.independent.co.uk/news/world/rss most titles are affected like that.  
+
+ So this is not an UTF8 problem.  How can I encode any html characters in my title above before converting to to UTF8? 
+
+  head_line=i.title.text.encode('utf-8').strip(),
+  
+
+ I solved it by unescaping the title with HTMLParser and then encoding it with UTF8. Marco's answer did essentially the same. But the  html  library didn't work for me. 
+
+  head_line=HTMLParser.HTMLParser().unescape(i.title.text).encode('utf-8').strip(),
+  
+
+ I don't recommend using  from_encoding='latin-1'  as it causes other problems. The solution with  unescaping  and  encode('utf-8')  is enough to decode the £ into  \xa3 , which is proper Unicode chars. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38052239)
+  doc  doesn't contain any escaped characters, so your regex doesn't match. 
+
+ Add the https://stackoverflow.com/questions/2081640/what-exactly-do-u-and-r-string-flags-do-in-python-and-what-are-raw-string-l prefix to the string, which means that it should be treated as a  raw  string, ignoring escaped codes. 
+
+  
+
+  >>> doc = r' Doc = "This is a quoted string: \"this is cool!\" " '
+>>> cleanr = re.compile(r'\\".*?\\"')
+>>> re.sub(cleanr, '', doc)
+' Doc = "This is a quoted string:  " '
+  
+
+
+

@@ -1,0 +1,381 @@
+Query: Send email with attachment in Java
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/935714)
+ This is what I do when i want to send email with attachment, work fine.  
+
+   public class NewClass {
+
+    public static void main(String[] args) {
+        try {
+            Properties props = System.getProperties();
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.host", "smtp.gmail.com");
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.port", "465"); // smtp port
+            Authenticator auth = new Authenticator() {
+
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication("username-gmail", "password-gmail");
+                }
+            };
+            Session session = Session.getDefaultInstance(props, auth);
+            MimeMessage msg = new MimeMessage(session);
+            msg.setFrom(new InternetAddress("username-gmail@gmail.com"));
+            msg.setSubject("Try attachment gmail");
+            msg.setRecipient(RecipientType.TO, new InternetAddress("username-gmail@gmail.com"));
+            //add atleast simple body
+            MimeBodyPart body = new MimeBodyPart();
+            body.setText("Try attachment");
+            //do attachment
+            MimeBodyPart attachMent = new MimeBodyPart();
+            FileDataSource dataSource = new FileDataSource(new File("file-sent.txt"));
+            attachMent.setDataHandler(new DataHandler(dataSource));
+            attachMent.setFileName("file-sent.txt");
+            attachMent.setDisposition(MimeBodyPart.ATTACHMENT);
+            Multipart multipart = new MimeMultipart();
+            multipart.addBodyPart(body);
+            multipart.addBodyPart(attachMent);
+            msg.setContent(multipart);
+            Transport.send(msg);
+        } catch (AddressException ex) {
+            Logger.getLogger(NewClass.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (MessagingException ex) {
+            Logger.getLogger(NewClass.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7971669)
+ Maybe a little bit late, but you can use this code (you also need Java Mail): 
+
+  public class MailSender
+{
+      private Transport AWSTransport;
+      ...
+      //Initialize transport
+      private void initAWSTransport() throws MessagingException
+      {
+        String keyID = <your key id>
+        String secretKey = <your secret key>
+        MailAWSCredentials credentials = new MailAWSCredentials();
+        credentials.setCredentials(keyID, secretKey);
+        AmazonSimpleEmailService ses = new AmazonSimpleEmailServiceClient(credentials);
+        Properties props = new Properties();
+            props.setProperty("mail.transport.protocol", "aws");
+        props.setProperty("mail.aws.user", credentials.getAWSAccessKeyId());
+        props.setProperty("mail.aws.password", credentials.getAWSSecretKey());
+        AWSsession = Session.getInstance(props);
+        AWStransport = new AWSJavaMailTransport(AWSsession, null);
+        AWStransport.connect();
+      }
+
+  public void sendEmail(byte[] attachment)
+  {
+    //mail properties
+    String senderAddress = <Sender address>;
+    String recipientAddress = <Recipient address>;
+    String subject = <Mail subject>;
+    String text = <Your text>;
+    String mimeTypeOfText = <MIME type of text part>;
+    String fileMimeType = <MIME type of your attachment>;
+    String fileName = <Name of attached file>;
+
+    initAWSTransport();
+
+    try
+    {
+      // Create new message
+      Message msg = new MimeMessage(AWSsession);
+      msg.setFrom(new InternetAddress(senderAddress));
+      msg.addRecipient(Message.RecipientType.TO, new InternetAddress(recipientAddress));
+      msg.setSubject(subject);
+
+      //Text part
+      Multipart multipart = new MimeMultipart();
+      BodyPart messageBodyPart = new MimeBodyPart();
+      messageBodyPart.setContent(text, mimeTypeOfText);
+      multipart.addBodyPart(messageBodyPart);
+
+      //Attachment part
+      if (attachment != null && attachment.length != 0)
+      {
+        messageBodyPart = new MimeBodyPart();
+        DataSource source = new ByteArrayDataSource(attachment,fileMimeType);
+        messageBodyPart.setDataHandler(new DataHandler(source));
+        messageBodyPart.setFileName(fileName);
+        multipart.addBodyPart(messageBodyPart);
+      }
+      msg.setContent(multipart);
+
+      //send message
+      msg.saveChanges();
+      AWSTransport.sendMessage(msg, null);
+    } catch (MessagingException e){...}
+  }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17247198)
+ You can try something like: 
+
+  File f = new File(file);
+MimeBodyPart attachmentPart = new MimeBodyPart();
+attachmentPart.attachFile(f);
+multipart.addBodyPart(attachmentPart);
+  
+
+ See more details on: https://stackoverflow.com/questions/17097806/send-email-via-smtp-with-attachment-plain-text-and-text-hml 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/23534663)
+ You have  http://docs.spring.io/spring/docs/3.0.x/api/org/springframework/core/io/ByteArrayResource.html : 
+
+  import org.springframework.core.io.ByteArrayResource;
+....
+helper.addAttachment("doc", new ByteArrayResource(docDao.findNextDoc().getBytes());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37788697)
+ For an unknow reason, the accepted answer partially works when I send email to my gmail address. I have the attachement but not the text of the email. 
+
+ If you want both attachment and text try this based on the accepted answer : 
+
+      Properties props = new java.util.Properties();
+    props.put("mail.smtp.host", "yourHost");
+    props.put("mail.smtp.port", "yourHostPort");
+    props.put("mail.smtp.auth", "true");             
+    props.put("mail.smtp.starttls.enable", "true");
+
+
+    // Session session = Session.getDefaultInstance(props, null);
+    Session session = Session.getInstance(props,
+              new javax.mail.Authenticator() {
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication("user", "password");
+                }
+              });
+
+
+    Message msg = new MimeMessage(session);
+    try {
+        msg.setFrom(new InternetAddress(mailFrom));
+        msg.setRecipient(Message.RecipientType.TO, new InternetAddress(mailTo));
+        msg.setSubject("your subject");
+
+        Multipart multipart = new MimeMultipart();
+
+        MimeBodyPart textBodyPart = new MimeBodyPart();
+        textBodyPart.setText("your text");
+
+        MimeBodyPart attachmentBodyPart= new MimeBodyPart();
+        DataSource source = new FileDataSource(attachementPath); // ex : "C:\\test.pdf"
+        attachmentBodyPart.setDataHandler(new DataHandler(source));
+        attachmentBodyPart.setFileName(fileName); // ex : "test.pdf"
+
+        multipart.addBodyPart(textBodyPart);  // add the text part
+        multipart.addBodyPart(attachmentBodyPart); // add the attachement part
+
+        msg.setContent(multipart);
+
+
+        Transport.send(msg);
+    } catch (MessagingException e) {
+        LOGGER.log(Level.SEVERE,"Error while sending email",e);
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43631119)
+ This is the way you can send attachments using SendGrid API. 
+
+  Mail mail = createEmail();
+    Attachments attachments = new Attachments();
+    Base64 x = new Base64();
+    String encodedString = x.encodeAsString(loadPdfFromClasspath());
+    attachments.setContent(encodedString);
+    attachments.setDisposition("attachment");
+    attachments.setFilename("xyx.pdf");
+    attachments.setType("application/pdf");
+    mail.addAttachments(attachments);
+
+
+try {
+        request.method = com.sendgrid.Method.POST;
+        request.endpoint = "mail/send";
+        request.body = mail.build();
+        // Uncomment once connectivity with sendgrid is resolved
+        Response response = sg.api(request);
+
+}catch (IOException ex) {
+        throw ex;
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6854364)
+ Using http://commons.apache.org/email/apidocs/org/apache/commons/mail/MultiPartEmail.html#attach%28javax.activation.DataSource,%20java.lang.String,%20java.lang.String%29 should work: 
+
+  import org.apache.commons.mail.*;
+
+// create the mail
+MultiPartEmail email = new MultiPartEmail();
+email.setHostName("mail.myserver.com");
+email.addTo("jdoe@somewhere.org", "John Doe");
+email.setFrom("me@apache.org", "Me");
+email.setSubject("The picture");
+email.setMsg("Here is the picture you wanted");
+
+// get your inputstream from your db
+InputStream is = new BufferedInputStream(MyUtils.getBlob());  
+DataSource source = new ByteArrayDataSource(is, "application/pdf");  
+
+// add the attachment
+email.attach(source, "somefile.pdf", "Description of some file");
+
+// send the email
+email.send();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41529188)
+ It is a good question! I have solved this issue. 
+
+ First, you should import the jar  ews-java-api-2.0.jar . if you use maven, you would add the following code into your  pom.xml  
+
+  <dependency>
+  <groupId>com.microsoft.ews-java-api</groupId>
+  <artifactId>ews-java-api</artifactId>
+  <version>2.0</version>
+</dependency>
+  
+
+ Secondly, you should new java class named  MailUtil.java .Some Exchange Servers don't start  SMTP  service by default, so we use  Microsoft Exchange WebServices(EWS)  instead of  SMTP  service. 
+
+ MailUtil.java 
+
+  package com.spacex.util;
+
+
+import microsoft.exchange.webservices.data.core.ExchangeService;
+import microsoft.exchange.webservices.data.core.enumeration.misc.ExchangeVersion;
+import microsoft.exchange.webservices.data.core.service.item.EmailMessage;
+import microsoft.exchange.webservices.data.credential.ExchangeCredentials;
+import microsoft.exchange.webservices.data.credential.WebCredentials;
+import microsoft.exchange.webservices.data.property.complex.MessageBody;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.URI;
+
+/**
+ * Exchange send email util
+ *
+ * @author vino.dang
+ * @create 2017/01/08
+ */
+public class MailUtil {
+
+    private static Logger logger = LoggerFactory.getLogger(MailUtil.class);
+
+
+
+    /**
+     * send emial
+     * @return
+     */
+    public static boolean sendEmail() {
+
+        Boolean flag = false;
+        try {
+            ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2010_SP1); // your server version
+            ExchangeCredentials credentials = new WebCredentials("vino", "abcd123", "spacex"); // change them to your email username, password, email domain
+            service.setCredentials(credentials);
+            service.setUrl(new URI("https://outlook.spacex.com/EWS/Exchange.asmx")); //outlook.spacex.com change it to your email server address
+            EmailMessage msg = new EmailMessage(service);
+            msg.setSubject("This is a test!!!"); //email subject
+            msg.setBody(MessageBody.getMessageBodyFromText("This is a test!!! pls ignore it!")); //email body
+            msg.getToRecipients().add("123@hotmail.com"); //email receiver
+//        msg.getCcRecipients().add("test2@test.com"); // email cc recipients
+//        msg.getAttachments().addFileAttachment("D:\\Downloads\\EWSJavaAPI_1.2\\EWSJavaAPI_1.2\\Getting started with EWS Java API.RTF"); // email attachment
+            msg.send(); //send email
+            flag = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return flag;
+
+    }
+
+
+    public static void main(String[] args) {
+
+        sendEmail();
+
+    }
+}
+  
+
+ if you want to get more detail, pls refer to https://github.com/OfficeDev/ews-java-api/wiki/Getting-Started-Guide 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10396263)
+ There definitely the problem of MIME Type. If you want to image attached with email you can send this with simply using  
+
+  private void sendEmail(String[] to,String[] cc,String subject, String message)
+    {
+
+        ArrayList<Uri> uris = new ArrayList<Uri>();
+
+
+        Uri u = Uri.fromFile(new File(front_image));
+        Uri u1 = Uri.fromFile(new File(side_image));
+        uris.add(u);
+        uris.add(u1);
+
+
+
+        Intent emailIntent = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        emailIntent.setData(Uri.parse("mailto:"));
+        emailIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        emailIntent.setType("image/jpg");
+        emailIntent.putExtra(Intent.EXTRA_EMAIL, to);
+        emailIntent.putExtra(Intent.EXTRA_CC, cc);
+        emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+        emailIntent.putExtra(Intent.EXTRA_TEXT, message);
+        emailIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        /*emailIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + show_right_latest_path));
+        emailIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + show_right_prev_path));
+        emailIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + show_front_latest_path));
+        emailIntent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + show_front_prev_path));*/
+        startActivity(Intent.createChooser(emailIntent, "Email"));
+
+
+    }  
+  
+
+
+

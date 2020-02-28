@@ -1,0 +1,345 @@
+Query: Splitting a list in a Pandas cell into multiple columns
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40924406)
+ You can loop through the Series with  apply()  function and convert each list to a  Series , this automatically expand the list as a series in the column direction: 
+
+  df[0].apply(pd.Series)
+
+#   0    1   2
+#0  8   10  12
+#1  7    9  11
+  
+
+  Update : To keep other columns of the data frame, you can concatenate the result with the columns you want to keep: 
+
+  pd.concat([df[0].apply(pd.Series), df[1]], axis = 1)
+
+#   0    1   2  1
+#0  8   10  12  A
+#1  7    9  11  B
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/46704581)
+ You could do  pd.DataFrame(df[col].values.tolist())  - is much faster ~500x 
+
+  In [820]: pd.DataFrame(df[0].values.tolist())
+Out[820]:
+   0   1   2
+0  8  10  12
+1  7   9  11
+
+In [821]: pd.concat([pd.DataFrame(df[0].values.tolist()), df[1]], axis=1)
+Out[821]:
+   0   1   2  1
+0  8  10  12  A
+1  7   9  11  B
+  
+
+ 
+
+ Timings  
+
+ Medium 
+
+  In [828]: df.shape
+Out[828]: (20000, 2)
+
+In [829]: %timeit pd.DataFrame(df[0].values.tolist())
+100 loops, best of 3: 15 ms per loop
+
+In [830]: %timeit df[0].apply(pd.Series)
+1 loop, best of 3: 4.06 s per loop
+  
+
+  
+
+  In [832]: df.shape
+Out[832]: (200000, 2)
+
+In [833]: %timeit pd.DataFrame(df[0].values.tolist())
+10 loops, best of 3: 161 ms per loop
+
+In [834]: %timeit df[0].apply(pd.Series)
+1 loop, best of 3: 40.9 s per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48532692)
+  lst_col = 'samples'
+
+r = pd.DataFrame({
+      col:np.repeat(df[col].values, df[lst_col].str.len())
+      for col in df.columns.drop(lst_col)}
+    ).assign(**{lst_col:np.concatenate(df[lst_col].values)})[df.columns]
+  
+
+  
+
+  In [103]: r
+Out[103]:
+    samples  subject  trial_num
+0      0.10        1          1
+1     -0.20        1          1
+2      0.05        1          1
+3      0.25        1          2
+4      1.32        1          2
+5     -0.17        1          2
+6      0.64        1          3
+7     -0.22        1          3
+8     -0.71        1          3
+9     -0.03        2          1
+10    -0.65        2          1
+11     0.76        2          1
+12     1.77        2          2
+13     0.89        2          2
+14     0.65        2          2
+15    -0.98        2          3
+16     0.65        2          3
+17    -0.30        2          3
+  
+
+ PS https://stackoverflow.com/a/40449726/5741205 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24770743)
+ Create the dataframe with a single column, then add columns with constant values: 
+
+  import pandas as pd
+
+df = pd.DataFrame({"data": ['a', 'b', 'c']})
+df['col1'] = 1
+df['col2'] = 2
+print df
+  
+
+ This prints: 
+
+    data  col1  col2
+0    a     1     2
+1    b     1     2
+2    c     1     2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27271931)
+ you can also use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html#pandas.concat and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.melt.html#pandas.melt for this: 
+
+  >>> objs = [df, pd.DataFrame(df['samples'].tolist())]
+>>> pd.concat(objs, axis=1).drop('samples', axis=1)
+   subject  trial_num     0     1     2
+0        1          1 -0.49 -1.00  0.44
+1        1          2 -0.28  1.48  2.01
+2        1          3 -0.52 -1.84  0.02
+3        2          1  1.23 -1.36 -1.06
+4        2          2  0.54  0.18  0.51
+5        2          3 -2.18 -0.13 -1.35
+>>> pd.melt(_, var_name='sample_num', value_name='sample', 
+...         value_vars=[0, 1, 2], id_vars=['subject', 'trial_num'])
+    subject  trial_num sample_num  sample
+0         1          1          0   -0.49
+1         1          2          0   -0.28
+2         1          3          0   -0.52
+3         2          1          0    1.23
+4         2          2          0    0.54
+5         2          3          0   -2.18
+6         1          1          1   -1.00
+7         1          2          1    1.48
+8         1          3          1   -1.84
+9         2          1          1   -1.36
+10        2          2          1    0.18
+11        2          3          1   -0.13
+12        1          1          2    0.44
+13        1          2          2    2.01
+14        1          3          2    0.02
+15        2          1          2   -1.06
+16        2          2          2    0.51
+17        2          3          2   -1.35
+  
+
+ last, if you need you can sort base on the first the first three columns. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50219408)
+ I think need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.split.html by regex -  \d+  is for one or more numbers and  \)  is escaped  ) : 
+
+  df1 = df['col'].str.split('\d+\)', expand=True)
+  
+
+  
+
+  df = pd.DataFrame({'col':[
+        "What is the capital of France?1)Lille 2)Paris OK3)Nice",
+        "What is the capital of Slovakia?1)Bratislava OK 2)Zilina3)Praha"]})
+
+
+df1 = df['col'].str.split('\d+\)', expand=True)
+df1.columns = ['Question','No1','No2','No3']
+print (df1)
+                           Question             No1       No2    No3
+0    What is the capital of France?          Lille   Paris OK   Nice
+1  What is the capital of Slovakia?  Bratislava OK     Zilina  Praha
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53967637)
+ I guess I originally misread the question: 
+
+ to get unique values in each column: 
+
+  df['col'].apply(pd.Series).stack().unique()
+  
+
+ for example: 
+
+  df = pd.DataFrame({'address': ['MI' , 'CA'], 'name':['John', 'Jane'], 'list': [['ab', 'cd'], 'e']})
+
+df
+Out[4]: 
+  address      list  name
+0      MI  [ab, cd]  John
+1      CA         e  Jane
+
+df['list'].apply(pd.Series).stack().unique()
+Out[5]: array(['ab', 'cd', 'e'], dtype=object)
+  
+
+  .apply(pd.Series)  
+transforms the lists into single elements in multiple new columns.  
+
+  stack  re-stacks the multiple columns into just one.  
+
+  unique()  gets the unique values of that column. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46983212)
+ For those looking for a version of Roman Pekar's answer that avoids manual column naming: 
+
+  column_to_explode = 'samples'
+res = (df
+       .set_index([x for x in df.columns if x != column_to_explode])[column_to_explode]
+       .apply(pd.Series)
+       .stack()
+       .reset_index())
+res = res.rename(columns={
+          res.columns[-2]:'exploded_{}_index'.format(column_to_explode),
+          res.columns[-1]: '{}_exploded'.format(column_to_explode)})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38384172)
+  df = pd.DataFrame([
+        [6, "a: 1, b: 2"],
+        [6, "a: 1, b: 2"],
+        [6, "a: 1, b: 2"],
+        [6, "a: 1, b: 2"],
+    ], columns=['ID', 'dictionary'])
+
+def str2dict(s):
+    split = s.strip().split(',')
+    d = {}
+    for pair in split:
+        k, v = [_.strip() for _ in pair.split(':')]
+        d[k] = v
+    return d
+
+df.dictionary.apply(str2dict).apply(pd.Series)
+  
+
+ https://i.stack.imgur.com/jeZVT.png 
+
+ Or: 
+
+  pd.concat([df, df.dictionary.apply(str2dict).apply(pd.Series)], axis=1)
+  
+
+ <a href="https://i.stack.imgur.com/70aJ7.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27266225)
+  
+
+  >>> df
+                samples  subject  trial_num
+0  [-0.07, -2.9, -2.44]        1          1
+1   [-1.52, -0.35, 0.1]        1          2
+2  [-0.17, 0.57, -0.65]        1          3
+3  [-0.82, -1.06, 0.47]        2          1
+4   [0.79, 1.35, -0.09]        2          2
+5   [1.17, 1.14, -1.79]        2          3
+>>>
+>>> s = df.apply(lambda x: pd.Series(x['samples']),axis=1).stack().reset_index(level=1, drop=True)
+>>> s.name = 'sample'
+>>>
+>>> df.drop('samples', axis=1).join(s)
+   subject  trial_num  sample
+0        1          1   -0.07
+0        1          1   -2.90
+0        1          1   -2.44
+1        1          2   -1.52
+1        1          2   -0.35
+1        1          2    0.10
+2        1          3   -0.17
+2        1          3    0.57
+2        1          3   -0.65
+3        2          1   -0.82
+3        2          1   -1.06
+3        2          1    0.47
+4        2          2    0.79
+4        2          2    1.35
+4        2          2   -0.09
+5        2          3    1.17
+5        2          3    1.14
+5        2          3   -1.79
+  
+
+ If you want sequential index, you can apply  reset_index(drop=True)  to the result. 
+
+  update : 
+
+  >>> res = df.set_index(['subject', 'trial_num'])['samples'].apply(pd.Series).stack()
+>>> res = res.reset_index()
+>>> res.columns = ['subject','trial_num','sample_num','sample']
+>>> res
+    subject  trial_num  sample_num  sample
+0         1          1           0    1.89
+1         1          1           1   -2.92
+2         1          1           2    0.34
+3         1          2           0    0.85
+4         1          2           1    0.24
+5         1          2           2    0.72
+6         1          3           0   -0.96
+7         1          3           1   -2.72
+8         1          3           2   -0.11
+9         2          1           0   -1.33
+10        2          1           1    3.13
+11        2          1           2   -0.65
+12        2          2           0    0.10
+13        2          2           1    0.65
+14        2          2           2    0.15
+15        2          3           0    0.64
+16        2          3           1   -0.10
+17        2          3           2   -0.76
+  
+
+
+

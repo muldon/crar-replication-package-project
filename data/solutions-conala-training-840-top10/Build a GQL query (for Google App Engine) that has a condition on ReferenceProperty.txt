@@ -1,0 +1,175 @@
+Query: Build a GQL query (for Google App Engine) that has a condition on ReferenceProperty
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/854910)
+ You shouldn't be inserting user data into a GQL string using string substitution. GQL supports parameter substitution, so you can do this: 
+
+  db.GqlQuery("SELECT * FROM Schedule WHERE station = $1", foo.key())
+  
+
+ or, using the Query interface: 
+
+  Schedule.all().filter("station =", foo.key())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1788018)
+ An even easier thing to do is to change the model definition by adding the 'collection_name' field to the ReferenceProperty:  
+
+ 
+   station = db.ReferenceProperty(Station, required=True, collection_name="schedules") 
+ 
+
+ Then you can just do:  
+
+ 
+   foo.schedules  
+ 
+
+ whenever you want to get all the stations' schedules.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6214541)
+      GQL does not have an OR operator. However, it does have an IN operator, 
+which provides a limited form of OR.
+  
+
+ Docs clearly says that GQL doesn't have an OR operator.. 
+
+ You could do something like this ..Make two queries and combine the results... 
+
+    vendors=vendor.all()
+  pub_vendors = vendors.filter("access = ","public")
+  vendors=vendor.all()
+  org_vendors = vendors.filter("organisation_id = ",orgid)
+  results = pub_vendors.extend(org_vendors)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3715032)
+  
+
+  A_db_model.all().filter('valueA IN', ['aaa', 'bbb'])
+  
+
+ or the equivalent GQL: 
+
+  GqlQuery('SELECT * FROM A_db_model WHERE valueA IN :1', ['aaa', 'bbb'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4940483)
+ You can filter queries by doing a GQL Query like this: 
+
+  
+result = db.GqlQuery('select * from Model where __key__ IN :1', [db.Key.from_path('Model', 'Key1'), db.Key.from_path('Model', 'Key2')]).fetch(2)
+  
+
+  
+
+  
+result = Model.get([db.Key.from_path('Model', 'Key1'), db.Key.from_path('ProModelduct', 'Key2')])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11460136)
+ You have the Interactive Console for that, you get run GQL query there. 
+For example you can run following code in the Interactive Console: 
+
+  from google.appengine.ext import db
+q = db.GqlQuery("SELECT * FROM Song WHERE composer = 'Lennon, John'")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5470302)
+ Google Datastore doesn't support joins. You can fetch all the entites of Entity2 and does some manipulation to achieve what you have said.Somewhat similar to what @Mani suggested.  
+
+  entities2 = Entity2.all()
+for entity2 in entities2:
+   Entity1= entity.prop3.get()
+    if Entity1.prop1== somevalue:
+       #Do your processing here
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/15116179)
+ Have a look at the db key class. When you have an entity you can do: 
+
+  entity.key().id_or_name()
+  
+
+  
+
+  entity.key.id()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5441033)
+ http://code.google.com/intl/it/appengine/docs/python/datastore/gqlreference.html language is read-only and it is useful for retrieving entities or keys from the App Engine Datastore. 
+
+ For the  DELETE  Statements you have to use the http://code.google.com/intl/it/appengine/docs/python/datastore/modelclass.html#Model_delete method provided by the http://code.google.com/intl/it/appengine/docs/python/datastore/modelclass.html. 
+An example: 
+
+  q = db.GqlQuery("SELECT * FROM Foo")
+results = q.fetch(10)
+for result in results:
+    result.delete()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/13861796)
+ you should use the person as an ancestor/parent for the idea. 
+
+  idea = Idea(parent=some_person, other_field=field_value).put()
+  
+
+ then you can query all ideas where some_person is the ancestor 
+
+  persons_ideas = Idea.all().ancestor(some_person_key).fetch(1000)
+  
+
+ the ancestor key will be included in the  Idea  entities key and you won't be able to change that the ancestor once the entity is created. 
+
+ i highly suggest you to use  ndb  instead of  db  https://developers.google.com/appengine/docs/python/ndb/   
+
+ with  ndb  you could even use  StructuredProperty  or  LocalStructuredProperty 
+<a href="https://developers.google.com/appengine/docs/python/ndb/properties#structured"properties#structured  
+
+  EDIT:  
+if you need a many to many relationship look in to ListProperties and store the Persons keys in that property. then you can query for all Ideas with that Key in that property. 
+
+  class Idea(db.Model):
+    person = db.StringListProperty()
+
+idea = Idea(person = [str(person.key())], ....).put()
+  
+
+ add another person to the idea 
+
+  idea.person.append(str(another_person.key())).put()
+
+ideas = Idea.filter(person=str(person.key())).fetch(1000)
+  
+
+ look into https://developers.google.com/appengine/docs/python/datastore/typesandpropertyclasses#ListProperty 
+
+
+

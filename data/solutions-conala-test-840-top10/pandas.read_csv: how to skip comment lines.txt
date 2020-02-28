@@ -1,0 +1,269 @@
+Query: pandas.read_csv: how to skip comment lines
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39724905)
+ In the call to  read_csv  you can't really. If you're just processing a header you can open the file, extract the commented lines and process them, then read in the data in a separate call. 
+
+  from itertools import takewhile
+with open(filename, 'r') as fobj:
+    # takewhile returns an iterator over all the lines 
+    # that start with the comment string
+    headiter = takewhile(lambda s: s.startswith('#'), fobj)
+    # you may want to process the headers differently, 
+    # but here we just convert it to a list
+    header = list(headiter)
+df = pandas.read_csv(filename)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23605051)
+ I am on Pandas version 0.13.1 and this  comments-in-csv  problem still bothers me.  
+
+ Here is my present workaround: 
+
+  def read_csv(filename, comment='#', sep=','):
+    lines = "".join([line for line in open(filename) 
+                     if not line.startswith(comment)])
+    return pd.read_csv(StringIO(lines), sep=sep)
+  
+
+ Otherwise with  pd.read_csv(filename, comment='#')  I get  
+
+ 
+   pandas.parser.CParserError: Error tokenizing data. C error: Expected 1 fields in line 16, saw 3. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41946214)
+  comment  is what you're searching for: 
+
+  df = pd.read_csv('sample_file.csv', comment='#')
+  
+
+ From the documentation: 
+
+ 
+   comment : str, default None  
+  
+   Indicates remainder of line should not be
+  parsed. If found at the beginning of a line, the line will be ignored
+  altogether. This parameter must be a single character. Like empty
+  lines (as long as skip_blank_lines=True), fully commented lines are
+  ignored by the parameter header but not by skiprows. For example, if
+  comment=’#’, parsing ‘#emptyna,b,cn1,2,3’ with header=0 will result in
+  ‘a,b,c’ being treated as the header. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48724041)
+ You can read first metadata and then use  read_csv : 
+
+  with open('f.csv') as file:
+    #read first 2 rows to metadata
+    header = [file.readline() for x in range(2)]
+    meta = [value.strip().split(',') for value in header]
+    print (meta)
+    [['sometext', ' sometext2'], ['moretext', ' moretext1', ' moretext2']]
+
+    df = pd.read_csv(file)
+    print (df)
+
+          *header*
+    0  actual data
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31931208)
+ So I believe in the latest releases of pandas (version 0.16.0), you could throw in the  comment='#'  parameter into  pd.read_csv  and this should skip commented out lines.  
+
+ These github issues shows that you can do this: 
+
+ 
+ https://github.com/pydata/pandas/issues/10548 
+ https://github.com/pydata/pandas/issues/4623 
+ 
+
+ See the documentation on  read_csv : http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39298213)
+ You need to set  skip_blank_lines=True  
+
+  df = pd.read_csv(io.StringIO(temp), sep="|", comment="#", skip_blank_lines=True).dropna()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18366911)
+ One workaround is to specify skiprows to ignore the first few entries: 
+
+  In [11]: s = '# notes\na,b,c\n# more notes\n1,2,3'
+
+In [12]: pd.read_csv(StringIO(s), sep=',', comment='#', skiprows=1)
+Out[12]: 
+    a   b   c
+0 NaN NaN NaN
+1   1   2   3
+  
+
+ Otherwise  read_csv  gets a little confused: 
+
+  In [13]: pd.read_csv(StringIO(s), sep=',', comment='#')
+Out[13]: 
+        Unnamed: 0
+a   b            c
+NaN NaN        NaN
+1   2            3
+  
+
+  This seems to be the case in 0.12.0, I've filed https://github.com/pydata/pandas/issues/4623.  
+
+ As Viktor points out you can use dropna to remove the NaN after the fact... (there is a https://github.com/pydata/pandas/issues/4466 to have commented lines be ignored completely): 
+
+  In [14]: pd.read_csv(StringIO(s2), comment='#', sep=',').dropna(how='all')
+Out[14]: 
+   a  b  c
+1  1  2  3
+  
+
+  Note: the default index will "give away" the fact there was missing data.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36847017)
+ UPDATE: 
+
+ if you want to skip specific lines  [0,1,5,16,57,58,59] , you can use  skiprows : 
+
+  df = pd.read_csv(filename, header=None, 
+                 names=['col1','col2','col3'], skiprows=[0,1,5,16,57,58,59])
+  
+
+ for skipping first two lines and reading following 100 lines you can use  skiprows  and  nrows  parameters as @Richard Telford mentioned in the comment: 
+
+  df = pd.read_csv(filename, header=None, names=['col1','col2','col3'],
+                 skiprows=2, nrows=100)
+  
+
+ here is a small example for "buffer": 
+
+  import io
+import pandas as pd
+
+data = """\
+        Name
+0  JP2015121
+1    US14822
+2    US14358
+3  JP2015539
+4  JP2015156
+"""
+df = pd.read_csv(io.StringIO(data), delim_whitespace=True, index_col=0)
+print(df)
+  
+
+  
+
+  data = """\
+0  JP2015121
+1    US14822
+2    US14358
+3  JP2015539
+4  JP2015156
+"""
+df = pd.read_csv(io.StringIO(data), delim_whitespace=True, index_col=0,
+                 header=None, names=['Name'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9178414)
+ You can parse the first line separately to find the delimiter and fieldnames: 
+
+      firstline = next(f).split()
+    delimiter = firstline[1][-1]
+    fields = firstline[2:]
+  
+
+ Note that  csv.DictReader  can take any iterable as its first argument. So to skip the comments, you can wrap  f  in an iterator ( skip_comments ) which yields only non-comment lines: 
+
+  import csv
+def skip_comments(iterable):
+    for line in iterable:
+        if not line.startswith('#'):
+            yield line
+
+with open('data.csv','rb') as f:
+    firstline = next(f).split()
+    delimiter = firstline[1][-1]
+    fields = firstline[2:]
+    for line in csv.DictReader(skip_comments(f),
+                               delimiter = delimiter, fieldnames = fields):
+        print line
+  
+
+ On the data you posted this yields 
+
+  {'field2': 'b', 'field3': 'c', 'field1': 'a'}
+{'field2': 'e', 'field3': 'f', 'field1': 'd'}
+{'field2': 'h', 'field3': 'i', 'field1': 'g'}
+  
+
+ 
+
+ To write a file in this format, you could use a  header  helper function: 
+
+  def header(delimiter,fields):
+    return '#h -F{d} {f}\n'.format(d = delimiter, f=' '.join(fields))
+
+with open('data.csv', 'rb') as f:
+    with open('output.csv', 'wb') as g:
+        firstline = next(f).split()
+        delimiter = firstline[1][-1]
+        fields = firstline[2:]
+        writer = csv.DictWriter(g, delimiter = delimiter, fieldnames = fields)
+        g.write(header(delimiter,fields))
+        for row in csv.DictReader(skip_comments(f),
+                                   delimiter = delimiter, fieldnames = fields):
+            writer.writerow(row)
+            g.write('# comment\n')
+  
+
+ Note that you can write to  output.csv  using  g.write  (for header or comment lines) or  writer.writerow  (for csv). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39317017)
+ If you'd like to discard lines starting with a single special  character , you can use the  comment  parameter of http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html, as noted by @cel in the comment above.  
+
+ Otherwise, you can use regular Python logic for filtering out items from an iterator, and use  CStringIO . 
+
+ For example, to discard the lines starting with  "some" , you can use: 
+
+  import CStringIO
+
+buf = StringIO.StringIO('\n'.join((l for l in open('stuff.txt') if not l.startswith('Some'))))
+pd.read_csv(buf, sep=';')
+  
+
+ Conversely, if you actually only need lines starting with  "some" , then use 
+
+  buf = StringIO.StringIO('\n'.join((l for l in open('stuff.txt') if l.startswith('Some'))))
+  
+
+
+

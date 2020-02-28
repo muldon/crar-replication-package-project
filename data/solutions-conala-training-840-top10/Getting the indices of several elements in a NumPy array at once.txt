@@ -1,0 +1,274 @@
+Query: Getting the indices of several elements in a NumPy array at once
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/53979327)
+ For an order-agnostic solution, you can use https://docs.scipy.org/doc/numpy-1.15.1/reference/generated/numpy.flatnonzero.html with https://docs.scipy.org/doc/numpy/reference/generated/numpy.isin.html (v 1.13+). 
+
+  import numpy as np
+
+a = np.array([1, 2, 4])
+b = np.array([1, 2, 3, 10, 4])
+
+res = np.flatnonzero(np.isin(a, b))  # NumPy v1.13+
+res = np.flatnonzero(np.in1d(a, b))  # earlier versions
+
+# array([0, 1, 2], dtype=int64)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32191125)
+ You could use http://docs.scipy.org/doc/numpy/reference/generated/numpy.in1d.html and http://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html (or  where  for that matter): 
+
+  >>> np.in1d(b, a).nonzero()[0]
+array([0, 1, 4])
+  
+
+ This works fine for your example arrays, but in general the array of returned indices does not honour the order of the values in  a . This may be a problem depending on what you want to do next. 
+
+ In that case, a much better answer is the one @Jaime gives https://stackoverflow.com/a/29829495/3923281, using  searchsorted : 
+
+  >>> sorter = np.argsort(b)
+>>> sorter[np.searchsorted(b, a, sorter=sorter)]
+array([0, 1, 4])
+  
+
+ This returns the indices for values as they appear in  a .  
+
+  a = np.array([1, 2, 4])
+b = np.array([4, 2, 3, 1])
+
+>>> sorter = np.argsort(b)
+>>> sorter[np.searchsorted(b, a, sorter=sorter)]
+array([3, 1, 0]) # the other method would return [0, 1, 3]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38128843)
+ Using  numpy.asarray . Numpy allows getting subarray of array by list of indices. 
+
+  >>> import numpy as np
+>>> a = [0,10,20,30,40,50,60]
+>>> b = [0,2,4,5]
+>>> res = np.asarray(a)[b].tolist()
+>>> res
+[0, 20, 40, 50]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42973013)
+ Here's an approach by getting the column integer indices with  np.searchsorted  against the given string indices - 
+
+  def linear_index(df, cols):    
+    r,c = df.columns.levels
+    d0 = np.array([i[0] for i in cols])
+    d1 = np.array([i[1] for i in cols])    
+
+    # Skip getting the argsorts if column names are already sorted
+    r_sidx = r.argsort()
+    c_sidx = c.argsort()
+
+    return np.searchsorted(r,d0,sorter = r_sidx)*len(c) + \
+                        np.searchsorted(c,d1, sorter=c_sidx)
+
+def searchsorted_loc(df, cols):
+    return df.values[:, linear_index(df, cols)]
+  
+
+ This works for  multi-index  dataframes. It would simplify when working with one level dataframes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35608002)
+  import numpy as np
+x = np.random.random_integers(0,5,(4,4))
+x
+array([[5, 3, 3, 2],
+       [4, 3, 0, 0],
+       [1, 4, 5, 3],
+       [0, 4, 3, 4]])
+
+# This indexes the elements 1,1 and 2,2 and 3,3
+indexes = (np.array([1,2,3]),np.array([1,2,3]))
+x[indexes]
+# returns array([3, 5, 4])
+  
+
+ Notice that numpy has very different rules depending on what kind of indexes you use. So indexing several elements should be by a  tuple  of  np.ndarray  (see http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html). 
+
+ So you need only to convert your  list  to  np.ndarray  and it should work as expected. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13602272)
+ Assuming you already have the range f use  numpy.arange(len(array)) , just get and ste the logical indices: 
+
+  bindices_zero = (array == 0)
+  
+
+ then when you actually need the integer indices you can do 
+
+  indices_zero = numpy.arange(len(array))[bindices_zero]
+  
+
+  
+
+  indices_nonzero = numpy.arange(len(array))[~bindices_zero]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13600226)
+ You can use boolean indexing: 
+
+  In [82]: a = np.random.randint(-5, 5, 100)
+
+In [83]: a
+Out[83]: 
+array([-2, -1,  4, -3,  1, -2,  2, -1,  2, -1, -3,  3, -3, -4,  1,  2,  1,
+        3,  3,  0,  1, -3, -4,  3, -5, -1,  3,  2,  3,  0, -5,  4,  3, -5,
+       -3,  1, -1,  0, -4,  0,  1, -5, -5, -1,  3, -2, -5, -5,  1,  0, -1,
+        1,  1, -1, -2, -2,  1,  1, -4, -4,  1, -3, -3, -5,  3,  0, -5, -2,
+       -2,  4,  1, -4, -5, -1,  3, -3,  2,  4, -4,  4,  2, -2, -4,  3,  4,
+       -2, -4,  2, -4, -1,  0, -3, -1,  2,  3,  1,  1,  2,  1,  4])
+
+In [84]: mask = a != 0
+
+In [85]: a[mask]
+Out[85]: 
+array([-2, -1,  4, -3,  1, -2,  2, -1,  2, -1, -3,  3, -3, -4,  1,  2,  1,
+        3,  3,  1, -3, -4,  3, -5, -1,  3,  2,  3, -5,  4,  3, -5, -3,  1,
+       -1, -4,  1, -5, -5, -1,  3, -2, -5, -5,  1, -1,  1,  1, -1, -2, -2,
+        1,  1, -4, -4,  1, -3, -3, -5,  3, -5, -2, -2,  4,  1, -4, -5, -1,
+        3, -3,  2,  4, -4,  4,  2, -2, -4,  3,  4, -2, -4,  2, -4, -1, -3,
+       -1,  2,  3,  1,  1,  2,  1,  4])
+
+In [86]: a[-mask]
+Out[86]: array([0, 0, 0, 0, 0, 0, 0])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35747027)
+ Numpy provides the function numpy.searchsorted: http://docs.scipy.org/doc/numpy-1.10.0/reference/generated/numpy.searchsorted.html 
+
+ Example: 
+
+  >>> import numpy as np
+>>> sorted = np.argsort(big_list)
+>>> r = np.searchsorted(big_list, small_list, side='right',sorter=sorted)
+>>> l  = np.searchsorted(big_list, small_list, side='left',sorter=sorted)
+>>> for b, e in zip(l, r):
+...     inds = sorted[b:e]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39149464)
+ This is a simple one-liner using the https://github.com/EelcoHoogendoorn/Numpy_arraysetops_EP package (disclaimer: I am its author): 
+
+  import numpy_indexed as npi
+idx = npi.indices(b, a)
+  
+
+ The implementation is fully vectorized, and it gives you control over the handling of missing values. Moreover, it works for nd-arrays as well (for instance, finding the indices of rows of a in b). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43386556)
+ Couple of approaches with https://docs.scipy.org/doc/numpy/reference/generated/numpy.argpartition.html and https://docs.scipy.org/doc/numpy/reference/generated/numpy.argsort.html for ndarrays - 
+
+  def k_largest_index_argpartition_v1(a, k):
+    idx = np.argpartition(-a.ravel(),k)[:k]
+    return np.column_stack(np.unravel_index(idx, a.shape))
+
+def k_largest_index_argpartition_v2(a, k):
+    idx = np.argpartition(a.ravel(),a.size-k)[-k:]
+    return np.column_stack(np.unravel_index(idx, a.shape))
+
+def k_largest_index_argsort(a, k):
+    idx = np.argsort(a.ravel())[:-k-1:-1]
+    return np.column_stack(np.unravel_index(idx, a.shape))
+  
+
+  Discussion on two versions with  argpartition   
+
+ Difference between  k_largest_index_argpartition_v1  and  k_largest_index_argpartition_v2  is how we are using  argparition . In the first version, we are negating input array and then using  argpartition  to get the indices for the smallest  k  indices, thus effectively getting the largest  k  indices, whereas in the second version, we are getting the first  a.size-k  smallest indices and then we are choosing the leftover largest  k  indices. 
+
+ Also, its worth mentioning here that with  argpartition , we are not getting the indices in their sorted order. If the sorted order is needed, we need to feed in range array to  np.argpartition , as mentioned in this https://stackoverflow.com/a/42875652/3293881. 
+
+ Sample runs - 
+
+ 1) 2D case : 
+
+  In [42]: a    # 2D array
+Out[42]: 
+array([[38, 14, 81, 50],
+       [17, 65, 60, 24],
+       [64, 73, 25, 95]])
+
+In [43]: k_largest_index_argsort(a, k=2)
+Out[43]: 
+array([[2, 3],
+       [0, 2]])
+
+In [44]: k_largest_index_argsort(a, k=4)
+Out[44]: 
+array([[2, 3],
+       [0, 2],
+       [2, 1],
+       [1, 1]])
+
+In [66]: k_largest_index_argpartition_v1(a, k=4)
+Out[66]: 
+array([[2, 1], # Notice the order is different
+       [2, 3],
+       [0, 2],
+       [1, 1]])
+  
+
+ 2) 3D case : 
+
+  In [46]: a # 3D array
+Out[46]: 
+array([[[20, 98, 27, 73],
+        [33, 78, 48, 59],
+        [28, 91, 64, 70]],
+
+       [[47, 34, 51, 19],
+        [73, 38, 63, 94],
+        [95, 25, 93, 64]]])
+
+In [47]: k_largest_index_argsort(a, k=2)
+Out[47]: 
+array([[0, 0, 1],
+       [1, 2, 0]])
+  
+
+  
+
+  In [56]: a = np.random.randint(0,99999999999999,(3000,4000))
+
+In [57]: %timeit k_largest_index_argsort(a, k=10)
+1 loops, best of 3: 2.18 s per loop
+
+In [58]: %timeit k_largest_index_argpartition_v1(a, k=10)
+10 loops, best of 3: 178 ms per loop
+
+In [59]: %timeit k_largest_index_argpartition_v2(a, k=10)
+10 loops, best of 3: 128 ms per loop
+  
+
+
+

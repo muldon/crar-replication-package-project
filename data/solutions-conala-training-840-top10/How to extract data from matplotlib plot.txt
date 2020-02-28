@@ -1,0 +1,395 @@
+Query: How to extract data from matplotlib plot
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8938840)
+ Its Python, so you can modify the source script directly so the data is dumped before it is plotted 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8939010)
+ Jakub is right about modifying the Python script to write out the data directly from the source from which it was sent into the plot; that's the way I'd prefer to do this. But for reference, if you do need to get data out of a plot, I think this should do it 
+
+  gca().get_lines()[n].get_xydata()
+  
+
+ Alternatively you can get the x and y data sets separately: 
+
+  line = gca().get_lines()[n]
+xd = line.get_xdata()
+yd = line.get_ydata()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10200707)
+ I've tried to keep my code as simple as possible and this is by no means elegant, but here you go: 
+
+  import csv
+import matplotlib.pyplot as plt
+
+### Making test CSV file ###
+data = [['2011/12/15,5'],['2011/12/11,4'],['2011/12/19,2'],['2011/12/16,3'],['2011/12/20,8'],['2011/12/14,4'],['2011/12/10,10'],['2011/12/9,7']]
+with open('test.csv', 'wb') as f:
+    writer = csv.writer(f)
+    for i in data:
+        writer.writerow(i)
+
+
+### Extract data from CSV ###
+with open('test.csv', 'rb') as n:
+    reader = csv.reader(n)
+    dates = []
+    freq = []
+    for row in reader:
+        values = row[0].split(',')
+        dates.append(values[0])
+        freq.append(values[1])          
+
+
+### Do plot ###
+false_x = [x for x in range(len(dates))]
+plt.plot(false_x,freq, 'o-')
+plt.xticks(range(len(dates)), (dates), rotation=45)
+# plt.axis([xmin, xmax, ymin, ymax]) - sets axes limits on graph
+plt.axis([-1, 8, 0, 11])
+plt.show()
+  
+
+ This makes: 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53736994)
+ Seaborn uses matplotlib to handle outlier calculations, meaning the key parameter,  whis , is passed onto  ax.boxplot . The specific function taking care of the calculation is documented here: https://matplotlib.org/api/cbook_api.html#matplotlib.cbook.boxplot_stats. You can use  matplotlib.cbook.boxplot_stats  to calculate rather than extract outliers. The follow code snippet shows you the calculation and how it is the same as the seaborn plot: 
+
+  import matplotlib.pyplot as plt
+from matplotlib.cbook import boxplot_stats
+import pandas as pd
+import seaborn as sns
+
+data = [
+    ('LA', 1),
+    ('Sultan', 128),
+    ('ElderCare', 1),
+    ('CA', 3),
+    ('More', 900),
+]
+df = pd.DataFrame(data, columns=('client', 'total'))
+ax = sns.boxplot(data=df)
+outliers = [y for stat in boxplot_stats(df['total']) for y in stat['fliers']]
+print(outliers)
+for y in outliers:
+    ax.plot(1, y, 'p')
+ax.set_xlim(right=1.5)
+plt.show()
+  
+
+ https://i.stack.imgur.com/ssx23.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24593105)
+ The build-in  plot  method in  pandas  probably won't be able to do it. You need to extract the data and plot them using  matplotlib . 
+
+  from matplotlib.collections import LineCollection
+import matplotlib.dates as mpd
+
+x=mpd.date2num(df.index.to_pydatetime())
+y=df.winds.values
+c=df['temp'].values
+points = np.array([x, y]).T.reshape(-1, 1, 2)
+segments = np.concatenate([points[:-1], points[1:]], axis=1)
+lc = LineCollection(segments, cmap=plt.get_cmap('copper'), norm=plt.Normalize(0, 10))
+lc.set_array(c)
+lc.set_linewidth(3)
+ax=plt.gca()
+ax.add_collection(lc)
+plt.xlim(min(x), max(x))
+ax.xaxis.set_major_locator(mpd.HourLocator())
+ax.xaxis.set_major_formatter(mpd.DateFormatter('%Y-%m-%d:%H:%M:%S'))
+_=plt.setp(ax.xaxis.get_majorticklabels(), rotation=70 )
+plt.savefig('temp.png')
+  
+
+   
+
+ There are two issues worth mentioning, 
+
+  the range of the color gradient is controlled by  norm=plt.Normalize(0, 10)   
+  pandas  and  matplotlib  plot time series differently, which requires the  df.index  to be converted to  float  before plotting. And by modifying the  major_locators , we will get the  xaxis majorticklabels  back into date-time format.   
+
+ The second issue may cause problem when we want to plot more than just one lines (the data will be plotted in two separate x ranges): 
+
+  #follow what is already plotted:
+df['another']=np.random.random(13)
+print ax.get_xticks()
+df.another.plot(ax=ax, secondary_y=True)
+print ax.get_xticks(minor=True)
+
+[ 735385.          735385.04166667  735385.08333333  735385.125
+  735385.16666667  735385.20833333  735385.25        735385.29166667
+  735385.33333333  735385.375       735385.41666667  735385.45833333
+  735385.5       ]
+[389328 389330 389332 389334 389336 389338 389340]
+  
+
+   .plot()  method of  pandas : 
+
+  ax.twinx().plot(x, df.another)
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16482357)
+ You should extract the different 1D series from your array of interest, and use matplotlib as in most simple example 
+
+  import matplotlib.pyplot as plt
+plt.plot([1,2,3,4])
+plt.ylabel('some numbers')
+plt.show()
+  
+
+ http://matplotlib.org/users/pyplot_tutorial.html  
+
+ You wish to superimpose 1D plots (or line plots). So, if you have lists l1, l2, l3, you will do  
+
+  import matplotlib.pyplot as plt
+plt.plot(l1)
+plt.plot(l2)
+plt.plot(l3)
+plt.show()
+  
+
+ For a scalogram: what i used was  imshow() . This was not for wavelets, but same ID: a colormap.  
+
+ I have found https://stackoverflow.com/a/6788842/356440 for use of  imshow()  with wavelets, didn t try thought 
+
+  from pylab import *
+import pywt
+import scipy.io.wavfile as wavfile
+
+# Find the highest power of two less than or equal to the input.
+def lepow2(x):
+    return 2 ** floor(log2(x))
+
+# Make a scalogram given an MRA tree.
+def scalogram(data):
+    bottom = 0
+
+    vmin = min(map(lambda x: min(abs(x)), data))
+    vmax = max(map(lambda x: max(abs(x)), data))
+
+    gca().set_autoscale_on(False)
+
+    for row in range(0, len(data)):
+        scale = 2.0 ** (row - len(data))
+
+        imshow(
+            array([abs(data[row])]),
+            interpolation = 'nearest',
+            vmin = vmin,
+            vmax = vmax,
+            extent = [0, 1, bottom, bottom + scale])
+
+        bottom += scale
+
+# Load the signal, take the first channel, limit length to a power of 2 for simplicity.
+rate, signal = wavfile.read('kitten.wav')
+signal = signal[0:lepow2(len(signal)),0]
+tree = pywt.wavedec(signal, 'db5')
+
+# Plotting.
+gray()
+scalogram(tree)
+show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36611464)
+ This "weird blue thing" you get is your data joined together by line segments; your data should be plotted using  plt.scatter  which gives you a cloud of points. 
+
+ Your calculation of the regression line is correct, what needs to be fixed is how to plot that line over your data set: 
+
+ After fitting your data, you need to extract the values necessary to draw the regression line; the data you need are two points at each extremities of the x-axis (here,  x=0  and  x=25 ). if we call  model.predict  on these two values, we obtain the corresponding predictions. These x values coupled with their corresponding predictions form two points that we will use to plot the line. 
+
+ First we extract the predicted values  y0  and  y25 . We then use  plt.plot  with the points (0, y0) and (25, y25) to draw the regression line in green. 
+
+  from sklearn.linear_model import LinearRegression
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+X = [[6], [8], [10], [14],   [18]]
+y = [[7], [9], [13], [17.5], [18]]
+
+
+model = LinearRegression()
+model.fit(X, y)
+
+z = np.array([12]).reshape(-1,1)
+
+print ('A 12" pizza should cost: $%.2f' % model.predict(z)[0])
+print ("\n" + "_" * 50 + "\n")
+
+plt.figure()
+plt.title('Pizza price plotted against diameter')
+plt.xlabel('Diameter in inches')
+plt.ylabel('Price in dollars')
+plt.scatter(X, y, z, 'k')
+
+y0, y25 = model.predict(0)[0][0], model.predict(25)[0][0]
+plt.plot((0, 25), (y0, y25), 'g')
+
+plt.axis([0, 25, 0, 25])
+plt.grid(True)
+plt.show()
+  
+
+ https://i.stack.imgur.com/rXJlY.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18926541)
+ The staticmethod http://matplotlib.org/api/colors_api.html#matplotlib.colors.LinearSegmentedColormap.from_list can be used to create new LinearSegmentedColormaps. Below, I sample the original colormap at 100 points between 0.2 and 0.8: 
+
+  cmap(np.linspace(0.2, 0.8, 100))
+  
+
+ and use these colors to generate a new colormap: 
+
+  import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import numpy as np
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+    return new_cmap
+
+arr = np.linspace(0, 50, 100).reshape((10, 10))
+fig, ax = plt.subplots(ncols=2)
+
+cmap = plt.get_cmap('jet')
+new_cmap = truncate_colormap(cmap, 0.2, 0.8)
+ax[0].imshow(arr, interpolation='nearest', cmap=cmap)
+ax[1].imshow(arr, interpolation='nearest', cmap=new_cmap)
+plt.show()
+  
+
+   
+
+ The plot on the left shows the image using the original colormap (in this example,  jet ). The plot on the right shows the same image using  new_cmap . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44781821)
+ I can't find anything in official documentation to back up what I'm saying, but my understanding is that it is impossible to "clone" an existing axes onto a new figure.  In fact, no artist (line, text, legend) defined in one axes may be added to another axes.  https://github.com/matplotlib/matplotlib/pull/3835/files. 
+
+ For example, attempting to add a line from an axes defined on  fig1  to an axes on a different figure  fig2  raises an error: 
+
+  import matplotlib.pyplot as plt
+fig1 = plt.figure()
+ax1 = fig1.add_subplot(111)
+line, = ax1.plot([0,1])
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+ax2.add_line(line)
+>>>RuntimeError: Can not put single artist in more than one figure`
+  
+
+ And attempting to add a line that was drawn in  ax1  to a second axes  ax2  on the  same  figure raises an error:   
+
+  fig1 = plt.figure()
+ax1 = fig1.add_subplot(121)
+line, = ax1.plot([0,1])
+ax12 = fig1.add_subplot(122)
+ax12.add_line(line)
+>>>ValueError: Can not reset the axes.  You are probably trying to re-use an artist in more than one Axes which is not supported
+  
+
+ The best recommendation I can make is extract the data from the axes you want to copy, and manually plot that into a new axes object that is sized to your liking.  Something like below demonstrates this.  Note that this works for  Line2D  objects plotted via  ax.plot .  If the data was plotted using  ax.scatter , then you need to change things just a little bit and I https://stackoverflow.com/a/27852570/5195706. 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+def rd(n=5):
+    # Make random data
+    return np.sort(np.random.rand(n))
+
+fig1 = plt.figure()
+ax1 = fig1.add_subplot(111)
+# Plot three lines on one axes
+ax1.plot(rd(), rd(), rd(), rd(), rd(), rd())
+
+xdata = []
+ydata = []
+# Iterate thru lines and extract x and y data
+for line in ax1.get_lines():
+    xdata.append( line.get_xdata() )
+    ydata.append( line.get_ydata() )
+
+# New figure and plot the extracted data
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+for X,Y in zip(xdata,ydata):
+    ax2.plot(X,Y)
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/28958609)
+ You need to: 
+
+ 
+ Extract the data of the kde line 
+ Integrate it to calculate the cumulative distribution function (CDF)  
+ Find the value that makes CDF equal 1/2, that is the median 
+ 
+
+
+
+  import numpy as np
+import scipy
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.set_palette("hls", 1)
+data = np.random.randn(30)
+p=sns.kdeplot(data, shade=True)
+
+x,y = p.get_lines()[0].get_data()
+
+#care with the order, it is first y
+#initial fills a 0 so the result has same length than x
+cdf = scipy.integrate.cumtrapz(y, x, initial=0)
+
+nearest_05 = np.abs(cdf-0.5).argmin()
+
+x_median = x[nearest_05]
+y_median = y[nearest_05]
+
+plt.vlines(x_median, 0, y_median)
+plt.show()
+  
+
+   
+
+
+

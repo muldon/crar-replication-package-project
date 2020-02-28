@@ -1,0 +1,342 @@
+Query: Printing lists onto tables in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16677824)
+ This should do it: 
+
+  '\n'.join(' '.join(map(str,tup)) for tup in zip(a,b,c))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16677984)
+ With <del>list comprehension</del> generator expression, without the map function: 
+
+  '\n'.join(' '.join(str(y) for y in x) for x in zip(a,b,c))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16677909)
+ The hard part of this is transposing the array. But that's easy, with http://docs.python.org/2.7/library/functions.html#zip: 
+
+  a = [1, 2, 3]
+b = [4, 5, 6]
+c = [7, 8, 9]
+t = zip(a, b, c)
+  
+
+  
+
+  print('\n'.join('  '.join(map(str, row)) for row in t))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15863569)
+ First of all, printing a list will show you the representation of that list. 
+
+  >>> l = ['1', '2', '3']
+>>> print l
+['1', '2', '3']
+  
+
+ To print the items separately, you can do multiple things. 
+
+ You can print them each on their own line,  
+
+  >>> for i in l:
+    print i
+
+1
+2
+3
+  
+
+ . 
+
+  >>> print "%s" % ', '.join(l)
+1, 2, 3
+  
+
+ 
+
+ Otherwise, if you want to create tables automatically you can use some modules like http://docs.python.org/2/library/csv.html or http://code.google.com/p/prettytable/. 
+
+ Example of prettytable from the websites: 
+
+ PrettyTable is a simple Python library designed to make it quick and easy to represent tabular data in visually appealing ASCII tables, like this: 
+
+  +-----------+------+------------+-----------------+
+| City name | Area | Population | Annual Rainfall |
++-----------+------+------------+-----------------+
+| Adelaide  | 1295 |  1158259   |      600.5      |
+| Brisbane  | 5905 |  1857594   |      1146.4     |
+| Darwin    | 112  |   120900   |      1714.7     |
+| Hobart    | 1357 |   205556   |      619.5      |
+| Melbourne | 1566 |  3806092   |      646.9      |
+| Perth     | 5386 |  1554769   |      869.4      |
+| Sydney    | 2058 |  4336374   |      1214.8     |
++-----------+------+------------+-----------------+
+  
+
+ PrettyTable lets you control many aspects of the table, like the width of the column padding, the alignment of text within columns, which characters are used to draw the table border, whether you even want a border, and much more. You can control which subsets of the columns and rows are printed, and you can sort the rows by the value of a particular column. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8371017)
+ The following will do it: 
+
+  for item in l:
+  print item[0], ', '.join(map(str, item[1:]))
+  
+
+ where  l  is your list. 
+
+ For your input, this prints out 
+
+  tables 1, 2
+ladders 2, 5
+chairs 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37666211)
+ This question really needs more detail to answer it with confidence, but since there's a common error that could produce this weird result (and since I wasn't able to reproduce it any other way)... 
+
+ I think the problem is not in your  createIndividual  function, but in the data structure you're feeding it.  Here's a bit of my  main  function that produced exactly the random output you expected: 
+
+
+
+<pre class="lang-python3 prettyprint-override"> from pprint import pprint
+# pprint is essential for pretty-printing deeply nested data.
+
+class Table(object):
+    ...
+    # Guesswork on my part, plus a custom __str__ and __repr__.
+
+def main():
+    # This creates a list of two lists-of-three-Tables.
+    distinct_courses = [[Table() for __ in range(3)] for __ in range(2)]
+
+    filled_courses = createIndividual(distinct_courses)
+    pprint(filled_courses)
+  
+
+ Output: 
+
+<pre class="lang-python3 prettyprint-override"> [[Table([1, 2, 3]), Table([5, 8, 6]), Table([7, 4, 9])],
+ [Table([7, 5, 3]), Table([2, 6, 8]), Table([9, 1, 4])]]
+  
+
+ To reproduce your problem, I had to create  courses  using the list-multiplication syntax, which doesn't do what most beginners (and some tutorials) think it does: 
+
+ 
+   https://docs.python.org/3/library/stdtypes.html#typesseq-common 
+  
+   [table omitted] 
+  
+   Notes: 
+  
+  <ol start="2">
+   [...]  Note that items in the sequence  s  are not copied; they are referenced multiple times. This often haunts new Python programmers; [...] 
+   
+  
+   Further explanation is available in the FAQ entry https://docs.python.org/3/faq/programming.html#faq-multidimensional-list. 
+ 
+
+ I'm guessing somewhere in your code, you did something like this: 
+
+<pre class="lang-python3 prettyprint-override"> def bogus_main():
+    # This creates a single lists-of-three-Tables...
+    course = [Table() for __ in range(3)]
+    # ...then creates a list of two references to the _same_ list.
+    aliased_courses = [course] * 2
+
+    filled_courses = createIndividual(aliased_courses)
+    pprint(filled_courses)
+  
+
+ Output using the aliased lists: 
+
+<pre class="lang-python3 prettyprint-override"> [[Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])],
+ [Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])]]
+  
+
+ Since both  courses[0]  and  courses[1]  point to the  same  list, two weird things happen.  First, the contents of the "two"  course s will be the same, as you've already noticed.  Each update seems to add a pair of identical  Table s to two different lists, although it's really just adding one  Table  to one list... and then printing that list twice...  You can see this in action by adding an extra  pprint  to  createIndividual : 
+
+<pre class="lang-python3 prettyprint-override"> [[Table([]), Table([]), Table([])],
+ [Table([]), Table([]), Table([])]]
+
+[[Table([7, 9, 2]), Table([]), Table([])],
+ [Table([7, 9, 2]), Table([]), Table([])]]
+
+[[Table([7, 9, 2]), Table([8, 6, 1]), Table([])],
+ [Table([7, 9, 2]), Table([8, 6, 1]), Table([])]]
+
+[[Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])],
+ [Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])]]
+
+[[Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])],
+ [Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])]]
+
+[[Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])],
+ [Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])]]
+
+[[Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])],
+ [Table([7, 9, 2]), Table([8, 6, 1]), Table([5, 3, 4])]]
+  
+
+ Second, notice how the last three "updates" don't actually change anything?  Something  should  have failed when you tried to add 18 values to only 9 slots.  Unfortunately, the  maximum  field that protects you from over-filling a  Table  also saves you from the error that could have tipped you off earlier.  From  createIndividual : 
+
+<pre class="lang-python3 prettyprint-override"> for table in course:
+    while len(table) < table.maximum:
+        # Once the "first" aliased course list is full, this will
+        # never pop another person, because there's no place to
+        # store them.
+        table.append(myPeople.pop())
+    print(len(myPeople))  # My addition.
+    # Prints 6, 3, and 0 during the first `course`, then prints
+    # 9, 9, and 9... myPeople never changes the second time through.
+  
+
+ After the "first" (really, the only) three  Table s are filled, they're all at  maximum  length, so neither  individual  or  myPeople  will change again. 
+
+ Contrast the list-comprehension version in my  main , which creates six different  Table  objects, like you'd expect: 
+
+<pre class="lang-python3 prettyprint-override"> [[Table([]), Table([]), Table([])],
+ [Table([]), Table([]), Table([])]]
+
+[[Table([1, 2, 3]), Table([]), Table([])],
+ [Table([]), Table([]), Table([])]]
+
+[[Table([1, 2, 3]), Table([5, 8, 6]), Table([])],
+ [Table([]), Table([]), Table([])]]
+
+[[Table([1, 2, 3]), Table([5, 8, 6]), Table([7, 4, 9])],
+ [Table([]), Table([]), Table([])]]
+
+[[Table([1, 2, 3]), Table([5, 8, 6]), Table([7, 4, 9])],
+ [Table([7, 5, 3]), Table([]), Table([])]]
+
+[[Table([1, 2, 3]), Table([5, 8, 6]), Table([7, 4, 9])],
+ [Table([7, 5, 3]), Table([2, 6, 8]), Table([])]]
+
+[[Table([1, 2, 3]), Table([5, 8, 6]), Table([7, 4, 9])],
+ [Table([7, 5, 3]), Table([2, 6, 8]), Table([9, 1, 4])]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20843828)
+ I needed something similar, but also wanted to pretty print lists, and lists inside the dict.  
+
+  def format(self, obj, indent = 1):
+    if isinstance(obj, list):
+        htmls = []
+        for k in obj:
+            htmls.append(self.format(k,indent+1))
+
+        return '[<div style="margin-left: %dem">%s</div>]' % (indent, ', '.join(htmls))
+
+    if isinstance(obj, dict):
+        htmls = []
+        for k,v in obj.iteritems():
+            htmls.append("<span style='font-style: italic; color: #888'>%s</span>: %s" % (k,self.format(v,indent+1)))
+
+        return '{<div style="margin-left: %dem">%s</div>}' % (indent, ', '.join(htmls))
+
+    return str(obj)
+  
+
+ Then, if you're using webapp on appengine, you can just do the following: 
+
+  self.response.out.write(self.format(obj))
+  
+
+ This is an example of the output: 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5203252)
+ Use the + operator 
+
+  >>> [6] + [1,1,0,0,0]
+[6, 1, 1, 0, 0, 0]
+  
+
+ What you were attempting to do, is  a list onto another list, which would result in  
+
+  >>> [6].([1,1,0,0,0])
+[6, [1,1,0,0,0]]
+  
+
+ Why you are seeing  None  returned, is because  .  is destructive, modifying the original list, and returning  None . It does not return the list that you're ing to. So your list  is  being modified, but you're printing the output of the function  . . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8371068)
+ If you don't mind that the output is on separate lines: 
+
+  foo = [["tables", 1, 2], ["ladders", 2, 5], ["chairs", 2]]
+for table in foo:
+    print "%s %s" %(table[0],", ".join(map(str,table[1:])))
+  
+
+ To get this all on the same line makes it slightly more difficult: 
+
+  import sys
+foo = [["tables", 1, 2], ["ladders", 2, 5], ["chairs", 2]]
+for table in foo:
+    sys.stdout.write("%s %s " %(table[0],", ".join(map(str,table[1:]))))
+
+print
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45522221)
+  sauce = requests.get('https://www.investsmart.com.au/managed-funds/fund/cromwell-phoenix-opportunities-fund/40665')
+soup = bs4.BeautifulSoup(sauce.text, 'html.parser')
+#this gets all the tables in the page, we need the second table
+table = soup.findAll('table')[1]
+#gets all the rows in that table
+rows = table.findAll('tr')
+#since the first row contains all column titles
+column_heads = [i.text.encode('utf-8') for i in rows[0].findAll('th')[1:]]
+#r will hold all the rows in the form of lists
+r = []
+for i in rows[1:]:
+    r.append([k.text.encode('utf-8') for k in i.findAll('td') ])
+  
+
+ All you need to do is carefully examine the html page using view-source tool of your browser which will give you an idea of the structure based on which you can target the tags you need 
+
+ output for your reference: 
+
+  column_heads = ['1 Month %','3 Month %','6 Month %','1 Year % p.a.','2 Year % p.a.','3 Year % p.a.','5 Year % p.a.','10 Year % p.a.']
+  
+
+ the function encode() converts all the text which is in unicode format eg: u'Hello' to strings 
+
+ printing first list of r 
+
+  r[0] = ['Total return','-2.79','-2.61','11.22','24.6','19.18','18.65','21.44','-']
+  
+
+ I hope this is what you're looking for 
+
+
+

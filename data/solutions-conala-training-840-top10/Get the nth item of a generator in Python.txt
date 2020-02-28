@@ -1,0 +1,263 @@
+Query: Get the nth item of a generator in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2300768)
+ You could do this, using  count  as an example generator: 
+
+  from itertools import islice, count
+next(islice(count(), n, n+1))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2300766)
+ one method would be to use https://docs.python.org/library/itertools.html#itertools.islice 
+
+  >>> next(itertools.islice(xrange(10), 5, 5 + 1))
+5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33838592)
+  
+
+  >>> li = [['Frank', 23],['Mary', 55],['Craig', 17],['Nancy', 34],['Ben', 55],['Cindy', 47]]
+  
+
+ You can invert the matrix: 
+
+  >>> zip(*li)
+[('Frank', 'Mary', 'Craig', 'Nancy', 'Ben', 'Cindy'), (23, 55, 17, 34, 55, 47)]
+  
+
+ And count the 55's in the nth element: 
+
+  >>> zip(*li)[1].count(55)
+2
+  
+
+ OR, you can use https://docs.python.org/2/library/operator.html#operator.itemgetter and get the nth item: 
+
+  >>> from operator import itemgetter
+>>> map(itemgetter(1), li)
+[23, 55, 17, 34, 55, 47]
+>>> map(itemgetter(1), li).count(55)
+2 
+  
+
+ 
+
+ If you want ALL the counts, use a https://docs.python.org/2/library/collections.html#collections.Counter: 
+
+  >>> from collections import Counter
+>>> Counter(zip(*li)[1])
+Counter({55: 2, 17: 1, 34: 1, 47: 1, 23: 1})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54333239)
+ I think the best way is :  
+
+<pre class="lang-py prettyprint-override"> next(x for i,x in enumerate(it) if i==n)
+  
+
+ (where  it  is your iterator and  n  is the index) 
+
+ It doesn't require you to add an import (like the solutions using  itertools ) nor to load all the elements of the iterator in memory at once (like the solutions using  list ). 
+
+ Note 1: this version throws a  StopIteration  error if your iterator has less than n items. If you want to get  None  instead, you can use : 
+
+<pre class="lang-py prettyprint-override"> next((x for i,x in enumerate(it) if i==n), None)
+  
+
+ Note 2: There are no brackets inside the call to  next . This is not a list comprehension, but a generator comprehension, that does not consume the original iterator further than its nth element. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49962684)
+ If you are looking for a one-liner, the following should work: 
+
+  return sorted(((item, a.count(item)) for item in set(a)), key=lambda k: k[1], reverse=True)[n-1][0]  
+
+ While the above uses more Python language features, I actually prefer the readability of your original code.  
+
+ As a side note, in your original code, you should  return key  because you currently are trying to print a function that doesn't return a value. 
+
+ If you care about ties, as @sberry mentioned, you can do: 
+
+ Get smallest value when count is the same: 
+
+  return sorted(((item, a.count(item)) for item in set(a)), 
+    key=lambda k: (k[1], k[0]), reverse=True)[n-1][0]
+  
+
+ Get largest value when count is the same: 
+
+  return sorted(((item, a.count(item)) for item in set(a)), 
+    key=lambda k: (k[1], -k[0]), reverse=True)[n-1][0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44272523)
+ I'd argue against the temptation to treat generators like lists. The simple but naive approach is the simple one-liner: 
+
+  gen = (i for i in range(10))
+list(gen)[3]
+  
+
+ But remember, generators aren't like lists. They don't store their intermediate results anywhere, so you can't go backwards. I'll demonstrate the problem with a simple example in the python repl: 
+
+  >>> gen = (i for i in range(10))
+>>> list(gen)[3]
+3
+>>> list(gen)[3]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+IndexError: list index out of range
+  
+
+ Once you start going through a generator to get the nth value in the sequence, the generator is now in a different state, and attempting to get the nth value again will return you a different result, which is likely to result in a bug in your code. 
+
+ Let's take a look at another example, based on the code from the question. 
+
+ One would initially expect the following to print  4  twice. 
+
+  gen = (i for i in range(10))
+index = 4
+for i, v in enumerate(gen):
+    if i == index:
+        answer = v
+        break
+print(answer)
+for i, v in enumerate(gen):
+    if i == index:
+        answer = v
+        break
+print(answer)
+  
+
+ but type this into the repl and you get: 
+
+  >>> gen = (i for i in range(10))
+>>> index = 4
+>>> for i, v in enumerate(gen):
+...     if i == index:
+...             answer = v
+...             break
+... 
+>>> print(answer)
+4
+>>> for i, v in enumerate(gen):
+...     if i == index:
+...             answer = v
+...             break
+... 
+>>> print(answer)
+9
+  
+
+ Good luck tracing that bug down. 
+
+ EDIT: 
+
+ As pointed out, if the generator is infinitely long, you can't even convert it to a list. The expression  list(gen)  will never finish. 
+
+ There is a way you could put a lazily evaluated caching wrapper around an infinite generator to make it look like an infinitely long list you could index into at will, but that deserves its own question and answer, and would have major performance implications. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2921465)
+ You're mixing very different things in your question, so I'll just answer a different question ;-P 
+
+ You are now asking about one of the most important interface in Python:  iterable  - it's basically anything you can use like  for elem in iterable .  
+
+  iterable  has three descendants:  sequence ,  generator  and  mapping . 
+
+ 
+  A  sequence  is a iterable with random access. You can ask for any item of the sequence without having to consume the items before it. With this property you can build  slices , which give you more than one element at once. A slice can give you a subsequence:  seq[from:until]  and every nth item:  seq[from:until:nth] .  list ,  tuple  and  str  all are sequences.  
+  If the access is done via keys instead of integer positions, you have a  mapping .  dict  is the basic mapping.  
+  The most basic iterable is a  generator . It supports no random access and therefore no slicing. You have to consume all items in the order they are given. Generator typically only create their items when you iterate over them. The common way to create  generators  are generator expressions. They look exactly like list comprehension, except with round brackets, for example  (f(x) for x in y) . Calling a function that uses the  yield  keyword returns a generator too.   
+ 
+
+ The common adapter to all iterables is the  iterator .  iterators  have the same interface as the most basic type they support, a  generator . They are created explicitly by calling  iter  on a iterable and are used implicitly in all kinds of looping constructs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30323316)
+ Since it is 0 index, n will give you  n 'th element. 
+
+  def print_nth_item(data, n):
+    """dddd"""
+    try:
+        print(data[n])
+    except IndexError:
+        print('Invalid position provided.')
+  
+
+ If you need bare  n th element (not index based on list) use  n-1  
+
+ Complete example: 
+
+  data = [0,1,2,3,4,5]
+n = 9
+
+def print_nth_item(data, n):
+    """dddd"""
+    try:
+        print data[n]
+    except IndexError:
+        print 'Invalid position provided.'
+
+print_nth_item(data, n)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54062179)
+  Best to use is :  
+example :  
+
+  a = gen values ('a','c','d','e')
+  
+
+ so the answer will be :  
+
+  a = list(a) -> this will convert the generator to a list (it will store in memory)
+  
+
+ then when you want to go specific index you will :  
+
+  a[INDEX] -> and you will able to get the value its holds 
+  
+
+ if you want to know only the count or to do operations that not required store in memory best practice will be :
+ a = sum(1 in i in a)  -> this will count the number of objects you have 
+
+ hope i made it more simple.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33838539)
+ Make a new generator out of it and pass it to  sum() : 
+
+  >>> l = [['Frank', 23],['Mary', 55],['Craig', 17],['Nancy', 34],['Ben', 55],['Cindy', 47]]
+>>> sum(item[1]==55 for item in l)
+2
+  
+
+ Also, don't name it  list , or that masks the built-in function  list() . 
+
+
+

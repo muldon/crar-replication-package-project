@@ -1,0 +1,296 @@
+Query: How to swap a group of column headings with their values in Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41574991)
+    numpy  +  pandas      
+
+  v = df.values
+n, m = v.shape
+i = df.index.values
+c = df.columns.values
+
+# create series with values that were column values
+# create multi index with first level from existing index
+# and second level from flattened existing values
+# then unstack
+pd.Series(
+    np.tile(c, n),
+    [i.repeat(m), v.ravel()]
+).unstack()
+
+  Bob Cat Dov Edd
+0  a1  a2  a3  a4
+1  a3  a1  a2  a4
+2  a4  a2  a3  a1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41573147)
+ You can reshape it with stack and unstack with a swapping of the values and index: 
+
+  df_swap = (df.stack()                     # reshape the data frame to long format
+             .reset_index(level = 1)      # set the index(column headers) as a new column
+             .set_index(0, append=True)   # set the values as index
+             .unstack(level=1))           # reshape the data frame to wide format
+
+df_swap.columns = df_swap.columns.get_level_values(1)   # drop level 0 in the column index
+df_swap
+  
+
+ https://i.stack.imgur.com/h34EK.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46332842)
+  By using  np.where   
+
+  ary=np.where(df.a<0,[df.b,df.a],[df.a,df.b])
+pd.DataFrame({'a':ary[0],'b':ary[1]})
+
+Out[560]: 
+   a  b
+0  3 -1
+1  3 -1
+2  8 -1
+3  2  9
+4  0  7
+5  0  4
+  
+
+ Data input : 
+
+  df
+Out[561]: 
+   a  b
+0 -1  3
+1 -1  3
+2 -1  8
+3  2  9
+4  0  7
+5  0  4
+  
+
+   And using  apply     
+
+  def swap(x):
+    if x[0] < 0:
+        return [x[1],x[0]]
+    else:
+        return [x[0],x[1]]
+
+
+df.apply(swap,1)
+Out[568]: 
+   a  b
+0  3 -1
+1  3 -1
+2  8 -1
+3  2  9
+4  0  7
+5  0  4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50502207)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_numeric.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.notna.html for boolean mask and then swap by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html: 
+
+  m = pd.to_numeric(df['City'], errors='coerce').notna()
+#oldier versions of pandas
+#m = pd.to_numeric(df['City'], errors='coerce').notnull()
+df.loc[m,['City','Score']] = df.loc[m,['Score','City']].values
+
+print (df)
+        City    Score
+0   Istanbul   6.0749
+1     Muscat  2.23607
+2     Prague  4.38576
+3   Shanghai  1.85958
+4   Istanbul   6.0749
+5  Singapore  5.17054
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49483790)
+ The  groupby  automatically sorts the index.  Instead, switch the order you are grouping by then swap the levels 
+
+  df.groupby(by=['month', 'day']).count().swaplevel(0, 1)
+
+           count
+day month       
+m   01         2
+t   01         1
+w   01         1
+m   02         1
+t   02         1
+w   02         1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50861110)
+ I think all you need is a call to https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.swaplevel.html after the initial pivot, followed by sorting the columns to group the top level (level=0): 
+
+  # Assuming df holds the result of the pivot
+df.swaplevel(0, 1, axis=1).sort_index(axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46487388)
+ You can change the index as explained already using  set_index .
+You don't need to manually swap rows with columns, there is a transpose ( data.T ) method in pandas that does it for you: 
+
+  > df = pd.DataFrame([['ABBOTSFORD', 427000, 448000],
+                    ['ABERFELDIE', 534000, 600000]],
+                    columns=['Locality', 2005, 2006])
+
+> newdf = df.set_index('Locality').T
+> newdf
+
+Locality    ABBOTSFORD  ABERFELDIE
+2005        427000      534000
+2006        448000      600000
+  
+
+ then you can fetch the dataframe column values and transform them to a list: 
+
+  > newdf['ABBOTSFORD'].values.tolist()
+
+[427000, 448000]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49900690)
+ Can you can do it like this using a custom designed function using  merge  to do a self-join,  groupby  and  nunique  to count unique values: 
+
+  def countunique(x):
+    df_out = x.merge(x, on='Group')\
+              .query('x_x != x_y and t_y < t_x')\
+              .groupby(['x_x','t_x'])['x_y'].nunique()\
+              .reset_index()
+    result = x.merge(df_out, left_on=['x','t'], 
+                     right_on=['x_x','t_x'],
+                     how='left')
+    result = result[['Group','x','t','x_y']]
+    result.loc[result.t.notnull(),'x_y'] = result.loc[result.t.notnull(),'x_y'].fillna(0)
+    return result.rename(columns={'x_y':'No of unique x before t'})
+
+df.groupby('Group', group_keys=False).apply(countunique)
+  
+
+ Output: 
+
+     Group  x          t  No of unique x before t
+0      1  a 2013-11-01                      0.0
+1      1  b 2015-04-03                      1.0
+2      1  b 2015-04-03                      1.0
+3      1  c        NaT                      NaN
+0      2  a 2017-03-01                      2.0
+1      2  c 2013-11-06                      0.0
+2      2  d 2015-04-26                      1.0
+3      2  d 2015-04-26                      1.0
+4      2  d 2015-04-26                      1.0
+5      2  b        NaT                      NaN
+  
+
+ Explanation: 
+
+ For each group, 
+
+ 
+ Perform a self-join using merge on 'Group' 
+ Filter result of self join only getting those time before the
+current record. 
+ Use groupby with nunique to count only unique values of x from
+self-join. 
+ Merge count of x back to the original dataframe keep all rows using
+how='left' 
+ Fill NaN values with zero where there is time on a recourd 
+ Rename column headings 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41573469)
+ 1)   Required approach:   
+
+ A faster implementation would be to sort the values of the dataframe and align the columns accordingly based on it's obtained indices after https://docs.scipy.org/doc/numpy/reference/generated/numpy.argsort.html. 
+
+  pd.DataFrame(df.columns[np.argsort(df.values)], df.index, np.unique(df.values))
+  
+
+ https://i.stack.imgur.com/WaVQg.png 
+
+ Applying  np.argsort  gives us the data we are looking for: 
+
+  df.columns[np.argsort(df.values)]
+Out[156]:
+Index([['a1', 'a2', 'a3', 'a4'], ['a3', 'a1', 'a2', 'a4'],
+       ['a4', 'a2', 'a3', 'a1']],
+      dtype='object')
+  
+
+ 
+
+ 2)   Slow generalized approach:   
+
+ More generalized approach while at the cost of some speed / efficiency would be to use  apply  after creating a  dict  mapping of the strings/values present in the dataframe with their corresponding column names.  
+
+ Use a dataframe constructor later after converting the obtained series to their  list  representation. 
+
+  pd.DataFrame(df.apply(lambda s: dict(zip(pd.Series(s), pd.Series(s).index)), 1).tolist()) 
+  
+
+ 
+
+ 3)   Faster generalized approach:   
+
+ After obtaining a list of dictionaries from  df.to_dict  +  orient='records' , we need to swap it's respective key and value pairs while iterating through them in a loop. 
+
+  pd.DataFrame([{val:key for key, val in d.items()} for d in df.to_dict('r')])
+  
+
+ 
+
+  Sample test case:  
+
+  df = df.assign(a5=['Foo', 'Bar', 'Baz'])
+  
+
+ Both these approaches produce: 
+
+ <a href="https://i.stack.imgur.com/6N7YG.png"  
+
+ 
+
+   @piRSquared EDIT   <sup>1</sup> 
+
+   generalized solution     
+
+  def nic(df):
+    v = df.values
+    n, m = v.shape
+    u, inv = np.unique(v, return_inverse=1)
+    i = df.index.values
+    c = df.columns.values
+    r = np.empty((n, len(u)), dtype=c.dtype)
+    r[i.repeat(m), inv] = np.tile(c, n)
+    return pd.DataFrame(r, i, u)
+  
+
+ <sup>1</sup> <sub>I would like to thank user @https://stackoverflow.com/users/2336654/pirsquared for coming up with a really fast and generalized numpy based alternative soln. 
+
+
+

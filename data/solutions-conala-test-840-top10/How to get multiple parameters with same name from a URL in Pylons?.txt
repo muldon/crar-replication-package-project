@@ -1,0 +1,227 @@
+Query: How to get multiple parameters with same name from a URL in Pylons?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14735170)
+ As an exercise, a rendering in Python of the PHP in the https://stackoverflow.com/a/353437/1290420 (also includes a dummy parameter to illustrate the need for url decoding): 
+
+  from urlparse import urlparse
+from urllib import unquote
+
+url = 'http://www.example.com/action?c=1&v=3&c=4&d=%3A%24%23%40%3D%3F%25%5EQ%5E%24'
+
+url = urlparse(url)
+
+params = url.query.split('&')
+params = [ tuple(p.split('=')) for p in params ]
+params = [ [unquote(p[0]), unquote(p[1])] for p in params ]
+
+print params
+
+# [['c', '1'], ['v', '3'], ['c', '4'], ['d', ':$#@=?%^Q^$']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15182718)
+ You're mixing up URL parameters and the URL itself. 
+
+ You can get access to the URL parameters with  request.args.get("summary")  and  request.args.get("change") . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14734923)
+ From the docs - http://docs.pylonsproject.org/projects/pyramid/en/1.3-branch/glossary.html#term-multidict : 
+
+ 
+   multidict        An ordered dictionary that can have multiple values for each key. Adds the methods getall, getone, mixed, add and dict_of_lists to the normal dictionary interface. See Multidict and pyramid.interfaces.IMultiDict. 
+ 
+
+  
+
+  request.params.getall('c')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48106287)
+ URL parameters are defined after  ?  so your URL should be instead: 
+
+ https://localhost:5000/item?analysis=true&class=A&class=B 
+
+ You don't have to specify anything in  add_resource  for such URL parameters. 
+
+ You can just get the parameters from  Flask 's  request  proxy object in your API GET method: 
+
+  from flask import Flask, request
+from flask_restful import Api, Resource
+
+app = Flask(__name__)
+api = Api(app)
+
+# Flask mishandles boolean as string
+TRUTHY = ['true', 'True', 'yes']
+
+class Item(Resource):
+   def get():
+      # Get `class` list from request args
+      classes = request.args.getlist('class') 
+
+      # Get `analysis` boolean from request args
+      analysis = True if request.args.get('analysis') in TRUTHY else False
+
+api.add_resource(Item, '/item')
+  
+
+ For more flexibility in the parameters you can receive, you can use Flask Restful's own request parser as described http://flask-restful.readthedocs.io/en/0.3.5/reqparse.html to parse the request.  
+
+ The code becomes: 
+
+  from flask import Flask
+from flask_restful import Api, Resource, reqparse
+
+app = Flask(__name__)
+api = Api(app)
+
+# Define parser and request args
+parser = reqparse.RequestParser()
+parser.add_argument('class', type=list)
+parser.add_argument('analysis', type=bool, default=False, required=False, help='Enable analysis')
+
+class Item(Resource):
+   def get():
+       args = parser.parse_args()
+       classes = args['class']  # List ['A', 'B']
+       analysis = args['analysis'] # Boolean True
+
+api.add_resource(Item, '/item')
+  
+
+ Finally, sometimes a more compact format for a list might be desired (for example limit in url size), in which case I often use a comma separated list:
+https://localhost:5000/item?analysis=true&class=A,B 
+
+ and in the request parser, just accept it like a string and split it on ',': 
+
+  parser.add_argument('class', type=str)
+...
+classes = args['class'].split(',')
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15182724)
+ Routes do not match a query string, which is passed to your method directly. 
+
+  from flask import request
+
+@app.route('/createcm', methods=['GET'])
+def foo():
+   print request.args.get('summary')
+   print request.args.get('change')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3969953)
+ I think what you want to do is prepare a webapp Request object and then call the post method of your handler: 
+
+  from google.appengine.ext.webapp import Request
+from google.appengine.ext.webapp import Response
+from StringIO import StringIO
+form = 'msg=hello'
+handler.response = Response()
+handler.request = Request({
+    'REQUEST_METHOD': 'POST',
+    'PATH_INFO': '/',
+    'wsgi.input': StringIO(form),
+    'CONTENT_LENGTH': len(form),
+    'SERVER_NAME': 'hi',
+    'SERVER_PORT': '80',
+    'wsgi.url_scheme': 'http',
+})
+handler.post()
+  
+
+ TIP: 'msg=hello' above works fine in this case, but to pass multiple POST parameters you need to create a URL encoded string: 
+
+  >>> form = {
+...     'first_name': 'Per',
+...     'last_name': 'Thulin',
+... }
+>>> from urllib import urlencode
+>>> urlencode(form)
+'first_name=Per&last_name=Thulin'
+  
+
+ If you want to pass in multiple POST parameters with the same name, I think you need to do a little bit of the url encoding work yourself. For example: 
+
+  >>> from urllib import urlencode
+>>> form_inputs = [
+...     {'someparam': 'aaa'},
+...     {'someparam': 'bbb'},
+...     {'someparam': 'ccc'},
+... ]
+>>> '&'.join([urlencode(d) for d in form_inputs])
+'someparam=aaa&someparam=bbb&someparam=ccc'
+  
+
+ Then in the RequestHandler, you can extract the parameters with the Request.get_all method. 
+
+ 
+ http://code.google.com/appengine/docs/python/tools/webapp/requestclass.html 
+ <a href="http://code.google.com/appengine/docs/python/tools/webapp/requestclass.html#Request_get_all"#Request_get_all  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47466079)
+ You can create a HTML form and can submit the form using post method if you do not want to pass values in url. 
+
+  <div>
+<form action="{% url 'view_detail' %}" method="post">
+{% csrf_token %}
+<input id="search" name="search" type="text" class="query-search" 
+ placeholder="Search...">
+<input class="btn btn-primary" type="submit" value="submit">
+</form>
+</div>
+  
+
+ And then in your view you can fetch the data as request.POST.get('search'): 
+
+  def view_detail(request):
+    searchWord = request.POST.get('search','')
+    return HttpResponse(searchWord)
+  
+
+ In the same way you can pass multiple parameters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2104760)
+ You will only get the form values for the form that was posted in the request(ie: whichever submit button the user clicked), that's how html works.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15716231)
+ If you use a python framework like Pylons/Pyramid, you add your request parameters to your processing function, for instance: 
+
+  
+def process_data(request): 
+
+     text1 = request.params.get('text1')
+  
+
+   
+
+
+

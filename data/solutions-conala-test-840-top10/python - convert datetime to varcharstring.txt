@@ -1,0 +1,276 @@
+Query: python - convert datetime to varchar/string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40173627)
+ You should use  strftime  method from  datetime  package. For example 
+
+  from datetime import datetime
+
+d = datetime.now()
+date_str = d.strftime('%Y-%m-%d')
+  
+
+ 
+
+ In case of you would need to make date from string this way you should use  strptime  (reverse method) 
+
+  d = datetime.strptime(date_str, '%Y-%m-%d')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41363765)
+ There is no string type for pandas dataframes. The 'Object' dtype is a catch-all for a variety of different types such as strings, or lists or dictionaries. You need to first create your table in sql server with the specified types that you want. You should do this with the  create table  statement that sql server provides. You can do this all within python through sqlalchemy. Pandas should then be able to append rows that match the type in the table that you created. 
+
+ Here is the http://pandas.pydata.org/pandas-docs/stable/io.html#sql-data-types about changing the mapping of pandas dtypes. 
+
+ 
+   You can always override the default type by specifying the desired SQL
+  type of any of the columns by using the dtype argument. This argument
+  needs a dictionary mapping column names to SQLAlchemy types (or
+  strings for the sqlite3 fallback mode). For example, specifying to use
+  the sqlalchemy String type instead of the default Text type for string
+  columns: 
+ 
+
+  from sqlalchemy.types import String
+
+data.to_sql('data_dtype', engine, dtype={'Col_1': String})
+  
+
+ And here are the list of all the types in  sqlalchemy.types  
+
+ 
+   'ARRAY', 'BIGINT', 'BINARY', 'BLOB', 'BOOLEAN', 'BigInteger', 'Binary', 'Boolean', 'CHAR', 'CLOB', 'Concatenable', 'DATE',
+  'DATETIME', 'DECIMAL', 'Date', 'DateTime', 'Enum', 'FLOAT', 'Float',
+  'INT', 'INTEGER', 'Indexable', 'Integer', 'Interval', 'JSON',
+  'LargeBinary', 'MatchType', 'NCHAR', 'NULLTYPE', 'NUMERIC',
+  'NVARCHAR', 'NullType', 'Numeric', 'PickleType', 'REAL', 'SMALLINT',
+  'STRINGTYPE', 'SchemaType', 'SmallInteger', 'String', 'TEXT', 'TIME',
+  'TIMESTAMP', 'Text', 'Time', 'TypeDecorator', 'TypeEngine', 'Unicode',
+  'UnicodeText', 'UserDefinedType', 'VARBINARY', 'VARCHAR', 'Variant',
+  '_Binary' 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45657228)
+ There is no builtin currently to convert object to datetime automatically.  One simple way is based on list comprehension and regex pattern of the datetime varchar ie.  
+
+ If you have a df (based on @Alexander's df) 
+
+  df = pd.DataFrame( {'col1': ['A', 'B', 'C', 'D', 'E'],
+  'col2': ['2017-02-04 18:41:00',
+           '2017-02-04 18:41:00',
+           '2017-02-04 18:41:00',
+           '2017-02-04 18:41:00',
+           '2017-02-03 14:13:00'],
+  'col3': [0, 1, 2, 3, 4],
+  'col4': ['2017-02-04 18:41:00',
+           '2017-02-04 18:41:00',
+           '2017-02-04 18:41:00',
+           '2017-02-04 18:41:00',
+           '2017-02-03 14:13:00']})
+
+data = [pd.to_datetime(df[x]) if df[x].astype(str).str.match(r'\d{4}-\d{2}-\d{2} \d{2}\:\d{2}\:\d{2}').all() else df[x] for x in df.columns]
+
+df = pd.concat(data, axis=1, keys=[s.name for s in data])
+  
+
+ or with the help of a mask i.e  
+
+  mask = df.astype(str).apply(lambda x : x.str.match(r'\d{4}-\d{2}-\d{2} \d{2}\:\d{2}\:\d{2}').all())
+df.loc[:,mask] = df.loc[:,mask].apply(pd.to_datetime)
+
+df.types
+  
+
+ Output: 
+
+ 
+col1            object
+col2    datetime64[ns]
+col3             int64
+col4    datetime64[ns]
+dtype: object
+ 
+
+ If you have mixed date formats then you can use  r'(\d{2,4}-\d{2}-\d{2,4})+'  Eg:  
+
+  ndf = pd.DataFrame({'col3': [0, 1, 2, 3, 4],
+  'col4': ['2017-02-04 18:41:00',
+       '2017-02-04 18:41:00',
+       '2017-02-04 18:41:00',
+       '2017-02-04 18:41:00',
+       '2017-02-03 14:13:00'],
+  'col5': ['2017-02-04',
+       '2017-02-04',
+       '17-02-2004 14:13:00',
+       '17-02-2014',
+       '2017-02-03']})
+
+mask = ndf.astype(str).apply(lambda x : x.str.match(r'(\d{2,4}-\d{2}-\d{2,4})+').all())
+ndf.loc[:,mask] = ndf.loc[:,mask].apply(pd.to_datetime)
+  
+
+ Output : 
+
+ 
+   col3                col4                col5
+0     0 2017-02-04 18:41:00 2017-02-04 00:00:00
+1     1 2017-02-04 18:41:00 2017-02-04 00:00:00
+2     2 2017-02-04 18:41:00 2004-02-17 14:13:00
+3     3 2017-02-04 18:41:00 2014-02-17 00:00:00
+4     4 2017-02-03 14:13:00 2017-02-03 00:00:00
+ 
+
+ Hope it helps  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41566989)
+ You can specify SQLAlchemy Type explicitly: 
+
+  import cx_Oracle
+from sqlalchemy import types, create_engine
+engine = create_engine('oracle://user:password@host_or_scan_address:1521/ORACLE_SERVICE_NAME')
+
+df.to_sql('table_name', engine, if_exists='replace',
+          dtype={'str_column': types.VARCHAR(df.str_column.str.len().max())})
+  
+
+  df.str_column.str.len().max()  - will calculate the maximum string length 
+
+ NOTE:  types.VARCHAR  will be mapped to  VARCHAR2  for Oracle (see https://stackoverflow.com/a/39514888/5741205) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51935635)
+  myresult  is a tuple containing one single object : a  datetime.datetime .  
+
+  y = myresult[0] + timedelta(days=14)
+  
+
+ This is easily noticeable thanks to your  print , we see that the  datetime  object is contained inside a tuple (which syntax is  (elem1, [elem2, ...]) ) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46081827)
+<pre class="lang-python prettyprint-override"> cursor.execute(query, columns)
+  
+
+ You are trying to execute the INSERT statement using the column  names  as data. SQL Server is complaining because you are trying to insert the value 'Date' into a  datetime  column. Removing that statement should make the problem go away. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5693214)
+ Never use  %  operator with SQL - it can lead to SQL injection. Fix your  execute  statement like this: 
+
+  cur.execute("INSERT INTO token VALUES (?, ?)", (token,expires))
+  
+
+ Actually there is another one problem: you can't use  cur.fetchone()  after  INSERT . 
+
+ Full example: 
+
+  $ sqlite3 test.db
+sqlite> create table token (token text primary key, expires text);
+
+$ python
+>>> import sqlite3
+>>> from datetime import datetime, timedelta
+>>> from uuid import uuid4
+>>> token = uuid4().bytes.encode("base64")
+>>> expires = datetime.now() + timedelta(days=1)
+>>> conn = sqlite3.connect("test.db")
+>>> cur = conn.cursor()
+>>> cur.execute("INSERT INTO token VALUES (?, ?)", (token, expires))
+<sqlite3.Cursor object at 0x7fdb18c70660>
+>>> cur.execute("SELECT * FROM token")
+<sqlite3.Cursor object at 0x7fdb18c70660>
+>>> cur.fetchone()
+(u'9SVqLgL8ShWcCzCvzw+2nA==\n', u'2011-04-18 15:36:45.079025')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16904112)
+ You can not handle this issue in the connection string.  SQL Server doesn't have a CHARSET property in it's odbc connection settings, so that won't do you any good.  
+
+ The overall issue you are having is that the data IS unicode in the database.  The data type for that column is nvarchar, it is an extended (UTF-16... could be UC-2 in windows, can't remember) data type to include international data characters. 
+
+ Your options are to convert the data via cast in the select query, e.g.: 
+
+  SELECT CAST(fieldname AS VARCHAR) AS fieldname
+  
+
+ or convert it in python, e.g.: 
+
+  # to utf-8
+row.fieldname.encode('utf8')
+
+# to ascii, ignore non-utf-8 characters
+row.fieldname.encode('ascii', 'ignore')
+
+# to ascii, replace non-utf-8 characters with ?
+row.fieldname.encode('ascii', 'replace')
+  
+
+ If you don't need international characters, then you could store the data in varchar instead of nvarchar. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16472760)
+ Add the length to your  String  column: 
+
+  src_address = Column(String(16), index=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45653532)
+ You can identify which columns in your dataframe are of type  object  and then only convert those columns to datetime using  coerce=True  so that errors are generated for columns which cannot be converted.  Use  combine_first  to overwrite the values in your dataframe with the timestamp values that did convert to datetimes. 
+
+  df = pd.DataFrame(
+     {'col1': ['A', 'B', 'C', 'D', 'E'],
+      'col2': ['2017-02-04 18:41:00',
+               '2017-02-04 18:41:00',
+               '2017-02-04 18:41:00',
+               '2017-02-04 18:41:00',
+               '2017-02-03 14:13:00'],
+      'col3': [0, 1, 2, 3, 4]})
+
+object_cols = [col for col, col_type in df.dtypes.iteritems() if col_type == 'object']
+
+df.loc[:, object_cols] = df[object_cols].combine_first(df[object_cols].apply(
+    pd.to_datetime, coerce=True))
+>>> df
+  col1                col2  col3
+0    A 2017-02-04 18:41:00     0
+1    B 2017-02-04 18:41:00     1
+2    C 2017-02-04 18:41:00     2
+3    D 2017-02-04 18:41:00     3
+4    E 2017-02-03 14:13:00     4
+
+>>> df.info()
+<class 'pandas.core.frame.DataFrame'>
+Int64Index: 5 entries, 0 to 4
+Data columns (total 3 columns):
+col1    5 non-null object
+col2    5 non-null datetime64[ns]
+col3    5 non-null int64
+dtypes: datetime64[ns](1), int64(1), object(1)
+memory usage: 160.0+ bytes
+  
+
+
+

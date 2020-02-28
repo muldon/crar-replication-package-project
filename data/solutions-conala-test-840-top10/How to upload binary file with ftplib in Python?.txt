@@ -1,0 +1,184 @@
+Query: How to upload binary file with ftplib in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/46902224)
+  APPEND  to file in FTP.  
+
+  Note:   it's not SFTP - FTP only  
+
+  import ftplib
+ftp = ftplib.FTP('localhost')
+ftp.login ('user','password')
+fin = open ('foo.txt', 'r')
+ftp.storbinary ('APPE foo2.txt', fin, 1)
+  
+
+ Ref: https://mail.python.org/pipermail/python-list/2000-December/037284.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53529628)
+ I actually just fought through this issue. I had to close the file that was being written before I opened it to upload to the FTP server.  
+
+  out2 = open('file.csv')
+for r1 in cursor:
+    out2.write(str(r1))
+out2.close()
+
+ftp_census = file_loc
+stor_census = str("STOR egocensus_" + demoFileDate + ".csv")
+fc = open(ftp_census, 'rb')
+ftp.storbinary(stor_census, fc, 1024)
+  
+
+ Once I closed the file the file size on the FTP server was correct. I also edited the original answer to show the code better. I probably could code this better but it is working.... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2911937)
+ The issue is not with the command argument, but with the the file object. Since you're storing binary you need to open file with  'rb'  flag: 
+
+  >>> ftp.storbinary('STOR myfile.txt', open('myfile.txt', 'rb'))
+'226 File receive OK.'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17438193)
+ If you are trying to store a  non-binary file  (like a text file) try setting it to read mode instead of write mode. 
+
+  ftp.storlines("STOR " + filename, open(filename, 'r'))
+  
+
+ for a  binary file  (anything that cannot be opened in a text editor) open your in read-binary mode 
+
+  ftp.storbinary("STOR " + filename, open(filename, 'rb'))
+  
+
+ also if you plan on using the ftp lib you should probably go through a tutorial, I'd recommend this http://effbot.org/librarybook/ftplib.htm from effbot. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19919002)
+ Try the following which will upload the file in binary mode.  The trick is to set the type of file transfer to binary mode (TYPE I) before calling  storbinary . 
+
+  with open('OUTPUT/output.html','rb') as html_ftp_file:
+    # ftp_session.set_pasv(1) # If you want to use passive mode for transfer.
+    ftp_session.voidcmd('TYPE I')  # Set file transfer type to Image (binary)
+    ftp_session.cwd("/folder")
+    ftp_session.storbinary('STOR output.html', html_ftp_file)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17777754)
+ I read the documentation:
+http://docs.python.org/3/library/ftplib.html#ftplib.FTP.storlines 
+
+ "Lines are read until EOF from the file object file (opened in binary mode) using its readline() method to provide the data to be stored." 
+
+ So I just had to open in binary mode: 
+
+  ftp.storlines('STOR ' + 'file.htm', open('file.htm','rb'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19869472)
+ From your code it looks like your FTP mode is binary, but you are uploading a ASCII file (html).  Try changing your FTP mode to ASCII or zip your file first (which would be a binary file), send it and then unzip at your destination. 
+
+ Here is and eaxmple from http://effbot.org/librarybook/ftplib.htm   
+
+  import ftp
+import os
+
+def upload(ftp, file):
+    ext = os.path.splitext(file)[1]
+    if ext in (".txt", ".htm", ".html"):
+        ftp.storlines("STOR " + file, open(file))
+    else:
+        ftp.storbinary("STOR " + file, open(file, "rb"), 1024)
+
+ftp = ftplib.FTP("ftp.fbi.gov")
+ftp.login("mulder", "trustno1")
+
+upload(ftp, "trixie.zip")
+upload(ftp, "file.txt")
+upload(ftp, "sightings.jpg")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46111924)
+ You have to specify the command in the https://docs.python.org/3/library/ftplib.html#ftplib.FTP.storbinary. 
+
+ 
+   Store a file in binary transfer mode.   command  should be an appropriate  STOR  command:  "STOR filename" .   
+ 
+
+  session.storbinary('STOR a csv1.csv', file)  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5241914)
+ Very late reply, but here's the correct answer. This works with ProFTPD. 
+
+  ftp.sendcmd("TYPE i")    # Switch to Binary mode
+ftp.size("/some/file")   # Get size of file
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16447651)
+ The 3.3 documentation for http://docs.python.org/3/library/ftplib.html#ftplib.FTP.storlines explicitly says: 
+
+ 
+   Lines are read until EOF from the  file object file  (opened in binary mode)… 
+ 
+
+ So, passing it a file opened in text mode isn't supposed to work. 
+
+ FTP's text (ASCII) mode isn't the same think as Python's text mode. In particular, FTP text is required to be ASCII (and real 7-bit ASCII, not an extended codepage with values > 127). But Python text has an explicitly-specified character set, and is treated as Unicode. If your files are actually UTF-8, Latin-1, CP-850, etc., you can't use text mode. 
+
+ On top of that, both Python and FTP are allowed to munge line endings for text files. Sometimes you  want  that, so you can upload a Windows text file to a linux box and have it show up with Unix line-endings instead of Windows (although that may not actually happen, depending on a variety of things…). But otherwise, you don't want to use text mode. 
+
+ In short, you're probably doing the right thing by opening your text files in binary mode and uploading them in binary (image) mode. 
+
+ 
+
+ Meanwhile, your code is fine as-is, but if you're looking for ways to improve it, there's always room for minor changes. 
+
+ First, if you've got the same 7 lines copied and pasted twice, and the only difference is the string in 1 line, factor it out into a function.  
+
+ Also, close your files. Either add an explicit  fileObject.close() , or, better, use a  with  statement. If you've only got 2 files in a short-lived script, it won't make much difference, but it's still a good idea—and you might later expand this into something that opens more than 2 files or lives longer. 
+
+ If you just want the basename of a file, it's clearer to call  basename  than to call  split  and then access  [1] . 
+
+ Getting into the nitpicky, unless you've got lots of "legacy" or wrapper code using a different style, it's better to stick with http://www.python.org/dev/peps/pep-0008/ than to invent your own style. 
+
+ Finally, if you want to leave open the possibility of sending text and binary files differently, even though at present they're implemented the same, just write  upload_binary_file  and  upload_text_file , and make the latter call the second, or be a reference to the same function. However, you probably  don't  want this. For the reasons explained above, and in J.F. Sebastian's comments, a  upload_text_file  function is more likely to be a misleading attractive nuisance than a useful hook for future expansion. 
+
+  
+
+  def upload_file(filename):
+    put_file = os.path.basename(filename)
+    cmd = 'STOR {}'.format(put_file)
+    with open(filename, 'rb') as file_object:
+        ftp.storbinary(cmd, file_object)
+
+upload_file('F:\\Data_Folder\\Test_File.txt')
+upload_file('F:\\Data_Folder\\Test_File.zip')
+  
+
+
+

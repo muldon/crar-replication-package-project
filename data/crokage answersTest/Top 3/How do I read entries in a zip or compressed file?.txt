@@ -1,0 +1,92 @@
+Query: How do I read entries in a zip or compressed file?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8830967)
+ http://commons.apache.org/compress/ is easy to use. 
+
+ Here's an example of reading a tar's entries: 
+
+  import java.io.FileInputStream;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+
+public class Taread {
+    public static void main(String[] args) {
+        try {
+            TarArchiveInputStream tarInput = new TarArchiveInputStream(new FileInputStream(args[0]));
+            TarArchiveEntry entry;
+            while (null!=(entry=tarInput.getNextTarEntry())) {
+                System.out.println(entry.getName());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40543167)
+ If you want to look through zip files within zip files recursively,  
+
+      public void lookupSomethingInZip(InputStream fileInputStream) throws IOException {
+        ZipInputStream zipInputStream = new ZipInputStream(fileInputStream);
+        String entryName = "";
+        ZipEntry entry = zipInputStream.getNextEntry();
+        while (entry!=null) {
+            entryName = entry.getName();
+            if (entryName.endsWith("zip")) {
+                //recur if the entry is a zip file
+                lookupSomethingInZip(zipInputStream);
+            }
+            //do other operation with the entries..
+
+            entry=zipInputStream.getNextEntry();
+        }
+    }
+  
+
+ Call the method with the file input stream derived from the file - 
+
+  File file = new File(name);
+lookupSomethingInZip(new FileInputStream(file));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4722238)
+  ZipFile zipFile = new ZipFile("archive.zip");
+try {
+  for (Enumeration<? extends ZipEntry> entries = zipFile.entries(); entries.hasMoreElements();) {
+    ZipEntry entry = entries.nextElement();
+
+    if (entry.isDirectory()) {
+      new File(entry.getName()).mkdirs();
+    } else {
+      InputStream in = zipFile.getInputStream(entry);
+      try {
+        OutputStream out = new BufferedOutputStream(new FileOutputStream(entry.getName()));
+          try {
+            // this util class is taken from apache commons io (see http://commons.apache.org/io/)
+            IOUtils.copy(in, out);
+          } finally {
+            out.close();
+          }
+      } finally {
+        in.close();
+      }
+    }
+  }
+} catch (IOException e) {
+  e.printStackTrace();
+} finally {
+  zipFile.close();
+}
+  
+
+
+

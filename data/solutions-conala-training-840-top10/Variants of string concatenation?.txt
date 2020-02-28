@@ -1,0 +1,330 @@
+Query: Variants of string concatenation?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34158638)
+ Juxtaposing works only for string literals: 
+
+  >>> 'A' 'B'
+'AB'
+  
+
+ If you work with string objects: 
+
+  >>> a = 'A'
+>>> b = 'B'
+  
+
+ you need to use a different method: 
+
+  >>> a b
+    a b
+      ^
+SyntaxError: invalid syntax
+
+>>> a + b
+'AB'
+  
+
+ The  +  is a bit more obvious than just putting literals next to each other. 
+
+ One use of the first method is to split long texts over several lines, keeping
+indentation in the source code:  
+
+  >>> a = 5
+>>> if a == 5:
+    text = ('This is a long string'
+            ' that I can continue on the next line.')
+>>> text
+'This is a long string that I can continue on the next line.'
+  
+
+  ''join()  is the preferred way to concatenate more strings, for example in a list: 
+
+  >>> ''.join(['A', 'B', 'C', 'D'])
+'ABCD'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34640312)
+  
+
+  def vary(target, pattern, subst):
+  numOccurences = len (pattern.findall (target))
+
+  for path in itertools.product((True, False), repeat=numOccurences):
+
+    variant       = ''
+    remainingStr = target
+
+    for currentFlag in path:
+
+      if currentFlag: 
+        remainingStr = pattern.sub (subst, remainingStr, 1)
+      else:
+        currentMatch = pattern.search (remainingStr);
+        variant += remainingStr[:currentMatch.end ()]
+        remainingStr = remainingStr[currentMatch.end ():]
+
+    variant += remainingStr
+
+    yield variant
+  
+
+ For each match, we either let re.sub() do its job (with a count of 1 to stop after one substitution), or we snatch away the unchanged portion of the string. 
+
+ Trying it out with your examples like this 
+
+  target = 'a b c'
+pattern = re.compile(r'\s+')
+subst = ''
+
+print list (vary(target, pattern, subst))
+
+target = 'abc123def'
+pattern = re.compile(r'\B(\d+)\B')
+subst = r'\1 '
+
+print list (vary(target, pattern, subst))
+  
+
+  
+
+  ['abc', 'ab c', 'a bc', 'a b c']
+['abc123 def', 'abc123def']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34640954)
+ Thinking about making  subst  a callable that gets access to match data finally made me learn about  MatchObject.expand . So, as an approximation, with  subst  staying an  r  string, 
+
+  def vary(target, pattern, subst):
+    matches = [m for m in pattern.finditer(target)]
+    occurrences = [m.span() for m in matches]
+    for path in itertools.product((True, False), repeat=len(occurrences)):
+        variant = ''
+        anchor = 0
+        for match, (start, end), apply_this in zip(matches, occurrences, path):
+            if apply_this:
+                variant += target[anchor:start] + match.expand(subst)
+                anchor = end
+        variant += target[anchor:]
+        yield variant
+  
+
+ I am not sure, though, that this covers all needed flexibility in referring to the subject string, being bount to the corresponding match. An indexed power set of the split string came to mind, but I guess that's not far from the parser mentioned. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42932972)
+ The documentation is actually correct, however it is admittedly confusing. The three main points it seems you're missing: 
+
+ 
+ The option names are set on the product, not the variants 
+  Product.variants  is a list of  Variant  resources; you need a  Variant  resource for every variant you want 
+ You simply set a string to each of  Variant 's  option1 ,  option2 , and  option3  attributes 
+ 
+
+  Example:  
+
+  import shopify
+
+# Authenticate, etc
+# ...
+
+new_product = shopify.Product()
+new_product.title = "My Product"
+new_product.handle = "test-product"
+new_product.options = [
+    {"name" : "Size"},
+    {"name" : "Colour"},
+    {"name" : "Material"}
+]
+
+colors = ['Black', 'Blue', 'Green', 'Red']
+sizes = ['S', 'M', 'L', 'XL']
+
+new_product.variants = []
+for color in colors:
+    for size in sizes:
+        variant = shopify.Variant()
+        variant.option1 = size
+        variant.option2 = color
+        variant.option3 = "100% Cotton"
+        new_product.variants.append(variant)
+
+new_product.save()
+  
+
+ It's important to note that each variant's option combinations must be unique, or it will return an error. A quirk that isn't documented is that when you don't supply any  options  on the parent  Product  resource, it will implicitly give you a single option named  Style , and likewise if you don't assign any options on the variant then it will automatically assign  Default Title  to each variant's  option1 . Since each option combination is unique, if you don't assign any  options  or  option1  values, then it won't error when you only have a single variant. If you then try with multiple variants, the error it will give you will be confusing, as it will be referring to the non-uniqueness of variant options and not about missing the  options  and  option1  parameters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/376508)
+ Concatenation is (significantly) faster according to my machine. But stylistically, I'm willing to pay the price of substitution if performance is not critical. Well, and if I need formatting, there's no need to even ask the question... there's no option but to use interpolation/templating. 
+
+  >>> import timeit
+>>> def so_q_sub(n):
+...  return "%s%s/%d" % (DOMAIN, QUESTIONS, n)
+...
+>>> so_q_sub(1000)
+'http://stackoverflow.com/questions/1000'
+>>> def so_q_cat(n):
+...  return DOMAIN + QUESTIONS + '/' + str(n)
+...
+>>> so_q_cat(1000)
+'http://stackoverflow.com/questions/1000'
+>>> t1 = timeit.Timer('so_q_sub(1000)','from __main__ import so_q_sub')
+>>> t2 = timeit.Timer('so_q_cat(1000)','from __main__ import so_q_cat')
+>>> t1.timeit(number=10000000)
+12.166618871951641
+>>> t2.timeit(number=10000000)
+5.7813972166853773
+>>> t1.timeit(number=1)
+1.103492206766532e-05
+>>> t2.timeit(number=1)
+8.5206360154188587e-06
+
+>>> def so_q_tmp(n):
+...  return "{d}{q}/{n}".format(d=DOMAIN,q=QUESTIONS,n=n)
+...
+>>> so_q_tmp(1000)
+'http://stackoverflow.com/questions/1000'
+>>> t3= timeit.Timer('so_q_tmp(1000)','from __main__ import so_q_tmp')
+>>> t3.timeit(number=10000000)
+14.564135316080637
+
+>>> def so_q_join(n):
+...  return ''.join([DOMAIN,QUESTIONS,'/',str(n)])
+...
+>>> so_q_join(1000)
+'http://stackoverflow.com/questions/1000'
+>>> t4= timeit.Timer('so_q_join(1000)','from __main__ import so_q_join')
+>>> t4.timeit(number=10000000)
+9.4431309007150048
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/376530)
+ Don't forget about named substitution: 
+
+  def so_question_uri_namedsub(q_num):
+    return "%(domain)s%(questions)s/%(q_num)d" % locals()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43128885)
+ Short answer: you can't. This is an incredibly frustrating fact to many early programmers.  outside of your  variants  for loop, create another dictionary and use the filename as a key. Example (you can't just copy paste this, because I don't know how to use the vcf library): 
+
+  import sys
+
+import vcf
+
+all_files = {}
+for variants in sys.argv[1:]:
+    #didn't see file1 used, and didn't see snps created
+    #so figured file1 was snps...
+    snps = {} 
+    vcf_reader = vcf.Reader(open(variants))
+    for record in vcf_reader:
+        pos = record.POS
+        alt = record.ALT
+        ref= record.REF
+        snps[pos]=ref,alt
+    all_files[variants] = snps
+  
+
+ I'm assuming here that  variants  is a filename in the form of a string. If not, replace the  variants  in  all_files[variants]  with the string you want to use as its key. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34158694)
+ The variant without  +  is done during the syntax parsing of the code. I guess it was done to let you write multiple line strings nicer in your code, so you can do: 
+
+  test = "This is a line that is " \
+       "too long to fit nicely on the screen."
+  
+
+ I guess that when it's possible, you should use the  non-+  version, because in the byte code there will be only the resulting string, no sign of concatenation left. 
+
+ When you use  + , you have two string in your code and you execute the concatenation during runtime (unless interpreters are smart and optimize it, but I don't know if they do).  
+
+ Obviously, you cannot do:
+   a = 'A'
+   ba = 'B' a 
+
+ Which one is faster? The  no-+  version, because it is done before even executing the script. 
+
+  +  vs  join  -> If you have a lot of elements,  join  is prefered because it is optimised to handle many elements. Using + to concat multiple strings creates a lot of partial results in the process memory, while using  join  doesn't. 
+
+ If you're going to concat just a couple of elements I guess  +  is better as it's more readable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11559122)
+ Modern string formatting: 
+
+  "{} and {}".format("string", 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26792974)
+ Assuming you have enough memory, your task will be more easily accomplished if your DataFrame held one variant per row: 
+
+  track_name     variants  time     route_id  stop_id  serial
+"trackname1"   1         "21:23"         5      103       1
+"trackname1"   2         "21:23"         5      103       1
+"trackname1"   3         "21:23"         5      103       1
+"trackname1"   1         "21:26"         5       17       2
+"trackname1"   2         "21:26"         5       17       2
+"trackname1"   3         "21:26"         5       17       2
+...
+"trackname1"   4         "21:20"         5      103       1
+"trackname1"   5         "21:20"         5      103       1
+...
+"trackname2"   1         "20:59"         3       45       1
+  
+
+ Then you could find "all rows for variant 3 on route_id 5 with 
+
+  df.loc[(df['variants']==3) & (df['route_id']==5)]
+  
+
+ If you pack many variants into one row, such as 
+
+  "trackname1"   "1,2,3"   "21:23"  "5"       "103"    "1"
+  
+
+ then you could find such rows using  
+
+  df.loc[(df['variants'].str.contains("3")) & (df['route_id']=="5")]
+  
+
+  assuming  that the variants are always single digits. If there are also 2-digit variants like "13" or "30", then you would need to pass a more complicated regex pattern to  str.contains .  
+
+ Alternatively, you could use  apply  to split each variant on commas: 
+
+  df['variants'].apply(lambda x: "3" in x.split(','))
+  
+
+ but this is very inefficent since you would now be calling a Python function
+once for every row, and doing string splitting and a test for membership in a
+list compared to a vectorized integer comparision. 
+
+ Thus, to avoid possibly complicated regex or a relatively slow call to  apply , I think your best bet is to build the DataFrame with one integer variant per row. 
+
+
+

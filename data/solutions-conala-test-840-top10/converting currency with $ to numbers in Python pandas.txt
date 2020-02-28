@@ -1,0 +1,171 @@
+Query: converting currency with $ to numbers in Python pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48394401)
+ You can also use  locale  as follows 
+
+  import locale
+import pandas as pd
+locale.setlocale(locale.LC_ALL,'')
+df['1st']=df.1st.map(lambda x: locale.atof(x.strip('$')))
+  
+
+ Note the above code was tested in Python 3 and Windows environment  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45763925)
+  .sum()  ignores all non-numeric columns. You've got to convert cost to numbers first: 
+
+  df["Cost"] = df["Cost"].str[1:].astype(float)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32464612)
+ You can use the vectorised  str  methods to replace the unwanted characters and then cast the type to int: 
+
+  In [81]:
+df[df.columns[1:]] = df[df.columns[1:]].apply(lambda x: x.str.replace('$','')).apply(lambda x: x.str.replace(',','')).astype(np.int64)
+df
+
+Out[81]:
+            state       1st        2nd      3rd
+index                                          
+0      California  11593820  109264246  8496273
+1        New York  10861680   45336041  6317300
+2         Florida   7942848   69369589  4697244
+3           Texas   7536817   61830712  5736941
+  
+
+  dtype  change is now confirmed: 
+
+  In [82]:
+
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+Int64Index: 4 entries, 0 to 3
+Data columns (total 4 columns):
+state    4 non-null object
+1st      4 non-null int64
+2nd      4 non-null int64
+3rd      4 non-null int64
+dtypes: int64(3), object(1)
+memory usage: 160.0+ bytes
+  
+
+ Another way: 
+
+  In [108]:
+
+df[df.columns[1:]] = df[df.columns[1:]].apply(lambda x: x.str[1:].str.split(',').str.join('')).astype(np.int64)
+df
+Out[108]:
+            state       1st        2nd      3rd
+index                                          
+0      California  11593820  109264246  8496273
+1        New York  10861680   45336041  6317300
+2         Florida   7942848   69369589  4697244
+3           Texas   7536817   61830712  5736941
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31228410)
+ Try something like this - 
+
+  def conv_to_frac(num_str):
+    if "'" in num_str:
+        n_split = num_str.split("'")
+        #Getting only the fractional part out
+        frac = str(int(n_split[1])/8.0).split(".")[1]
+        num_str = n_split[0] + "." + str(frac)
+    return num_str
+
+>>> conv_to_frac("1040'6")
+'1040.75'
+>>> conv_to_frac("-1'2")
+'-1.25'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44618361)
+ You need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.apply.html with  axis=1  for processing by rows: 
+
+  from easymoney.money import EasyPeasy 
+ep = EasyPeasy() 
+df_train['converted'] = df_train.apply(lambda x: ep.currency_converter(x['goal'], from_currency=x['currency'], to_currency="USD"), axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44033538)
+ In python 3, you can use: 
+
+  import locale
+locale.setlocale( locale.LC_ALL, 'English_United States.1252' )
+locale.currency( 1234.50, grouping = True )
+  
+
+ Output 
+
+  '$1,234.50'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32465968)
+ @EdChum's answer is clever and works well.  But since there's more than one way to bake a cake.... why not use regex?  For example: 
+
+  df[df.columns[1:]].replace('[\$,]', '', regex=True).astype(float)
+  
+
+ To me, that is a little bit more readable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31228413)
+ You can loop over your numbers by splitting the text then again split the numbers with one quote and just convert the decimal part and add with integer part : 
+
+  >>> s="SEP15    1032'0    1040'6    1022'4    1029'0    1031'4    -1'2        9290     1032'6       13361       27522"
+>>> 
+>>> [int(i)+float(j)/8 for i,j in [i.split("'") if "'" in i else [i,'0'] for i in s.split()[1:]]]
+[1032.0, 1040.75, 1022.5, 1029.0, 1031.5, -0.75, 9290.0, 1032.75, 13361.0, 27522.0]
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46411203)
+ For a solution without hardcoding the currency position or symbol: 
+
+  raw_price = "17,30 €"
+import locale
+locale.setlocale(locale.LC_ALL, 'fr_FR.UTF8')
+conv = locale.localeconv()
+raw_numbers = raw_price.strip(conv['currency_symbol'].decode('utf-8'))
+amount = locale.atof(raw_numbers)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16892825)
+ How about http://babel.edgewall.org/?  
+
+  from babel import numbers
+print numbers.format_currency(1500, 'USD', locale='en') # => $1,500.00
+print numbers.format_currency(1500, 'GBP', locale='fr_FR') # => 1 500,00 £UK
+  
+
+
+

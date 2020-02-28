@@ -1,0 +1,381 @@
+Query: Removing the first folder in a path
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26724413)
+ A bit like another answer, taking advantage of os.path : 
+
+  os.path.join(*(x.split(os.path.sep)[2:]))
+  
+
+ ... assuming your string starts with a separator. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26724380)
+  
+
+  a = '/First/Second/Third/Fourth/Fifth'
+"/".join(a.strip("/").split('/')[1:])
+  
+
+ output: 
+
+  Second/Third/Fourth/Fifth
+  
+
+ In this above code i have split the string. then joined leaving 1st element 
+
+ Using  itertools.dropwhile : 
+
+  >>> a = '/First/Second/Third/Fourth/Fifth'
+>>> "".join(list(itertools.dropwhile(str.isalnum, a.strip("/"))[1:])
+'Second/Third/Fourth/Fifth'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37849661)
+ 
+ Use  os.chdir  to change your current path 
+ Make sure that the parameter of  os.walk  is relative path 
+ 
+
+ *Should be careful when using  os.chdir  
+
+ 
+
+  import zipfile, os
+
+def backupToZip(folder):
+
+    cwdpath = os.getcwd() # save original path (*where you run this py file)
+
+    saveToWhere = "tmp.zip"
+    zf = zipfile.ZipFile(saveToWhere, mode='w')
+
+    folder = os.path.abspath(folder) # make sure folder is absolute
+    os.chdir(folder) # change to that absolute path
+
+    # os.walk(relative_path)
+    for foldername, subfolders, filenames in os.walk("./"):
+        for filename in filenames:
+            zf.write(os.path.join(foldername, filename))    
+    zf.close()
+
+    os.chdir(cwdpath) # back to original path
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5756937)
+  
+
+  import os
+import glob
+
+files = glob.glob('/YOUR/PATH/*')
+for f in files:
+    os.remove(f)
+  
+
+ You can of course use an other filter in you path, for example : /YOU/PATH/*.txt for removing all text files in a directory. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38619916)
+ I was looking if there was a native way to do it, but it seems it doesn't.  
+
+ I know this topic is old, but this is what I did to get me to the best solution:
+There was two basically two approaches: using split() and using len(). Both had to use slicing. 
+
+ 1) Using split() 
+
+  import time
+
+start_time = time.time()
+
+path = "/folder1/folder2/folder3/file.zip"
+for i in xrange(500000):
+    new_path = "/" + "/".join(path.split("/")[2:])
+
+print("--- %s seconds ---" % (time.time() - start_time))
+  
+
+  Result: --- 0.420122861862 seconds ---  
+
+ *Removing the char "/" in the line new_path = "/" + "/".... didn't improve the performance too much. 
+
+ 2) Using len().  This method will only work if you provide the folder if you would like to remove  
+
+  import time
+
+start_time = time.time()
+
+path = "/folder1/folder2/folder3/file.zip"
+folder = "/folder1"
+for i in xrange(500000):
+    if path.startswith(folder):
+        a = path[len(folder):]
+
+print("--- %s seconds ---" % (time.time() - start_time))
+  
+
+  Result: --- 0.199596166611 seconds ---  
+
+ *Even with that "if" to check if the path starts with the file name, it was twice as fast as the first method.  
+
+ In summary: each method has a pro and con. If you are absolutely sure about the folder you want to remove use method two, otherwise I recommend to use method 1 which people here have mentioned previously.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43765496)
+  os.remove()  is to remove a file. 
+
+  os.rmdir()  is to remove an empty directory. 
+
+  shutil.rmtree()  is to delete a directory and all its contents. 
+
+  import os
+
+folder = "dataset3/"
+
+# Method 1
+for files in os.listdir(folder):
+    if files == "dataset":
+        os.remove(folder + "dataset")
+
+# Method 2
+if os.path.exists(folder + "dataset"):
+    os.remove(folder + "dataset")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48738480)
+ 
+   How do I delete a file  folder in Python? 
+ 
+
+ F Python 3, to remove the file and directy individually, use the https://docs.python.g/3/library/pathlib.html#pathlib.Path.unlink and https://docs.python.g/3/library/pathlib.html#pathlib.Path.rmdir  Path  object methods respectively: 
+
+  from pathlib impt Path
+dir_path = Path.home() / 'directy' 
+file_path = dir_path / 'file'
+
+file_path.unlink() # remove file
+
+dir_path.rmdir()   # remove directy
+  
+
+ Note that you can also use relative paths with  Path  objects, and you can check your current wking directy with  Path.cwd . 
+
+ F removing individual files and directies in Python 2, see the section so labeled below. 
+
+ To remove a directy with contents, use https://docs.python.g/3/library/shutil.html#shutil.rmtree, and note that this is available in Python 2 and 3: 
+
+  from shutil impt rmtree
+
+rmtree(dir_path)
+  
+
+ Demonstration 
+
+ New in Python 3.4 is the  Path  object.  
+
+ Let's use one to create a directy and file to demonstrate usage. Note that we use the  /  to join the parts of the path, this wks around issues between operating systems and issues from using backslashes on Windows (where you'd need to either double up your backslashes like  \\   use raw strings, like  r"foo\bar" ): 
+
+  from pathlib impt Path
+
+# .home() is new in 3.5, otherwise use os.path.expanduser('~')
+directy_path = Path.home() / 'directy'
+directy_path.mkdir()
+
+file_path = directy_path / 'file'
+file_path.touch()
+  
+
+  
+
+  >>> file_path.is_file()
+True
+  
+
+ Now let's delete them. First the file: 
+
+  >>> file_path.unlink()     # remove file
+>>> file_path.is_file()
+False
+>>> file_path.exists()
+False
+  
+
+ We can use globbing to remove multiple files - first let's create a few files f this: 
+
+  >>> (directy_path / 'foo.my').touch()
+>>> (directy_path / 'bar.my').touch()
+  
+
+ Then just iterate over the glob pattern: 
+
+  >>> f each_file_path in directy_path.glob('*.my'):
+...     print(f'removing {each_file_path}')
+...     each_file_path.unlink()
+... 
+removing ~/directy/foo.my
+removing ~/directy/bar.my
+  
+
+ Now, demonstrating removing the directy: 
+
+  >>> directy_path.rmdir() # remove directy
+>>> directy_path.is_dir()
+False
+>>> directy_path.exists()
+False
+  
+
+ What if we want to remove a directy  and everything in it? 
+F this use-case, use  shutil.rmtree  
+
+ Let's recreate our directy and file: 
+
+  file_path.parent.mkdir()
+file_path.touch()
+  
+
+ and note that  rmdir  fails unless it's empty, which is why rmtree is so convenient: 
+
+  >>> directy_path.rmdir()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "~/anaconda3/lib/python3.6/pathlib.py", line 1270, in rmdir
+    self._access.rmdir(self)
+  File "~/anaconda3/lib/python3.6/pathlib.py", line 387, in wrapped
+    return strfunc(str(pathobj), *args)
+OSErr: [Errno 39] Directy not empty: '/home/excelsia/directy'
+  
+
+ Now, impt rmtree and pass the directy to the funtion: 
+
+  from shutil impt rmtree
+rmtree(directy_path)      # remove everything 
+  
+
+ and we can see the whole thing has been removed: 
+
+  >>> directy_path.exists()
+False
+  
+
+ Python 2 
+
+ If you're on Python 2, there's a https://pypi.python.g/pypi/pathlib2/, which can be installed with pip: 
+
+  $ pip install pathlib2
+  
+
+ And then you can alias the library to  pathlib  
+
+  impt pathlib2 as pathlib
+  
+
+ Or just directly impt the  Path  object (as demonstrated here): 
+
+  from pathlib2 impt Path
+  
+
+ If that's too much, you can remove files with https://docs.python.g/2/library/os.html#os.remove 
+
+  from os impt unlink, remove
+from os.path impt join, expanduser
+
+remove(join(expanduser('~'), 'directy/file'))
+  
+
+  
+
+  unlink(join(expanduser('~'), 'directy/file'))
+  
+
+ and you can remove directies with https://docs.python.g/2/library/os.html#os.rmdir: 
+
+  from os impt rmdir
+
+rmdir(join(expanduser('~'), 'directy'))
+  
+
+ Note that there is also a https://docs.python.g/2/library/os.html#os.removedirs - it only removes empty directies recursively, but it may suit your use-case. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37850348)
+ If you want to avoid chdir, which impacts the whole process, you can use https://docs.python.org/3/library/os.path.html#os.path.relpath to get the relative path starting from your top folder. 
+
+ You could use something like 
+
+  def backupToZip(folder):
+
+    import zipfile, os
+
+    folder = os.path.abspath(folder) # make sure folder is absolute
+
+    # Walk the entire folder tree and compress the files in each folder.  
+    for foldername, subfolders, filenames in os.walk(folder):
+
+        if foldername == folder:
+             archive_folder_name = ''
+        else:
+             archive_folder_name = os.path.relpath(foldername, folder)
+
+             # Add the current folder to the ZIP file.
+             backupZip.write(foldername, arcname=archive_folder_name)
+
+        # Add all the files in this folder to the ZIP file.
+        for filename in filenames:
+            backupZip.write(os.path.join(foldername, filename), arcname=os.path.join(archive_folder_name, filename))
+    backupZip.close()
+
+backupToZip('Sample Folder')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43771688)
+  os.rmdir()  would only work if the directory is empty, however the following doesn't care (even if there are subdirectories). It's also more portable than using  os.system()  and the  rm  command. 
+
+  import shutil
+import os
+
+dirpath = os.path.join('dataset3', 'dataset')
+if os.path.exists(dirpath) and os.path.isdir(dirpath):
+    shutil.rmtree(dirpath)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/303228)
+ From http://docs.python.org/library/os.html#os.walk on  os.walk() : 
+
+  # Delete everything reachable from the directory named in 'top',
+# assuming there are no symbolic links.
+# CAUTION:  This is dangerous!  For example, if top == '/', it
+# could delete all your disk files.
+import os
+for root, dirs, files in os.walk(top, topdown=False):
+    for name in files:
+        os.remove(os.path.join(root, name))
+    for name in dirs:
+        os.rmdir(os.path.join(root, name))
+  
+
+
+

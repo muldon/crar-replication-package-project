@@ -1,0 +1,598 @@
+Query: How to monitor file or directory changes?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/54930809)
+ Look into Java's https://docs.oracle.com/javase/tutorial/essential/io/notification.html API to monitor a directory for changes. The rest should be basic file IO after that. 
+
+ Example for watching directories: 
+
+  public class DirectoryWatcherExample {
+
+    public static void main(String[] args) {
+        WatchService watchService
+          = FileSystems.getDefault().newWatchService();
+
+        Path path = Paths.get(System.getProperty("user.home"));
+
+        path.register(
+          watchService, 
+            StandardWatchEventKinds.ENTRY_CREATE, 
+              StandardWatchEventKinds.ENTRY_DELETE, 
+                StandardWatchEventKinds.ENTRY_MODIFY);
+
+        WatchKey key;
+        while ((key = watchService.take()) != null) {
+            for (WatchEvent<?> event : key.pollEvents()) {
+                System.out.println(
+                  "Event kind:" + event.kind() 
+                    + ". File affected: " + event.context() + ".");
+            }
+            key.reset();
+        }
+    }
+}
+  
+
+ Source: https://www.baeldung.com/java-nio2-watchservice 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36697270)
+ I made some classes for this. 
+
+  public interface FileAvailableListener {
+    public void fileAvailable(File file) throws IOException;
+}
+  
+
+  
+
+  public class FileChange {
+
+private long lastModified;
+private long size;
+private long lastCheck;
+
+public FileChange(File file) {
+    this.lastModified=file.lastModified();
+    this.size=file.length();
+    this.lastCheck = System.currentTimeMillis();
+}
+
+public long getLastModified() {
+    return lastModified;
+}
+public long getSize() {
+    return size;
+}
+public long getLastCheck() {
+    return lastCheck;
+}
+
+public boolean isStable(FileChange other,long stableTime) {
+    boolean b1 = (getLastModified()==other.getLastModified());
+    boolean b2 = (getSize()==other.getSize());
+    boolean b3 = ((other.getLastCheck()-getLastCheck())>stableTime);
+    return b1 && b2 && b3;
+}
+}
+  
+
+  
+
+  public class DirectoryWatcher {
+
+private Timer timer;
+private List<DirectoryMonitorTask> tasks = new ArrayList<DirectoryMonitorTask>();
+
+public DirectoryWatcher() throws URISyntaxException, IOException, InterruptedException {
+    super();
+    timer = new Timer(true);        
+}
+public void addDirectoryMonitoringTask(DirectoryMonitorTask task,long period) {
+    tasks.add(task);
+    timer.scheduleAtFixedRate(task, 5000, period);      
+}
+public List<DirectoryMonitorTask> getTasks() {
+    return Collections.unmodifiableList(tasks);
+}
+public Timer getTimer() {
+    return timer;
+}
+}
+  
+
+   
+
+  class DirectoryMonitorTask extends TimerTask {
+
+public final static String DIRECTORY_NAME_ARCHIVE="archive";
+public final static String DIRECTORY_NAME_ERROR="error";
+public final static String LOCK_FILE_EXTENSION=".lock";
+public final static String ERROR_FILE_EXTENSION=".error";   
+public final static String FILE_DATE_FORMAT="yyyyMMddHHmmssSSS";
+
+private String name;
+private FileAvailableListener listener;
+private Path directory;
+private File directoryArchive;
+private File directoryError;
+private long stableTime;
+private FileFilter filter;
+private WatchService watchService;
+private SimpleDateFormat dateFormatter = new SimpleDateFormat(FILE_DATE_FORMAT);
+private Hashtable<File,FileChange> fileMonitor = new Hashtable<File,FileChange>();
+
+public DirectoryMonitorTask(String name,FileAvailableListener listener,Path directory,long stableTime,FileFilter filter) throws IOException {
+    super();
+    this.name=name;
+    this.listener=listener;
+    this.directory=directory;
+    this.stableTime=stableTime;
+    if (stableTime<1) {
+        stableTime=1000;
+    }
+    this.filter=filter;
+    validateNotNull("Name",name);
+    validateNotNull("Listener",listener);
+    validateNotNull("Directory",directory);
+    validate(directory);
+    directoryArchive = new File(directory.toFile(),DIRECTORY_NAME_ARCHIVE);
+    directoryError = new File(directory.toFile(),DIRECTORY_NAME_ERROR);
+    directoryArchive.mkdir();
+    directoryError.mkdir();
+    //
+    log("Constructed for "+getDirectory().toFile().getAbsolutePath());
+
+    initialize();
+    //
+    watchService = FileSystems.getDefault().newWatchService();
+    directory.register(watchService,StardWatchEventKinds.ENTRY_CREATE,StardWatchEventKinds.ENTRY_DELETE,StardWatchEventKinds.ENTRY_MODIFY);
+    log("Started");
+}
+
+private void initialize() {
+    File[] files = getDirectory().toFile().listFiles();
+    for (File file : files) {
+        if (isLockFile(file)) {
+            file.delete();
+        } else if (acceptFile(file)) {
+            fileMonitor.put(file,new FileChange(file));
+            log("Init file added -"+file.getName());
+        }
+    }
+}
+public SimpleDateFormat getDateFormatter() {
+    return dateFormatter;
+}
+public Path getDirectory() {
+    return directory;
+}
+public FileAvailableListener getListener() {
+    return listener;
+}
+public String getName() {
+    return name;
+}
+public WatchService getWatchService() {
+    return watchService;
+}
+public long getStableTime() {
+    return stableTime;
+}
+public File getDirectoryArchive() {
+    return directoryArchive;
+}
+public File getDirectoryError() {
+    return directoryError;
+}
+public FileFilter getFilter() {
+    return filter;
+}   
+public Iterator<File> getMonitoredFiles() {
+    return fileMonitor.keySet().iterator();
+}
+
+@Override
+public void run() {
+    WatchKey key;
+    try {
+        key = getWatchService().take();
+        // Poll all the events queued for the key
+        for (WatchEvent<?> event : key.pollEvents()) {                                      
+            @SuppressWarnings("unchecked")
+            Path filePath = ((WatchEvent<Path>) event).context();
+            File file = filePath.toFile();
+            if ((!isLockFile(file)) && (acceptFile(file))) {
+                switch (event.kind().name()) {
+                    case "ENTRY_CREATE":
+                        //                          
+                        fileMonitor.put(file,new FileChange(file));
+                        log("File created ["+file.getName()+"]");
+                        break;
+                        //
+                    case "ENTRY_MODIFY":
+                        //                          
+                        fileMonitor.put(file,new FileChange(file));
+                        log("File modified ["+file.getName()+"]");
+                        break;  
+                        //
+                    case "ENTRY_DELETE":
+                        //
+                        log("File deleted ["+file.getName()+"]");
+                        createLockFile(file).delete();
+                        fileMonitor.remove(file);                           
+                        break;
+                        //
+                }
+            }
+        }
+        // reset is invoked to put the key back to ready state
+        key.reset();
+    } catch (InterruptedException e) {              
+        e.printStackTrace();
+    }
+
+    Iterator<File> it = fileMonitor.keySet().iterator();
+
+    while (it.hasNext()) {
+        File file = it.next();  
+        FileChange fileChange = fileMonitor.get(file);
+        FileChange fileChangeCurrent = new FileChange(file);
+
+        if (fileChange.isStable(fileChangeCurrent, getStableTime())) {
+            log("File is stable ["+file.getName()+"]");
+            String filename = getDateFormatter().format(new Date())+"_"+file.getName();
+            File lockFile = createLockFile(file);
+            if (!lockFile.exists()) {
+                log("File do not has lock file ["+file.getName()+"]");
+                try {
+                    Files.createFile(lockFile.toPath());
+                    log("Processing file ["+file.getName()+"]");
+                    getListener().fileAvailable(file);                      
+                    file.renameTo(new File(getDirectoryArchive(),filename));
+                    log("Moved to archive file ["+file.getName()+"]");
+                } catch (IOException e) {                       
+                    file.renameTo(new File(getDirectoryError(),filename));
+                    createErrorFile(file,e);
+                    log("Moved to error file ["+file.getName()+"]");
+                } finally {
+                    lockFile.delete();
+
+                }
+            } else {                    
+                log("File do has lock file ["+file.getName()+"]");
+                fileMonitor.remove(file);
+            }               
+        } else {                
+            log("File is unstable ["+file.getName()+"]");
+            fileMonitor.put(file,fileChangeCurrent);
+        }
+    }       
+}
+
+public boolean acceptFile(File file) {
+    if (getFilter()!=null) {
+        return getFilter().accept(file);
+    } else {
+        return true;
+    }       
+}
+
+public boolean isLockFile(File file) {
+    int pos = file.getName().lastIndexOf('.');
+    String extension="";
+    if (pos!=-1) {
+        extension = file.getName().substring(pos).trim().toLowerCase();
+    }   
+    return(extension.equalsIgnoreCase(LOCK_FILE_EXTENSION));
+}
+
+private File createLockFile(File file) {
+    return new File(file.getParentFile(),file.getName()+LOCK_FILE_EXTENSION);
+}
+
+private void createErrorFile(File file,IOException exception) {
+    File errorFile = new File(file.getParentFile(),file.getName()+ERROR_FILE_EXTENSION);
+
+    StringWriter sw = null;
+    PrintWriter pw = null;
+    FileWriter fileWriter = null;
+    try {
+        //          
+        fileWriter = new FileWriter(errorFile);
+        if (exception!=null) {
+            sw = new StringWriter();
+            pw = new PrintWriter(sw);
+            exception.printStackTrace(pw);      
+            fileWriter.write(sw.toString());
+        } else {
+            fileWriter.write("Exception is null.");
+        }
+        //      
+        fileWriter.flush();
+        //
+    } catch (IOException e) {
+    } finally {
+        if (sw!=null) {
+            try {
+                sw.close();
+            } catch (IOException e1) {              
+            }
+        }
+        if (pw!=null) {
+            pw.close();
+        }
+        if (fileWriter!=null) {
+            try {
+                fileWriter.close();
+            } catch (IOException e) {                   
+            }
+        }
+    }
+}
+
+private void validateNotNull(String name,Object obj) {
+    if (obj==null) {
+        throw new NullPointerException(name+" is null.");
+    }           
+}       
+private void validate(Path directory) throws IOException {          
+    File file = directory.toFile();
+    if (!file.exists()) {
+        throw new IOException("Directory ["+file.getAbsolutePath()+"] do not exists.");
+    } else if (!file.isDirectory()) {
+        throw new IOException("Directory ["+file.getAbsolutePath()+"] is not a directory.");
+    } else if (!file.canRead()) {               
+        throw new IOException("Can not read from directory ["+file.getAbsolutePath()+"].");
+    } else if (!file.canWrite()) {
+        throw new IOException("Can not write to directory ["+file.getAbsolutePath()+"] .");
+    }       
+}
+
+private void log(String msg) {
+    //TODO
+    System.out.println("Task ["+getName()+"] "+msg);
+}
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24303364)
+ https://code.google.com/p/java-diff-utils/ is designed for that purpose. 
+
+  final List<String> originalFileContents = new ArrayList<String>();
+final String filePath = "C:/Users/BackSlash/Desktop/asd.txt";
+
+FileListener fileListener = new FileListener() {
+
+    @Override
+    public void fileDeleted(FileChangeEvent paramFileChangeEvent)
+    throws Exception {
+        // use this to handle file deletion event
+
+    }
+
+    @Override
+    public void fileCreated(FileChangeEvent paramFileChangeEvent)
+    throws Exception {
+        // use this to handle file creation event
+
+    }
+
+    @Override
+    public void fileChanged(FileChangeEvent paramFileChangeEvent)
+    throws Exception {
+        System.out.println("File Changed");
+        //get new contents
+        List<String> newFileContents = new ArrayList<String> ();
+        getFileContents(filePath, newFileContents);
+        //get the diff between the two files
+        Patch patch = DiffUtils.diff(originalFileContents, newFileContents);
+        //get single changes in a list
+        List<Delta> deltas = patch.getDeltas();
+        //print the changes
+        for (Delta delta : deltas) {
+            System.out.println(delta);
+        }
+    }
+};
+
+DefaultFileMonitor monitor = new DefaultFileMonitor(fileListener);
+try {
+    FileObject fileObject = VFS.getManager().resolveFile(filePath);
+    getFileContents(filePath, originalFileContents);
+    monitor.addFile(fileObject);
+    monitor.start();
+} catch (InterruptedException ex) {
+    ex.printStackTrace();
+} catch (FileNotFoundException e) {
+    //handle
+    e.printStackTrace();
+} catch (IOException e) {
+    //handle
+    e.printStackTrace();
+}
+  
+
+ Where  getFileContents  is : 
+
+  void getFileContents(String path, List<String> contents) throws FileNotFoundException, IOException {
+    contents.clear();
+    BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(path), "UTF-8"));
+    String line = null;
+    while ((line = reader.readLine()) != null) {
+        contents.add(line);
+    }
+}
+  
+
+ What I did: 
+
+ 
+ I loaded the original file contents in a  List<String> . 
+ I used http://commons.apache.org/proper/commons-vfs/ to listen for file changes, using  FileMonitor . You may ask,   why  ? Because  WatchService  is only available starting from Java 7, while  FileMonitor  works with at least Java 5 (personal preference, if you prefer  WatchService  you can use it).  note : Apache Commons VFS depends on http://commons.apache.org/proper/commons-logging/, you'll have to add both to your build path in order to make it work. 
+ I created a  FileListener , then I implemented the  fileChanged  method. 
+ That method load new contents form the file, and uses  Patch.diff  to retrieve all differences, then prints them 
+ I created a  DefaultFileMonitor , which basically listens for changes to a file, and I added my file to it. 
+ I started the monitor. 
+ 
+
+ After the monitor is started, it will begin listening for file changes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1544303)
+ If you can't wait for Java 7 and the http://java.sun.com/developer/technicalArticles/javase/nio/#6 you'll have to do something like this: 
+
+  final File watched = new File("[path of directory to watch]");
+long lastModified = watched.lastModified();
+while(true) {
+    if (watched.lastModified() > lastModified) {
+        // Change happened in the directory do what you want.
+    }
+    Thread.sleep(2000); // 2 second interval
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7106075)
+ It seems from what you said that you want to process every file in the directory once (including files that get added to the directory). You can do the following: set a monitor on the directory that generates notifications when files are added. you then process each file that you get notified about. Since you use JDK 5 , i suggest using http://jpathwatch.wordpress.com . note that you need to make sure the file writing has finished before trying to process it. after starting the monitor to insure you will be processing every new file, make a one time usage of  file listing to process the current content.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10535018)
+ I had a similar problem. At first I thought I could use the FileWatcher service, but it doesn't work on remote volumes, and I had to monitor incoming files via a network mounted drive. 
+
+ Then I thought I could simply monitor the change in file size over a period of time and consider the file done once the file size had stabilized (as fmucar suggested). But I found that in some instances on large files, the hosting system would report the full size of the file it was copying, rather than the number of bytes it had written to disk. This of course made the file appear stable, and my detector would catch the file while it was still in the process of being written. 
+
+ I eventually was able to get the monitor to work, by employing a FileInputStream exception, which worked wonderfully in detecting whether a file was being written to, even when the file was on a network mounted drive. 
+
+        long oldSize = 0L;
+      long newSize = 1L;
+      boolean fileIsOpen = true;
+
+      while((newSize > oldSize) || fileIsOpen){
+          oldSize = this.thread_currentFile.length();
+          try {
+            Thread.sleep(2000);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+          newSize = this.thread_currentFile.length();
+
+          try{
+              new FileInputStream(this.thread_currentFile);
+              fileIsOpen = false;
+          }catch(Exception e){}
+      }
+
+      System.out.println("New file: " + this.thread_currentFile.toString());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42093973)
+ You can use the https://docs.oracle.com/javase/7/docs/api/java/nio/file/WatchService.html: 
+
+ 
+   A watch service that watches registered objects for changes and events. For example a file manager may use a watch service to monitor a directory for changes so that it can update its display of the list of files when files are created or deleted. 
+ 
+
+ To use it you need to: 
+
+  // 1 create the watchService
+WatchService watchService =    FileSystems.getDefault().newWatchService();
+
+// 2 get a reference to the directory to be watched for changes
+String watchedDir = "/mydir";
+Path dir = Paths.get(watchedDir);
+
+// 3 register on the events you need to watch
+WatchKey watchKey = dir.register(watchService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+
+...
+
+// 4 wait for changes, generally inside a loop
+watchKey = watchService.take();
+  
+
+ The method take returns a watch key when available, otherwise waits. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7977428)
+ . Apache VFS does exactly this. you can find it under http://commons.apache.org/vfs/. It's a pure java library that can monitor files and it's pretty easy to use: 
+
+  FileSystemManager manager = VFS.getManager();
+FileObject file= manager.resolveFile("c:/MyFile.txt");
+
+DefaultFileMonitor fm = new DefaultFileMonitor(new MyListener());
+fm.setDelay(5000);
+fm.addFile(file); 
+fm.start();
+  
+
+ the code above will monitor the file c:/MyFile.txt. if it changes, the object new MyListener() is called. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19208334)
+ Not sure how to do it with Jenkins, but if you want to monitor an FTP location for changes (i.e. receive notifications when files added/removed/modified in a directory) using plain java, then the following library can help you with the actual polling/notification mechanism: https://github.com/drapostolos/rdp4j  ( Remote Directory Poller for Java ). 
+
+ Simple usage example of the API: 
+
+  package example
+
+import java.util.concurrent.TimeUnit;
+import com.github.drapostolos.rdp4j.DirectoryPoller;
+import com.github.drapostolos.rdp4j.spi.PolledDirectory;
+
+public class FtpExample {
+
+    public static void main(String[] args) throws Exception {
+        String host = "ftp.mozilla.org";
+        String workingDirectory = "pub/addons";
+        String username = "anonymous";
+        String password = "anonymous";
+        PolledDirectory polledDirectory = new FtpDirectory(host, workingDirectory, username, password);
+
+        DirectoryPoller dp = DirectoryPoller.newBuilder()
+        .addPolledDirectory(polledDirectory)
+        .addListener(new MyListener())
+        .setPollingInterval(10, TimeUnit.MINUTES)
+        .start();
+
+        TimeUnit.HOURS.sleep(2);
+
+        dp.stop();
+    }
+}
+  
+
+ The RDP4J https://github.com/drapostolos/rdp4j/wiki/User-Guide: 
+
+ 
+ provides an example of  FtpDirectory  class which lists files in an FTP location using appache commons  FTPClient  
+ describes what events  MyListener  can listen for 
+ How to configure the  DirectoryPoller  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/8273983)
+ I suggest using a better API for this, like http://commons.apache.org/io/apidocs/. It has this distinction in its interface  org.apache.commons.io.monitor.FileAlterationListener  and its methods  onFile...() ,  onDirectory...() . Alternatively, and this is probably the best approach, use the new standard feature for this that comes with Java 7, http://docs.oracle.com/javase/7/docs/api/java/nio/file/WatchService.html, as discussed https://stackoverflow.com/questions/6315309/java-7-directory-monitoring-questions. 
+
+
+

@@ -1,0 +1,289 @@
+Query: How to write bytes to a file in Python 3 without knowing the encoding?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35281114)
+ Specify binary mode, 'b', when you open your file: 
+
+  with open('myfile.txt', 'wb') as w:
+    w.write(bytes)
+  
+
+ https://docs.python.org/3.3/library/functions.html#open 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34428182)
+ You can read those files in binary mode. And there is the  chardet  module. Whit it you can detect the encoding of your files and decode the data you get. Though this module has limitations. 
+
+ As an example: 
+
+  from chardet import detect
+
+with open('your_file.txt', 'rb') as ef:
+    detect(ef.read())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4290730)
+ It's a matter of using APIs that operate on bytes, rather than strings. 
+
+  sys.stdout.buffer.write(bytes_)
+  
+
+ As the http://docs.python.org/py3k/library/sys.html#sys.stdin explain, you can also  detach  the streams, so they're binary by default. 
+
+ This accesses the underlying byte buffer. 
+
+  tempfile.TemporaryFile().write(bytes_)
+  
+
+ This is already a byte API. 
+
+  open('filename', 'wb').write(bytes_)
+  
+
+ As you would expect from the 'b', this is a byte API. 
+
+  from io import BytesIO
+BytesIO().write(bytes_)
+  
+
+  BytesIO  is the byte equivalent to  StringIO . 
+
+ EDIT:  write  will Just Work on any  binary  file-like object.  So the general solution is just to find the right API. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20955678)
+ When you open a file in binary mode, then you are essentially working with the http://docs.python.org/3/library/stdtypes.html#bytes type. So when you write to the file, you need to pass a  bytes  object, and when you read from it, you get a  bytes  object. In contrast, when opening the file in text mode, you are working with  str  objects. 
+
+ So, writing “binary” is really writing a bytes string: 
+
+  with open(fileName, 'br+') as f:
+    f.write(b'\x07\x08\x07')
+  
+
+ If you have actual integers you want to write as binary, you can use the  bytes  function to convert a sequence of integers into a bytes object: 
+
+  >>> lst = [7, 8, 7]
+>>> bytes(lst)
+b'\x07\x08\x07'
+  
+
+ Combining this, you can write a sequence of integers as a bytes object into a file opened in binary mode. 
+
+ 
+
+ As Hyperboreus pointed out in the comments,  bytes  will only accept a sequence of numbers that actually fit in a byte, i.e. numbers between 0 and 255. If you want to store arbitrary (positive) integers in the way they are, without having to bother about knowing their exact size (which is required for struct), then you can easily write a helper function which splits those numbers up into separate bytes: 
+
+  def splitNumber (num):
+    lst = []
+    while num > 0:
+        lst.append(num & 0xFF)
+        num >>= 8
+    return lst[::-1]
+
+bytes(splitNumber(12345678901234567890))
+# b'\xabT\xa9\x8c\xeb\x1f\n\xd2'
+  
+
+ So if you have a list of numbers, you can easily iterate over them and write each into the file; if you want to extract the numbers individually later you probably want to add something that keeps track of which individual bytes belong to which numbers. 
+
+  with open(fileName, 'br+') as f:
+    for number in numbers:
+        f.write(bytes(splitNumber(number)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39664488)
+ You are producing bytes, which can be written to files opened in  binary mode  without issue. Add  b  to the file mode when opening and either use  bytes  string literals or encode your strings to bytes if you need to write other data too: 
+
+  with open("file", "wb") as fs:
+    fs.write(b"Hello world")  # note, a byte literal!
+    fs.write(pack("I", 0x01ddf23a))
+    fs.write("End file".encode('ASCII'))  # encoded string to bytes
+  
+
+ The alternative would be to decode your binary packed data to a text string first, but since packed data does not, in fact, contain decodable text, that approach would require contortions to  force  the binary data to be decodable and encodable again, which only works if your file encoding was set to Latin-1 and severely limits what actual text you could add. 
+
+ A  bytes  representation will always try to show  printable characters  where possible. The byte  \x3a  is also the correct ASCII value for the  ':'  character, so in a  bytes  representation the latter is preferred over using the  \x3a  escape sequence. The  correct value  is present in the  bytes  value and would be written to the file entirely correctly: 
+
+  >>> b'\x3a'
+b':'
+>>> b'\x3a' == b':'
+True
+>>> b':'[0]
+58
+>>> b'\x3a'[0]
+58
+>>> hex(58)
+'0x3a'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18281702)
+ You are confusing Unicode with encodings. An encoding is a standard that represents text as within the confines of individual values in the range of 0-255 (bytes), while Unicode is a standard that describes codepoints representing textual glyphs. The two are related but  not the same thing . 
+
+ The Unicode standard includes several encodings. UTF-16 is  one  such encoding that uses 2 bytes per codepoint, but it is not the only encoding included in the standard. UTF-8 is another such encoding, and it uses a  variable  number of bytes per codepoint. 
+
+ Your file, however, is written using ASCII, the default codec used by Python 2 when you do not specify an explicit encoding. If you expected to see  2  bytes per codepoint, encode to UTF-16 explicitly: 
+
+  fin.write(u'\x40'.encode('utf16-le')
+  
+
+ This writes UTF-16 in  little endian  byte order; there is also a  utf16-be  codec. Normally, for multi-byte encodings like UTF-16 or UTF32, you'd also include a BOM, or Byte Order Mark; it is included automatically when you write UTF-16 without picking any endianes. 
+
+  fin.write(u'\x40'.encode('utf16')
+  
+
+ I  strongly  urge you to study up on Unicode, codecs and Python before you continue: 
+
+ 
+  http://joelonsoftware.com/articles/Unicode.html by Joel Spolsky  
+  The http://docs.python.org/2/howto/unicode.html  
+  http://nedbatchelder.com/text/unipain.html by Ned Batchelder  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8898439)
+ Simply use the https://docs.python.org/3/library/codecs.html#module-encodings.utf_8_sig: 
+
+  fp = open("file.txt")
+s = fp.read()
+u = s.decode("utf-8-sig")
+  
+
+ That gives you a  unicode  string without the BOM. You can then use 
+
+  s = u.encode("utf-8")
+  
+
+ to get a normal UTF-8 encoded string back in  s . If your files are big, then you should avoid reading them all into memory. The BOM is simply three bytes at the beginning of the file, so you can use this code to strip them out of the file: 
+
+  import os, sys, codecs
+
+BUFSIZE = 4096
+BOMLEN = len(codecs.BOM_UTF8)
+
+path = sys.argv[1]
+with open(path, "r+b") as fp:
+    chunk = fp.read(BUFSIZE)
+    if chunk.startswith(codecs.BOM_UTF8):
+        i = 0
+        chunk = chunk[BOMLEN:]
+        while chunk:
+            fp.seek(i)
+            fp.write(chunk)
+            i += len(chunk)
+            fp.seek(BOMLEN, os.SEEK_CUR)
+            chunk = fp.read(BUFSIZE)
+        fp.seek(-BOMLEN, os.SEEK_CUR)
+        fp.truncate()
+  
+
+ It opens the file, reads a chunk, and writes it out to the file 3 bytes earlier than where it read it. The file is rewritten in-place. As easier solution is to write the shorter file to a new file like https://stackoverflow.com/a/8898682/110204. That would be simpler, but use twice the disk space for a short period. 
+
+ As for guessing the encoding, then you can just loop through the encoding from most to least specific: 
+
+  def decode(s):
+    for encoding in "utf-8-sig", "utf-16":
+        try:
+            return s.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return s.decode("latin-1") # will always work
+  
+
+ An UTF-16 encoded file wont decode as UTF-8, so we try with UTF-8 first. If that fails, then we try with UTF-16. Finally, we use Latin-1 — this will always work since all 256 bytes are legal values in Latin-1. You may want to return  None  instead in this case since it's really a fallback and your code might want to handle this more carefully (if it can). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33294156)
+ In Python 3 it's quite easy: read the file and rewrite it with  utf-8  encoding: 
+
+  s = open(bom_file, mode='r', encoding='utf-8-sig').read()
+open(bom_file, mode='w', encoding='utf-8').write(s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18404309)
+ Based on the fact that your piece of Python 2.7 doesn't throw an exception, I would infer that  i.words()  returns a sequence of bytestrings. These are unlikely to be encoded in UTF8 - I'd guess maybe Latin-1 or something like that. You then write them to the file. No encoding happens at this point. 
+
+ You probably need to convert these to unicode strings, for which you'll need to know their existing encoding, and then you'll need to encode these as UTF-8 when writing the file. 
+
+ For example: 
+
+  # -*- coding: utf-8 -*-
+from nltk.corpus import abc
+import codecs
+with codecs.open("abc.txt","w","utf-8") as f:
+    f.write(u" ".join(codecs.decode(word,"latin-1") for word in i.words()))
+  
+
+ 
+
+ Some further notes, in case there's any confusion: 
+
+ 
+ The  -*- coding: utf-8 -*-  line refers to the encoding used to write the Python script itself. It has no effect on the input or output of that script. 
+ In Python 2.7, there are two kinds of strings: bytestrings, which are sequences of bytes with an unspecified encoding, and unicode strings, which are sequences of unicode code points. Bytestrings are most common and are what you get if you use the regular  "abc"  string literal syntax. Unicode strings are what you get when you use the  u"abc"  syntax. 
+ In Python 2.7, if you just use the open function to open a file and write bytestrings to it, no encoding will happen. The bytes of the bytestring are written straight into the file. If you try to write unicode strings to it, you'll get an exception if they contain characters that can't be encoded by the default (ASCII) codec. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/41348666)
+ First, make sure you use  unicode  strings: add the "u" prefix to strings: 
+
+  l  = [u"Bücher", u"Hefte", u"Mappen"]
+  
+
+ Then you can write or append to a file: 
+
+ I recommend you to use the https://docs.python.org/3/library/io.html module which is Python 2/3 compatible. 
+
+  with io.open("testfile.txt", mode="a", encoding="UTF8") as fd:
+    for line in l:
+        fd.write(line + "\n")
+  
+
+ To read your text file in one piece: 
+
+  with io.open("testfile.txt", mode="r", encoding="UTF8") as fd:
+    content = fd.read()
+  
+
+ The result  content  is an Unicode string. 
+
+ If you decode this string using UTF8 encoding, you'll get  bytes  string like this: 
+
+  b"B\xc3\xbccher"
+  
+
+  Edit  using  writelines .  
+
+ The method  writelines()  writes a sequence of strings to the file. The sequence can be any iterable object producing strings, typically a list of strings. There is no return value. 
+
+  # add new lines
+lines = [line + "\n" for line in l]
+
+with io.open("testfile.txt", mode="a", encoding="UTF8") as fd:
+    fd.writelines(lines)
+  
+
+
+

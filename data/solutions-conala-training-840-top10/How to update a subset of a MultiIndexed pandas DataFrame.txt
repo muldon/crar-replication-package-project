@@ -1,0 +1,236 @@
+Query: How to update a subset of a MultiIndexed pandas DataFrame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51522801)
+  
+
+  df.index.levels[0]
+Out[412]: Index(['A', 'X'], dtype='object', name='idx1')
+  
+
+ Update :  
+
+  [x[0] for x in df.index.tolist()]
+Out[417]: ['A', 'A', 'X', 'X']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48766637)
+ This may be what you require: 
+
+   df.loc[df.name.str.len() == 4, 'value'] *= 1000
+
+ df.loc[df.name.str.len() == 4, 'value'] = 'short_' + df['value'].astype(str)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48766276)
+ You need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html with  *= : 
+
+  df.loc[df.name.str.len() == 4, 'value'] *= 1000
+print (df)
+          name   value
+0         Alex  1000.0
+1         John  2000.0
+2  Christopher     3.0
+3       Dwayne     4.0
+  
+
+ EDIT: 
+
+ More general solutions: 
+
+  mask = df.name.str.len() == 4
+df.loc[mask, 'value'] = df.loc[mask, 'value'] * 1000
+  
+
+  
+
+  df.update(df.loc[mask, 'value'] * 1000)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49302075)
+ I reorder your index  
+
+  test.set_index(['position', 'day']).reindex(pd.MultiIndex.from_product([['A','B'],list(range(1,6))])).sort_index().groupby(level=0).ffill().fillna(0)
+Out[30]: 
+     value
+A 1   20.0
+  2   20.0
+  3   20.0
+  4   20.0
+  5    3.0
+B 1    0.0
+  2    0.0
+  3   45.0
+  4   45.0
+  5   45.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51538320)
+ I believe need assign to filtered  DataFrame  with converting to numpy array by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.values.html for avoid align indices: 
+
+  df = pd.DataFrame({'A': [1,2,3,4,3,2,1,4,1,2]})
+print (df)
+   A
+0  1
+1  2
+2  3
+3  4
+4  3
+5  2
+6  1
+7  4
+8  1
+9  2
+
+i = 2
+j = 7
+df.iloc[i:j] = df.iloc[i:j].sort_values(by='A').values
+print (df)
+   A
+0  1
+1  2
+2  1
+3  2
+4  3
+5  3
+6  4
+7  4
+8  1
+9  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28704775)
+ I would make a Panel then convert it into a multiindexed DataFrame using  to_frame() : 
+
+  In [29]: df1 = pd.DataFrame(dict(a=[0.318705,-0.937012,-0.032225,-1.874781], b=[-0.871259,0.704270,-1.939544,-0.033073]))
+
+In [30]: df2 = pd.DataFrame(dict(a=[0.318705,-0.937012,-0.032225,-1.874781], b=[-0.871259,0.704270,-1.939544,-0.033073]))
+
+In [31]: df1
+Out[31]:
+          a         b
+0  0.318705 -0.871259
+1 -0.937012  0.704270
+2 -0.032225 -1.939544
+3 -1.874781 -0.033073
+
+In [32]: data = {datetime.datetime(2010,6,21,10,0,0): df1, datetime.datetime(2010,6,22,10,0,0): df2}
+
+In [33]: p = pd.Panel(data)
+
+In [34]: p.to_frame()
+Out[34]:
+             2010-06-21 10:00:00  2010-06-22 10:00:00
+major minor
+0     a                 0.318705             0.318705
+      b                -0.871259            -0.871259
+1     a                -0.937012            -0.937012
+      b                 0.704270             0.704270
+2     a                -0.032225            -0.032225
+      b                -1.939544            -1.939544
+3     a                -1.874781            -1.874781
+      b                -0.033073            -0.033073
+  
+
+ Depending on how you want to look at your data, you can use  swapaxes  to rearrange it: 
+
+  In [35]: p.swapaxes("major", "items").to_frame()
+Out[35]:
+                                  0         1         2         3
+major               minor
+2010-06-21 10:00:00 a      0.318705 -0.937012 -0.032225 -1.874781
+                    b     -0.871259  0.704270 -1.939544 -0.033073
+2010-06-22 10:00:00 a      0.318705 -0.937012 -0.032225 -1.874781
+                    b     -0.871259  0.704270 -1.939544 -0.033073
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35394423)
+ Are you trying to do something like this? 
+
+  for i in set(df.index):
+    print df.loc[i].reset_index()
+  
+
+ 
+  set(df.index)  returns a set of unique tuples of your multi-index (hierarchical index). 
+  df.loc[i].reset_index() ...  df.loc[i]  of course returns a subset of your original dataframe, and the  .reset_index()  part will convert the index to columns  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52092429)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html for select  MultiIndex  with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.plot.html: 
+
+  print (df.xs('Var2', axis=1, level=1))
+     Customer1  Customer2  Customer3
+0            6          2          6
+1            5          5          6
+2            7          1          5
+100          6          2          6
+
+df.xs('Var2', axis=1, level=1).plot()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42309595)
+ You can try  groupby  on the relevant index: 
+
+  temp1=first_df.set_index(['fruit','rating'])
+temp2=second_df.set_index(['fruit','rating'])
+result = temp1.add(temp2,fill_value=0)
+  
+
+ This gives you a multiindexed  DataFrame : 
+
+                count
+fruit rating       
+apple A         2.0
+      B         2.0
+      C         0.0
+peach A         1.0
+      B         0.0
+      C         0.0
+pear  A         0.0
+      B         2.0
+      C         1.0
+  
+
+ If you want to remove the indexing just reset the index: 
+
+  result.reset_index()
+Out[182]: 
+   fruit rating  count
+0  apple      A    2.0
+1  apple      B    2.0
+2  apple      C    0.0
+3  peach      A    1.0
+4  peach      B    0.0
+5  peach      C    0.0
+6   pear      A    0.0
+7   pear      B    2.0
+8   pear      C    1.0
+  
+
+
+

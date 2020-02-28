@@ -1,0 +1,386 @@
+Query: get Browser from user agent
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31268673)
+ This would return the user agent used for the request: 
+
+  $this->request->header('User-Agent');
+  
+
+ http://book.cakephp.org/3.0/en/controllers/request-response.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16539227)
+ I think 'Default Browser' is returned when the user-agent is unknown. Either the agent is missing from browscap or maybe browscap can't be found. 
+
+ You can use $_SERVER['HTTP_USER_AGENT'] to find out wich user-agent was used. Maybe this string is just made up (robots indeed). 
+
+ Someone replied the folowing on the php manual page for get_browser: 
+
+ 
+   We are using get_browser() function for useragent Mozilla/4.0
+  (compatible; MSIE 4.01; Windows NT) the get_browser function is
+  returning as Default Browser and Platform = unknown. 
+  
+   So i added this to my browscap.ini manually: 
+  
+   [Mozilla/4.0 (compatible; MSIE 4.01; Windows NT)] Parent=IE 4.01
+  Platform=WinNT 
+ 
+
+ I Hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31268727)
+ Look into http://book.cakephp.org/3.0/en/controllers/request-response.html#request of  Request  object. 
+
+ You can get  HTTP_USER_AGENT  using  env()  method: 
+
+  $this->request->env('HTTP_USER_AGENT');
+  
+
+ You can also prepare custom detector: 
+
+  $this->request->addDetector(
+    'chrome',
+    ['env' => 'HTTP_USER_AGENT', 'pattern' => '/Chrome/i']
+);
+  
+
+ And then in controller just use  is()  method as follows: 
+
+  if($this->request->is('chrome')) {
+    // do stuff for chrome
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49500382)
+ I haven't seen the code that you're testing, but perhaps you shouldn't rely on superglobals for your code. Aside, I think you're having trouble because the request object that represents $_SERVER doesn't get updated when you update your $_SERVER value. 
+
+ In terms of your code you can assume that  $_SERVER['HTTP_USER_AGENT']  will return the correct agent, so your code shouldn't be concerned with it.  
+
+  
+
+  public function doSomething()
+{
+    if ($_SERVER['HTTP_USER_AGENT'] === 'iPhone') {
+        return 'apple';
+    }
+    return 'banana';
+}
+  
+
+  
+
+  public function doSomething()
+{
+    if ($this->getUserAgent() === 'iPhone') {
+        return 'apple';
+    }
+    return 'banana';
+}
+
+public function getUserAgent()
+{
+    return $_SERVER['HTTP_USER_AGENT'];
+}
+  
+
+ And now you can mock the parts of your code that your unit test isn't concerned with: 
+
+  public function testDoSomething()
+{
+    $mock = $this->getMockBuilder(YourClass::class)
+        ->setMethods(['getUserAgent'])
+        ->getMock();
+
+    $mock->expects($this->once())->method('getUserAgent')->willReturn('iPhone');
+
+    $this->assertSame('apple', $mock->doSomething());
+}
+  
+
+ Hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20561874)
+ Try this code... 
+
+  <?php
+function getBrowser()
+{
+    $u_agent = $_SERVER['HTTP_USER_AGENT'];
+    $bname = 'Unknown';
+    $platform = 'Unknown';
+    $version= "";
+
+    //First get the platform?
+    if (preg_match('/linux/i', $u_agent)) {
+        $platform = 'linux';
+    }
+    elseif (preg_match('/macintosh|mac os x/i', $u_agent)) {
+        $platform = 'mac';
+    }
+    elseif (preg_match('/windows|win32/i', $u_agent)) {
+        $platform = 'windows';
+    }
+
+    // Next get the name of the useragent yes seperately and for good reason
+    if(preg_match('/MSIE/i',$u_agent) && !preg_match('/Opera/i',$u_agent))
+    {
+        $bname = 'Internet Explorer';
+        $ub = "MSIE";
+    }
+    elseif(preg_match('/Firefox/i',$u_agent))
+    {
+        $bname = 'Mozilla Firefox';
+        $ub = "Firefox";
+    }
+    elseif(preg_match('/Chrome/i',$u_agent))
+    {
+        $bname = 'Google Chrome';
+        $ub = "Chrome";
+    }
+    elseif(preg_match('/Safari/i',$u_agent))
+    {
+        $bname = 'Apple Safari';
+        $ub = "Safari";
+    }
+    elseif(preg_match('/Opera/i',$u_agent))
+    {
+        $bname = 'Opera';
+        $ub = "Opera";
+    }
+    elseif(preg_match('/Netscape/i',$u_agent))
+    {
+        $bname = 'Netscape';
+        $ub = "Netscape";
+    }
+
+    // finally get the correct version number
+    $known = array('Version', $ub, 'other');
+    $pattern = '#(?<browser>' . join('|', $known) .
+    ')[/ ]+(?<version>[0-9.|a-zA-Z.]*)#';
+    if (!preg_match_all($pattern, $u_agent, $matches)) {
+        // we have no matching number just continue
+    }
+
+    // see how many we have
+    $i = count($matches['browser']);
+    if ($i != 1) {
+        //we will have two since we are not using 'other' argument yet
+        //see if version is before or after the name
+        if (strripos($u_agent,"Version") < strripos($u_agent,$ub)){
+            $version= $matches['version'][0];
+        }
+        else {
+            $version= $matches['version'][1];
+        }
+    }
+    else {
+        $version= $matches['version'][0];
+    }
+
+    // check if we have a number
+    if ($version==null || $version=="") {$version="?";}
+
+    return array(
+        'userAgent' => $u_agent,
+        'name'      => $bname,
+        'version'   => $version,
+        'platform'  => $platform,
+        'pattern'    => $pattern
+    );
+}
+
+// now try it
+$ua=getBrowser();
+$yourbrowser= "Your browser: " . $ua['name'];
+echo $yourbrowser;
+
+?>
+  
+
+   Output of Firefox  
+
+  Mozilla Firefox
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/22264237)
+ To get the User's System Name  
+
+  <?php
+echo 'Current script owner: ' . get_current_user();
+?>
+  
+
+ To get the User's Browser Name with version  
+
+  <?php
+function getBrowser() 
+{ 
+    $u_agent = $_SERVER['HTTP_USER_AGENT']; 
+    $bname = 'Unknown';
+    $platform = 'Unknown';
+    $version= "";
+
+    //First get the platform?
+    if (preg_match('/linux/i', $u_agent)) {
+        $platform = 'linux';
+    }
+    elseif (preg_match('/macintosh|mac os x/i', $u_agent)) {
+        $platform = 'mac';
+    }
+    elseif (preg_match('/windows|win32/i', $u_agent)) {
+        $platform = 'windows';
+    }
+
+    // Next get the name of the useragent yes seperately and for good reason
+    if(preg_match('/MSIE/i',$u_agent) && !preg_match('/Opera/i',$u_agent)) 
+    { 
+        $bname = 'Internet Explorer'; 
+        $ub = "MSIE"; 
+    } 
+    elseif(preg_match('/Firefox/i',$u_agent)) 
+    { 
+        $bname = 'Mozilla Firefox'; 
+        $ub = "Firefox"; 
+    } 
+    elseif(preg_match('/Chrome/i',$u_agent)) 
+    { 
+        $bname = 'Google Chrome'; 
+        $ub = "Chrome"; 
+    } 
+    elseif(preg_match('/Safari/i',$u_agent)) 
+    { 
+        $bname = 'Apple Safari'; 
+        $ub = "Safari"; 
+    } 
+    elseif(preg_match('/Opera/i',$u_agent)) 
+    { 
+        $bname = 'Opera'; 
+        $ub = "Opera"; 
+    } 
+    elseif(preg_match('/Netscape/i',$u_agent)) 
+    { 
+        $bname = 'Netscape'; 
+        $ub = "Netscape"; 
+    } 
+
+    // finally get the correct version number
+    $known = array('Version', $ub, 'other');
+    $pattern = '#(?<browser>' . join('|', $known) .
+    ')[/ ]+(?<version>[0-9.|a-zA-Z.]*)#';
+    if (!preg_match_all($pattern, $u_agent, $matches)) {
+        // we have no matching number just continue
+    }
+
+    // see how many we have
+    $i = count($matches['browser']);
+    if ($i != 1) {
+        //we will have two since we are not using 'other' argument yet
+        //see if version is before or after the name
+        if (strripos($u_agent,"Version") < strripos($u_agent,$ub)){
+            $version= $matches['version'][0];
+        }
+        else {
+            $version= $matches['version'][1];
+        }
+    }
+    else {
+        $version= $matches['version'][0];
+    }
+
+    // check if we have a number
+    if ($version==null || $version=="") {$version="?";}
+
+    return array(
+        'userAgent' => $u_agent,
+        'name'      => $bname,
+        'version'   => $version,
+        'platform'  => $platform,
+        'pattern'    => $pattern
+    );
+} 
+
+// now try it
+$ua=getBrowser();
+$yourbrowser= "Your browser: " . $ua['name'] . " " . $ua['version'] . " on " .$ua['platform'] . " reports: <br >" . $ua['userAgent'];
+print_r($yourbrowser);
+?>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3014983)
+ You will need to create function to translate user agent data into common names of browsers 
+
+ For example,  $_SERVER['HTTP_USER_AGENT']  could return 
+ Mozilla/5.0 (Windows; ?; Windows NT 5.1; *rv:*) Gecko/* Firefox/0.9*  is firefox
+or
+ Mozilla/5.0 (Windows; U; Windows NT 6.0; en-US) AppleWebKit/533.4 (KHTML, like Gecko) Chrome/5.0.375.55 Safari/533.4  is Chrome 
+
+ The details provide you with the rendering engine, code base, version, os, etc... 
+
+ I'd suggest using preg_match and/or a list of known browsers is you want to do something like 
+
+  echo browserCommonName($_SERVER['HTTP_USER_AGENT']); 
+to output "Google Chrome". 
+
+ browserCommonName($userAgent) would need a list of known browsers. 
+
+ edit: just noticed get_browser buit into php does this, my bad for not reading the thread. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5302341)
+ 
+   'HTTP_USER_AGENT'
+      Contents of the User-Agent: header from the current request, if there is one. This is a string denoting the user agent being which is accessing the page. A typical example is: Mozilla/4.5 [en] (X11; U; Linux 2.2.9 i586). Among other things, you can use this value with get_browser() to tailor your page's output to the capabilities of the user agent.  
+ 
+
+ So I assume you'll be able to get the browser name/id from the $_SERVER["HTTP_USER_AGENT"] variable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8357525)
+ Try Android Browser user agent 
+
+  Mozilla/5.0 (Linux; U; Android 2.1-update1; ru-ru; GT-I9000 Build/ECLAIR) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17
+  
+
+ Or Opera Mini 
+
+  Opera/9.60 (J2ME/MIDP; Opera Mini/4.2.14912/812; U; ru) Presto/2.4.15
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29410273)
+ It looks like the user agent string in opera (since version 15) is this:  
+
+  Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/28.0.1500.52 Safari/537.36 OPR/15.0.1147.100
+  
+
+ You might need to extend the user_agent library to do a check to see if the user agent string contains OPR. 
+
+ https://dev.opera.com/blog/opera-user-agent-strings-opera-15-and-beyond/ 
+
+
+

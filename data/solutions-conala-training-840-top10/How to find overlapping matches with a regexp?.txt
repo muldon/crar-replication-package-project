@@ -1,0 +1,207 @@
+Query: How to find overlapping matches with a regexp?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18966698)
+ You can use the https://pypi.python.org/pypi/regex, which supports overlapping matches. 
+
+  >>> import regex as re
+>>> match = re.findall(r'\w\w', 'hello', overlapped=True)
+>>> print match
+['he', 'el', 'll', 'lo']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50807303)
+ The first character of your regexp,  '^'  matches the beginning of the string, and the last char of your regexp,  '$' , matches the end of the string. 
+
+ So, your regexp only matches strings that consist of the variable name and nothing else. 
+
+ Change your regexp to  r'\$\w+' .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11430936)
+  findall  doesn't yield overlapping matches by default. This expression does however: 
+
+  >>> re.findall(r'(?=(\w\w))', 'hello')
+['he', 'el', 'll', 'lo']
+  
+
+ Here  (?=...)  is a http://docs.python.org/library/re.html: 
+
+ 
+    (?=...)  matches if  ...  matches next, but doesn’t consume any of the
+  string. This is called a lookahead assertion. For example,
+   Isaac (?=Asimov)  will match  'Isaac '  only if it’s followed by  'Asimov' . 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7725094)
+ https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags/1732454#1732454 
+
+ But if you ever need to find all regexp matches in a string, use the http://docs.python.org/library/re.html#re.findall function. 
+
+  line = 'bla bla bla<form>Form 1</form> some text...<form>Form 2</form> more text?'
+matches = re.findall('<form>(.*?)</form>', line, re.DOTALL)
+print(matches)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6276917)
+ This is not supposed to be a task you can solve with a huge regexp and expect better performances than this: 
+
+  pre_pad = 'to '
+matches = []
+
+for i in words:
+    regex_string = '\\b%s%s(?!-)(?!_)\\b' % (pre_pad, i)
+    for match in re.finditer(r"%s" % regex_string, text):
+        matches.append([match, MATCH_TYPE])
+  
+
+ Also if,  after profiling  your code you see chained regexp work faster calculate your regexp string length while building it and split the full task in 2, 3, 10 to avoid overflow. 
+
+ P.S.: 
+
+  print len(regex_string)
+  
+
+ ... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4338791)
+ For a constant regexp like in your example, do 
+
+  re.sub("(this)(.*)(string)",
+       r'<markup>\1</markup>\2<markup>\3</markup>',
+       text)
+  
+
+  .. 
+
+ Now if you don't know what the regexp looks like, it's more difficult, but should be doable. 
+
+  pattern = "(this)(.*)(string)"
+re.sub(pattern,
+       lambda m: ''.join('<markup>%s</markup>' % s if n % 2 == 0
+                         else s for n, s in enumerate(m.groups())),
+       text)
+  
+
+ If the first thing matched by your pattern doesn't necessarily have to be marked up, use this instead, with the first group optionally matching some prefix text that should be left alone: 
+
+  pattern = "()(this)(.*)(string)"
+re.sub(pattern,
+       lambda m: ''.join('<markup>%s</markup>' % s if n % 2 == 1
+                         else s for n, s in enumerate(m.groups())),
+       text)
+  
+
+ You get the idea. 
+
+ If your regexps are complicated and you're not sure you can make everything part of a group, where only every second group needs to be marked up, you might do something smarter with a more complicated function: 
+
+  pattern = "(this).*(string)"
+def replacement(m):
+    s = m.group()
+    n_groups = len(m.groups())
+    # assume groups do not overlap and are listed left-to-right
+    for i in range(n_groups, 0, -1):
+        lo, hi = m.span(i)
+        s = s[:lo] + '<markup>' + s[lo:hi] + '</markup>' + s[hi:]
+    return s
+re.sub(pattern, replacement, text)
+  
+
+ If you need to handle overlapping groups, you're on your own, but it should be doable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13840909)
+ If there are any capturing groups in the regular expression then http://docs.python.org/2/library/re.html#re.findall returns only the values captured by the groups. If there are no groups the entire matched string is returned. 
+
+ 
+    re.findall(pattern, string, flags=0)  
+  
+   Return all non-overlapping matches of pattern in string, as a list of strings. The string is scanned left-to-right, and matches are returned in the order found.  If one or more groups are present in the pattern, return a list of groups; this will be a list of tuples if the pattern has more than one group.  Empty matches are included in the result unless they touch the beginning of another match. 
+ 
+
+ 
+
+ 
+   How to write the regexp directly such that it returns ['X', 'B', 'D'] ? 
+ 
+
+ Instead of using a capturing group you can use a non-capturing group: 
+
+  >>> re.findall(r"(?:^|\+)([A-Z])", formula)
+['X', 'B', 'D']
+  
+
+ Or for this specific case you could try a simpler solution using a word boundary: 
+
+  >>> re.findall(r"\b[A-Z]", formula)
+['X', 'B', 'D']
+  
+
+ Or a solution using  str.split  that doesn't use regular expressions: 
+
+  >>> [s[0] for s in formula.split('+')]
+['X', 'B', 'D']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18966891)
+ You can also try using the https://pypi.python.org/pypi/regex (not  re ), which supports overlapping matches. 
+
+  >>> import regex as re
+>>> s = "123456789123456789"
+>>> matches = re.findall(r'\d{10}', s, overlapped=True)
+>>> for match in matches: print match
+...
+1234567891
+2345678912
+3456789123
+4567891234
+5678912345
+6789123456
+7891234567
+8912345678
+9123456789
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1375160)
+ You can find overlapping matches by using a noncapturing subpattern: 
+
+  def count_overlapping(pattern, string):
+    return len(re.findall("(?=%s)" % pattern, string))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39088578)
+ Your regex is fine. https://docs.python.org/3/library/re.html#re.search only finds the first match in a line. You are looking for https://docs.python.org/3/library/re.html#re.findall, which finds all non-overlapping matches. That last bit is important for you since you have the same start and end delimiter. 
+
+  for m in m = re.findall(r'$(.*?)$', line):
+    if m is not None:
+        print m.group(0)
+  
+
+
+

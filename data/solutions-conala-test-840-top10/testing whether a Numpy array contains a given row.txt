@@ -1,0 +1,265 @@
+Query: testing whether a Numpy array contains a given row
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14766290)
+  
+
+  equal([1,2], a).all(axis=1)   # also,  ([1,2]==a).all(axis=1)
+# array([ True, False, False], dtype=bool)
+  
+
+ will list the rows that match.  As Jamie points out, to know whether at least one such row exists, use  any : 
+
+  equal([1,2], a).all(axis=1).any()
+# True
+  
+
+ Aside:  I suspect  in  (and  __contains__ ) is just as above but using  any  instead of  all . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14770008)
+ If you really want to stop at the first occurrence, you could write a loop, like: 
+
+  import numpy as np
+
+needle = np.array([10, 20])
+haystack = np.array([[1,2],[10,20],[100,200]])
+found = False
+for row in haystack:
+    if np.all(row == needle):
+        found = True
+        break
+print("Found: ", found)
+  
+
+ However, I strongly suspect, that it will be much slower than the other suggestions which use numpy routines to do it for the whole array. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14766816)
+ You can use .tolist() 
+
+  >>> a = np.array([[1,2],[10,20],[100,200]])
+>>> [1,2] in a.tolist()
+True
+>>> [1,20] in a.tolist()
+False
+>>> [1,20] in a.tolist()
+False
+>>> [1,42] in a.tolist()
+False
+>>> [42,1] in a.tolist()
+False
+  
+
+ Or use a view: 
+
+  >>> any((a[:]==[1,2]).all(1))
+True
+>>> any((a[:]==[1,20]).all(1))
+False
+  
+
+ Or generate over the numpy list (potentially VERY SLOW): 
+
+  any(([1,2] == x).all() for x in a)     # stops on first occurrence 
+  
+
+ Or use numpy logic functions: 
+
+  any(np.equal(a,[1,2]).all(1))
+  
+
+  
+
+  import numpy as np
+import time
+
+n=300000
+a=np.arange(n*3).reshape(n,3)
+b=a.tolist()
+
+t1,t2,t3=a[n//100][0],a[n//2][0],a[-10][0]
+
+tests=[ ('early hit',[t1, t1+1, t1+2]),
+        ('middle hit',[t2,t2+1,t2+2]),
+        ('late hit', [t3,t3+1,t3+2]),
+        ('miss',[0,2,0])]
+
+fmt='\t{:20}{:.5f} seconds and is {}'     
+
+for test, tgt in tests:
+    print('\n{}: {} in {:,} elements:'.format(test,tgt,n))
+
+    name='view'
+    t1=time.time()
+    result=(a[...]==tgt).all(1).any()
+    t2=time.time()
+    print(fmt.format(name,t2-t1,result))
+
+    name='python list'
+    t1=time.time()
+    result = True if tgt in b else False
+    t2=time.time()
+    print(fmt.format(name,t2-t1,result))
+
+    name='gen over numpy'
+    t1=time.time()
+    result=any((tgt == x).all() for x in a)
+    t2=time.time()
+    print(fmt.format(name,t2-t1,result))
+
+    name='logic equal'
+    t1=time.time()
+    np.equal(a,tgt).all(1).any()
+    t2=time.time()
+    print(fmt.format(name,t2-t1,result))
+  
+
+ You can see that  hit or miss, the numpy routines are the same speed to search the array . The Python  in  operator is  potentially  a lot faster for an early hit, and the generator is just bad news if you have to go all the way through the array.  
+
+ Here are the results for 300,000 x 3 element array: 
+
+  early hit: [9000, 9001, 9002] in 300,000 elements:
+    view                0.01002 seconds and is True
+    python list         0.00305 seconds and is True
+    gen over numpy      0.06470 seconds and is True
+    logic equal         0.00909 seconds and is True
+
+middle hit: [450000, 450001, 450002] in 300,000 elements:
+    view                0.00915 seconds and is True
+    python list         0.15458 seconds and is True
+    gen over numpy      3.24386 seconds and is True
+    logic equal         0.00937 seconds and is True
+
+late hit: [899970, 899971, 899972] in 300,000 elements:
+    view                0.00936 seconds and is True
+    python list         0.30604 seconds and is True
+    gen over numpy      6.47660 seconds and is True
+    logic equal         0.00965 seconds and is True
+
+miss: [0, 2, 0] in 300,000 elements:
+    view                0.00936 seconds and is False
+    python list         0.01287 seconds and is False
+    gen over numpy      6.49190 seconds and is False
+    logic equal         0.00965 seconds and is False
+  
+
+ And for 3,000,000 x 3 array: 
+
+  early hit: [90000, 90001, 90002] in 3,000,000 elements:
+    view                0.10128 seconds and is True
+    python list         0.02982 seconds and is True
+    gen over numpy      0.66057 seconds and is True
+    logic equal         0.09128 seconds and is True
+
+middle hit: [4500000, 4500001, 4500002] in 3,000,000 elements:
+    view                0.09331 seconds and is True
+    python list         1.48180 seconds and is True
+    gen over numpy      32.69874 seconds and is True
+    logic equal         0.09438 seconds and is True
+
+late hit: [8999970, 8999971, 8999972] in 3,000,000 elements:
+    view                0.09868 seconds and is True
+    python list         3.01236 seconds and is True
+    gen over numpy      65.15087 seconds and is True
+    logic equal         0.09591 seconds and is True
+
+miss: [0, 2, 0] in 3,000,000 elements:
+    view                0.09588 seconds and is False
+    python list         0.12904 seconds and is False
+    gen over numpy      64.46789 seconds and is False
+    logic equal         0.09671 seconds and is False
+  
+
+ Which seems to indicate that  np.equal  is the fastest pure numpy way to do this... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21395486)
+  (x == y).all(axis=1)
+  
+
+ That should do it. It tests whether all entries in each row of  x == y  are true and returns a 1D array of results.  
+
+  numpy.array([all(vector) for vector in x == y])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46801327)
+  sklearn.cross_validation  is deprecated since version 0.18, instead you should use  sklearn.model_selection  as show below  
+
+  from sklearn.model_selection import train_test_split
+import numpy
+
+with open("datafile.txt", "rb") as f:
+   data = f.read().split('\n')
+   data = numpy.array(data)  #convert array to numpy type array
+
+   x_train ,x_test = train_test_split(data,test_size=0.5)       #test_size=0.5(whole_data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26164297)
+ One way is to check that every row of the array  arr  is equal to its first row  arr[0] : 
+
+  (arr == arr[0]).all()
+  
+
+ Using equality  ==  is fine for integer values, but if  arr  contains floating point values you could use https://docs.scipy.org/doc/numpy/reference/generated/numpy.isclose.html instead to check for equality within a given tolerance: 
+
+  np.isclose(a, a[0]).all()
+  
+
+ If your array contains  NaN  and you want to avoid the tricky  NaN != NaN  issue, you could combine this approach with  np.isnan : 
+
+  (np.isclose(a, a[0]) | np.isnan(a)).all()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37069205)
+ You could also use numpy. When your data is stored in a numpy.ndarray: 
+
+  import numpy as np
+from random import sample
+l = 100 #length of data 
+f = 50  #number of elements you need
+indices = sample(range(l),f)
+
+train_data = data[indices]
+test_data = np.delete(data,indices)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18402696)
+ I'd use np.all here, if you have an array a: 
+
+  >>> np.all(a==0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22613591)
+  
+
+  neq=(A==B).sum(-1)
+result = any(logical_and(neq<B.size, neq>0))
+  
+
+ where  neq  keeps track of how many digits each line of  A  has in common with  B . 
+
+
+

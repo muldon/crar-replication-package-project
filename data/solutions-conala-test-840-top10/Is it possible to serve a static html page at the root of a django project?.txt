@@ -1,0 +1,257 @@
+Query: Is it possible to serve a static html page at the root of a django project?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30650345)
+ . In cases where I just need to render a template, I use a https://docs.djangoproject.com/en/1.8/topics/class-based-views/. Example: 
+
+  url(r'^$', TemplateView.as_view(template_name='your_template.html'))
+  
+
+ I usually order my URL patterns from  most  specific to  least  specific to avoid unexpected matches: 
+
+  from django.views.generic import TemplateView
+
+urlpatterns = [
+    url(r'^admin/', include(admin.site.urls)),
+    url(r'^MyApp/', include('MyApp.urls')),
+    url(r'^$', TemplateView.as_view(template_name='your_template.html')),
+]
+  
+
+ As far as where Django looks for templates, it's up to your configuration to tell Django where to look: https://docs.djangoproject.com/en/1.8/topics/templates/#configuration 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30650971)
+ On PythonAnywhere, you can use the static files facility of your web app to serve the static file before it gets to Django: 
+
+ Put a file called index.html in a directory and then point a static file entry to that directory. If the static file URL is / and the directory is the one with the html file in it, the file will be served at /. 
+
+ Be aware that you don't want the directory to be above any of your code or you'll expose your code as static files i.e you don't want to use the directory /somewhere/blah if your code is in /somewhere/blah/code, you'll want to put it in /somewhere/no_code_here 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6364477)
+ If you are using the built-in development webserver (i.e. run it with  manage.py runserver ), Django will take care of static files while in development. 
+
+ Please note that  STATIC_ROOT  is the path where Django collects static files in, rather than the path that it serves files from.  You should not maintain  STATIC_ROOT  yourself!  You can read more on that in https://docs.djangoproject.com/en/1.3/howto/static-files/. 
+
+ In general, you don't need to add  django.views.static.serve  to your urls, with the built-in server. 
+
+ The static files should be placed elsewhere, besides  STATIC_ROOT .  You can place them either in the  myapp/static  path (i.e. under the individual app static file).  You can also dedicate static folder for the entire project (e.g.  /path/to/project/proj_settings ) and update  STATICFILES_DIRS  in  settings.py  to be: 
+
+  STATICFILES_DIRS = (
+    # Put strings here, like "/home/html/static" or "C:/www/django/static".
+    # Always use forward slashes, even on Windows.
+    # Don't forget to use absolute paths, not relative paths.
+    os.path.join(PROJECT_DIR, 'proj_static'),
+)
+  
+
+ Then you can place your  /main.  file in  /proj_static//main. .  Django built-in webserver will server  /static/  from there. 
+
+ While in production, you should collect all the static files in  STATIC_ROOT , by running  manage.py collectstatic .  Then you can serve that folder directly through your webserver (e.g. nginx, Apache), rather than through Django.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41811749)
+ STATIC_ROOT specifies the folder into which all static files will be dumped when you run the  collectstatic  command 
+
+  python manage.py collectstatic
+  
+
+ You seem to have specified one of your app's static folder as the static_root. 
+
+ It would be preferable to give another folder for holding all your static files. 
+
+  STATIC_ROOT = os.path.join(BASE_DIR, "static")
+  
+
+ when you run the  collectstatic  command it would collect all your static files and place them into the  STATIC_ROOT  folder. 
+
+ Although, while running in  DEBUG=True  you needn't worry about any of this.
+Django will serve all the static content (including from within individual apps), but in a production environment this is not recommended and it would be the job of the web server to serve static content. 
+
+ EDIT: 
+
+ You also need to specify in your base urls.py 
+
+  from django.conf.urls.static import static
+from django.conf import settings
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35634693)
+ Try setting your  MEDIA_ROOT  to: 
+
+  MEDIA_ROOT = os.path.join(BASE_DIR, 'social/static/social/media')
+
+MEDIA_URL = '/media/'
+  
+
+ And in your project  urls.py  file add: 
+
+  from django.conf import settings
+from django.conf.urls import patterns
+
+if settings.DEBUG:
+    urlpatterns += patterns('', (r'^media/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.MEDIA_ROOT, 'show_indexes': True}))
+  
+
+ Then, in your template call the image like: 
+
+  {% if stuff.thumbnail %}
+     
+{% endif %}
+  
+
+ And in  models.py : 
+
+  image = models.ImageField(upload_to='images/')
+  
+
+ https://docs.djangoproject.com/en/dev/howto/static-files/#serving-files-uploaded-by-a-user-during-development's some great documentation on serving media files, including how to serve them during development. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10163480)
+ You should probably take a closer look at https://docs.djangoproject.com/en/dev/howto/static-files/. 
+
+ Basically you can put a static folder in each of your apps (similar to your template folders) and the more general stuff (base.css, project-wide icons, jquery-plugins) in a static folder in your project root. 
+
+ So the layout might look like this: 
+
+  myproject
+  +app1
+    +static
+      +app1
+        +css
+        +js
+  +app2
+  +static
+    +css
+    +img
+  
+
+ Once you deploy your project you can use, the https://docs.djangoproject.com/en/dev/howto/static-files/#serving-the-app-and-your-static-files-from-the-same-server-command from contrib.staticfiles to collect all your static files to a single directory ( STATIC_ROOT ) where you can serve it from. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/15082062)
+  base.html  
+
+  {% load static %}
+
+<link rel="stylesheet" href="{% static 'css/personnel_blog_hm.css' %}" type="text/css">
+  
+
+    
+
+  PROJECT_DIR  = os.path.dirname(__file__) 
+
+MEDIA_ROOT = os.path.join(PROJECT_DIR,'media')
+MEDIA_URL = '/media/'
+STATIC_ROOT = os.path.join(PROJECT_DIR,'static')
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = (
+    # Put strings here, like "/home/html/static" or "C:/www/django/static".
+    # Always use forward slashes, even on Windows.
+    # Don't forget to use absolute paths, not relative paths.
+    os.path.join(PROJECT_DIR, 'staticfiles'),
+)
+  
+
+    
+
+  from django.conf.s.defaults import *
+from django.conf import 
+from django.contrib.staticfiles.s import staticfiles_patterns
+from django.conf.s.static import static
+from django.contrib import admin
+admin.autodiscover()
+
+patterns = patterns('',
+     (r'^$', 'personnel_blog.views.home_page'),
+     (r'^admin/', include(admin.site.s)),
+)+ static(.MEDIA_URL, document_root=.MEDIA_ROOT)
+
+patterns += staticfiles_patterns()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50130619)
+ You can not do that, you should serve it using urls and views or directly using  TemplateView . 
+
+  from django.views.generic import TemplateView
+
+urlpatterns = [
+     (r'^somefile/$', TemplateView.as_view(template_name='somefile.html')),
+]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17052925)
+ I made by using a Werkzeug middleware. Is not beautiful, nor performant as using an nginx server, but does the job: 
+
+ Set STATIC_ROOT on settings.py 
+
+  # project/settings.py
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(__file__)))
+STATIC_ROOT = BASE_DIR+'/static-collected'
+  
+
+ Than tell Werkzeug to serve files from this folder 
+
+  # project/wsgi.py
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+
+(...)
+from django.core.wsgi import get_wsgi_application
+application = get_wsgi_application()
+(...)
+
+import os
+from werkzeug.wsgi import SharedDataMiddleware
+print 'Installing WSGI static files server middleware'
+application = SharedDataMiddleware(application, {
+    '/static': os.path.join(BASE_DIR, 'static-collected'),
+})
+  
+
+ When DEBUG=True, Django serve the files. When DEBUG=False, Werkzeug serve files from static-collected folder. You need to run collectstatic on the server that use DEBUG=False for this to work. 
+
+ Obs: For some reason, Werkzeug gives 500 for not found files, not 404. Its weird, but still works. If you know why, please comment. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36418144)
+      {% load staticfiles %}
+
+    <link rel="stylesheet" type="text/css" href="{% static 'pathtostaticfile' %}" />
+  
+
+ You can using statcfiles tag to load your static file.  With pathtostaticfile is your static file 
+
+ More detail
+https://docs.djangoproject.com/en/1.9/intro/tutorial06/ 
+
+
+

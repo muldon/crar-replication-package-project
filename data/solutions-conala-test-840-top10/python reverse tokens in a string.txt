@@ -1,0 +1,241 @@
+Query: python reverse tokens in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22016830)
+ To reverse  word_tokenize  from  nltk , i suggest looking in http://www.nltk.org/_modules/nltk/tokenize/punkt.html#PunktLanguageVars.word_tokenize and do some reverse engineering. 
+
+ Short of doing crazy hacks on nltk, you can try this: 
+
+  >>> import nltk
+>>> import string
+>>> nltk.word_tokenize("I've found a medicine for my disease.")
+['I', "'ve", 'found', 'a', 'medicine', 'for', 'my', 'disease', '.']
+>>> tokens = nltk.word_tokenize("I've found a medicine for my disease.")
+>>> "".join([" "+i if not i.startswith("'") and i not in string.punctuation else i for i in tokens]).strip()
+"I've found a medicine for my disease."
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52369136)
+ You can try the following: split the input, reverse the tokens using the  [::-1]  slice, and  join  them back together. 
+
+  input = 'john doe garry'
+rev = ' '.join(input.split()[::-1])
+print(rev)
+# garry doe john
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53399708)
+ You can put the keys of  dict_ngram  in reverse order of the word counts in an alternation regex pattern, then use  re.findall  to tokenize the input string  sent , and use  dict.get  to map the tokens to their values according to  dict_ngram  with  O  as a default value: 
+
+  import re
+dict_ngram = {k.lower(): v for k, v in dict_ngram.items()}
+print('[%s]' % ','.join('-'.join((s.strip(), dict_ngram.get(s, 'O'))) for s in re.findall(r'%s|\S+' % '|'.join(map(re.escape, sorted(dict_ngram, key=len, reverse=True))), sent)))
+  
+
+ This outputs: 
+
+  [the-O,user-O,@-O,enter-O,log-c1,=-O,to-O,validate-O,log entrie-c2,in-O,,a-O,log entrie block-c3]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11714715)
+ I don't quite have time to write an implementation right now, but here is an implementation I wrote that converts infix to postfix (reverse polish) notation (reference: https://en.wikipedia.org/wiki/Shunting-yard_algorithm). It shouldn't be too hard to do the modify this algorithm to do prefix instead: 
+
+ 
+  ops  is the  set()  of operator tokens.   
+  prec  is a  dict() 
+containing operand tokens as keys and an integer for operator
+precedence as it's values (e.g  { "+": 0, "-": 0, "*": 1, "/": 1} ) 
+ Use regular expressions to parse a string into a list of tokens. 
+ 
+
+ (really,  ops  and  prec  could just be combined) 
+
+  def infix_postfix(tokens):
+    output = []
+    stack = []
+    for item in tokens:
+        #pop elements while elements have lower precedence
+        if item in ops:
+            while stack and prec[stack[-1]] >= prec[item]:
+                output.append(stack.pop())
+            stack.append(item)
+        #delay precedence. append to stack
+        elif item == "(":
+            stack.append("(")
+        #flush output until "(" is reached
+        elif item == ")":
+            while stack and stack[-1] != "(":
+                output.append(stack.pop())
+            #should be "("
+            print stack.pop()
+        #operand. append to output stream
+        else:
+            output.append(item)
+    #flush stack to output
+    while stack:
+        output.append(stack.pop())
+    return output
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33230682)
+ In dictionary.py, the initialize function is: 
+
+  def __init__(self, documents=None):
+    self.token2id = {} # token -> tokenId
+    self.id2token = {} # reverse mapping for token2id; only formed on request, to save memory
+    self.dfs = {} # document frequencies: tokenId -> in how many documents this token appeared
+
+    self.num_docs = 0 # number of documents processed
+    self.num_pos = 0 # total number of corpus positions
+    self.num_nnz = 0 # total number of non-zeroes in the BOW matrix
+
+    if documents is not None:
+        self.add_documents(documents)
+  
+
+ Function add_documents Build dictionary from a collection of documents. Each document is a list
+        of tokens: 
+
+  def add_documents(self, documents):
+
+    for docno, document in enumerate(documents):
+        if docno % 10000 == 0:
+            logger.info("adding document #%i to %s" % (docno, self))
+        _ = self.doc2bow(document, allow_update=True) # ignore the result, here we only care about updating token ids
+    logger.info("built %s from %i documents (total %i corpus positions)" %
+                 (self, self.num_docs, self.num_pos))
+  
+
+ So ,if you initialize Dictionary in this way, you must pass documents but not a single document. For example, 
+
+  dic = corpora.Dictionary([a.split()])
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46311499)
+ You can use  nltk  to some extent for detokenization like this. You'll need to do some post processing or modify the regexes, but here is a sample idea: 
+
+  import re
+from nltk.tokenize.treebank import TreebankWordDetokenizer as Detok
+detokenizer = Detok()
+text = detokenizer.detokenize(tokens)
+text = re.sub('\s*,\s*', ', ', text)
+text = re.sub('\s*\.\s*', '. ', text)
+text = re.sub('\s*\?\s*', '? ', text)
+  
+
+ There are more edge cases with punctuations, but this is pretty simple and slightly better than  ' '.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5307675)
+ Reverse the tokens and use a stack machine like the following: 
+
+  def prefix_eval(tokens):
+    stack = []
+    for t in reversed(tokens):
+        if   t == '+': stack[-2:] = [stack[-1] + stack[-2]]
+        elif t == '-': stack[-2:] = [stack[-1] - stack[-2]]
+        elif t == '*': stack[-2:] = [stack[-1] * stack[-2]]
+        elif t == '/': stack[-2:] = [stack[-1] / stack[-2]]
+        else: stack.append(t)
+    assert len(stack) == 1, 'Malformed expression'
+    return stack[0]
+
+>>> prefix_eval(['+', 2, 2])
+4
+>>> prefix_eval(['-', '*', 3, 7, '/', 20, 4])
+16
+  
+
+ Note that  stack[-1]  and  stack[-2]  are reversed with respect to a normal stack machine. This is to accommodate the fact that it's really a prefix notation in reverse. 
+
+ I should explain the several Python idioms I've used: 
+
+ 
+  stack = [] : There is no built-in stack object in Python, but lists are easily conscripted for the same purpose. 
+  stack[-1]  and  stack[-2] : Python supports negative indices.  stack[-2]  refers to the second-last element of the list. 
+  stack[-2:] = ... : This assignment combines two idioms in addition to negative indexing:
+ 
+ Slicing:  A[x:y]  refers to all the elements of  A  from  x  to  y , including  x  but excluding  y  (e.g., A[3:5] refers to elements 3 and 4). An omitted number implies either the start or the end of the list. Therefore,  stack[-2:]  refers to every element from the second-last to the end of the list, i.e., the last two elements. 
+ Slice assignment: Python allows you to assign to a slice, which has the effect of splicing a new list in place of the elements referred to by the slice. 
+  
+ 
+
+ Putting it all together,  stack[-2:] = [stack[-1] + stack[-2]]  adds together the last two elements of the stack, creates a single-element list from the sum, and assigns this list to the slice comprising the two numbers. The net effect is to replace the two topmost numbers on the stack with their sum. 
+
+ If you want to start with a string, a simple front-end parser will do the trick: 
+
+  def string_eval(expr):
+    import re
+    return prefix_eval([t if t in '+-*/' else int(t)
+                        for t in re.split(r'\s+', expr)])
+
+>>> string_eval('/ 15 - 6 3')
+5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44512648)
+ I'll show you a quick and dirty incomplete implementation. You can surely make it more robust and useful. Let's say  s  is one of your descriptions: 
+
+  s = "I dropped the saw and it fell on the roof and damaged roof " +\
+    "and some of the tiles"
+  
+
+ Let's first break it into words (tokenize; you can eliminate punctuation if you want): 
+
+  tokens = nltk.word_tokenize(s)
+  
+
+ Now, select the tokens of interest and sort them alphabetically, but remember their original positions in  s : 
+
+  my_tokens = sorted((w.lower(), i) for i,w in enumerate(tokens)
+                    if w.lower() in ("roof", "tiles"))
+#[('roof', 6), ('roof', 12), ('tiles', 17)]
+  
+
+ Combine identical tokens and create a dictionary, where the tokens are keys, and lists of their positions are values. Use dictionary comprehension: 
+
+  token_dict = {name: [p0 for _, p0 in pos] 
+              for name,pos 
+              in itertools.groupby(my_tokens, key=lambda a:a[0])}
+#{'roof': [9, 12], 'tiles': [17]}
+  
+
+ Go through the list of  tiles  positions, if any, and see if there is a  roof  nearby, and if so, change the word: 
+
+  for i in token_dict['tiles']:
+    for j in token_dict['roof']:
+        if abs(i-j) <= 6: 
+            tokens[i] = 'rooftiles'
+  
+
+ Finally, put the words together again: 
+
+  ' '.join(tokens)
+#'I dropped the saw and it fell on the roof and damaged roof '+\
+#' and some of the rooftiles'
+  
+
+
+

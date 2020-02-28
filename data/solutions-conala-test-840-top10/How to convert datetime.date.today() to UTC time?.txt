@@ -1,0 +1,176 @@
+Query: How to convert datetime.date.today() to UTC time?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16603926)
+ I would create a temp datetime object, convert the tz, and extract the time again. 
+
+  import datetime
+def time_to_utc(t):
+    dt = datetime.datetime.combine(datetime.date.today(), t)
+    utc_dt = datetime_to_utc(dt)
+    return utc_dt.time()
+
+t = datetime.datetime.now().time()
+utc_t = time_to_utc(t)
+  
+
+ where,  datetime_to_utc  is any of the suggestions in the https://stackoverflow.com/questions/79797/how-do-i-convert-local-time-to-utc-in-python. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27587542)
+ Use  utcnow : 
+
+  today = datetime.datetime.utcnow().date()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16660476)
+ Get the current time, in a specific timezone: 
+
+  import datetime
+import pytz
+my_date = datetime.datetime.now(pytz.timezone('US/Pacific'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52830436)
+ use  datetime   pytz  will solve your problem. 
+
+  def get_start_and_end():
+    tz = pytz.timezone('Asia/Shanghai')
+    today = datetime.now(tz=tz)
+    start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(1)
+
+    return start, end
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11236372)
+ https://stackoverflow.com/a/381788/4279 is wrong on the day of transition from Daylight Saving Time (DST) e.g., Apr 1, 2012. To fix it http://pytz.sourceforge.net/#localized-times-and-date-arithmetic could be used: 
+
+  tz = pytz.timezone("Australia/Melbourne")
+today = datetime.now(tz).date()
+midnight = tz.localize(datetime.combine(today, time(0, 0)), is_dst=None)
+utc_dt = midnight.astimezone(pytz.utc)        
+  
+
+  
+
+  #!/usr/bin/env python
+from datetime import datetime, time
+import pytz # pip instal pytz
+
+tz = pytz.timezone("Australia/Melbourne") # choose timezone
+
+# 1. get correct date for the midnight using given timezone.
+today = datetime.now(tz).date()
+
+# 2. get midnight in the correct timezone (taking into account DST)
+#NOTE: tzinfo=None and tz.localize()
+# assert that there is no dst transition at midnight (`is_dst=None`)
+midnight = tz.localize(datetime.combine(today, time(0, 0)), is_dst=None)
+
+# 3. convert to UTC (no need to call `utc.normalize()` due to UTC has no 
+#    DST transitions)
+fmt = '%Y-%m-%d %H:%M:%S %Z%z'
+print midnight.astimezone(pytz.utc).strftime(fmt)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/25421145)
+ Here's a stdlib solution that works on both Python 2 and 3: 
+
+  from datetime import datetime
+
+now = datetime.now(utc) # timezone-aware datetime.utcnow()
+today = datetime(now.year, now.month, now.day, tzinfo=utc) # midnight
+  
+
+ where  today  is an aware datetime instance representing beginning of the day (midnight) in UTC and  utc  is a tzinfo object (https://docs.python.org/2/library/datetime.html#tzinfo-objects): 
+
+  from datetime import tzinfo, timedelta
+
+ZERO = timedelta(0)
+
+class UTC(tzinfo):
+    def utcoffset(self, dt):
+        return ZERO
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return ZERO
+
+utc = UTC()
+  
+
+ Related:  performance comparison of https://stackoverflow.com/a/33276464/4279. 
+Note: it is more complex, to https://stackoverflow.com/q/373370/4279. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29826090)
+ Why won't use dateutil as described here:
+http://joelinoff.com/blog/?p=802 
+
+  from dateutil.tz import tzlocal
+# Get the current date/time with the timezone.
+now = datetime.datetime.now(tzlocal())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39494831)
+ To convert the time from 12 hours to 24 hours format, you may use below code: 
+
+  from datetime import datetime
+new_time = datetime.strptime('11:15pm', '%I:%M%p').strftime("%H:%M")
+# new_time: '23:15'
+  
+
+ In order to convert time from  EST  to  UTC , the most reliable way is to use third party library http://pytz.sourceforge.net/. Refer https://stackoverflow.com/a/5491705/2063361 for more details 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35353430)
+ I'm guessing that the  datetime  from your frontend is in UTC.  Doing a replace doesn't actually convert the datetime.  It uses the data/hour/etc. and just uses a new timezone. 
+
+ When you call  datetime.today() , you create a  naive  datetime without any timezone info.  When you do a  replace  on that, it's not actually doing a conversion either, it's just assuming the date you gave it is already in the timezone you provided, the same as the replace you did on the server time. 
+
+ To actually  convert  datetimes to another timezone, you need to use https://docs.python.org/2/library/datetime.html#datetime.datetime.astimezone.  If the datetime from the server is also  naive  and doesn't specify a timezone,  astimezone  will error.  . add a timezone of  UTC  first. 
+
+  time_from_frontend = time_from_frontend.replace(tzinfo=pytz.timezone('UTC'))
+converted_server_time = time_from_frontend.astimezone(my_timezone)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22522020)
+ Seems like you can use timedelta for converting UTC to PST and todays date to tomorrows date: 
+
+  from datetime import datetime, timedelta
+
+print datetime.utcnow() - timedelta(hours=8) //convert to PST
+print datetime.utcnow() + timedelta(days=1) //get tomorrow
+  
+
+ For  ‘YYYY-MM-DD’ format, there is a date.isoformat() method in http://docs.python.org/2/library/datetime.html 
+
+
+

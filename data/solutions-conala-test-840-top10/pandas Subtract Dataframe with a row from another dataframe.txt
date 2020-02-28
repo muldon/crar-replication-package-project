@@ -1,0 +1,243 @@
+Query: pandas Subtract Dataframe with a row from another dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22096101)
+ Alternatively you could simply use the apply function on all rows of df. 
+
+  df3 = df.apply(lambda x: x-df2.squeeze(), axis=1)
+# axis=1 because it should apply to rows instead of columns
+# squeeze because we would like to substract Series
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22095876)
+ You can do this directly in pandas as well. (I used  df2 = df.loc[[0]] ) 
+
+  In [80]: df.sub(df2,fill_value=0)
+Out[80]: 
+   a  b  c  d  e
+0  0  0  0  0  0
+1  7  6  0  7  8
+2  4  4  3  6  2
+
+[3 rows x 5 columns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22093806)
+ Pandas NDFrames generally try to perform operations on items with matching indices.  df - df2  only performs subtraction on the first row, because the  0  indexed row is the only row with an index shared in common. 
+
+ The operation you are looking for looks more like a NumPy array operation performed with "broadcasting": 
+
+  In [21]: df.values-df2.values
+Out[21]: 
+array([[ 0,  8,  5, -1, -1],
+       [-5, -1,  3, -3,  3],
+       [-6,  4,  4, -2,  1]], dtype=int64)
+  
+
+ To package the result in a DataFrame: 
+
+  In [22]: pd.DataFrame(df.values-df2.values, columns=df.columns)
+Out[22]: 
+   a  b  c  d  e
+0  0  8  5 -1 -1
+1 -5 -1  3 -3  3
+2 -6  4  4 -2  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/26685660)
+ You can select rows by index value using  df.loc : 
+
+  In [98]: df.loc['Diff'] = df.loc['RECL_LCC'] - df.loc['RECL_PI']
+
+In [99]: df
+Out[99]: 
+RECL_LCC          1          2          3
+RECL_LCC  35.107655  36.015210  28.877135
+RECL_PI   36.961519  43.499506  19.538975
+Diff      -1.853864  -7.484296   9.338160
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34564475)
+ use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.diff.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.fillna.html: 
+
+  In [4]:
+df['diff time'] = df['arrivalTime'].diff().fillna(0)
+df
+
+Out[4]:
+   cEventID         arrivalTime  diff time
+0   1167533                 NaT   00:00:00
+1   1167541 2015-07-14 04:01:21   00:00:00
+2   1167545 2015-07-14 04:03:20   00:01:59
+3   1167549 2015-07-14 04:07:45   00:04:25
+4   1167552 2015-07-14 04:10:21   00:02:36
+5   1167553 2015-07-14 04:13:39   00:03:18
+6   1167558 2015-07-14 04:15:58   00:02:19
+7   1167561 2015-07-14 04:20:23   00:04:25
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49484607)
+ I believe need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.diff.html and remove first  NaN s row by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iloc.html: 
+
+  df1 = df.diff().iloc[1:].reset_index(drop=True)
+print (df1)
+   col1  col2
+0   1.0   1.0
+1   1.0   1.0
+  
+
+ Another solution is subtract numpy arrays with  DataFrame  contructor: 
+
+  df1 = pd.DataFrame(df[1:].values - df[:-1].values, columns=df.columns)
+print (df1)
+   col1  col2
+0     1     1
+1     1     1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49166710)
+  
+
+  df.sort_values(by='date',inplace=True)
+df['amount_diff'] = df['amount'].add(df['amount'].shift()).fillna(0)
+print (df)
+   id  amount        date  amount_diff
+0  20      -7  2017:12:25          0.0
+1  20    -170  2017:12:26       -177.0
+2  20       7  2017:12:27       -163.0
+  
+
+ Because if want subtract your solution should work: 
+
+  df.sort_values(by='date',inplace=True)
+df['amount_diff1'] = df['amount'].sub(df['amount'].shift()).fillna(0)
+df['amount_diff2'] = df['amount'].diff().fillna(0)
+print (df)
+   id  amount        date  amount_diff1  amount_diff2
+0  20      -7  2017:12:25           0.0           0.0
+1  20    -170  2017:12:26        -163.0        -163.0
+2  20       7  2017:12:27         177.0         177.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/53476748)
+ Use https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html: 
+
+  m = df['diff_flag'].isin(['zero','less than 6'])
+df['new_diff'] = np.where(m, 'Data Error', df['time_diff'] - 6)
+  
+
+  
+
+  m1 = df['time_diff'] == 0
+m2 = df['time_diff'] < 6
+df['new_diff'] = np.where(m1 | m2, 'Data Error', df['time_diff'] - 6)
+  
+
+  
+
+  m = df['diff_flag'] == 'no issue'
+df['new_diff'] = np.where(m, df['time_diff'] - 6, 'Data Error')
+  
+
+ 
+
+  print (df)
+   code  time_diff    diff_flag  quantity    new_diff
+0   123          0         zero      0.45  Data Error
+1   124          5  less than 6      0.80  Data Error
+2   125          8     no issue      0.78           2
+3   126         18     no issue      2.78          12
+4   127         28     no issue      4.78          22
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52466446)
+    
+
+  df = pd.Frame({'id': [1,2,3], 'refers': [[1,2,3], [1,3], []]})
+    id  refers     referred_count
+0   1   [1, 2, 3]   1
+1   2   [1, 3]      1
+2   3   []          2
+  
+
+ Create a dictionary of the number of occurrences of refers: 
+
+  refer_count = df.refers.apply(pd.Series).stack()\
+                .reset_index(drop=True)\
+                .astype(int)\
+                .value_counts()\
+                .to_dict()
+  
+
+ Subtract the refer in each id by its refer_count: 
+
+  df['referred_count'] = df.apply(lambda x: refer_count[x['id']] - x['refers'].count(x['id']), axis = 1)
+  
+
+  Output : 
+
+      id  refers    referred_count
+0   1   [1, 2, 3]  1
+1   2   [1, 3]     1
+2   3   []         2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39170178)
+ You are subtracting two dataframes.    Both   column and row indices must match.  In your case, the row indices  TOTAL  and  Use  do not match. 
+
+ To get what you're looking for, you want to subtract the series  df2.ix['Use']  from  df1    
+
+  df1.sub(df2.squeeze())
+  
+
+ https://i.stack.imgur.com/oZWHC.png 
+
+  
+
+  df1.sub(df2.ix['Use'])
+  
+
+  
+
+  df1.sub(df2.loc['Use'])
+  
+
+  
+
+  df1 - df2.ix['Use']
+  
+
+  
+
+  df1 - df2.loc['Use']
+  
+
+
+

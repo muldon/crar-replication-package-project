@@ -1,0 +1,172 @@
+Query: Django filter JSONField list of dicts
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34359348)
+ You should be able to use a  __contains  lookup for this and pass queried values as list as documented https://docs.djangoproject.com/en/2.1/ref/contrib/postgres/fields/#contains. The lookup would behave exactly like ArrayField. So, something like this should work: 
+
+  Test.objects.filter(actions__contains=[{'fixed_key_1': 'foo2'}])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35366946)
+ If you wan't to filter your data by one of fields in your array of dicts, you can try this query: 
+
+  Test.objects.filter(actions__contains=[{'fixed_key_1': 'foo2'}])
+  
+
+ It will list all  Test  objects that have at least one object in  actions  field that contains key  fixed_key_1  of value  foo2 . 
+
+ Also it should work for nested lookup, even if you don't know actual indexes: 
+
+  Test(actions=[
+    {'fixed_key_1': 'foo4', 'fixed_key_3': [
+        {'key1': 'foo2'},
+    ]}
+}).save()
+
+Test.objects.filter(actions__contains=[{'fixed_key_3': [{'key1': 'foo2'}]}])
+  
+
+ In simple words, contains will ignore everything else. 
+
+ Unfortunately, if nested element is an object, you must know key name. Lookup by value won't work in that case. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34358896)
+ You can use the https://github.com/bradjasper/django-jsonfield package, I guess it's already the one you are using.  
+
+  from jsonfield import JSONField
+class Test(TimeStampedModel):
+    actions = JSONField()
+  
+
+ So to search to make a search with a specific property, you can just do this: 
+
+  def test_filter(**kwargs):
+    result = Test.objects.filter(actions__contains=kwargs)
+    return result
+  
+
+ If you are using PostgreSQL, maybe you can take advantage of PostgreSQL https://docs.djangoproject.com/en/1.9/ref/contrib/postgres/#module-django.contrib.postgres. 
+
+ PS: If you are dealing with a lot of JSON structure you have maybe to consider using NoSQL Database. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36390908)
+ As per the django https://docs.djangoproject.com/en/1.9/ref/contrib/postgres/fields/, it explains that that the  data  structure matches python native format, with a slightly different approach when querying. 
+
+ If you know the structure of the JSON, you can also filter on keys as if they were related fields: 
+
+  object.filter(data__animal='cat')
+object.filter(data__name='tom')
+  
+
+  
+
+  object.filter(data__0__animal='cat')
+  
+
+ Your https://docs.djangoproject.com/en/1.9/ref/contrib/postgres/fields/#std:fieldlookup-hstorefield.contains example is almost correct, but your data is in a list and requires: 
+
+  object.filter(data__contains=[{'animal': 'cat'}])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45569527)
+ You can use  has_key  on JSONField.
+JSONField and HStoreField share this look up - https://docs.djangoproject.com/en/1.11/ref/contrib/postgres/fields/#containment-and-key-operations. 
+
+  X.objects.filter(data__has_key='key_1')
+  
+
+ Here is an example based on my project, I used  has_key  on JSONField in FilterSet (django_filters.rest_framework), to implement filtering by key (if key doesn't exists returns 0 results): 
+
+ filters.py: 
+
+  class XFilter(FilterSet):
+   data_search_by_key =  django_filters.CharFilter(method='filter_data_key',
+        help_text='Search by key')
+
+   def filter_data_key(self, qs, name, value):
+        qs = X.objects.filter(data__has_key=value)
+        return qs
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47591218)
+ This should work https://docs.djangoproject.com/en/1.11/ref/models/querysets/#values 
+
+  SalesModel.objects.filter(json_data__id=1).values('id', 'json_data__contribution')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47591805)
+ You could restructure your  JSONField  differently, by giving it a dict where the key, value pairs are  id: contribution  directly. This way you could use the  has_key  filter and  KeyTransform  will work, as I'm not sure it works on an array of dicts. So assuming your  json_data  looks like this: 
+
+  {1: 'xx', 3: 'yy', 9: 'zz'}
+  
+
+ you could query this way, based on https://stackoverflow.com/users/3480602/vanojx1 contribution: 
+
+  SalesModel.filter(json_data__has_key=id)\
+    .annotate(contrib=KeyTransform(id, 'json_data')\
+    .values('contrib')
+  
+
+ Alternatively, using raw jsonb in postgresql: 
+
+  SalesModel.filter(json_data__has_key=id)\
+    .extra(select={'contrib': "json_data->{0}".format(id)})\
+    .values('contrib')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51973312)
+ As described in the excerpt you quoted, you can use any callable as the default. As such, you could create your own method to call to create the default. 
+
+  def default_specific_workouts():
+    # You probably want this in a variable, just copy/pasting your sample data
+    # to keep the example simple
+    return [
+        {
+            "price": 100.0,
+            "units": 1,
+            "specific": "standard session",
+            "hours_per_unit": 1
+        },
+        {
+            "price": 250.0,
+            "units": 3,
+            "specific": "standard session",
+            "hours_per_unit": 1
+        },
+        {
+            "price": 300.0,
+            "units": 5,
+            "specific": "standard session",
+            "hours_per_unit": 1
+        }
+    ]
+  
+
+  
+
+  specific_workouts = JSONField(default=default_specific_workouts)
+  
+
+
+

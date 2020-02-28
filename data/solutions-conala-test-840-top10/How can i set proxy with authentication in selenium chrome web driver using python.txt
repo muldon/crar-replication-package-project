@@ -1,0 +1,335 @@
+Query: How can i set proxy with authentication in selenium chrome web driver using python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30953780)
+ Inspired by this this https://github.com/RobinDev/Selenium-Chrome-HTTP-Private-Proxy, i wrote a equivalent in python: 
+
+  from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import zipfile
+
+manifest_json = """
+{
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "name": "Chrome Proxy",
+    "permissions": [
+        "proxy",
+        "tabs",
+        "unlimitedStorage",
+        "storage",
+        "<all_urls>",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "minimum_chrome_version":"22.0.0"
+}
+"""
+
+background_js = """
+var config = {
+        mode: "fixed_servers",
+        rules: {
+          singleProxy: {
+            scheme: "http",
+            host: "XXX.XXX.XXX.XXX",
+            port: parseInt(XXXX)
+          },
+          bypassList: ["foobar.com"]
+        }
+      };
+
+chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+
+function callbackFn(details) {
+    return {
+        authCredentials: {
+            username: "XXXXXXXXX",
+            password: "XXXXXXXXX"
+        }
+    };
+}
+
+chrome.webRequest.onAuthRequired.addListener(
+            callbackFn,
+            {urls: ["<all_urls>"]},
+            ['blocking']
+);
+"""
+
+
+pluginfile = 'proxy_auth_plugin.zip'
+
+with zipfile.ZipFile(pluginfile, 'w') as zp:
+    zp.writestr("manifest.json", manifest_json)
+    zp.writestr("background.js", background_js)
+
+co = Options()
+co.add_argument("--start-maximized")
+co.add_extension(pluginfile)
+
+
+driver = webdriver.Chrome("path/to/chromedriver",  chrome_options=co)
+driver.get("http://www.google.com.br")
+  
+
+ In  background_js  string, replace the XXX with your information. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24183276)
+ Its working for me... 
+
+  from selenium import webdriver
+
+PROXY = "23.23.23.23:3128" # IP:PORT or HOST:PORT
+
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--proxy-server=http://%s' % PROXY)
+
+chrome = webdriver.Chrome(chrome_options=chrome_options)
+chrome.get("http://whatismyipaddress.com")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48498403)
+<pre class="lang-py prettyprint-override"> from selenium import webdriver
+
+PROXY = "88.157.149.250:8080" # IP:PORT or HOST:PORT
+
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--proxy-server=%s' % PROXY)
+
+chrome = webdriver.Chrome(chrome_options=chrome_options)
+chrome.get("http://google.com")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33761222)
+ Going through documenation on https://proxymesh.com/http-client-examples/, you can set your profile object as follow 
+
+  profile = webdriver.FirefoxProfile()
+profile.set_preference("network.proxy.type", 1)
+profile.set_preference("network.proxy.http", "http://username:password@xyz.proxymesh.com")
+profile.set_preference("network.proxy.http_port", "portnumber")
+profile.update_preferences()
+
+driver = webdriver.Firefox(firefox_profile=profile)
+  
+
+ or you can use  webdriver.Proxy  object to set ssl credentials.
+Also there are options available on proxymesh configuration panel where you can add your ip address/hostname [of your server which is using proxymesh service]. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43275298)
+ Another solution: 
+
+ login with python requests, get the cookies, and push the cookies into the selenium's browser 
+
+ 
+ 
+
+    import requests
+    from selenium import webdriver
+    from requests.auth import HTTPBasicAuth
+
+    session = requests.Session()
+    www_request = session.get('http://example.com', auth=HTTPBasicAuth('username','password'), allow_redirects=False)
+
+    driver = webdriver.Remote(...)
+    #chrome needed to open the page before add the cookies
+    driver.get('http://example.com')
+
+    cookies = session.cookies.get_dict()
+    for key in cookies:
+        driver.add_cookie({'name': key, 'value': cookies[key]})
+
+    driver.get('http://example.com')
+
+ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42633506)
+ Use  DesiredCapabilities . I have been successfully using proxy authentication with the following: 
+
+  from selenium import webdriver
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
+proxy = {'address': '123.123.123.123:2345',
+         'usernmae': 'johnsmith123',
+         'password': 'iliketurtles'}
+
+
+capabilities = dict(DesiredCapabilities.CHROME)
+capabilities['proxy'] = {'proxyType': 'MANUAL',
+                         'httpProxy': proxy['address'],
+                         'ftpProxy': proxy['address'],
+                         'sslProxy': proxy['address'],
+                         'noProxy': '',
+                         'class': "org.openqa.selenium.Proxy",
+                         'autodetect': False}
+
+capabilities['proxy']['socksUsername'] = proxy['username']
+capabilities['proxy']['socksPassword'] = proxy['password']
+
+driver = webdriver.Chrome(executable_path=[path to your chromedriver], desired_capabilities=capabilities)
+  
+
+ EDIT: it unfortunately seems this method no longer works since one of the updated to either Selenium or Chrome since this post. as of now, i do not know another solution, but i will experiment and update this if i find anything out. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35293284)
+ Selenium can't handle with basic authentication neither it works well with popups. But this problem is resolvable. As a solution that worked to me (I found it https://github.com/RobinDev/Selenium-Chrome-HTTP-Private-Proxy) is to add a browser extension that does the authentication for Selenium. . Here is how it works for Chrome and Python: 
+
+ 
+ Create a zip file  proxy.zip  containing two files: 
+ 
+
+  background.js  
+
+  var config = {
+    mode: "fixed_servers",
+    rules: {
+      singleProxy: {
+        scheme: "http",
+        host: "YOU_PROXY_ADDRESS",
+        port: parseInt(YOUR_PROXY_PORT)
+      },
+      bypassList: ["foobar.com"]
+    }
+  };
+
+chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+
+function callbackFn(details) {
+    return {
+        authCredentials: {
+            username: "YOUR_PROXY_USERNAME",
+            password: "YOUR_PROXY_PASSWORD"
+        }
+    };
+}
+
+chrome.webRequest.onAuthRequired.addListener(
+        callbackFn,
+        {urls: ["<all_urls>"]},
+        ['blocking']
+);
+  
+
+ Don't forget to replace  YOUR_PROXY_*  to your settings. 
+
+  manifest.json  
+
+  {
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "name": "Chrome Proxy",
+    "permissions": [
+        "proxy",
+        "tabs",
+        "unlimitedStorage",
+        "storage",
+        "<all_urls>",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "minimum_chrome_version":"22.0.0"
+}
+  
+
+<ol start="2">
+ Add the created proxy.zip as an extension 
+ 
+
+  Python Code:  
+
+  from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+chrome_options = Options()
+chrome_options.add_extension("proxy.zip")
+
+driver = webdriver.Chrome(executable_path='chromedriver.exe', chrome_options=chrome_options)
+driver.get("http://google.com")
+driver.close()
+  
+
+ That's it. For me that worked like a charm. If you need to create proxy.zip dynamically or need PHP example then go to the https://github.com/RobinDev/Selenium-Chrome-HTTP-Private-Proxy  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51298453)
+ For people out there asking how to setup proxy server in chrome which needs authentication should follow these steps. 
+
+ 
+ Create a proxy.py file in  your project, use this https://gist.github.com/rajat-np/5d901702a33e7b4b5132b1acee5d778e and call proxy_chrome from 
+proxy.py everytime you need it. You need to pass parameters like proxy server, port and username password for authentication.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53287521)
+  Using Python and ChromeDriver  
+
+ To get network logs, you need to install https://pypi.org/project/browsermob-proxy/ as well along with selenium in python 
+
+  pip install browsermob-proxy
+  
+
+ You need to start browser proxy and configure the proxy in chrome option of chrome driver, 
+
+  from browsermobproxy import Server
+from selenium import webdriver
+
+server = Server("path/to/browsermob-proxy")
+server.start()
+proxy = server.create_proxy()
+
+# Configure the browser proxy in chrome options
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument("--proxy-server={0}".format(proxy.proxy))
+browser = webdriver.Chrome(chrome_options = chrome_options)
+
+#tag the har(network logs) with a name
+proxy.new_har("google")
+  
+
+ Then you can navigate to page using selenium 
+
+  driver.get("http://www.google.co.in")
+  
+
+ After navigation, you can get the network logs in json format from the proxy 
+
+  print(proxy.har) # returns a Network logs (HAR) as JSON 
+  
+
+ Also before quitting the driver, stop the proxy server as well at the end, 
+
+  server.stop()
+browser.quit()
+  
+
+
+

@@ -1,0 +1,370 @@
+Query: Sorting a set of values
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17458090)
+ From a comment: 
+
+ 
+   I want to sort each set. 
+ 
+
+ That's easy. For any set  s  (or anything else iterable), http://docs.python.org/3.3/library/functions.html#sorted returns a list of the elements of  s  in sorted order: 
+
+  >>> s = set(['0.000000000', '0.009518000', '10.277200999', '0.030810999', '0.018384000', '4.918560000'])
+>>> sorted(s)
+['0.000000000', '0.009518000', '0.018384000', '0.030810999', '10.277200999', '4.918560000']
+  
+
+ 
+
+ Note that  sorted  is giving you a  list , not a  set . That's because the whole point of a set, both in http://en.wikipedia.org/wiki/Set_%28mathematics%29 and in http://en.wikipedia.org/wiki/Set_%28computer_science%29,* is that it's not ordered: the sets  {1, 2}  and  {2, 1}  are the same set. 
+
+ 
+
+ You probably don't really want to sort those elements as strings, but as numbers (so 4.918560000 will come before 10.277200999 rather than after). 
+
+ The best solution is most likely to store the numbers as numbers rather than strings in the first place. But if not, you just need to use a  key  function: 
+
+  >>> sorted(s, key=float)
+['0.000000000', '0.009518000', '0.018384000', '0.030810999', '4.918560000', '10.277200999']
+  
+
+ 
+
+ For more information, see the http://docs.python.org/3.3/howto/sorting.html in the official docs. 
+
+ 
+
+ * See the comments for exceptions. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53420820)
+ https://docs.python.org/3.6/library/collections.html#collections.defaultdict + https://docs.python.org/3/library/itertools.html#itertools.combinations</h3>
+
+ For a brute force solution, you can invert your dictionary of sets, then use a set comprehension: 
+
+  from collections import defaultdict
+from itertools import combinations
+
+d = {'C': {'123'}, 'A': {'123', '456'}, 
+     'D': {'123'}, 'B': {'789', '456'}, 
+     'E': {'789'}}
+
+dd = defaultdict(set)
+
+for k, v in d.items():
+    for w in v:
+        dd[w].add(k)
+
+res = {frozenset(i) for v in dd.values() if len(v) >= 2 for i in combinations(v, 2)}
+
+print(res)
+
+{frozenset({'A', 'D'}), frozenset({'C', 'D'}),
+ frozenset({'B', 'E'}), frozenset({'B', 'A'}),
+ frozenset({'C', 'A'})}
+  
+
+ As you can see the items in  res  are  frozenset  objects, i.e. they aren't depending on sorting within tuples.  frozenset  is required instead of  set  since  set  is not hashable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23127384)
+ This is because when you call: 
+
+  set(sorted(A))  
+
+ you are sorting the original full list and then filtering out the duplicate values. However, when you call: 
+
+  sorted(set(A))  
+
+ you are first shortening the list by removing duplicate values using  set  and then sorting the much smaller list hence the shorter time. 
+
+ Hope that makes sense. 
+
+ For Example</h3>
+
+  >>> A = [1,2,3,1,2,3,1,2,3,1,2,3]
+>>> A = sorted(A)
+[1,1,1,1,2,2,2,2,3,3,3,3]
+
+>>> set(A)
+{1, 2, 3}
+
+On the other hand:
+
+>>> A = [3,2,1,3,2,1,3,2,1,3,2,1]
+>>> A = set(A)
+{3, 2, 1}
+
+>>> sorted(A)
+{1, 2, 3}
+  
+
+ And as @Barmar said, sorting is much slower than removing duplicates therefore there is a real time gain when you have to sort a much smaller list (1/4 of the list in my example above) 
+
+ Time Benchmarking 
+
+  a = [1,2,3] * 10000
+
+set(sorted(a)) --> 0.1890001297
+sorted(set(a)) --> 0.0079998970
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3259216)
+ You could use a set to keep track of the duplicates: 
+
+  seen_a = set()
+for x in list:
+    a, b, c, d = x
+    if a not in seen_a:
+        newlist.append(x)
+        seen_a.add(x)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48409064)
+  
+
+  data = data.sort_values(by=['id'], ascending=True, kind='mergesort')
+  
+
+ Adding  kind='mergesort'  switches the  sort_values  call to use a "stable" sorting algorithm (see https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html), which means that the original order of rows will be preserved for rows that have an equal value for the sorting criterion. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46020708)
+ Try sorting on key which sorts lists in place. And also offers convenient way to sort tuples based on index of tuple elements. 
+i.e.  tup[0]  to sort on first tuple element 
+      tup[1]  to sort on second and so on.   
+
+ See https://wiki.python.org/moin/HowTo/Sorting for details. 
+
+  t =  [(100,100,100),(255,0,0),(200,200,200),(0,255,0) ]
+>>> t.sort(key=lambda tup:tup[0])
+>>> t
+[(0, 255, 0), (100, 100, 100), (200, 200, 200), (255, 0, 0)]
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46217646)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html which sorting by default, so only first index is necesary selected by  [0] : 
+
+  df = df.groupby('id')['sex'].apply(lambda x: x.value_counts().index[0]).reset_index()
+print (df)
+   id  sex
+0   1    0
+1   2    0
+2   3    1
+3   4    1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40378896)
+ Sorting in parallel is hard.  You have two options in Dask.dataframe 
+
+ set_index</h3>
+
+ As now, you can call set_index with a  single  column index: 
+
+  In [1]: import pandas as pd
+
+In [2]: import dask.dataframe as dd
+
+In [3]: df = pd.DataFrame({'x': [3, 2, 1], 'y': ['a', 'b', 'c']})
+
+In [4]: ddf = dd.from_pandas(df, npartitions=2)
+
+In [5]: ddf.set_index('x').compute()
+Out[5]: 
+   y
+x   
+1  c
+2  b
+3  a
+
+Unfortunately dask.dataframe does not (as of November 2016) support multi-column indexes
+
+In [6]: ddf.set_index(['x', 'y']).compute()
+NotImplementedError: Dask dataframe does not yet support multi-indexes.
+You tried to index with this index: ['x', 'y']
+Indexes must be single columns only.
+  
+
+ nlargest</h3>
+
+ Given how you phrased your question I suspect that this doesn't apply to you, but often cases that use sorting can get by with the much cheaper solution http://dask.pydata.org/en/latest/dataframe-api.html#dask.dataframe.DataFrame.nlargest. 
+
+  In [7]: ddf.x.nlargest(2).compute()
+Out[7]: 
+0    3
+1    2
+Name: x, dtype: int64
+
+In [8]: ddf.nlargest(2, 'x').compute()
+Out[8]: 
+   x  y
+0  3  a
+1  2  b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41474587)
+  UPDATE2:  sort / replace values in the  t  column, but only for those rows where  id == 0  (https://stackoverflow.com/questions/41474500/pandas-dataframe-reverse-sort-on-subsets-using-groupby#comment70155607_41474587): 
+
+  In [373]: df
+Out[373]:
+   id   t  metric_1  metric_2  metric_3
+0   0  86    13.333    61.989  0.017444
+1   0  87    13.333    61.993  0.017569
+2   0  88    13.333    61.992  0.017711
+3   0  89    13.333    61.998  0.017746
+4   0  90    13.333    61.993  0.017871
+5   1  86    13.333    61.964  0.018511
+6   1  87    20.000    61.913  0.020058
+7   1  88    20.000    61.864  0.022475
+8   1  89    26.667    61.802  0.025995
+9   1  90    33.333    61.736  0.030689
+
+In [374]: df.loc[df.id == 0, 't'] = df.loc[df.id == 0, 't'].sort_values(ascending=0).values
+
+In [375]: df
+Out[375]:
+   id   t  metric_1  metric_2  metric_3
+0   0  90    13.333    61.989  0.017444
+1   0  89    13.333    61.993  0.017569
+2   0  88    13.333    61.992  0.017711
+3   0  87    13.333    61.998  0.017746
+4   0  86    13.333    61.993  0.017871
+5   1  86    13.333    61.964  0.018511
+6   1  87    20.000    61.913  0.020058
+7   1  88    20.000    61.864  0.022475
+8   1  89    26.667    61.802  0.025995
+9   1  90    33.333    61.736  0.030689
+  
+
+  UPDATE:  for updated data sets 
+
+ original DF: 
+
+  In [363]: df
+Out[363]:
+   id   t  metric_1  metric_2  metric_3
+0   0  86    13.333    61.989  0.017444
+1   0  87    13.333    61.993  0.017569
+2   0  88    13.333    61.992  0.017711
+3   0  89    13.333    61.998  0.017746
+4   0  90    13.333    61.993  0.017871
+5   1  86    13.333    61.964  0.018511
+6   1  87    20.000    61.913  0.020058
+7   1  88    20.000    61.864  0.022475
+8   1  89    26.667    61.802  0.025995
+9   1  90    33.333    61.736  0.030689
+  
+
+ sorting complete rows: 
+
+  In [364]: df.sort_values(['id','t'], ascending=[1,0])
+Out[364]:
+   id   t  metric_1  metric_2  metric_3
+4   0  90    13.333    61.993  0.017871
+3   0  89    13.333    61.998  0.017746
+2   0  88    13.333    61.992  0.017711
+1   0  87    13.333    61.993  0.017569
+0   0  86    13.333    61.989  0.017444
+9   1  90    33.333    61.736  0.030689
+8   1  89    26.667    61.802  0.025995
+7   1  88    20.000    61.864  0.022475
+6   1  87    20.000    61.913  0.020058
+5   1  86    13.333    61.964  0.018511   # <--
+  
+
+ sorting values for two columns ( ['id','t'] ), replacing their values: 
+
+  In [366]: df[['id','t']] = df[['id','t']].sort_values(['id','t'], ascending=[1,0]).values
+
+In [367]: df
+Out[367]:
+   id   t  metric_1  metric_2  metric_3
+0   0  90    13.333    61.989  0.017444
+1   0  89    13.333    61.993  0.017569
+2   0  88    13.333    61.992  0.017711
+3   0  87    13.333    61.998  0.017746
+4   0  86    13.333    61.993  0.017871
+5   1  90    13.333    61.964  0.018511
+6   1  89    20.000    61.913  0.020058
+7   1  88    20.000    61.864  0.022475
+8   1  87    26.667    61.802  0.025995
+9   1  86    33.333    61.736  0.030689  # <--
+  
+
+  OLD answer:  
+
+ IIUC you can simply sort your data by two columns: 
+
+  In [349]: df.sort_values(['id','t'], ascending=[1,1])
+Out[349]:
+   id   t  metric_1  metric_2  metric_3
+4   0  86    13.333    61.993  0.017871
+3   0  87    13.333    61.998  0.017746
+2   0  88    13.333    61.992  0.017711
+1   0  89    13.333    61.993  0.017569
+0   0  90    13.333    61.989  0.017444
+9   1  86    33.333    61.736  0.030689
+8   1  87    26.667    61.802  0.025995
+7   1  88    20.000    61.864  0.022475
+6   1  89    20.000    61.913  0.020058
+5   1  90    13.333    61.964  0.018511
+  
+
+ if you want to sort it as in your desired data set (replacing  t  column values): 
+
+  In [357]: df[['id','t']] = df[['id','t']].sort_values(['id','t']).values
+
+In [358]: df
+Out[358]:
+   id   t  metric_1  metric_2  metric_3
+0   0  86    13.333    61.989  0.017444
+1   0  87    13.333    61.993  0.017569
+2   0  88    13.333    61.992  0.017711
+3   0  89    13.333    61.998  0.017746
+4   0  90    13.333    61.993  0.017871
+5   1  86    13.333    61.964  0.018511
+6   1  87    20.000    61.913  0.020058
+7   1  88    20.000    61.864  0.022475
+8   1  89    26.667    61.802  0.025995
+9   1  90    33.333    61.736  0.030689   # 1 90 33.333 61.736 0.030689 as in your desired DF
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36342359)
+ EDIT: I looked into the documentation and the default sorting algorithm for sort_index is quicksort. This is NOT a "stable" algorithm, in that it does not preserve "the input order of equal elements in the sorted output" (from Wikipedia). However, sort_index gives you the option to choose "mergesort", which IS a stable sorting algorithm.  
+
+  df2.sort_values(by='val').sort_index()
+  
+
+ . This code should work every time, since it uses a stable sorting algorithm: 
+
+  df2.sort_values(by='val').sort_index(kind = 'mergesort')
+  
+
+
+

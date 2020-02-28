@@ -1,0 +1,308 @@
+Query: Expat parsing in python 3
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1179454)
+ you need to open that file as binary: 
+
+  parser.ParseFile(open('sample.xml', 'rb'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2882216)
+ As I understand it, if you're using pyexpat directly, then you have to provide your own  ExternalEntityRefHandler  to fetch the external DTD and feed it to expat. 
+
+ .  xml.sax.expatreader  for example code (method  external_entity_ref , line 374 in Python 2.6). 
+
+ It would probably be better to use a higher-level interface such as SAX (via  expatreader ) if you can. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27694193)
+ I ran into this problem while trying to use the https://github.com/martinblech/xmltodict module with Python 3. Under Python 2.7 I had no problems but under Python 3 I got this same error. The solution is the same that was suggested by @SilentGhost: 
+
+  import xmltodict
+
+def convert(xml_file, xml_attribs=True):
+    with open(xml_file, "rb") as f:    # notice the "rb" mode
+        d = xmltodict.parse(f, xml_attribs=xml_attribs)
+        return d
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11289726)
+ Since  xml.parsers.expat.ParserCreate  supports only four encodings I would try them all. Those encodings are:
+ UTF-8 ,  UTF-16 ,  ISO-8859-1  ( Latin1 ), and  ASCII  . 
+
+ You can now run  ElementTree.parse  with the encoding like: 
+
+  from xml.etree.ElementTree import ElementTree
+from xml.parsers import expat
+tree = ElementTree()
+root = tree.parse(xml_file, parser=expat.ParserCreate('UTF-8') )
+root = tree.parse(xml_file, parser=expat.ParserCreate('UTF-16') )
+root = tree.parse(xml_file, parser=expat.ParserCreate('ISO-8859-1') )
+root = tree.parse(xml_file, parser=expat.ParserCreate('ASCII') )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15452402)
+ Minimal DOM implementation: 
+
+ http://docs.python.org/2/library/xml.dom.minidom.html#module-xml.dom.minidom. 
+
+ Python supplies a full, W3C-standard implementation of XML DOM ( xml.dom ) and a minimal one,  xml.dom.minidom . This latter one is simpler and smaller than the full implementation. However, from a "parsing perspective", it has all the pros and cons of the standard DOM - i.e. it loads everything in memory. 
+
+ Considering a basic XML file: 
+
+  <?xml version="1.0"?>
+<catalog>
+    <book isdn="xxx-1">
+      <author>A1</author>
+      <title>T1</title>
+    </book>
+    <book isdn="xxx-2">
+      <author>A2</author>
+      <title>T2</title>
+    </book>
+</catalog>
+  
+
+ A possible Python parser using  minidom  is: 
+
+  import os
+from xml.dom import minidom
+from xml.parsers.expat import ExpatError
+
+#-------- Select the XML file: --------#
+#Current file name and directory:
+curpath = os.path.dirname( os.path.realpath(__file__) )
+filename = os.path.join(curpath, "sample.xml")
+#print "Filename: %s" % (filename)
+
+#-------- Parse the XML file: --------#
+try:
+    #Parse the given XML file:
+    xmldoc = minidom.parse(filepath)
+except ExpatError as e:
+    print "[XML] Error (line %d): %d" % (e.lineno, e.code)
+    print "[XML] Offset: %d" % (e.offset)
+    raise e
+except IOError as e:
+    print "[IO] I/O Error %d: %s" % (e.errno, e.strerror)
+    raise e
+else:
+    catalog = xmldoc.documentElement
+    books = catalog.getElementsByTagName("book")
+
+    for book in books:
+        print book.getAttribute('isdn')
+        print book.getElementsByTagName('author')[0].firstChild.data
+        print book.getElementsByTagName('title')[0].firstChild.data
+  
+
+ Note that  xml.parsers.expat  is a Python interface to the Expat non-validating XML parser (docs.python.org/2/library/pyexpat.html). 
+
+ The  xml.dom  package supplies also the exception class  DOMException , but it is not supperted in  minidom ! 
+
+ The ElementTree XML API: 
+
+ <a href="http://docs.python.org/2/library/xml.etree.elementtree.html" . 
+
+  ElementTree  is much easier to use and it requires less memory than XML DOM. Furthermore, a C implementation is available ( xml.etree.cElementTree ). 
+
+ A possible Python parser using  ElementTree  is: 
+
+  import os
+from xml.etree import cElementTree  # C implementation of xml.etree.ElementTree
+from xml.parsers.expat import ExpatError  # XML formatting errors
+
+#-------- Select the XML file: --------#
+#Current file name and directory:
+curpath = os.path.dirname( os.path.realpath(__file__) )
+filename = os.path.join(curpath, "sample.xml")
+#print "Filename: %s" % (filename)
+
+#-------- Parse the XML file: --------#
+try:
+    #Parse the given XML file:
+    tree = cElementTree.parse(filename)
+except ExpatError as e:
+    print "[XML] Error (line %d): %d" % (e.lineno, e.code)
+    print "[XML] Offset: %d" % (e.offset)
+    raise e
+except IOError as e:
+    print "[XML] I/O Error %d: %s" % (e.errno, e.strerror)
+    raise e
+else:
+    catalogue = tree.getroot()
+
+    for book in catalogue:
+        print book.attrib.get("isdn")
+        print book.find('author').text
+        print book.find('title').text
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1140753)
+ The main problem here is that the XML code being returned by that service doesn't include a root node, which is invalid. I fixed this by simply wrapping the output in a  <root>  node. 
+
+  import urllib
+from xml.etree import ElementTree
+
+url = 'http://69.36.9.147:8090/clientes/SMS_API_OUT.jsp?codigo=ABCDEFGH&cliente=XX'
+xmldata = '<root>' + urllib.urlopen(url).read() + '</root>'
+tree = ElementTree.fromstring(xmldata)
+codigo = tree.find('codigo').text
+
+print codigo
+  
+
+ You can use whatever parser you wish, but here I used ElementTree to get the value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5435672)
+ The problem is expat is using  fb  as the namespace prefix, but that tag is  FB:LOGIN-BUTTON . Expat sees  FB  as unbound.  The XHTML specification notes that all HTML elements and attributes http://www.w3.org/TR/xhtml1/#h-4.2 since XML is case-sensitive. 
+
+ I tried your document using the http://lxml.de/ and it auto-converted the prefixes to lowercase. Perhaps you can switch to a different parser: 
+
+  import lxml.etree
+data = open('fb.xhtml', 'rb').read()
+tree = lxml.etree.fromstring(data)
+ns_map = {'fb': 'http://www.facebook.com/2008/fbml'}
+print tree.xpath('.//fb:LOGIN-BUTTON', namespaces=ns_map)
+  
+
+ Output: 
+
+  [<Element {http://www.facebook.com/2008/fbml}LOGIN-BUTTON at 1011fa260>]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3038832)
+  &#0;  is not in the http://www.w3.org/TR/REC-xml/#charsets defined by the XML spec. Alas, my Python skills are pretty rudimentary, so I'm not much help there. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14786514)
+ The issue here is that the only valid mnemonic entities in XML are  quot ,  amp ,  apos ,  lt  and  gt . This means that almost all (X)HTML named entities must be defined in the DTD using the http://www.w3.org/TR/2006/REC-xml11-20060816/#sec-entity-decl defined in the http://www.w3.org/TR/2006/REC-xml11-20060816/. If the document is to be standalone, this should be done with an inline DTD like so: 
+
+  <?xml version="1.1" ?>
+<!DOCTYPE naughtyxml [
+    <!ENTITY nbsp "&#0160;">
+    <!ENTITY copy "&#0169;">
+]>
+<data>
+    <country name="Liechtenstein">
+        <rank>1&nbsp;></rank>
+        <year>2008&copy;</year>
+        <gdppc>141100</gdppc>
+        <neighbor name="Austria" direction="E"/>
+        <neighbor name="Switzerland" direction="W"/>
+    </country>
+</data>
+  
+
+ The  XMLParser  in  xml.etree.ElementTree  uses an  xml.parsers.expat  to do the actual parsing. In the init arguments for  XMLParser , there is a space for 'http://docs.python.org/3/library/xml.etree.elementtree.html#xmlparser-objects' but that argument is not implemented yet. An empty dict named  entity  is created in the init method and this is what is used to look up undefined entities. 
+
+ I don't think expat (by extension, the ET XMLParser) is able to handle switching namespaces to something like XHMTL to get around this. Possibly because it will not fetch external namespace definitions (I tried making  xmlns="http://www.w3.org/1999/xhtml"  the default namespace for the data element but it did not play nicely) but I can't confirm that. By default, expat will raise an error against non XML entities but you can get around that by defining an external DOCTYPE - this causes the expat parser to pass undefined entity entries back to the  ET.XMLParser 's  _default()  method. 
+
+ The  _default()  method does a look up of the  entity  dict in the  XMLParser  instance and if it finds a matching key, it will replace the entity with the associated value. This maintains the Python-2.x syntax mentioned in the question. 
+
+  Solutions:  
+
+ 
+ If the data does not have an external DOCTYPE and has (X)HTML mnemonic entities, you are out of luck. It is not valid XML and expat is right to throw an error. You should add an external DOCTYPE. 
+ If the data has an external DOCTYPE, you can just use your old syntax to map mnemonic names to characters.  Note: you should use  chr()  in py3k -  unichr()  is not a valid name anymore 
+ 
+ Alternatively, you could update  XMLParser.entity  with  html.entities.html5  to map all valid HTML5 mnemonic entities to their characters. 
+  
+ If the data is XHTML, you could subclass  HTMLParser  to handle mnemonic entities but this won't return an  ElementTree  as desired. 
+ 
+
+ Here is the snippet I used - it parses XML with an external DOCTYPE through  HTMLParser  (to demonstrate how to add entity handling by subclassing),  ET.XMLParser  with entity mappings and  expat  (which will just silently ignore undefined entities due to the external DOCTYPE). There is a valid XML entity ( > ) and an undefined entity ( &copy; ) which I map to  chr(0x24B4)  with the  ET.XMLParser . 
+
+  from html.parser import HTMLParser
+from html.entities import name2codepoint
+import xml.etree.ElementTree as ET
+import xml.parsers.expat as expat
+
+xml = '''<?xml version="1.0"?>
+<!DOCTYPE data PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<data>
+    <country name="Liechtenstein">
+        <rank>1></rank>
+        <year>2008&copy;</year>
+        <gdppc>141100</gdppc>
+        <neighbor name="Austria" direction="E"/>
+        <neighbor name="Switzerland" direction="W"/>
+    </country>
+</data>'''
+
+# HTMLParser subclass which handles entities
+print('=== HTMLParser')
+class MyHTMLParser(HTMLParser):
+    def handle_starttag(self, name, attrs):
+        print('Start element:', name, attrs)
+    def handle_endtag(self, name):
+        print('End element:', name)
+    def handle_data(self, data):
+        print('Character data:', repr(data))
+    def handle_entityref(self, name):
+        self.handle_data(chr(name2codepoint[name]))
+
+htmlparser = MyHTMLParser()
+htmlparser.feed(xml)
+
+
+# ET.XMLParser parse
+print('=== XMLParser')
+parser = ET.XMLParser()
+parser.entity['copy'] = chr(0x24B8)
+root = ET.fromstring(xml, parser)
+print(ET.tostring(root))
+for elem in root:
+    print(elem.tag, ' - ', elem.attrib)
+    for subelem in elem:
+        print(subelem.tag, ' - ', subelem.attrib, ' - ', subelem.text)
+
+# Expat parse
+def start_element(name, attrs):
+    print('Start element:', name, attrs)
+def end_element(name):
+    print('End element:', name)
+def char_data(data):
+    print('Character data:', repr(data))
+print('=== Expat')
+expatparser = expat.ParserCreate()
+expatparser.StartElementHandler = start_element
+expatparser.EndElementHandler = end_element
+expatparser.CharacterDataHandler = char_data
+expatparser.Parse(xml)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10554551)
+ According to http://foolish-assertions.blogspot.com/2009/12/spare-batteries-for-ironpython.html, you may be able to get  xml.dom.minidom  running (if the only missing part is  expat.py ): 
+
+  "Download FePy's https://fepy.svn.sourceforge.net/svnroot/fepy/trunk/lib/pyexpat.py, copy it to IronPython's Lib/xml/parsers subdirectory, and rename it to expat.py."  
+
+ Related: http://ironpython.codeplex.com/workitem/20023 
+
+
+

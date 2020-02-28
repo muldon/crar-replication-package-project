@@ -1,0 +1,246 @@
+Query: How to print container object with unicode-containing values?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8902032)
+ You could decode the  str  representation of your tuple with  'raw_unicode_escape' . 
+
+  In [25]: print str(x).decode('raw_unicode_escape')
+(u'abc/αβγ',)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16799274)
+ When you print a string, you get the output of the  __str__  method of the object - in this case the string without quotes. The  __str__  method of a list is different, it creates a string containing the opening and closing  []  and the string produced by the  __repr__  method of each object contained within. What you're seeing is the difference between  __str__  and  __repr__ . 
+
+ You can build your own string instead: 
+
+  print '[' + ','.join("'" + str(x) + "'" for x in s) + ']'
+  
+
+ This version should work on both Unicode and byte strings in Python 2: 
+
+  print u'[' + u','.join(u"'" + unicode(x) + u"'" for x in s) + u']'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20591978)
+ This is a difference between the  str  and the  repr  of a unicode object. The  repr  is intended to give an equivalent object if you paste it back into Python, and so it includes the  u ; the  str  is meant for human readability, and so it doesn't. The  str  and  repr  of strings are identical (they are just the same string).  
+
+ The relevant rules here for which one is used are: 
+
+ 
+ Mentioning a variable at the interpreter prompt echoes back its  repr  
+  print  uses the  str  
+  print a,z  prints the two objects separated by a space - it parses as  print (a), (z) . It uses the  str  of both 
+  print(a, z)  builds, and prints, a tuple containing the two objects.  print [a,z]  behaves similarly, except it builds and prints a list instead. In both cases,  print  uses the  str  of the container - which for both a tuple and a list uses the  repr  of its contents. 
+  print(a, str(z))  calls  str(z)  first, and puts its result in the tuple - and so the repr of  that string  gets used, rather than the repr of  z . 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8902246)
+ The following should be a good start: 
+
+  >>> x = (u'abc/αβγ',)
+>>> S = type('S', (unicode,), {'__repr__': lambda s: s.encode('utf-8')})
+>>> tuple(map(S, x))
+(abc/αβγ,)
+  
+
+ The idea is to make a subclass of unicode which has a  __repr__()  more to your liking. 
+
+ Still trying to figure out how best to surround the result in quotes, this works for your example: 
+
+  >>> S = type('S', (unicode,), {'__repr__': lambda s: "'%s'" % s.encode('utf-8')})
+>>> tuple(map(S, x))
+('abc/αβγ',)
+  
+
+ ... but it will look odd if there is a single quote in the string: 
+
+  >>> S("test'data")
+'test'data'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8902099)
+ I don't think so - the tuple's  __repr__()  is built-in, and AFAIK will just call the  __repr__  for each tuple item. In the case of unicode chars, you'll get the escape sequences. 
+
+ (Unless Gandaro's solution works for you - I couldn't get it to work in a plain python shell, but that could be either my locale settings, or that it's something special in ipython.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28465158)
+ You can use  ast.literal_eval , unpack each item accessing the tuple stored inside each list and print using https//docs.python.org/2/library/string.html#format-string-syntax 
+
+  from ast import literal_eval
+with open('list.log') as f
+    for line in f
+        a,b = literal_eval(line.rstrip())[0]
+        print("x = {}\ny = {}".format(a,b))
+x = 1
+y = 1
+x = 11
+y = 11
+x = 157
+y = 208
+x = 222
+y = 224
+x = 239
+y = 239
+x = 265
+y = 268   
+  
+
+ If you want to store a list of all tuples 
+
+   tups = [literal_eval(line.rstrip())[0] for line in f]
+ print(tups)
+ [(1, 1), (11, 11), (157, 208), (222, 224), (239, 239), (265, 268)]
+  
+
+ http//ast.literal_eval 
+
+  Safely evaluate an expression node or a Unicode or Latin-1 encoded string containing a Python literal or container display. The string or node provided may only consist of the following Python literal structures strings, numbers, tuples, lists, dicts, booleans, and None.  
+
+ doing it manually you would need to index 2-2 after stripping the newline, split on  ,  and  map  to int 
+
+   for line in f
+    a,b =(map(int,line.rstrip()[2-2].split(",")))
+    print("x = {}\ny = {}".format(a,b))
+  
+
+ Or use str.translate to remove the commas,parens etc.. 
+
+  with open('list.log') as f
+      for line in f
+        a,b = map(int,line.translate(None,"()[],").split())
+        print("x = {}\ny = {}".format(a,b))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13838041)
+ In strings (or Unicode objects in Python 2),  \u  has a special meaning, namely saying, "here comes a Unicode character specified by it's Unicode ID". Hence  u"\u0432"  will result in the character в. 
+
+ The  b''  prefix tells you this is a sequence of 8-bit bytes, and bytes object has no Unicode characters, so the  \u  code has no special meaning. Hence,  b"\u0432"  is just the sequence of the bytes  \ , u , 0 , 4 , 3  and  2 . 
+
+ Essentially you have an 8-bit string containing not a Unicode character, but the specification of a Unicode character. 
+
+ You can convert this specification using the unicode escape encoder. 
+
+  >>> c.decode('unicode_escape')
+'в'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4541029)
+ IMHO (my simple rules): 
+
+ 
+   
+    Should I do a:
+   print u'Some text' or just print 'Text'  ?  
+    Everything should be Unicode, does this mean, like say I have a tuple:
+   t = ('First', 'Second'), it should be t = (u'First', u'Second') ?  
+   
+ 
+
+ Well, I use unicode literals only when I have some char above ASCII 128: 
+
+     print 'New York', u'São Paulo'
+   t = ('New York', u'São Paulo')
+  
+
+ 
+   
+   When reading/ writing to a file, I should use the codecs module.  Or should I just use the standard way or reading/ writing and encode or decode where required? 
+   
+ 
+
+ If you expect unicode text, use codecs.     
+
+ 
+   
+   If I get the string from say raw_input(), should I convert that to Unicode also? 
+   
+ 
+
+ Only if you expect unicode text that may get transfered to another system with distinct default encoding (including databases). 
+
+ EDITED (about mixing unicode and byte strings): 
+
+  >>> print 'New York', 'to', u'São Paulo'
+New York to São Paulo
+>>> print 'New York' + ' to ' + u'São Paulo'
+New York to São Paulo
+>>> print "Côte d'Azur" + ' to ' + u'São Paulo'
+Traceback (most recent call last):
+  File "<interactive input>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 1: 
+     ordinal not in range(128)
+>>> print "Côte d'Azur".decode('utf-8') + ' to ' + u'São Paulo'
+Côte d'Azur to São Paulo
+  
+
+ So if you mix a byte string that contains utf-8 (or other non ascii char) with unicode text without explicit conversion, you will have trouble, because default assumes ascii. The other way arround seems to be safe. If you follow the rule of writing every string containing non-ascii as an unicode literal, you should be OK. 
+
+ DISCLAIMER: I live in Brazil where people speak Portuguese, a language with lots of non-ascii chars. My default encoding is always set to 'utf-8'. Your mileage may vary in English/ascii systems. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24571878)
+ The  u''  syntax  only works for string literals , e.g. defining values in source code. Using the syntax results in a  unicode  object being created, but that's not the only way to create such an object. 
+
+ You cannot make a  unicode  value from a byte string by adding  u  in front of it. But if you called  str.decode()  with the right encoding, you get a  unicode  value. Vice-versa, you can  encode   unicode  objects to byte strings with  unicode.encode() . 
+
+ Note that when displaying a  unicode  object, Python  represents  it by using the Unicode string literal syntax again (so  u'...' ), to ease debugging. You can paste the representation back in to a Python interpreter and get an object with the same value. 
+
+ Your  a  value is defined using a byte string literal, so you only need to decode: 
+
+  a = 'Entre\xc3\xa9'
+b = a.decode('utf8')
+  
+
+ Your first example created a http://en.wikipedia.org/wiki/Mojibake, a Unicode string containing Latin-1 codepoints that actually represent UTF-8 bytes. This is why you had to encode to Latin-1 first (to undo the Mojibake), then decode from UTF-8. 
+
+ You may want to read up on Python and Unicode in the https://docs.python.org/2/howto/unicode.html. Other articles of interest are: 
+
+ 
+  http://joelonsoftware.com/articles/Unicode.html by Joel Spolsky  
+  http://nedbatchelder.com/text/unipain.html by Ned Batchelder  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/41150897)
+ You may use https://docs.python.org/2/library/ast.html#ast.literal_eval as: 
+
+  >>> import ast
+>>> my_string = "[(1,1),(2,1)], 'add', 11"
+
+>>> ast.literal_eval(my_string)
+([(1, 1), (2, 1)], 'add', 11)
+  
+
+ As per the https://docs.python.org/2/library/ast.html#ast.literal_eval: 
+
+ 
+   Safely evaluate an expression node or a Unicode or Latin-1 encoded string containing a Python literal or container display. The string or node provided may only consist of the following Python literal structures: strings, numbers, tuples, lists, dicts, booleans, and None. 
+ 
+
+
+

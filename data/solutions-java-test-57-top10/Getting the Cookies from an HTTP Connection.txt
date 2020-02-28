@@ -1,0 +1,443 @@
+Query: Getting the Cookies from an HTTP Connection
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12539532)
+ The issue is not HTTPS. The problem is more or less a small mistake.   
+
+ To fix your issue you can simply replace  .response()  with  . .  
+
+  private void buscaJuizado(List<Movimentacao> movimentacoes) {
+  try {
+    Connection.Response res = Jsoup
+      .connect("https://projudi.tjpi.jus.br/projudi/publico/buscas/ProcessosParte?publico=true")
+      .userAgent("Mozilla/5.0 (Windows NT 6.1; rv:15.0) Gecko/20120716 Firefox/15.0a2")
+      .timeout(0)
+      .; // changed fron response()
+    cookies = res.cookies(); 
+    Document doc = get("https://projudi.tjpi.jus.br/projudi/listagens/DadosProcesso?numeroProcesso="+campo);
+    System.out.println(doc.body());
+  } catch (IOException ex) {
+    Logger.getLogger(ConsultaProcessoTJPi.class.getName()).log(Level.SEVERE, null, ex);
+  }
+}
+  
+
+  
+Overall you have to make sure you execute the request first. 
+  .response()  is useful to grab the  Connection.Response  object  after  the request has already been executed.  Obviously the  Connection.Response  object won't be very useful if you haven't executed the request.   
+
+ In fact if you were to try calling  res.body()  on the unexecuted response you would receive the following exception indicating the issue.   
+
+ 
+   java.lang.IllegalArgumentException: Request must be executed (with ., . .post() before getting response body 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8133462)
+ You get your cookies from  HttpResponse response : 
+
+  Header[] mCookies = response.getHeaders("cookie");
+  
+
+ and add them to your next request: 
+
+  HttpClient httpClient = new DefaultHttpClient();
+
+//parse name/value from mCookies[0]. If you have more than one cookie, a for cycle is needed.
+CookieStore cookieStore = new BasicCookieStore();
+Cookie cookie = new BasicClientCookie("name", "value");
+cookieStore.addCookie(cookie);
+
+HttpContext localContext = new BasicHttpContext();
+localContext.setAttribute(ClientContext.COOKIE_STORE, cookieStore);
+
+HttpGet httpGet = new HttpGet("http://www.domain.com/"); 
+
+HttpResponse response = httpClient.execute(httpGet, localContext);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23018218)
+ A cookie is just another HTTP header. You can always set it while making a HTTP call with the apache library or with HTTPUrlConnection. Either way you should be able to read and set HTTP cookies in this fashion.  
+
+ You can read http://android-developers.blogspot.in/2011/09/androids-http-clients.html for more information. 
+
+ I can share my peace of code to demonstrate how easy you can make it. 
+
+  public static String getServerResponseByHttpGet(String url, String token) {
+
+        try {
+            HttpClient client = new DefaultHttpClient();
+            HttpGet get = new HttpGet(url);
+            get.setHeader("Cookie", "PHPSESSID=" + token + ";");
+            Log.d(TAG, "Try to open => " + url);
+
+            HttpResponse httpResponse = client.execute(get);
+            int connectionStatusCode = httpResponse.getStatusLine().getStatusCode();
+            Log.d(TAG, "Connection code: " + connectionStatusCode + " for request: " + url);
+
+            HttpEntity entity = httpResponse.getEntity();
+            String serverResponse = EntityUtils.toString(entity);
+            Log.d(TAG, "Server response for request " + url + " => " + serverResponse);
+
+            if(!isStatusOk(connectionStatusCode))
+                return null;
+
+            return serverResponse;
+
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16150874)
+ Please check this URL from Google : http://developer.android.com/reference/java/net/HttpURLConnection.html 
+
+ It is ok to use the  openConnection()  method before setting your headers. Here are the steps from the documentation: 
+
+ 
+ Obtain a new HttpURLConnection by calling URL.openConnection() and casting the result to HttpURLConnection. 
+ Prepare the request. The primary property of a request is its URI. Request headers may also include metadata such as credentials, preferred content types, and session cookies. 
+ Optionally upload a request body. Instances must be configured with  setDoOutput(true)  if they include a request body. Transmit data by writing to the stream returned by  getOutputStream() . 
+ Read the response. Response headers typically include metadata such as the response body's content type and length, modified dates and session cookies. The response body may be read from the stream returned by  getInputStream() . If the response has no body, that method returns an empty stream. 
+ . Once the response body has been read, the  HttpURLConnection  should be closed by calling  disconnect() . ing releases the resources held by a connection so they may be closed or reused. 
+ 
+
+ However if the problem persists you can either try to debug you code and check the connection.connected private flag to see where it becomes true; I've experienced a similar problem after making a call to the  getContentType()  method. 
+
+ Otherwise you can just switch to HttpClient API: 
+
+    HttpClient httpclient = new DefaultHttpClient();
+
+    // Prepare a request object
+    HttpGet httpget = new HttpGet(url); 
+
+    // Execute the request
+    HttpResponse response;
+    try {
+        response = httpclient.execute(httpget);
+....
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21028994)
+ I used the answer above but changed my add method to the following to handle more than one cookie from the same URI (this cookie store with GAE was treating the session token and the remember token as two separate cookies from the same URI for some reason): 
+
+  public void add(URI uri, HttpCookie cookie) {
+
+
+    List<HttpCookie> cookies = mapCookies.get(uri);
+    if (cookies == null) {
+        cookies = new ArrayList<HttpCookie>();
+        mapCookies.put(uri, cookies);
+    }
+    cookies.add(cookie);
+
+    Editor ediWriter = spePreferences.edit();
+    HashSet<String> setCookies = new HashSet<String>();
+    setCookies.add(cookie.toString());
+    HashSet<String> emptyCookieSet = new HashSet<String>();
+    if(spePreferences.contains(uri.toString())){
+        emptyCookieSet = (HashSet<String>) spePreferences.getStringSet(uri.toString(), emptyCookieSet);
+        if(!emptyCookieSet.isEmpty()){
+            if(!emptyCookieSet.contains(cookie.toString())){
+            emptyCookieSet.add(cookie.toString());
+            ediWriter.putStringSet(uri.toString(), emptyCookieSet);
+            }
+        }
+    }
+    else{
+        ediWriter.putStringSet(uri.toString(), setCookies);
+    }
+    ediWriter.commit();
+} 
+  
+
+   
+
+  MyCookieStore store = new MyCookieStore(this.context, false);
+String cookie = TextUtils.join(",", store.get(new URI(URLString)));
+  
+
+ Attach to connection: 
+
+  URL urlToRequest = new URL(stringPath);
+HttpURLConnection urlConnection = (HttpURLConnection) urlToRequest.openConnection();
+urlConnection.setRequestProperty("Cookie", cookie); 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7206268)
+ Assuming that the HTML form look like below: 
+
+<pre class="lang-html prettyprint-override"> <form action="http://example.com/login" method="post">
+    <input type="text" name="username" />
+    <input type="password" name="password" />
+    <input type="submit" name="login" value="Login" />
+</form>
+  
+
+ You can POST it and obtain cookies as below: 
+
+  Response response = Jsoup.connect("http://example.com/login")
+    .method(Method.POST)
+    .data("username", username)
+    .data("password", password)
+    .data("login", "Login")
+    .execute();
+Map<String, String> cookies = response.cookies();
+Document document = response.parse(); // If necessary.
+// ...
+  
+
+ You can pass cookies back on subsequent requests as below: 
+
+  Document document = Jsoup.connect("http://example.com/user")
+    .cookies(cookies)
+    .get();
+// ...
+  
+
+ Or if you know the individual cookie name: 
+
+  Document document = Jsoup.connect("http://example.com/user")
+    .cookie("SESSIONID", cookies.get("SESSIONID"))
+    .get();
+// ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5921409)
+ You can use http://download.oracle.com/javase/6/docs/api/java/net/URLConnection.html for this. It offers a http://download.oracle.com/javase/6/docs/api/java/net/URLConnection.html#getHeaderFields%28%29 method to get the response headers. The cookies are set by  Set-Cookie  header. 
+
+  URLConnection connection = new URL("http://google.com").openConnection();
+List<String> cookies = connection.getHeaderFields().get("Set-Cookie");
+// ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36588678)
+ Since  Apache library is deprecated , for those who want to use  HttpURLConncetion  , I wrote this class to send Get and Post Request with the help of https://stackoverflow.com/a/16171708/2101822: 
+
+  public class WebService {
+
+static final String COOKIES_HEADER = "Set-Cookie";
+static final String COOKIE = "Cookie";
+
+static CookieManager msCookieManager = new CookieManager();
+
+private static int responseCode;
+
+public static String sendPost(String requestURL, String urlParameters) {
+
+    URL url;
+    String response = "";
+    try {
+        url = new URL(requestURL);
+
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setReadTimeout(15000);
+        conn.setConnectTimeout(15000);
+        conn.setRequestMethod("POST");
+
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+
+        if (msCookieManager.getCookieStore().getCookies().size() > 0) {
+            //While joining the Cookies, use ',' or ';' as needed. Most of the server are using ';'
+            conn.setRequestProperty(COOKIE ,
+                    TextUtils.join(";", msCookieManager.getCookieStore().getCookies()));
+        }
+
+        conn.setDoInput(true);
+        conn.setDoOutput(true);
+
+        OutputStream os = conn.getOutputStream();
+        BufferedWriter writer = new BufferedWriter(
+                new OutputStreamWriter(os, "UTF-8"));
+
+        if (urlParameters != null) {
+            writer.write(urlParameters);
+        }
+        writer.flush();
+        writer.close();
+        os.close();
+
+        Map<String, List<String>> headerFields = conn.getHeaderFields();
+        List<String> cookiesHeader = headerFields.get(COOKIES_HEADER);
+
+        if (cookiesHeader != null) {
+            for (String cookie : cookiesHeader) {
+                msCookieManager.getCookieStore().add(null, HttpCookie.parse(cookie).get(0));
+            }
+        }
+
+        setResponseCode(conn.getResponseCode());
+
+        if (getResponseCode() == HttpsURLConnection.HTTP_OK) {
+
+            String line;
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            while ((line = br.readLine()) != null) {
+                response += line;
+            }
+        } else {
+            response = "";
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+
+    return response;
+}
+
+
+// HTTP GET request
+public static String sendGet(String url) throws Exception {
+
+    URL obj = new URL(url);
+    HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+
+    // optional default is GET
+    con.setRequestMethod("GET");
+
+    //add request header 
+    con.setRequestProperty("User-Agent", "Mozilla");
+    /*
+    * https://stackoverflow.com/questions/16150089/how-to-handle-cookies-in-httpurlconnection-using-cookiemanager
+    * Get Cookies form cookieManager and load them to connection:
+     */
+    if (msCookieManager.getCookieStore().getCookies().size() > 0) {
+        //While joining the Cookies, use ',' or ';' as needed. Most of the server are using ';'
+        con.setRequestProperty(COOKIE ,
+                TextUtils.join(";", msCookieManager.getCookieStore().getCookies()));
+    }
+
+    /*
+    * https://stackoverflow.com/questions/16150089/how-to-handle-cookies-in-httpurlconnection-using-cookiemanager
+    * Get Cookies form response header and load them to cookieManager:
+     */
+    Map<String, List<String>> headerFields = con.getHeaderFields();
+    List<String> cookiesHeader = headerFields.get(COOKIES_HEADER);
+    if (cookiesHeader != null) {
+        for (String cookie : cookiesHeader) {
+            msCookieManager.getCookieStore().add(null, HttpCookie.parse(cookie).get(0));
+        }
+    }
+
+
+    int responseCode = con.getResponseCode();
+
+    BufferedReader in = new BufferedReader(
+            new InputStreamReader(con.getInputStream()));
+    String inputLine;
+    StringBuffer response = new StringBuffer();
+
+    while ((inputLine = in.readLine()) != null) {
+        response.append(inputLine);
+    }
+    in.close();
+
+    return response.toString();
+}
+
+public static void setResponseCode(int responseCode) {
+    WebService.responseCode = responseCode;
+    Log.i("Milad", "responseCode" + responseCode);
+}
+
+
+public static int getResponseCode() {
+    return responseCode;
+}
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16129860)
+ I always do this in two steps (like normal human), 
+
+ 
+ Read login page (by GET, read cookies) 
+ Submit form and cookies (by POST, without cookie manipulation) 
+ 
+
+ Example: 
+
+  Connection.Response response = Jsoup.connect("http://www.mikeportnoy.com/forum/login.aspx")
+        .method(Connection.Method.GET)
+        .execute();
+
+response = Jsoup.connect("http://www.mikeportnoy.com/forum/login.aspx")
+        .data("ctl00$ContentPlaceHolder1$ctl00$Login1$UserName", "username")
+        .data("ctl00$ContentPlaceHolder1$ctl00$Login1$Password", "password")
+        .cookies(response.cookies())
+        .method(Connection.Method.POST)
+        .execute();
+
+Document homePage = Jsoup.connect("http://www.mikeportnoy.com/forum/default.aspx")
+        .cookies(response.cookies())
+        .get();
+  
+
+ And always set cookies from previuos request to next using 
+
+           .cookies(response.cookies())
+  
+
+ SSL is not important here. If you have problem with certifcates then execute this method for ignore SSL. 
+
+  public static void trustEveryone() {
+    try {
+        HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        });
+
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(null, new X509TrustManager[]{new X509TrustManager() {
+            public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException { }
+
+            public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException { }
+
+            public X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[0];
+            }
+        }}, new SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(context.getSocketFactory());
+    } catch (Exception e) { // should never happen
+        e.printStackTrace();
+    }
+}
+  
+
+
+

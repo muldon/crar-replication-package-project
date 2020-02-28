@@ -1,0 +1,195 @@
+Query: Using a Python dict for a SQL INSERT statement
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39361069)
+ Always good answers here, but in Python 3, you should write the following: 
+
+  placeholder = ", ".join(["%s"] * len(dict))
+stmt = "insert into `{table}` ({columns}) values ({values});".format(table=table_name, columns=",".join(dict.keys()), values=placeholder)
+cur.execute(stmt, list(dict.values()))
+  
+
+ Don't forget to convert  dict.values()  to a list because in Python 3,  dict.values()  returns a view, not a list. 
+
+ Also, do  NOT  pour the  dict.values()  in  stmt  because it tears a quote out of a string by  join ing it, which caused MySQL error in inserting it. So you should always put it in  cur.execute()  dynamically. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9336427)
+ You want to add parameter placeholders to the query.  This might get you what you need: 
+
+  qmarks = ', '.join('?' * len(myDict))
+qry = "Insert Into Table (%s) Values (%s)" % (qmarks, qmarks)
+cursor.execute(qry, myDict.keys() + myDict.values())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54611514)
+ I used this thread for my usage and tried to keep it much simpler  
+
+  ins_qry = "INSERT INTO {tablename} ({columns}) VALUES {values};" .format(
+            tablename=my_tablename,
+            columns=', '.join(myDict.keys()),
+            values=tuple(myDict.values())
+        )
+cursor.execute(ins_qry)
+  
+
+ Make sure to commit the data inserted, either using  db_connection.commit()  and use  cursor.lastrowid , if you need the primary key of the inserted row 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14834646)
+ I think the comment on using this with MySQL is not quite complete. MySQLdb doesn't do parameter substitution in the columns, just the values (IIUC) - so maybe more like  
+
+  placeholders = ', '.join(['%s'] * len(myDict))
+columns = ', '.join(myDict.keys())
+sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (table, columns, placeholders)
+cursor.execute(sql, myDict.values())
+  
+
+ You're not getting escaping on the columns though, so you might want to check them first.... 
+
+ See http://mail.python.org/pipermail/tutor/2010-December/080701.html for a more complete solution 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38538171)
+ This solution doesn't use a 'join', but does combine the data from Python into SQL via a case statement. You could generate the sql you want in python (as a string) that includes these values in a giant case statement.   
+
+ You give no details, and don't say which version of Python, so it's hard to provide useful code.   But  This works with Python 2.7 and assumes you have some connection to the MySQL db in python:    
+
+  exchange_rates = {'EUR': 1.10, 'GBP': 1.31, ...} 
+
+# create a long set of case conditions as a string
+er_case_statement = "\n".join("mytable.currency = \"{0}\" then {1}".format(k,v) for (k,v) in exchange_rates.iteritems())
+
+# build the sql with these case statements
+sql = """select <some stuff>, 
+  case {0}
+  end as exchange_rate,
+  other columns
+  from tables etc
+  where etc
+""".format(er_case_statement)
+  
+
+ Then send this SQL to MySQL 
+
+ I don't like this solution; you end up with a very large SQL statement which can hit the maximum ( https://stackoverflow.com/questions/16335011/what-is-maximum-query-size-for-mysql ).    
+
+ Another idea is to use temporary tables in mysql.  Again assuming you are connecting to the db in python, with python create the sql that creates a temporary table and insert the exchange rates, send that to MySQL, then build a query that joins your data to that temporary table.    
+
+ Finally you say you don't want to post-process in python but you have a dict from somewhere do I don't know which environment you are using BUT if you can get these exchange rates from the web, say with CURL, then you could use shell to also insert these values into a MySQL temp table, and join there.    
+
+ sorry this is general and not specific, but the question could use more specificity.    Hope it helps someone else give a more targeted answer.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50070440)
+ You have a dictionary at hand, the  enumerate()  gives you the  index,key  of the dictionary, not the values of your dict. 
+
+  for id, p in enumerate(info):
+    format_str = """INSERT INTO asdf (id, description, data_value) VALUES ({id}, '{description}', '{data_value}');"""
+
+    # here are changes
+    sql_command = format_str.format(id=id, description=p, data_value=info[p])
+  
+
+ . 
+
+ Your indexing  p[0]  is the first char of your  key ,  p[1]  the second char. 
+ Replace it with  p  (full key) and  info[p]  (dict-access for value). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14108554)
+ If you're trying to use a  dict  to specify both the column names and the values, you can't do that, at least not directly. 
+
+ That's really inherent in SQL. If you don't specify the list of column names, you have to specify them in  CREATE TABLE  order—which you can't do with a  dict , because a  dict  has no order. If you really wanted to, of course, you could use a  collections.OrderedDict , make sure it's in the right order, and then just pass  values.values() . But at that point, why not just have a  list  (or  tuple ) in the first place? If you're absolutely sure you've got all the values, in the right order, and you want to refer to them by order rather than by name, what you have is a  list , not a  dict . 
+
+ And there's no way to bind column names (or table names, etc.) in SQL, just values. 
+
+ You can, of course, generate the SQL statement dynamically. For example: 
+
+  columns = ', '.join(values.keys())
+placeholders = ', '.join('?' * len(values))
+sql = 'INSERT INTO Media ({}) VALUES ({})'.format(columns, placeholders)
+cur.execute(sql, values.values())
+  
+
+ However, this is almost always a bad idea. This really isn't much better than generating and  exec ing dynamic Python code. And you've just lost all of the benefits of using placeholders in the first place—primarily protection from SQL injection attacks, but also less important things like faster compilation, better caching, etc. within the DB engine. 
+
+ It's probably better to step back and look at this problem from a higher level. For example, maybe you didn't really want a static list of properties, but rather a name-value  MediaProperties  table? Or, alternatively, maybe you want some kind of document-based storage (whether that's a high-powered nosql system, or just a bunch of JSON or YAML objects stored in a  shelve )? 
+
+ 
+
+ An alternative using http://docs.python.org/2.7/library/sqlite3.html#sqlite3.Cursor.execute: 
+
+  columns = ', '.join(my_dict.keys())
+placeholders = ':'+', :'.join(my_dict.keys())
+query = 'INSERT INTO my_table (%s) VALUES (%s)' % (columns, placeholders)
+print query
+cur.execute(query, my_dict)
+con.commit()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44530019)
+ I tried @furicle's solution but it still inputs everything as a string - if your dict is a mixed one then this may not work as you would want it to. I had a similar issue and this is what I came up with - this is only a query builder and you could use it (with changes) to work with any database of your choice. Have a look! 
+
+  def ins_query_maker(tablename, rowdict):
+keys = tuple(rowdict)
+dictsize = len(rowdict)
+sql = ''
+for i in range(dictsize) :
+    if(type(rowdict[keys[i]]).__name__ == 'str'):
+        sql += '\'' + str(rowdict[keys[i]]) + '\''
+    else:
+        sql += str(rowdict[keys[i]])
+    if(i< dictsize-1):
+        sql += ', '
+query = "insert into " + str(tablename) + " " + str(keys) + " values (" + sql + ")"
+print(query) # for demo purposes we do this
+return(query) #in real code we do this
+  
+
+ This is crude and still needs sanity checks, etc, but it works as intended.
+for a dict: 
+
+  tab = {'idnumber': 1, 'fname': 'some', 'lname': 'dude', 'dob': '15/08/1947', 'mobile': 5550000914, 'age' : 70.4}
+  
+
+ running the query I get the following output 
+
+ https://i.stack.imgur.com/QYKLu.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/28008569)
+ It turns out AUTOCOMMIT is set to OFF on Google Cloud SQL.  
+
+ All SQL inserts must be followed by a commit statement.  
+
+ For example:  
+
+  import MySQLdb
+db = mdb.connect(ip, login, pword)
+query = "insert into tbname (entity, attribute) VALUES('foo', 'bar')" 
+cursor = db.cursor()
+cursor.execute(query)
+db.commit()
+  
+
+
+

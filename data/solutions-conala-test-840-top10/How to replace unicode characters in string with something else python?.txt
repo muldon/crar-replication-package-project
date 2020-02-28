@@ -1,0 +1,222 @@
+Query: How to replace unicode characters in string with something else python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13093923)
+ Encode string as unicode. 
+
+  >>> special = u"\u2022"
+>>> abc = u'ABC•def'
+>>> abc.replace(special,'X')
+u'ABCXdef'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13093911)
+ 
+  Decode the string to Unicode. Assuming it's UTF-8-encoded: 
+
+  str.decode("utf-8")
+   
+  Call the  replace  method and be sure to pass it a Unicode string as its first argument: 
+
+  str.decode("utf-8").replace(u"\u2022", "*")
+   
+  Encode back to UTF-8, if needed: 
+
+  str.decode("utf-8").replace(u"\u2022", "*").encode("utf-8")
+   
+ 
+
+ (Fortunately, Python 3 puts a stop to this mess. Step 3 should really only be performed just prior to I/O. Also, mind you that calling a string  str  shadows the built-in type  str .) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1792657)
+ If all you want to do is preserve ASCII-compatible characters and throw away the rest, then in most encodings that boils down to removing all characters that have the  high bit  set -- i.e., characters with value over 127. This works because nearly all character sets are extensions of 7-bit ASCII. 
+
+ If it's a  normal  string (i.e., not  unicode ), you need to  decode  it in an arbitrary character set (such as  iso-8859-1  because it accepts any byte values) and then encode in ascii, using the  ignore  or  replace  option for errors: 
+
+  >>> orig = '1ä2äö3öü4ü'
+>>> orig.decode('iso-8859-1').encode('ascii', 'ignore')
+'1234'
+>>> orig.decode('iso-8859-1').encode('ascii', 'replace')
+'1??2????3????4??'
+  
+
+ The decode step is necessary because you need a  unicode  string in order to use encode. If you already have a Unicode string, it's simpler: 
+
+  >>> orig = u'1ä2äö3öü4ü'
+>>> orig.encode('ascii', 'ignore')
+'1234'
+>>> orig.encode('ascii', 'replace')
+'1??2????3????4??'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1792655)
+ You say "the encoding of it varies". I guess that by "it" you mean a Python 2.x "string", which is really a sequence of bytes. 
+
+ Answer part one: if you do not know the encoding of that encoded string, then  no , there is no way at all to do anything meaningful with it*. If you  do  know the encoding, then step one is to convert your  str  into a  unicode : 
+
+  encoded_string = i_have_no_control()
+the_encoding = 'utf-8' # for the sake of example
+text = unicode(encoded_string, the_encoding)
+  
+
+ Then you can re-encode your unicode object as ASCII, if you like. 
+
+  ascii_garbage = text.encode('ascii', 'replace')
+  
+
+ * There are heuristic methods for guessing encodings, but they are slow and unreliable. Here's http://chardet.feedparser.org/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20079244)
+ For  character  processing, use Unicode strings: 
+
+  PythonWin 3.3.0 (v3.3.0:bd8afb90ebf2, Sep 29 2012, 10:57:17) [MSC v.1600 64 bit (AMD64)] on win32.
+>>> s='ABC马克def'
+>>> import re
+>>> re.sub(r'[^\x00-\x7f]',r' ',s)   # Each char is a Unicode codepoint.
+'ABC  def'
+>>> b = s.encode('utf8')
+>>> re.sub(rb'[^\x00-\x7f]',rb' ',b) # Each char is a 3-byte UTF-8 sequence.
+b'ABC      def'
+  
+
+ But note you will still have a problem if your string contains decomposed Unicode characters (separate character and combining accent marks, for example): 
+
+  >>> s = 'mañana'
+>>> len(s)
+6
+>>> import unicodedata as ud
+>>> n=ud.normalize('NFD',s)
+>>> n
+'mañana'
+>>> len(n)
+7
+>>> re.sub(r'[^\x00-\x7f]',r' ',s) # single codepoint
+'ma ana'
+>>> re.sub(r'[^\x00-\x7f]',r' ',n) # only combining mark replaced
+'man ana'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43798145)
+  
+
+  import unicodedata
+print( unicodedata.name(u'\U0001f60d'))
+  
+
+ result is 
+
+  SMILING FACE WITH HEART-SHAPED EYES
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36091858)
+  EDIT  To replace multiple continuous newline characters  (\n)  to  ____ , this should do:   
+
+  >>> import re
+>>> i =  "(2 months)\n\nML"
+>>> re.sub(r'(\n+)=[A-Z])', r'____', i)
+'(2 months)____ML'
+  
+
+  =[A-Z])  is to assert "newline characters followed by Capital Letter". https://regex101.com/r/yO8qT2/1. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41557523)
+ Using  unicode_escape  
+
+  TL;DR  You can decode bytes using the  unicode_escape  encoding to convert  \xXX  and  \uXXXX  escape sequences to the corresponding characters: 
+
+  >>> r'\xc3\x85lesund'.encode('utf-8').decode('unicode_escape').encode('latin-1')
+b'\xc3\x85lesund'
+  
+
+ 
+
+ First, encode the string to bytes so it can be decoded: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8')
+b'\\xc3\\x85\xe3\x81\x82'
+  
+
+ (I changed the string to show that this process works even for characters outside of Latin-1.) 
+
+ Here's how each character is encoded (note that あ is encoded into multiple bytes): 
+
+ 
+  \  (U+005C) -> 0x5c 
+  x  (U+0078) -> 0x78 
+  c  (U+0063) -> 0x63 
+  3  (U+0033) -> 0x33 
+  \  (U+005C) -> 0x5c 
+  x  (U+0078) -> 0x78 
+  8  (U+0038) -> 0x38 
+  5  (U+0035) -> 0x35 
+  あ  (U+3042) -> 0xe3, 0x81, 0x82 
+ 
+
+ Next, decode the bytes as  unicode_escape  to replace each escape sequence with its corresponding character: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8').decode('unicode_escape')
+'Ã\x85ã\x81\x82'
+  
+
+ Each escape sequence is converted to a separate character; each byte that is not part of an escape sequence is converted to the character with the corresponding ordinal value: 
+
+ 
+  \\xc3  -> U+00C3 
+  \\x85  -> U+0085 
+  \xe3  -> U+00E3 
+  \x81  -> U+0081 
+  \x82  -> U+0082 
+ 
+
+ Finally, encode the string to bytes again: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8').decode('unicode_escape').encode('latin-1')
+b'\xc3\x85\xe3\x81\x82'
+  
+
+ Encoding as Latin-1 simply converts each character to its ordinal value: 
+
+ 
+ U+00C3 -> 0xc3 
+ U+0085 -> 0x85 
+ U+00E3 -> 0xe3 
+ U+0081 -> 0x81 
+ U+0082 -> 0x82 
+ 
+
+ And voilà, we have the byte sequence you're looking for. 
+
+ Using  codecs.escape_decode  
+
+ As an alternative, you can use the  codecs.escape_decode  method to interpret escape sequences in a bytes to bytes conversion, as https://stackoverflow.com/users/2626865/user19087 posted in https://stackoverflow.com/a/37059682 to a similar question: 
+
+  >>> import codecs
+>>> codecs.escape_decode(r'\xc3\x85lesund'.encode('utf-8'))[0]
+b'\xc3\x85lesund'
+  
+
+ However,  codecs.escape_decode  is undocumented, so I wouldn't recommend using it. 
+
+
+

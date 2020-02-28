@@ -1,0 +1,297 @@
+Query: convert URL query String to Map
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25299206)
+ In Spring Util there is a better way.. 
+
+  import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.util.concurrent.ListenableFuture;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
+
+MultiValueMap<String String> params = new LinkedMultiValueMap<String String>();
+params.add("key" key);
+params.add("storeId" storeId);
+params.add("orderId" orderId);
+UriComponents uriComponents =     UriComponentsBuilder.fromHttpUrl("http://spsenthil.com/order").queryParams(params).build();
+ListenableFuture<ResponseEntity<String>> responseFuture =     restTemplate.getForEntity(uriComponents.toUriString() String.class);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19449298)
+ Another 'one class'/no dependency way of doing it, handling single/multiple: 
+
+  import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+public class UrlQueryString {
+  private static final String DEFAULT_ENCODING = "UTF-8";
+
+  public static String buildQueryString(final LinkedHashMap<String, Object> map) {
+    try {
+      final Iterator<Map.Entry<String, Object>> it = map.entrySet().iterator();
+      final StringBuilder sb = new StringBuilder(map.size() * 8);
+      while (it.hasNext()) {
+        final Map.Entry<String, Object> entry = it.next();
+        final String key = entry.getKey();
+        if (key != null) {
+          sb.append(URLEncoder.encode(key, DEFAULT_ENCODING));
+          sb.append('=');
+          final Object value = entry.getValue();
+          final String valueAsString = value != null ? URLEncoder.encode(value.toString(), DEFAULT_ENCODING) : "";
+          sb.append(valueAsString);
+          if (it.hasNext()) {
+            sb.append('&');
+          }
+        } else {
+          // Do what you want...for example:
+          assert false : String.format("Null key in query map: %s", map.entrySet());
+        }
+      }
+      return sb.toString();
+    } catch (final UnsupportedEncodingException e) {
+      throw new UnsupportedOperationException(e);
+    }
+  }
+
+  public static String buildQueryStringMulti(final LinkedHashMap<String, List<Object>> map) {
+    try {
+      final StringBuilder sb = new StringBuilder(map.size() * 8);
+      for (final Iterator<Entry<String, List<Object>>> mapIterator = map.entrySet().iterator(); mapIterator.hasNext();) {
+        final Entry<String, List<Object>> entry = mapIterator.next();
+        final String key = entry.getKey();
+        if (key != null) {
+          final String keyEncoded = URLEncoder.encode(key, DEFAULT_ENCODING);
+          final List<Object> values = entry.getValue();
+          sb.append(keyEncoded);
+          sb.append('=');
+          if (values != null) {
+            for (final Iterator<Object> listIt = values.iterator(); listIt.hasNext();) {
+              final Object valueObject = listIt.next();
+              sb.append(valueObject != null ? URLEncoder.encode(valueObject.toString(), DEFAULT_ENCODING) : "");
+              if (listIt.hasNext()) {
+                sb.append('&');
+                sb.append(keyEncoded);
+                sb.append('=');
+              }
+            }
+          }
+          if (mapIterator.hasNext()) {
+            sb.append('&');
+          }
+        } else {
+          // Do what you want...for example:
+          assert false : String.format("Null key in query map: %s", map.entrySet());
+        }
+      }
+      return sb.toString();
+    } catch (final UnsupportedEncodingException e) {
+      throw new UnsupportedOperationException(e);
+    }
+  }
+
+  public static void main(final String[] args) {
+    // Examples: could be turned into unit tests ...
+    {
+      final LinkedHashMap<String, Object> queryItems = new LinkedHashMap<String, Object>();
+      queryItems.put("brand", "C&A");
+      queryItems.put("count", null);
+      queryItems.put("misc", 42);
+      final String buildQueryString = buildQueryString(queryItems);
+      System.out.println(buildQueryString);
+    }
+    {
+      final LinkedHashMap<String, List<Object>> queryItems = new LinkedHashMap<String, List<Object>>();
+      queryItems.put("usernames", new ArrayList<Object>(Arrays.asList(new String[] { "bob", "john" })));
+      queryItems.put("nullValue", null);
+      queryItems.put("misc", new ArrayList<Object>(Arrays.asList(new Integer[] { 1, 2, 3 })));
+      final String buildQueryString = buildQueryStringMulti(queryItems);
+      System.out.println(buildQueryString);
+    }
+  }
+}
+  
+
+ You may use either simple (easier to write in most cases) or multiple when required. Note that both can be combined by adding an ampersand...
+If you find any problems let me know in the comments. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7671650)
+ You can define a method mapToueryString by yourself as: 
+
+    StringBuilder sb = new StringBuilder();
+  for(HashMap.Entry<String, String> e : queryString.entrySet()){
+      if(sb.length() > 0){
+          sb.append('&');
+      }
+      sb.append(URLEncoder.encode(e.getKey(), "UTF-8")).append('=').append(URLEncoder.encode(e.getValue(), "UTF-8"));
+  }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30242274)
+ This is the solution I implemented, using Java 8 and  org.apache.http.client.URLEncodedUtils . It maps the entries of the map into a list of  BasicNameValuePair  and then uses Apache's  URLEncodedUtils  to turn that into a query string. 
+
+  List<BasicNameValuePair> nameValuePairs = params.entrySet().stream()
+   .map(entry -> new BasicNameValuePair(entry.getKey(), entry.getValue()))
+   .collect(Collectors.toList());
+
+URLEncodedUtils.format(nameValuePairs, Charset.forName("UTF-8"));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2810102)
+ Here's something that I quickly wrote; I'm sure it can be improved upon. 
+
+  import java.util.*;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+
+public class MapQuery {
+    static String urlEncodeUTF8(String s) {
+        try {
+            return URLEncoder.encode(s, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new UnsupportedOperationException(e);
+        }
+    }
+    static String urlEncodeUTF8(Map<?,?> map) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<?,?> entry : map.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append("&");
+            }
+            sb.append(String.format("%s=%s",
+                urlEncodeUTF8(entry.getKey().toString()),
+                urlEncodeUTF8(entry.getValue().toString())
+            ));
+        }
+        return sb.toString();       
+    }
+    public static void main(String[] args) {
+        Map<String,Object> map = new HashMap<String,Object>();
+        map.put("p1", 12);
+        map.put("p2", "cat");
+        map.put("p3", "a & b");         
+        System.out.println(urlEncodeUTF8(map));
+        // prints "p3=a+%26+b&p2=cat&p1=12"
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29213105)
+ I found a smooth solution using java 8 and polygenelubricants' solution. 
+
+  parameters.entrySet().stream()
+    .map(p -> urlEncodeUTF8(p.getKey()) + "=" + urlEncodeUTF8(p.getValue()))
+    .reduce((p1, p2) -> p1 + "&" + p2)
+    .orElse("");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52507321)
+ Why convert to  Map  then  MultiValueMap , instead of just building it directly? 
+
+  DateFormat dateFmt = new SimpleDateFormat("whatever date format you want");
+URIComponentsBuilder.fromHttpUrl("httpL//example.com")
+                    .queryParam("prop1", a.prop1)
+                    .queryParam("prop2", a.prop2)
+                    .queryParam("date1", dateFmt.format(a.date1))
+                    .queryParam("date2", dateFmt.format(a.date2))
+                    .queryParam("prop3", a.objB.prop3)
+                    .queryParam("prop4", a.objB.prop4)
+                    .build();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40355295)
+ Here's a method you can use in your code to convert a url string and map of parameters to a valid encoded url string containing the query parameters. 
+
+  String addQueryStringToUrlString(String url, final Map<Object, Object> parameters) throws UnsupportedEncodingException {
+    if (parameters == null) {
+        return url;
+    }
+
+    for (Map.Entry<Object, Object> parameter : parameters.entrySet()) {
+
+        final String encodedKey = URLEncoder.encode(parameter.getKey().toString(), "UTF-8");
+        final String encodedValue = URLEncoder.encode(parameter.getValue().toString(), "UTF-8");
+
+        if (!url.contains("?")) {
+            url += "?" + encodedKey + "=" + encodedValue;
+        } else {
+            url += "&" + encodedKey + "=" + encodedValue;
+        }
+    }
+
+    return url;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7671617)
+  public String mapToQueryString(Map<String, String> map) {
+    StringBuilder string = new StringBuilder();
+
+    if(map.size() > 0) {
+        string.append("?");
+    }
+
+    for(Entry<String, String> entry : map.entrySet()) {
+        string.append(entry.getKey());
+        string.append("=");
+        string.append(entry.getValue());
+        string.append("&");
+    }
+
+    return string.toString();
+}
+  
+
+ or use  URLEncodeUtils.format()  with  Collections2.transform(paramMap.entrySet(), function)  to transform. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44855441)
+ I wanted to build on @eclipse's answer using java 8 mapping and reducing. 
+
+  protected String formatQueryParams(Map<String, String> params) {
+  return params.entrySet().stream()
+      .map(p -> p.getKey() + "=" + p.getValue())
+      .reduce((p1, p2) -> p1 + "&" + p2)
+      .map(s -> "?" + s)
+      .orElse("");
+  
+
+  
+
+ The extra  map  operation takes the reduced string and puts a  ?  in front only if the string exists. 
+
+
+

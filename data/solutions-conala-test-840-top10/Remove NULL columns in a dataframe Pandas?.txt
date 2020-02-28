@@ -1,0 +1,346 @@
+Query: Remove NULL columns in a dataframe Pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10859883)
+ Yes,  dropna . See http://pandas.pydata.org/pandas-docs/stable/missing_data.html and the  DataFrame.dropna  docstring: 
+
+  Definition: DataFrame.dropna(self, axis=0, how='any', thresh=None, subset=None)
+Docstring:
+Return object with labels on given axis omitted where alternately any
+or all of the data are missing
+
+Parameters
+----------
+axis : {0, 1}
+how : {'any', 'all'}
+    any : if any NA values are present, drop that label
+    all : if all values are NA, drop that label
+thresh : int, default None
+    int value : require that many non-NA values
+subset : array-like
+    Labels along other axis to consider, e.g. if you are dropping rows
+    these would be a list of columns to include
+
+Returns
+-------
+dropped : DataFrame
+  
+
+ The specific command to run would be: 
+
+  df=df.dropna(axis=1,how='all')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47384615)
+  replace  +    dropna  
+
+  df.replace({'Null':np.nan}).dropna()
+Out[504]: 
+     Name  Participation Homework  Test Presentation  Attendance
+2  Carrie             82       99    96           89          92
+3  Simone            100       91    88           99          90
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47384568)
+ Preparation, let's replace that string 'Null' with np.nan first.  
+
+ Now, let's try this using  notnull ,  all  with axis=1: 
+
+  df[df.replace('Null',np.nan).notnull().all(1)]
+  
+
+ Output: 
+
+     Name  Participation Homework  Test Presentation  Attendance
+2  Carrie             82       99    96           89          92
+3  Simone            100       91    88           99          90
+  
+
+ Or using  isnull ,  any , and  ~ : 
+
+  df[~df.replace('Null',np.nan).isnull().any(1)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52442533)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.isna.html for checking missing values: 
+
+  print (df.isna())
+#print (df.isnull())
+       a      b      c
+1  False  False  False
+2  False  False  False
+3   True  False  False
+4  False   True  False
+  
+
+ And test if at least  True  per row by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.any.html: 
+
+  mask = df.isna().any(axis=1)
+#oldier pandas versions
+mask = df.isnull().any(axis=1)
+print (mask)
+1    False
+2    False
+3     True
+4     True
+dtype: bool
+  
+
+ Last filter by http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing -  ~  is for inverting boolean mask: 
+
+  df1 = df[~mask]
+df2 = df[mask]
+
+print (df1)
+     a    b  c
+1  foo  5.0  3
+2  bar  9.0  1
+
+print (df2)
+     a    b  c
+3  NaN  5.0  4
+4  foo  NaN  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43752249)
+    pandas    
+ Using  mask  +  fillna  +  assign   
+
+  d1 = df.mask(df == '')
+df.assign(sym=d1.e_id.fillna(d1.r_id)).dropna(subset=['sym'])
+
+  e_id r_id  sym
+0  101       101
+1       502  502
+2  103       103
+3       504  504
+4  105       105
+5       506  506
+  
+
+ 
+
+   How It Works     
+
+ 
+ I need to mask your  ''  values with the assumption that you meant those to be null 
+ By using  fillna  I take  e_id  if it's not null otherwise take  r_id  if it's not null 
+  dropna  with  subset=['sym']  only drops the row if the new column is null and that is only null if both  e_id  and  r_id  were null 
+ 
+
+ 
+
+    numpy    
+ Using  np.where  +  assign     
+
+  e = df.e_id.values
+r = df.r_id.values
+df.assign(
+    sym=np.where(
+        e != '', e,
+        np.where(r != '', r, np.nan)
+    )
+).dropna(subset=['sym'])
+
+  e_id r_id  sym
+0  101       101
+1       502  502
+2  103       103
+3       504  504
+4  105       105
+5       506  506
+  
+
+    numpy  v2   
+ Reconstruct the dataframe from values    
+
+  v = df.values
+m = (v != '').any(1)
+v = v[m]
+c1 = v[:, 0]
+c2 = v[:, 1]
+pd.DataFrame(
+    np.column_stack([v, np.where(c1 != '', c1, c2)]),
+    df.index[m], df.columns.tolist() + ['sym']
+)
+
+  e_id r_id  sym
+0  101       101
+1       502  502
+2  103       103
+3       504  504
+4  105       105
+5       506  506
+  
+
+ 
+
+        
+
+  %%timeit
+e = df.e_id.values
+r = df.r_id.values
+df.assign(sym=np.where(e != '', e, np.where(r != '', r, np.nan))).dropna(subset=['sym'])
+1000 loops, best of 3: 1.23 ms per loop
+
+%%timeit
+d1 = df.mask(df == '')
+df.assign(sym=d1.e_id.fillna(d1.r_id)).dropna(subset=['sym'])
+100 loops, best of 3: 2.44 ms per loop
+
+%%timeit
+v = df.values
+m = (v != '').any(1)
+v = v[m]
+c1 = v[:, 0]
+c2 = v[:, 1]
+pd.DataFrame(
+    np.column_stack([v, np.where(c1 != '', c1, c2)]),
+    df.index[m], df.columns.tolist() + ['sym']
+)
+1000 loops, best of 3: 204 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52502214)
+ Using  groupby  with  dropna   
+
+  for _, x in df.groupby(df.isnull().dot(df.columns)):
+      print(x.dropna(1))
+
+     a    b    c
+2  3.0  8.0  3.0
+3  4.0  9.0  2.0
+     b    c
+1  7.0  5.0
+     a
+0  1.0
+     a    b
+4  5.0  0.0
+  
+
+ We can save them in dict  
+
+  d = {y : x.dropna(1) for y, x in df.groupby(df.isnull().dot(df.columns))}
+  
+
+ More Info using the  dot  to get the null column , if they are same we should combine them together  
+
+  df.isnull().dot(df.columns)
+Out[1250]: 
+0    bc
+1     a
+2      
+3      
+4     c
+dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50531123)
+ You can iterate your dataframe to remove null columns and create a list of dictionaries. 
+
+ Then use the  json  module to write the list to a file. 
+
+  import pandas as pd
+import json
+
+df = pd.DataFrame([[np.nan, 4.0, np.nan, 1527237121263, np.nan],
+                   [np.nan, np.nan, np.nan, 1527237121264, 400.0]],
+                  columns=['speed', 'state', 'stop_trigger', 't', 'target_speed'])
+
+d = [dict(row.dropna()) for idx, row in df.iterrows()]
+
+with open('file.json', 'w') as fp:
+    json.dump(d, fp) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52799727)
+ This is a function I have in my pipeline to remove null columns.
+ 
+
+  # Function to drop the empty columns of a DF
+def dropNullColumns(df):
+    # A set of all the null values you can encounter
+    null_set = {"none", "null" , "nan"}
+    # Iterate over each column in the DF
+    for col in df.columns:
+        # Get the distinct values of the column
+        unique_val = df.select(col).distinct().collect()[0][0]
+        # See whether the unique value is only none/nan or null
+        if str(unique_val).lower() in null_set:
+            print("Dropping " + col + " because of all null values.")
+            df = df.drop(col)
+    return(df)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47384602)
+ You can skip the replace if you use  ne : 
+
+  df[df.ne('Null').all(1)]
+
+     Name  Participation Homework  Test Presentation  Attendance
+2  Carrie             82       99    96           89          92
+3  Simone            100       91    88           99          90
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48729015)
+ I think you need first remove column  Date , replace  null  to  NaN s and then call http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.last.html: 
+
+  d = {'PatientID': [1, 1, 1], 
+'Date': ['01/01/2018', '01/15/2018','01/20/2018'],
+'Height': ['Null', '178', 'Null'],
+'Weight': ['Null', '182', '190'],
+'O2 Level': ['95', '99', '92'],
+'BPS': ['120', 'Null', 'Null'],
+'DPS': ['80', 'Null', 'Null']}
+c = ['PatientID','Date','Height','Weight','O2 Level','BPS','DPS']
+df = pd.DataFrame(d, columns=c)
+print (df)
+   PatientID        Date Height Weight O2 Level   BPS   DPS
+0          1  01/01/2018   Null   Null       95   120    80
+1          1  01/15/2018    178    182       99  Null  Null
+2          1  01/20/2018   Null    190       92  Null  Null
+  
+
+ 
+
+  print (df.drop('Date', 1).replace('Null', np.nan))
+   PatientID Height Weight O2 Level  BPS  DPS
+0          1    NaN    NaN       95  120   80
+1          1    178    182       99  NaN  NaN
+2          1    NaN    190       92  NaN  NaN
+
+df = df.drop('Date', 1).replace('Null', np.nan).groupby('PatientID', as_index=False).last()
+print (df)
+   PatientID Height Weight O2 Level  BPS DPS
+0          1    178    190       92  120  80
+  
+
+
+

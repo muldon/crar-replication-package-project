@@ -1,0 +1,244 @@
+Query: getting the opposite diagonal of a numpy array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16114400)
+ There is  
+
+  In [47]: np.diag(np.fliplr(array))
+Out[47]: array([ 4,  8, 12, 16, 20])
+  
+
+  
+
+  In [48]: np.diag(np.rot90(array))
+Out[48]: array([ 4,  8, 12, 16, 20])
+  
+
+ Of the two,  np.diag(np.fliplr(array))  is faster: 
+
+  In [50]: %timeit np.diag(np.fliplr(array))
+100000 loops, best of 3: 4.29 us per loop
+
+In [51]: %timeit np.diag(np.rot90(array))
+100000 loops, best of 3: 6.09 us per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37770079)
+ I guess this will do it: 
+
+  In [29]: mm
+Out[29]:
+matrix([[0, 3, 6],
+        [0, 4, 9],
+        [0, 1, 9]])
+
+In [30]: np.fliplr(mm)
+Out[30]:
+matrix([[6, 3, 0],
+        [9, 4, 0],
+        [9, 1, 0]])
+
+In [31]: mm.diagonal()
+Out[31]: matrix([[0, 4, 9]])
+
+In [33]: np.fliplr(mm).diagonal()
+Out[33]: matrix([[6, 4, 0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16116486)
+ Here are two ideas: 
+
+  step = len(array) - 1
+
+# This will make a copy
+array.flat[step:-step:step]
+
+# This will make a veiw
+array.ravel()[step:-step:step]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37770293)
+ You can proceed as follows: 
+(1) reverse the matrix, (2) get the diagonal, (3) reverse the diagonal 
+
+  import numpy
+
+a = numpy.matrix([[0, 3, 6], [0, 4, 9], [0, 1, 9]])
+print(numpy.diag(a))
+print(numpy.diag(a[::-1])[::-1])
+  
+
+  output:  
+
+  [0 4 9]
+[6 4 0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37646313)
+ Here is an example of how to check whether opposite diagonals contain only  1 s, like in your case: 
+
+  In [52]: from scipy.sparse impt eye
+  
+
+ let's create a matrix with a opposite diagonal  
+
+  In [53]: a = np.fliplr(eye(5, 8, k=1).toarray())
+
+In [54]: a
+Out[54]:
+array([[ 0.,  0.,  0.,  0.,  0.,  0.,  1.,  0.],
+       [ 0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.],
+       [ 0.,  0.,  0.,  0.,  1.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  1.,  0.,  0.,  0.,  0.],
+       [ 0.,  0.,  1.,  0.,  0.,  0.,  0.,  0.]])
+  
+
+ Flip array in the left/right direction 
+
+  In [55]: f = np.fliplr(a)
+
+In [56]: f
+Out[56]:
+array([[ 0.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
+       [ 0.,  0.,  1.,  0.,  0.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  1.,  0.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  0.,  1.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.]])
+  
+
+ the same can be done: 
+
+  In [71]: a[::-1,:]
+Out[71]:
+array([[ 0.,  0.,  1.,  0.,  0.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  1.,  0.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  0.,  1.,  0.,  0.,  0.],
+       [ 0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.],
+       [ 0.,  0.,  0.,  0.,  0.,  0.,  1.,  0.]])
+  
+
+ get given diagonal 
+
+  In [57]: np.diag(f, k=1)
+Out[57]: array([ 1.,  1.,  1.,  1.,  1.])
+
+In [58]: np.diag(f, k=-1)
+Out[58]: array([ 0.,  0.,  0.,  0.])
+
+In [111]: a[::-1].diagonal(2)
+Out[111]: array([ 1.,  1.,  1.,  1.,  1.])
+  
+
+ check whether the whole diagonal contains  1 s 
+
+  In [61]: np.all(np.diag(f, k=1) == 1)
+Out[61]: True
+  
+
+  
+
+  In [64]: (np.diag(f, k=1) == 1).all()
+Out[64]: True
+
+In [65]: (np.diag(f, k=0) == 1).all()
+Out[65]: False
+  
+
+ https://stackoverflow.com/questions/6313308/get-all-the-diagonals-in-a-matrix-list-of-lists-in-python will help you to find all diagonals 
+
+ PS i'm a newbie in numpy, so i'm pretty sure there must be faster and me elegant solutions  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37770623)
+  In [240]: M=np.arange(9).reshape(3,3)
+  
+
+ The main diagonal is  M[i,j] for i==j , which we can get with advanced indexing with the same array for i and j  
+
+  In [241]: i=np.arange(3)
+
+In [242]: M[i,i]
+Out[242]: array([0, 4, 8])
+  
+
+ and by reversing the order of j, we get the other diagonal 
+
+  In [243]: M[i,i[::-1]]
+Out[243]: array([2, 4, 6])
+  
+
+ I suspect that for large arrays, reversing the index like this is faster than flipping the matrix.  But we'd have to do some timings to be sure. 
+
+ =========== 
+
+ Oops, I'm wrong.   M.diagonal()  is quite a bit faster than my explicit index.  For  N=1000 . 
+
+  In [259]: timeit M.diagonal();np.fliplr(M).diagonal()
+100000 loops, best of 3: 3.63 µs per loop
+
+In [260]: timeit i=np.arange(N);mm=M[i,i],M[i,i[::-1]]
+10000 loops, best of 3: 51.3 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32116638)
+ You will get these methods if you transform  d  to a  np.matrix , by doing: 
+
+  d = np.matrix(d)
+  
+
+  
+
+  d.I
+d.diagonal()
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48348867)
+ Use numpy's https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.diag.html function: 
+
+  numpy.diag(i)
+  
+
+ From the documentation: 
+
+ 
+   Extract a diagonal or construct a diagonal array. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15008655)
+ I am not aware of any direct solution. But why not just getting the eigenvalues and the eigenvectors of the first matrix, and using the eigenvectors to transform all other matrices to the diagonal form?  
+
+  eigvals, eigvecs = np.linalg.eig(matrix1)
+eigvals2 = np.diagonal(np.dot(np.dot(transpose(eigvecs), matrix2), eigvecs))
+  
+
+ You can the add the columns to an array via  hstack  if you like. 
+
+ UPDATE: As pointed out below, this is only valid if no degenerate eigenvalues occur. Otherwise one would have to check first for the degenerate eigenvalues, then transform the 2nd matrix to a  blockdiagonal  form, and diagonalize eventual blocks bigger than 1x1 separately. 
+
+
+

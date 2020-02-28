@@ -1,0 +1,182 @@
+Query: Python: How to get a value of datetime.today() that is "timezone aware"?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16660476)
+ Get the current time, in a specific timezone: 
+
+  import datetime
+import pytz
+my_date = datetime.datetime.now(pytz.timezone('US/Pacific'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29826090)
+ Why won't use dateutil as described here:
+http://joelinoff.com/blog/?p=802 
+
+  from dateutil.tz import tzlocal
+# Get the current date/time with the timezone.
+now = datetime.datetime.now(tzlocal())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25421145)
+ Here's a stdlib solution that works on both Python 2 and 3: 
+
+  from datetime import datetime
+
+now = datetime.now(utc) # timezone-aware datetime.utcnow()
+today = datetime(now.year, now.month, now.day, tzinfo=utc) # midnight
+  
+
+ where  today  is an aware datetime instance representing beginning of the day (midnight) in UTC and  utc  is a tzinfo object (https://docs.python.org/2/library/datetime.html#tzinfo-objects): 
+
+  from datetime import tzinfo, timedelta
+
+ZERO = timedelta(0)
+
+class UTC(tzinfo):
+    def utcoffset(self, dt):
+        return ZERO
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return ZERO
+
+utc = UTC()
+  
+
+ Related:  performance comparison of https://stackoverflow.com/a/33276464/4279. 
+Note: it is more complex, to https://stackoverflow.com/q/373370/4279. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14796941)
+ Another method to construct time zone aware datetime object representing current time: 
+
+  import datetime
+import pytz
+
+pytz.utc.localize( datetime.datetime.utcnow() )  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39168818)
+ In Python 3, the standard library makes it much easier to specify UTC as the timezone: 
+
+  >>> import datetime
+>>> datetime.datetime.now(datetime.timezone.utc)
+datetime.datetime(2016, 8, 26, 14, 34, 34, 74823, tzinfo=datetime.timezone.utc)
+  
+
+ If you want a solution that uses only the standard library and that works in both Python 2 and Python 3, see https://stackoverflow.com/a/25421145/247696. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49059780)
+ You can create a local  timezone  using  datetime  by parsing the output of a  time.strftime  call that uses the  %z  directive (introduced in Python 3.3), as https://stackoverflow.com/a/38454355/200234. You can use that  timezone  to create an aware  datetime  instance with a one-liner: 
+
+  import time
+from datetime import datetime
+
+aware_local_now = datetime.now(
+    tz=datetime.strptime(time.strftime("%z", time.localtime()), "%z").tzinfo)
+
+print(aware_local_now)
+2018-03-01 13:41:26.753644-08:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29951134)
+ Getting a timezone-aware date in  utc  timezone is enough for date subtraction to work.  
+
+ But if you want a timezone-aware date in your current time zone,  tzlocal  is the way to go: 
+
+  from tzlocal import get_localzone  # pip install tzlocal
+from datetime import datetime
+datetime.now(get_localzone())
+  
+
+ PS  dateutil  has a similar function ( dateutil.tz.tzlocal ). But inspite of sharing the name it has a completely different code base, which as https://stackoverflow.com/questions/13218506/how-to-get-system-timezone-setting-and-pass-it-to-pytz-timezone by J.F. Sebastian can give wrong results. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17825361)
+ If you are using Django, you can set dates non-tz aware (only utc). 
+
+  Comment  the following line in settings.py: 
+
+  USE_TZ = True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15642037)
+ Use  cst.localize  to make a naive datetime into a timezone-aware datetime. 
+
+ Then use  astimezone  to convert a timezone-aware datetime to another timezone. 
+
+  import pytz
+import datetime
+
+est = pytz.timezone('US/Eastern')
+cst = pytz.timezone('US/Central')
+curtime = cst.localize(datetime.datetime.now())
+curtime = curtime.astimezone(est)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38454355)
+ Here is one way to generate it with the stdlib: 
+
+  import time
+from datetime import datetime
+
+FORMAT='%Y-%m-%dT%H:%M:%S%z'
+date=datetime.strptime(time.strftime(FORMAT, time.localtime()),FORMAT)
+  
+
+  date  will store the local date and the  offset from UTC , not the date at UTC timezone, so you can use this solution if you need to identify  which timezone the date is generated at . In this example and in my local timezone: 
+
+  date
+datetime.datetime(2017, 8, 1, 12, 15, 44, tzinfo=datetime.timezone(datetime.timedelta(0, 7200)))
+
+date.tzname()
+'UTC+02:00'
+  
+
+ The key is adding the  %z  directive to the representation FORMAT, to indicate the UTC offset of the generated time struct. Other representation formats can be consulted in the datetime module https://docs.python.org/3.5/library/datetime.html#strftime-strptime-behavior 
+
+ If you need the date at the UTC timezone, you can replace  time.localtime()  with  time.gmtime()  
+
+  date=datetime.strptime(time.strftime(FORMAT, time.gmtime()),FORMAT)
+
+date    
+datetime.datetime(2017, 8, 1, 10, 23, 51, tzinfo=datetime.timezone.utc)
+
+date.tzname()
+'UTC'
+  
+
+  Edit  
+
+  This works only on python3 . The z directive is not available on python 2 https://github.com/python/cpython/blob/2.7/Lib/_strptime.py#L194 
+
+
+

@@ -1,0 +1,327 @@
+Query: Find array item in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5859089)
+ The simpler is  
+
+  import re
+regx = re.compile('[ ,;:!?.:]')
+
+string = 'I would like an apple.'
+search = ['apple','orange', 'banana']
+
+print any(x in regx.split(string) for x in search)
+  
+
+ EDIT 
+
+ Correction, after having read Sven's answer: evidently,  string  has to not be splited, stupid !  any(x in string for x in search)  works pretty well 
+
+ If you want no loop: 
+
+  import re
+regx = re.compile('[ ,;:!?.:]')
+
+string = 'I would like an apple.'
+search = ['apple','orange', 'banana']
+print regx.split(string)
+
+print set(regx.split(string)) & set(search)
+  
+
+  
+
+  set(['apple'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39547420)
+ I guess the main problem here is that the arrays and dicts also have commas in them, so just using  str.split(",")  wouldn't work. One way of doing it is to parse the string one character at a time, and keep track of whether all brackets are closed. If they are, we can append the current result to an array when we come across a comma. Here's my attempt: 
+
+  s = "variable, function1(1,3),function2([1,3],2),['list_item_1','list_item_2'],{'dict_key_1': 'dict_item_1'}"
+
+tokens = []
+current = ""
+open_brackets = 0
+
+for char in s:
+    current += char
+
+    if char in "({[":
+        open_brackets += 1
+    elif char in ")}]":
+        open_brackets -= 1
+    elif (char == ",") and (open_brackets == 0):
+        tokens.append(current[:-1].strip())
+        current = ""
+
+tokens.append(current)
+
+for t in tokens:
+    print(t)
+
+"""
+    variable
+    function1(1,3)
+    function2([1,3],2)
+    ['list_item_1','list_item_2']
+    {'dict_key_1': 'dict_item_1'}
+"""
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35276258)
+ Just use  .split(',')  to get country (last item) then find last space in the first item:   
+
+  >>> l = 'street number 2 35, California'.split(',')
+>>> index = l[0].rfind(' ')
+>>> l = [l[0][:index]] + [l[0][index+1:]]+ [l[1].strip()]
+>>> l
+['street number 2', '35', 'California']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52936870)
+ The simplest way is to use a list comprehension because it automatically generates the output list for you, which can be easily converted to a numpy array.  You could do this using multiple for loops, but then you are stuck creating your list, sub lists, and appending to them.  While not difficult, the code looks more elegant with list comprehensions.   
+
+   
+
+  newList = np.array([[int(b) for b in a] for a in example_list])
+  
+
+ newList now looks like this: 
+
+  >>> newList
+ ... [[0, 1, 0], [1, 0, 1]]
+  
+
+ Note: there is not need to invoke map at this point, though that certainly works.   
+
+   We are iterating through your original list of strings (example_list) item-by-item, then iterating through each character within the current item.  Functionally, this is equivalent to... 
+
+  newList = []
+
+for a in example_list:
+    tmpList = []
+    for b in a:
+        tmpList.append(int(b))
+    newList.append(tmpList)
+
+newList = np.array(newList)
+  
+
+ Personally, I find the multiple for loops to be easier to understand for beginners.  However, once you grasp the list comprehensions you probably won't want to go back.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5858943)
+ You could use a generator expression (which somehow  is  a loop) 
+
+  any(x in string for x in search)
+  
+
+ The generator expression is the part inside the parentheses. It creates an iterable that returns the value of  x in string  for each  x  in the tuple  search .  x in string  in turn returns whether  string  contains the substring  x . Finally, the Python built-in http://docs.python.org/library/functions.html#any iterates over the iterable it gets passed and returns if any of its items evaluate to  True . 
+
+ Alternatively, you could use a regular expression to avoid the loop: 
+
+  import re
+re.search("|".join(search), string)
+  
+
+ I would go for the first solution, since regular expressions have pitfalls (escaping etc.). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5860041)
+ Strings in Python are sequences, and you can do a quick membership test by just asking if one string exists inside of another:  
+
+  >>> mystr = "I'd like an apple"
+>>> 'apple' in mystr
+True
+  
+
+ Sven got it right in his first answer above. To check if any of several strings exist in some other string, you'd do: 
+
+  >>> ls = ['apple', 'orange']
+>>> any(x in mystr for x in ls)
+True
+  
+
+ Worth noting for future reference is that the built-in 'all()' function would return true only if  all  items in 'ls' were members of 'mystr':  
+
+  >>> ls = ['apple', 'orange']
+>>> all(x in mystr for x in ls)
+False
+>>> ls = ['apple', 'like']
+>>> all(x in mystr for x in ls)
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7451383)
+ Several suggestions on your code: 
+
+ Stripping all non-alphanumeric characters is totally unnecessary and timewasting; there is no need whatsoever to build  linelist . Are you aware you can simply use plain old  string.find("ArrayOf_xsd_string")  or  re.search(...) ? 
+
+ 
+ . I don't want any "\n", "[", "]", "{", "=", etc characters. 
+ find a section where it starts with "ArrayOf_xsd_string" 
+ remove the next line "item[] =" from the result 
+ 
+
+ Then as to your regex,  _  is already covered under  \W  anyway. But the following reassignment to line overwrites the line you just read?? 
+
+  for line in f:
+  line = re.compile('[\W_]+') # overwrites the line you just read??
+  line.sub('', string.printable)
+  
+
+ Here's my version, which reads the file directly, and also handles multiple matches: 
+
+  with open('data.txt', 'r') as f:
+    theDict = {}
+    found = -1
+    for (lineno,line) in enumerate(f):
+        if found < 0:
+            if line.find('ArrayOf_xsd_string')>=0:
+                found = lineno
+                entries = []
+            continue
+        # Grab following 6 lines...
+        if 2 <= (lineno-found) <= 6+1:
+            entry = line.strip(' ""{}[]=:,')
+            entries.append(entry)
+        #then create a dict with the key from line 5
+        if (lineno-found) == 6+1:
+            key = entries.pop(4)
+            theDict[key] = entries
+            print key, ','.join(entries) # comma-separated, no quotes
+            #break # if you want to end on first match
+            found = -1 # to process multiple matches
+  
+
+ And the output is exactly what you wanted (that's what ','.join(entries) was for): 
+
+  123456 001,ABCD,1234,wordy type stuff,more stuff, etc
+234567 002,ABCD,1234,wordy type stuff,more stuff, etc
+345678 003,ABCD,1234,wordy type stuff,more stuff, etc
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44683987)
+ You are splitting on an array element not a string.. so in this case you a split isn't going to work. There is nothing to split. Instead find the index and continue from there. Checkout https://www.tutorialspoint.com/python/python_lists.htm to learn more about python list 
+
+  l = ['today','is','a','holiday','but','nothing','to','do']
+# get the index of but
+i = l.index("but") # "This method returns index of the found object otherwise raise an exception indicating that value does not find."
+# print everything after "but" using slice logic.
+print l[i+1:]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31330904)
+ In  numpy  version  1.8.2 ,  np.any  and  np.all  behave as classic short circuit logical and/or functions.  LISP behavor comes to mind.  Python's  and  and  or  operators do this. 
+
+ Some examples: 
+
+  In [203]: np.all(np.array([[1,2],1,[],[1,2,3]],dtype=object))
+Out[203]: []
+
+In [204]: np.any(np.array([[1,2],1,[],[1,2,3]],dtype=object))
+Out[204]: [1, 2]
+
+In [205]: np.any(np.array([0,[],[1,2],1,[],[1,2,3]],dtype=object))
+Out[205]: [1, 2]
+
+In [206]: np.all(np.array([True,False,[1,2],1,[],[1,2,3]],dtype=object))
+Out[206]: False
+  
+
+  np.all  returns the first item that is logically False; else the last item.  np.any  the first item that is logically True; else the last item. 
+
+ In the LISP world this is regarded as a useful feature.  Not only does it stop evaluating elements as soon as the result is clear, but the identity of that return value can be used.   
+
+ Is there a way of replicating this behavior using the  and/or  operators and some sort of map or reduce? 
+
+  In [8]: 0 or [] or [1,2] or 1 or [1,2,3]
+Out[8]: [1, 2]
+
+???([0,[],[1,2],1,[1,2,3]])
+  
+
+ 
+
+ as suggested in the comment: 
+
+  In [26]: reduce(lambda a,b:a and b, np.array([1,2,3,[1,2,3]],dtype=object))
+Out[26]: [1, 2, 3]
+  
+
+ This might not actually short circuit the whole loop.  Rather it short circuits each step, and propagates that value forward.  Using  lambda a,b:b and a  returns the 1st item in the list, not the last.  Timings could be used to test whether it is looping through the whole array (or not). 
+
+ 
+
+  np.all  is a  ufunc  that is defined as  np.logical_and.reduce .   
+
+ https://github.com/numpy/numpy/blob/master/numpy/core/_methods.py 
+
+  umr_all = um.logical_and.reduce
+def _all(a, axis=None, dtype=None, out=None, keepdims=False):
+    return umr_all(a, axis, dtype, out, keepdims)
+  
+
+  logical_and  for dtype=object is defined in  c  source 
+
+ https://github.com/numpy/numpy/blob/master/numpy/core/src/umath/funcs.inc.src 
+
+  /* Emulates Python's 'a and b' behavior */
+static PyObject *
+npy_ObjectLogicalAnd(PyObject *i1, PyObject *i2)
+  
+
+ similarly for  np.any .  Numeric dtype versions are defined else where. 
+
+ There's a patch that forces  np.all/any  to return  dtype=bool .  But by calling  np.logical_all  directly you can control this yourself. 
+
+  In [304]: np.logical_or.reduce(np.array([0,[1,2,3],4],dtype=object))
+Out[304]: [1, 2, 3]
+
+In [305]: np.logical_or.reduce(np.array([0,[1,2,3],4],dtype=object),dtype=bool)
+Out[305]: True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29828757)
+ You can use  in1d()  and  nonzero()  to find the indices of the items in  Shop_Products : 
+
+  >>> np.in1d(Shop_Products, Shop_Query).nonzero()
+(array([1, 4]),)
+  
+
+ ( in1d  returns a boolean array indicating whether an item is in the second list,  nonzero  returns the indices of the  True  values.) 
+
+ To look up the corresponding values in  Shop_Inventory , use this result to index the array: 
+
+  >>> i = np.in1d(Shop_Products, Shop_Query).nonzero()
+>>> Shop_Inventory[i]
+array([6, 8])
+  
+
+
+

@@ -1,0 +1,132 @@
+Query: Fastest way to get the first object from a queryset in django?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3664958)
+ 
+   What's the best ,fastest way to get only first and last  
+ 
+
+ Let us see.  
+
+  customers = Customer.objects.filter(**conditions)
+first = customers.order_by('id')[0]
+last = customers.latest('id')
+  
+
+ Of course  if  you can come up with an SQL query to do this it could be executed using the http://docs.djangoproject.com/en/dev/topics/db/sql/#django.db.models.Manager.raw method.  
+
+  query = "<your query to get first and last>"
+Customer.objects.raw(query)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9567283)
+ If you plan to get first element often - you can extend QuerySet in this direction:  
+
+  class FirstQuerySet(models.query.QuerySet):
+    def first(self):
+        return self[0]
+
+
+class ManagerWithFirstQuery(models.Manager):
+    def get_query_set(self):
+        return FirstQuerySet(self.model)
+  
+
+ Define model like this:  
+
+  class MyModel(models.Model):
+    objects = ManagerWithFirstQuery()
+  
+
+ And use it like this: 
+
+   first_object = MyModel.objects.filter(x=100).first()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3665825)
+ Probably most pythonic way: 
+
+  myset = Customer.objects.filter(<something>).order_by(<something>)
+first, last = myset[0], myset.reverse()[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2141791)
+ See the http://docs.djangoproject.com/en/1.1/topics/db/queries/#updating-multiple-objects-at-once:   
+
+  Entry.objects.all().update(value= not F('value'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12415633)
+ You should use django methods, like exists. Its there for you to use it. 
+
+  if qs.exists():
+    return qs[0]
+return None
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39886328)
+ Now, in Django 1.9 you have  first()   method for querysets. 
+
+  YourModel.objects.all().first()
+  
+
+ This is a better way than  .get()  or  [0]  because it does not throw an exception if queryset is empty, Therafore, you don't need to check using  exists()  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5162274)
+ The correct answer is 
+
+  Entry.objects.all()[:1].get()
+  
+
+  Which can be used in:  
+
+  Entry.objects.filter()[:1].get()
+  
+
+ You wouldn't want to first turn it into a list because that would force a full database call of all the records. Just do the above and it will only pull the first. You could even use  .order_by  to ensure you get the first you want. 
+
+ Be sure to add the  .get()  or else you will get a QuerySet back and not an object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40910365)
+ You can find more info in https://docs.djangoproject.com/en/dev/ref/models/querysets/#exists:
+about  exists() ,but  exists()  works only for QuerySet 
+
+ 
+   Returns True if the QuerySet contains any results, and False if not. This tries to perform the query in the simplest and fastest way possible, but it does execute nearly the same query as a normal QuerySet query. 
+  
+   exists() is useful for searches relating to both object membership in a QuerySet and to the existence of any objects in a QuerySet, particularly in the context of a large QuerySet. 
+ 
+
+ But  ObjectDoesNotExist  works only with https://docs.djangoproject.com/en/1.10/ref/models/querysets/#django.db.models.query.QuerySet.get. 
+
+ Also you can try another approach: 
+
+  user = User.objects.filter(id=2)
+if user:
+    # put your logic
+    pass
+  
+
+
+

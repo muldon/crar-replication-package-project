@@ -1,0 +1,233 @@
+Query: how to turn a string of letters embedded in squared brackets into embedded lists
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33148867)
+  >>> import json
+>>> a = '[[a b] [c d]]'
+>>> a = ''.join(map(lambda x: '"{}"'.format(x) if x.isalpha() else x, a))
+>>> a
+'[["a" "b"] ["c" "d"]]'
+>>> json.loads(a.replace(' ', ','))
+[[u'a', u'b'], [u'c', u'd']]
+  
+
+ This will work with any degree of nested lists following the above pattern, e.g. 
+
+  >>> a = '[[[a b] [c d]] [[e f] [g h]]]'
+>>> ...
+>>> json.loads(a.replace(' ', ','))
+[[[u'a', u'b'], [u'c', u'd']], [[u'e', u'f'], [u'g', u'h']]]
+  
+
+ For the specific example of  '[[X v] -s]' : 
+
+  >>> import json
+>>> a = '[[X v] -s]'
+>>> a = ''.join(map(lambda x: '"{}"'.format(x) if x.isalpha() or x=='-' else x, a))
+>>> json.loads(a.replace('[ [', '[[').replace('] ]', ']]').replace(' ', ',').replace('][', '],[').replace('""',''))
+[[u'X', u'v'], u'-s']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33148163)
+ Use  isalpha  method of string to wrap all characters into brackets: 
+
+  a = '[[a b] [c d]]'
+
+a = ''.join(map(lambda x: '"{}"'.format(x) if x.isalpha() else x, a))
+  
+
+ Now  a  is: 
+
+  '[["a" "b"] ["c" "d"]]'
+  
+
+ And you can use  json.loads  (as @a_guest offered): 
+
+  json.loads(a.replace(' ', ','))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33148091)
+ You can use regex to find all items between brackets then split the result : 
+
+  >>> [i.split() for i in re.findall(r'\[([^\[\]]+)\]',a)]
+[['a', 'b'], ['c', 'd']]
+  
+
+ The regex  r'\[([^\[\]]+)\]'  will match anything between square brackets except square brackets,which in this case would be  'a b'  and  'c d'  then you can simply use a list comprehension to split the character. 
+
+ Note that this regex just works for the cases like this, which all the characters are between brackets,and for another cases you can write the corresponding regex, also not that the regex tick won't works in all cases . 
+
+  >>> a = '[[a b] [c d] [e g]]'
+>>> [i.split() for i in re.findall(r'\[([^\[\]]+)\]',a)]
+[['a', 'b'], ['c', 'd'], ['e', 'g']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42637098)
+ I'm not sure if you actually want to track the squares or if that was just part of your effort to get them printed. 
+
+ Assuming you did want to track the squares, a minor change would be: 
+
+ https://repl.it/GLmw 
+
+  nums = [12, 10, 32, 3, 66, 17, 42, 99, 20]
+for i in nums:
+    print(i)
+
+squared = [ ]
+
+for i in nums:
+    sqr = i * i
+    squared.append(sqr)
+    print("The square of {} is {}".format(i, sqr))
+  
+
+ This allows you to have the current square ready to work with without having to reference it from the array. 
+
+ If you really did mean to reference the squared value from the array, you'd use a negative index to fetch from the end of the array: 
+
+ https://repl.it/GLms 
+
+  nums = [12, 10, 32, 3, 66, 17, 42, 99, 20]
+for i in nums:
+    print(i)
+
+squared = [ ]
+
+for i in nums:
+    squared.append(i*i)
+    print("The square of {} is {}".format(i, squared[-1]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30499395)
+  
+
+  input = "{key1 value1} {key2 value2} {key3 {value with spaces}}"
+x = input.split("} {")             # creates list with keys and values
+y = [i.split(" {") for i in y]     # separates the list-values from keys
+# create final list with separated keys and values, removing brackets
+z = [[i.translate(None,"{").translate(None,"}").split() for i in j] for j in y]
+
+fin = {}
+for i in z:
+    fin[i[0][0]] = i[-1]
+  
+
+ It´s very hacky, but it should do the job. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51885132)
+ You want the string representation of each list minus the brackets joined by comma+linefeed, all wrapped in brackets. 
+
+ One line does it ( result  being your list of lists): 
+
+  print("[\n{}\n]".format(",\n".join([str(x).strip('[]') for x in result])))
+  
+
+ prints: 
+
+  [
+'3', 'cs2313', 'someone', 'cs231', 'IT networks', 'cs232', 'IT Workshop', 'cs233', 'IT programming',
+'5', 'ec3325', 'someone', 'ec301', 'Maths2', 'ec302', 'Theory of Circuits', 'ec303', 'PCB design',
+'7', 'cs4890', 'someone', 'cs401', 'Game Theory', 'cs402', 'Systems Programming', 'cs403', 'Automata',
+'1', 'ec1008', 'someone', 'ec101', 'Digitization', 'ec102', 'Analog cicuit design', 'ec103', 'IP Telephony',
+'3', 'cs2002', 'someone', 'cs231', 'IT networks', 'cs232', 'IT Workshop', 'cs233', 'IT programming',
+'3', 'cs2009', 'someone', 'cs231', 'IT networks', 'cs232', 'IT Workshop', 'cs233', 'IT programming'
+]
+  
+
+ The key parts are: 
+
+ 
+  str(x).strip('[]')  which creates/preserves the representation of each list, minus the brackets 
+  ",\n".join  which joins all lists with comma+linefeed 
+  "[\n{}\n]".format  that wraps the joined result into brackets+linefeeds
+(to write into a file, obviously replace  print  by  f.write ,  f  being a file handle) 
+ 
+
+ This solution doesn't support "indentation" for each line, but it's pretty easy if you change  ",\n".join  by  ",\n   ".join  and make up for the first element: 
+
+  print("[\n   {}\n]".format(",\n   ".join(str(x).strip('[]') for x in result)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33747428)
+ You can simply disregard everything between square brackets before searching for things in angle brackets: 
+
+  interm = re.sub(r'\[(.*?)\]', '', text)
+re.findall(r'<(.+?)>', interm)
+  
+
+ outputs 
+
+  ['inAngle', 'anotherInAngle']
+  
+
+ then for matching the first part, match everything up to  [  or  < . Granted this wont work if a string is allowed to randomly have either of these symbols unclosed embedded in the first part: 
+
+  re.findall(r'([^<\[]+)', text)[0]
+  
+
+ outputs 
+
+  some random string 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1276782)
+  
+
+  def ExtractAlphanumeric(InputString):
+    from string import ascii_letters, digits
+    return "".join([ch for ch in InputString if ch in (ascii_letters + digits)])
+  
+
+ This works by using list comprehension to produce a list of the characters in  InputString  if they are present in the combined  ascii_letters  and  digits  strings.  It then joins the list together into a string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14120702)
+ By putting square brackets around your generator, you tell Python to turn it into an actual list, in-memory. You don't really need  all  of the elements at once, do you? 
+
+ Instead, turn your square brackets into parentheses and Python will keep it a generator, which will yield items only when requested: 
+
+  >>> ("".join(item) for item in product(*[chars]*length))
+    <generator object <genexpr> at 0x2d9cb40>
+>>> ["".join(item) for item in product(*[chars]*length)]
+[1]    3245 killed     ipython2
+  
+
+ Take a look at the  string  module. It has a bunch of helpful constants: 
+
+  import string
+from itertools import product
+
+chars = string.letters + string.digits
+length = 8
+
+result = (''.join(item) for item in product(*[chars], repeat=length))
+
+for item in result:
+    print(item)
+  
+
+
+

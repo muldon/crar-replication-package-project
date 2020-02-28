@@ -1,0 +1,279 @@
+Query: What's the Pythonic way to combine two sequences into a dictionary?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48881972)
+ seperate this into logical functions: 
+
+ 
+ Find out which sequences start with the same element 
+ Find the common elements 
+ 
+
+ same start: 
+
+ Can be done easily with a  defaultdict  
+
+  from collections import defaultdict
+def same_start(sequences):
+    same_start = defaultdict(list)
+    for seq in sequences:
+        same_start[seq[0]].append(seq)
+    return same_start.values()
+  
+
+ 
+  list(same_start(sequences.values()))
+  
+ 
+
+  [[[1, 3, 5, 6, 8, 12, 15, 17, 18],
+  [1, 3, 5, 6, 9, 13, 14, 16, 19],
+  [1, 3, 5, 6, 9, 13, 14, 20, 25]],
+ [[0, 2, 4, 7, 11], [0, 2, 4, 10, 20]],
+ [[21, 23, 26]]]
+  
+
+ Find the common elements: 
+
+ a simple generator that yields values as long as they are all the same 
+
+  def get_beginning(sequences):
+    for values in zip(*sequences):
+        v0 = values[0]
+        if not all(i == v0 for i in values):
+            return
+        yield v0
+  
+
+ aggregating 
+
+  def aggregate(same_start):
+    for seq in same_start:
+        if len(seq) < 2:
+            yield  seq[0]
+            continue
+        start = list(get_beginning(seq))
+        yield start
+        yield from (i[len(start):] for i in seq)
+  
+
+ 
+  list(aggregate(same_start(sequences.values())))
+  
+ 
+
+  [[1, 3, 5, 6],
+ [8, 12, 15, 17, 18],
+ [9, 13, 14, 16, 19],
+ [9, 13, 14, 20, 25],
+ [0, 2, 4],
+ [7, 11],
+ [10, 20],
+ [21, 23, 26]]
+  
+
+ Further on 
+
+ If you want to combine sequences  18  and  25 , then you can do something like this 
+
+  def combine(sequences):
+    while True:
+        s = same_start(sequences)
+        if all(len(i) == 1 for i in s):
+            return sequences
+        sequences = tuple(aggregate(s))
+  
+
+ 
+  {i[-1]: i for i in combine(sequences.values())}
+  
+ 
+
+  {4: [0, 2, 4],
+ 6: [1, 3, 5, 6],
+ 11: [7, 11],
+ 14: [9, 13, 14],
+ 18: [8, 12, 15, 17, 18],
+ 19: [16, 19],
+ 20: [10, 20],
+ 25: [20, 25],
+ 26: [21, 23, 26]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27518315)
+ This is a little more convoluted, but you did ask for a 'pythonic-way' ;) 
+
+  newD = {k:round(v) for k, v in d.items()}
+  
+
+ However, this dictionary comprehension will only work on 2.7+. If using an older version of Python, try this more convoluted way: 
+
+  newD = dict(zip(d.keys(), [round(v) for v in d.values()]))
+  
+
+ Let me unpack this a little bit: 
+
+ 
+ We are beginning by reassigning the new dictionary ( d ) object back to a new dictionary as requested (although you could easily assign it to the same name) 
+ The outer  dict()  ensures the final result is a dictionary object 
+  zip()  returns a list of tuples, where the i-th tuple contains the i-th element from each of the argument sequences 
+ The first argument sequence given to  zip()  is the dictionary keys ( d.keys() ) 
+ The second argument sequence given to  zip()  is the rounded values after a list comprehension 
+ The list comprehension rounds each value in the dictionary values and returns a list of the rounded values 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37774144)
+ First join everything in the input list into  one  dictionary; that way you can use  zip()  to transform all values into rows, and re-combine that with the keys: 
+
+  try:
+   # use efficient Python 3 version in Python 2
+   from future_builtins import zip
+except ImportError:
+   # Python 3
+   pass
+
+combined = reduce(lambda d1, d2: dict(d1, **d2), inputlist)
+result = [dict(zip(combined, col)) for col in zip(*combined.values())]
+  
+
+ The https://docs.python.org/3/library/functions.html#zip pairs up elements from the input lists together, producing a tuple with all first elements, then all second, etc. The  *  in a  zip(*list_of_lists)  call applies all contained sequences (here all lists from the combined dictionary values) as separate arguments, which  zip()  then proceeds to pair up. In essence this transposes the rows to column sequences. 
+
+ Those column sequences are then re-combined with the keys (again using  zip()  to do the pairing) to form the output dictionaries. 
+
+  
+
+  >>> inputlist = [
+...     {'paramA': ['valA1','valA2','valA3','valA4']},
+...     {'paramB': ['valB1','valB2','valB3','valB4']},
+...     {'paramC': ['valC1','valC2','valC3','valC4']},
+...     # ...........................................,
+...     {'paramN': ['valN1', 'valN2','valN3','valN4']}]
+>>> combined = reduce(lambda d1, d2: dict(d1, **d2), inputlist)
+>>> [dict(zip(combined, col)) for col in zip(*combined.values())]
+[{'paramN': 'valN1', 'paramC': 'valC1', 'paramB': 'valB1', 'paramA': 'valA1'}, {'paramN': 'valN2', 'paramC': 'valC2', 'paramB': 'valB2', 'paramA': 'valA2'}, {'paramN': 'valN3', 'paramC': 'valC3', 'paramB': 'valB3', 'paramA': 'valA3'}, {'paramN': 'valN4', 'paramC': 'valC4', 'paramB': 'valB4', 'paramA': 'valA4'}]
+>>> from pprint import pprint
+>>> pprint(_)
+[{'paramA': 'valA1', 'paramB': 'valB1', 'paramC': 'valC1', 'paramN': 'valN1'},
+ {'paramA': 'valA2', 'paramB': 'valB2', 'paramC': 'valC2', 'paramN': 'valN2'},
+ {'paramA': 'valA3', 'paramB': 'valB3', 'paramC': 'valC3', 'paramN': 'valN3'},
+ {'paramA': 'valA4', 'paramB': 'valB4', 'paramC': 'valC4', 'paramN': 'valN4'}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47102108)
+ This will work 
+
+  from collections import defaultdict
+values = defaultdict(int)
+def combine(d, values):
+    for k, v in d.items():
+        values[k] += v
+
+for v in a.values():
+    combine(v, values)
+
+print(dict(values))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46838810)
+ Proposing for you a more Pythonic alternative by subclassing  defaultdict : 
+
+  from collections import defaultdict
+
+def make_items(n):
+    print('making {} items...'.format(n))
+    return range(n)
+
+class LazyDict(defaultdict):
+    def __missing__(self, k):
+        self[k] = make_items(k)
+        return self[k]
+
+sequences = LazyDict()
+  
+
+ It will only generate the values upon first use: 
+
+  >>> sequences = LazyDict()
+>>> sequences[10]
+making 10 items...
+range(0, 10)
+>>> sequences[10]
+range(0, 10)
+  
+
+ You can easily adapt the implementation of  __missing__  to raise  KeyError  if the key is not in  {'Sequence One', 'Sequence Two', 'Sequence Three'} . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/579928)
+ If  keys ' size may be larger then  values ' one then you could use http://docs.python.org/library/itertools.html#itertools.izip_longest (Python 2.6) which allows to specify a default value for the rest of the keys: 
+
+  from itertools import izip_longest
+
+def to_dict(keys, values, default=None):
+    return dict(izip_longest(keys, values, fillvalue=default))
+  
+
+ Example: 
+
+  >>> to_dict("abcdef", range(3), 10)
+{'a': 0, 'c': 2, 'b': 1, 'e': 10, 'd': 10, 'f': 10}
+  
+
+ NOTE:  itertools.izip*()  functions unlike the  zip()  function return iterators not lists. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13624432)
+ I'm assuming you mean that you want  {key1: value1, key2:value2, keyn:valuen} . That is, you want to combine all the separate dictionaries into a single one with each of the keys and values from the individual dictionaries. 
+
+ Here's how I'd do it, using a dictionary comprehension: 
+
+   l = [{"key1":"value1"},{"key2":"value2"},{"keyn":"valuen"}]
+ result = {k:v for d in l for k, v in d.iteritems()}
+
+ print result # {'key2': 'value2', 'key1': 'value1', 'keyn': 'valuen'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40684691)
+ That is just a simple for-loop: 
+
+  for k in original:
+    original[k].update(update.get(k, {}))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36749566)
+  frames  and  highcs  are the same length, you can use zip() to iterate them at once: 
+
+  for (f,frame), (h, highc) in zip(frames.items(), highcs.items()):
+    # do your work here
+  
+
+  zip()  
+
+ 
+   This function returns a list of tuples, where the i-th tuple contains the i-th element from each of the argument sequences or iterables.The returned list is truncated in length to the length of the shortest argument sequence. 
+ 
+
+
+

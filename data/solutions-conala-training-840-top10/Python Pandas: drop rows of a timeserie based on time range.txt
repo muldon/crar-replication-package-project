@@ -1,0 +1,288 @@
+Query: Python Pandas: drop rows of a timeserie based on time range
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41513366)
+   using  query      
+
+  df.query('index < @start_remove or index > @end_remove')
+  
+
+   using  loc      
+
+  df.loc[(df.index < start_remove) | (df.index > end_remove)]
+  
+
+   using date slicing     
+
+ This includes the end points 
+
+  pd.concat([df[:start_remove], df[end_remove:]])
+  
+
+  
+
+  pd.concat([df[:start_remove], df[end_remove:]]).drop([start_remove, end_remove])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41514027)
+ Another one to try.  Exclude the dates in the  date_range : 
+
+ Edit:  Added frequency to  date_range .  This is now the same as original data. 
+
+  dropThis = pd.date_range(start_remove,end_remove,freq='2h')
+df[~df.index.isin(dropThis)]
+  
+
+ We can see the rows are now dropped. 
+
+  len(df)
+169
+
+len(df[~pd.to_datetime(df.index).isin(dropThis)])
+120
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41625483)
+ use  groupby  with  pd.TimeGrouper  and list comprehensions 
+
+  weeks = [g for n, g in df.set_index('timestamp').groupby(pd.TimeGrouper('W'))]
+months = [g for n, g in df.set_index('timestamp').groupby(pd.TimeGrouper('M'))]
+  
+
+ 
+
+ You can reset the index if you need 
+
+  weeks = [g.reset_index()
+         for n, g in df.set_index('timestamp').groupby(pd.TimeGrouper('W'))]
+months = [g.reset_index()
+          for n, g in df.set_index('timestamp').groupby(pd.TimeGrouper('M'))]
+  
+
+ 
+
+ in a  dict  
+
+  weeks = {n: g.reset_index()
+         for n, g in df.set_index('timestamp').groupby(pd.TimeGrouper('W'))}
+months = {n: g.reset_index()
+          for n, g in df.set_index('timestamp').groupby(pd.TimeGrouper('M'))}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15703647)
+ Use slice to select the part you want: 
+
+  df[:-m]
+  
+
+ If you want to remove some middle rows, you can use  drop : 
+
+  df.drop(df.index[3:5])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52414488)
+ I will recommend  np.r_  
+
+  df.drop(np.r_[40:50+1])
+  
+
+ In case you want to drop two range at the same time  
+
+  np.r_[40:50+1,1:4+1]
+Out[719]: array([40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,  1,  2,  3,  4])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15703435)
+ This should work 
+
+  df.head(len(df) - m)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41514608)
+ An obscure method is to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.slice_indexer.html on your index by passing your start and end range, this will return a  Slice  object which you can use to index into your original index and then negate the values using  isin : 
+
+  In [20]:
+df.loc[~df.index.isin(df.index[df.index.slice_indexer(start_remove, end_remove)])]
+
+Out[20]:
+                     values
+timestamp                  
+2016-01-01 00:00:00       0
+2016-01-01 02:00:00      57
+2016-01-01 04:00:00      98
+2016-01-01 06:00:00      82
+2016-01-01 08:00:00      24
+2016-01-01 10:00:00       1
+2016-01-01 12:00:00      41
+2016-01-01 14:00:00      14
+2016-01-01 16:00:00      40
+2016-01-01 18:00:00      48
+2016-01-01 20:00:00      77
+2016-01-01 22:00:00      34
+2016-01-02 00:00:00      88
+2016-01-02 02:00:00      58
+2016-01-02 04:00:00      72
+2016-01-02 06:00:00      24
+2016-01-02 08:00:00      32
+2016-01-02 10:00:00      44
+2016-01-02 12:00:00      57
+2016-01-02 14:00:00      88
+2016-01-02 16:00:00      97
+2016-01-02 18:00:00      75
+2016-01-02 20:00:00      46
+2016-01-02 22:00:00      31
+2016-01-03 00:00:00      60
+2016-01-03 02:00:00      73
+2016-01-03 04:00:00      79
+2016-01-03 06:00:00      71
+2016-01-03 08:00:00      53
+2016-01-03 10:00:00      70
+...                     ...
+2016-01-12 14:00:00       5
+2016-01-12 16:00:00      42
+2016-01-12 18:00:00      17
+2016-01-12 20:00:00      94
+2016-01-12 22:00:00      63
+2016-01-13 00:00:00      63
+2016-01-13 02:00:00      50
+2016-01-13 04:00:00      44
+2016-01-13 06:00:00      35
+2016-01-13 08:00:00      59
+2016-01-13 10:00:00      53
+2016-01-13 12:00:00      16
+2016-01-13 14:00:00      68
+2016-01-13 16:00:00      66
+2016-01-13 18:00:00      56
+2016-01-13 20:00:00      18
+2016-01-13 22:00:00      59
+2016-01-14 00:00:00       8
+2016-01-14 02:00:00      60
+2016-01-14 04:00:00      52
+2016-01-14 06:00:00      87
+2016-01-14 08:00:00      31
+2016-01-14 10:00:00      91
+2016-01-14 12:00:00      64
+2016-01-14 14:00:00      53
+2016-01-14 16:00:00      47
+2016-01-14 18:00:00      87
+2016-01-14 20:00:00      47
+2016-01-14 22:00:00      27
+2016-01-15 00:00:00      28
+
+[120 rows x 1 columns]
+  
+
+ Here you can see that 49 rows were removed from the original df 
+
+  In [23]:
+df.index.slice_indexer(start_remove, end_remove)
+
+Out[23]:
+slice(36, 85, None)
+
+In [24]:
+df.index.isin(df.index[df.index.slice_indexer(start_remove, end_remove)])
+
+Out[24]:
+array([False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+        True,  True,  True,  True,  True,  True,  True,  True,  True,
+        True,  True,  True,  True,  True,  True,  True,  True,  True,
+        True,  True,  True,  True,  True,  True,  True,  True,  True,
+        True,  True,  True,  True,  True,  True,  True,  True,  True,
+        True,  True,  True,  True,  True,  True,  True,  True,  True,
+        True,  True,  True,  True, False, False, False, False, False,
+       ........
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False, False, False,
+       False, False, False, False, False, False, False], dtype=bool)
+  
+
+ and then invert the above using  ~  
+
+  Edit 
+Actually you can achieve this without  isin : 
+
+  df.loc[df.index.difference(df.index[df.index.slice_indexer(start_remove, end_remove)])]
+  
+
+ . 
+
+  Timings  
+
+ Interestingly this is also the fastest method: 
+
+  In [30]:
+%timeit df.loc[df.index.difference(df.index[df.index.slice_indexer(start_remove, end_remove)])]
+
+100 loops, best of 3: 4.05 ms per loop
+
+In [31]:    
+%timeit df.query('index < @start_remove or index > @end_remove')
+
+10 loops, best of 3: 15.2 ms per loop
+
+In [32]:    
+%timeit df.loc[(df.index < start_remove) | (df.index > end_remove)]
+
+100 loops, best of 3: 4.94 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41625184)
+ I would use group by for this, assume df stores the data 
+
+  df = df.set_index('timestamp')
+df.groupby(pd.TimeGrouper(freq='D'))
+  
+
+ then resulting groups would contain all the dataframes you are looking for.
+this answer is referenced here 
+
+ https://stackoverflow.com/questions/11073609/how-to-group-dataframe-by-a-period-of-time 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17913278)
+ You can also do:  
+
+ 
+﻿rng = pd.date_range('1/1/2000', periods=24, freq='H')
+ts = pd.Series(pd.np.random.randn(len(rng)), index=rng)
+ts.ix[datetime.time(10):datetime.time(14)]
+Out[4]: 
+2000-01-01 10:00:00   -0.363420
+2000-01-01 11:00:00   -0.979251
+2000-01-01 12:00:00   -0.896648
+2000-01-01 13:00:00   -0.051159
+2000-01-01 14:00:00   -0.449192
+Freq: H, dtype: float64
+ 
+
+ DataFrame works same way. 
+
+
+

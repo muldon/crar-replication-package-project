@@ -1,0 +1,218 @@
+Query: Pandas to_csv call is prepending a comma
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30605928)
+ Set  index=False  (the default is  True  hence why you see this output) so that it doesn't save the index values to your csv, see the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_csv.html#pandas.DataFrame.to_csv 
+
+ So this: 
+
+  df = pd.DataFrame({'a':np.arange(5), 'b':np.arange(5)})
+df.to_csv(r'c:\data\t.csv')
+  
+
+   
+
+  ,a,b
+0,0,0
+1,1,1
+2,2,2
+3,3,3
+4,4,4
+  
+
+  
+
+  df.to_csv(r'c:\data\t.csv', index=False)
+  
+
+  this: 
+
+  a,b
+0,0
+1,1
+2,2
+3,3
+4,4
+  
+
+ It's for the situation where you may have some index values you want to save 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24165638)
+ Fix the csv, then proceed normally: 
+
+  import csv
+with open('path/to/broken.csv', 'rb') as f, open('path/to/fixed.csv', 'wb') as g:
+    writer = csv.writer(g, delimiter=',')
+    for line in f:
+        row = line.split(',', 2)
+        writer.writerow(row)
+  
+
+ 
+
+  import pandas as pd
+df = pd.read_csv('path/to/fixed.csv')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43580802)
+ I think you need  skiprows=1 ,   skiprows=[0]  or  header=1  parameters in http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html: 
+
+  df = pd.read_csv(coeff_file, skiprows=1, index_col=0)
+print (df)
+             0         1         2         3         4
+0     0.008766  0.525190  0.528496  0.942286  0.037907
+1     0.434693  0.770179  0.008479  0.544319  0.858970
+2     0.978091  0.900800  0.504567  0.654995  0.397204
+3     0.671510  0.554713  0.377098  0.246977  0.535900
+5000  0.791782  0.702627  0.218776  0.198023  0.681779
+  
+
+ 
+
+  df = pd.read_csv(coeff_file, header=1, index_col=0)
+print (df)
+             0         1         2         3         4
+0     0.008766  0.525190  0.528496  0.942286  0.037907
+1     0.434693  0.770179  0.008479  0.544319  0.858970
+2     0.978091  0.900800  0.504567  0.654995  0.397204
+3     0.671510  0.554713  0.377098  0.246977  0.535900
+5000  0.791782  0.702627  0.218776  0.198023  0.681779
+  
+
+ 
+
+  df = pd.read_csv(StringIO(temp), skiprows=[0], index_col=0)
+print (df)
+             0         1         2         3         4
+0     0.008766  0.525190  0.528496  0.942286  0.037907
+1     0.434693  0.770179  0.008479  0.544319  0.858970
+2     0.978091  0.900800  0.504567  0.654995  0.397204
+3     0.671510  0.554713  0.377098  0.246977  0.535900
+5000  0.791782  0.702627  0.218776  0.198023  0.681779
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33790933)
+ When you call  pandas.read_csv , you can use a regular expression that matches zero or more spaces followed by a comma followed by zero or more spaces as the delimiter. 
+
+ For example, here's  "data.csv" : 
+
+  In [19]: !cat data.csv
+1.5, aaa,  bbb ,  ddd     , 10 ,  XXX   
+2.5, eee, fff  ,       ggg, 20 ,     YYY
+  
+
+ (The first line ends with three spaces after  XXX , while the second line ends at the last  Y .) 
+
+ The following uses  pandas.read_csv()  to read the files, with the regular expression  ' *, *'  as the delimiter.  (Using a regular expression as the delimiter is only available in the "python" engine of  read_csv() .) 
+
+  In [20]: import pandas as pd
+
+In [21]: df = pd.read_csv('data.csv', header=None, delimiter=' *, *', engine='python')
+
+In [22]: df
+Out[22]: 
+     0    1    2    3   4    5
+0  1.5  aaa  bbb  ddd  10  XXX
+1  2.5  eee  fff  ggg  20  YYY
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33524373)
+ For the file that is tab-separated, you should use: 
+
+  file = pd.read_csv(filename, sep="\t")
+  
+
+ Pandas  read_csv  has quite a lot of parameters, check it out in the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31700780)
+  pandas.read_csv  has a  decimal  parameter for this: http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html 
+
+ I.e. try with: 
+
+  df = pd.read_csv(Input, delimiter=";", decimal=",")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32743785)
+ Imagine we're reading your dataframe called  comma.csv : 
+
+  userid, username, body
+01, n1, 'string1, string2'
+  
+
+ One thing you can do is to specify the delimiter of the strings in the column with: 
+
+  df = pd.read_csv('comma.csv', quotechar="'")
+  
+
+ In this case strings delimited by  '  are considered as total, no matter commas inside them.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22655575)
+ It's not necessary to wrap  read_csv  in a  DataFrame  call, as it already returns a  DataFrame . 
+
+ If you want to change the index, you can use  set_index  or directly set the index: 
+
+  T1 = pd.read_csv(loggerfile, header = 2)
+T1.index = pd.DatetimeIndex(T1["1"])
+  
+
+ If you want to keep the column in the dataframe as a datetime (and not string): 
+
+  T1 = pd.read_csv(loggerfile, header = 2)
+T1["1"] = pd.DatetimeIndex(T1["1"])
+T2 = T1.set_index("1", drop=False)
+  
+
+ But even better, you can do this directly in http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html (assuming the column "1" is the first column): 
+
+  pd.read_csv(loggerfile, header=2, index_col=0, parse_dates=True)
+  
+
+ 
+
+ The reason it returns a DataFrame with  NaNs  is because the  DataFrame()  call with a DataFrame as input will do a  reindex  operation with the provided input. As none of the labels in  datetimeIdx  are in the original index of  T1  you get a dataframe with all NaNs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33524402)
+ You need to tell Pandas that the file is tab delimited when you import it. You can pass a delimiter to the read_csv method but in your case, since the delimiter changes by file, you want to pass None - this will make Pandas auto-detect the correct delimiter. 
+
+ Change your read_csv line to: 
+
+  pd.read_csv(filename,sep=None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/30059569)
+ One solution is to pass the  skipinitialspace  argument, to specify that all whitespace after the delimiter should be ignored: 
+
+  pd.read_csv('filename.txt', sep=",", header=1, na_values=["-999"], skipinitialspace=True)
+  
+
+ See the docstring of  read_csv  for all possible arguments: http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html 
+
+
+

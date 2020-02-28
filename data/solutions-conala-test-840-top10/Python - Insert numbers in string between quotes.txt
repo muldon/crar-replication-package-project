@@ -1,0 +1,139 @@
+Query: Python - Insert numbers in string between quotes
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36316177)
+ Capture the number in a group, re-insert the group: 
+
+  >>> import re
+>>> s = """{id: 'id_0_4', value: '8450223051', name: 'XAD3', parent: 'id_0'}, {id: 'id_0_5', value: '509071269', name: 'ABSD', parent: 'id_0'}"""
+>>> re.sub("'(\d+)'", r'\1', s)
+"{id: 'id_0_4', value: 8450223051, name: 'XAD3', parent: 'id_0'}, {id: 'id_0_5', value: 509071269, name: 'ABSD', parent: 'id_0'}"
+  
+
+ Or, if this must be specific to the number after 'value': 
+
+  >>> re.sub("(value:\s*)'(\d+)'", r'\1\2', s)
+"{id: 'id_0_4', value: 8450223051, name: 'XAD3', parent: 'id_0'}, {id: 'id_0_5', value: 509071269, name: 'ABSD', parent: 'id_0'}"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42365394)
+ You don't even need regular expressions for something this simple: 
+
+  >>> words = 'This is number 1 and this is number 22'
+>>> " ".join('"{}"'.format(x) if x.isdigit() else x for x in words.split())
+'This is number "1" and this is number "22"'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42365156)
+ You can use a backreference to the previously matched content in the replacement pattern. Syntax is  \g<Number> , where Number is the number of the captured group or 0 for the whole match. 
+
+ As you want to quote contiguous numbers as one and not number by number, you need to use   \d+  as pattern, not just  \d  
+
+ Full code: 
+
+  import re
+str = 'This is number 1 and this is number 22'
+pat = r'\d+'
+repl = r'"\g<0>"'
+print(re.sub(pat, repl, str))
+  
+
+ See http://ideone.com/x5uLte 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29965977)
+ You can read about it at: http://initd.org/psycopg/docs/usage.html#the-problem-with-the-query-parameters 
+
+ Simply do not use quotes in SQL and instead of  %  string Python operator use 2nd parameter of  execute()  which is data you want to pass to SQL query: 
+
+  sql = "insert into smth (data, filedate, filedby) values (%s, NOW(), %s)"
+ur_psql.execute(sql, (data, userid))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35965600)
+ You're probably getting a  UnicodeEncodeError  because you are trying to insert unicode strings containing non-ascii characters into a byte-string. 
+
+ To fix that, make sure your query string has a  u  prefix: 
+
+  tx.execute(u"""INSERT INTO numbers ('{0}')""".format(", ".join(item['numbers'])))
+  
+
+ If you really want to get get rid of those double-prime characters, I suppose you could just replace them with double-quotes: 
+
+  item['numbers'] = [s.replace(u'\u2033', '"') for s in item['numbers']]
+  
+
+ But I think it's better to ensure your code can handle whatever unicode characters are thrown at it - which is to say, you should  always  use unicode strings within your program. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18669097)
+ I would highly recommend using http://docs.python.org/2/library/string.html#string-formatting. 
+
+ I am not quite sure of the column data type in your mysql table, usually if it is a varchcar type I put single quotes around them and numbers without single quote. 
+
+  job_insert = "INSERT INTO f.job (customer, period, cost) VALUES ('{0}', {1}, {2});".format(job['customer'], job['period'], job['cost'])
+cursor.execute(job_insert)
+cursor.execute('commit')
+  
+
+ This would assume your customer column is varchar and period and cost are numeric (int, float.. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42365179)
+ You can use the  \1  construct to refer to matched groups. 
+
+  >>> re.sub(r"(\d+)", r'"\1"', "This is number 1 and this is number 22")
+'This is number "1" and this is number "22"'
+  
+
+ Note the use of raw strings (prefixed with r) to avoid having to escape the backslash – you should be using a raw string for the pattern to match as well, otherwise the  \d  may be interpreted as an escape in the future. 
+
+ In addition, the pattern  (\d+)  matches any number of digits in a row, rather than just one digit – without this, a string like  This is number "1" and this is number "2""2"  would be produced. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2439048)
+ You shouldn't use Python's string functions to build the SQL statement. You run the risk of leaving an SQL injection vulnerability.  
+
+  cur.execute('insert into tempPDBcode (PDBcode) values (%s);', s) 
+  
+
+ Note the comma. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24948330)
+ Do not use string formatting to insert query parameters into the query - this would make sql injections possible, you would have problems with characters that need to be escaped, with data type conversions etc. 
+
+ Eliminate the quotes around  ?  and continue using parameterized query parameters: 
+
+  cur.execute("SELECT * FROM DB WHERE employeeNum = ?", (empNum, ))
+  
+
+ The quotes around  ?  made sqlite interpret  ?  as a string, not a placeholder. 
+
+ Also see similar problem: 
+
+ 
+ https://stackoverflow.com/questions/1005552/sqlite-parameter-substitution-and-quotes 
+ 
+
+
+

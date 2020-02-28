@@ -1,0 +1,354 @@
+Query: Python: Logging TypeError: not all arguments converted during string formatting
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19841563)
+ Martijn's answer is correct, but if you prefer to use new style formatting with logging, it can be accomplished by subclassing Logger. 
+
+  import logging
+
+class LogRecord(logging.LogRecord):
+    def getMessage(self):
+        msg = self.msg
+        if self.args:
+            if isinstance(self.args, dict):
+                msg = msg.format(**self.args)
+            else:
+                msg = msg.format(*self.args)
+        return msg
+
+class Logger(logging.Logger):
+    def makeRecord(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None):
+        rv = LogRecord(name, level, fn, lno, msg, args, exc_info, func)
+        if extra is not None:
+            for key in extra:
+                rv.__dict__[key] = extra[key]
+        return rv
+  
+
+ Then just set the logging class: 
+
+  logging.setLoggerClass(Logger)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42823461)
+ Try  logging.setLogRecordFactory  in Python 3.2+: 
+
+  import collections
+import logging
+
+
+class _LogRecord(logging.LogRecord):
+
+    def getMessage(self):
+        msg = str(self.msg)
+        if self.args:
+            if isinstance(self.args, collections.Mapping):
+                msg = msg.format(**self.args)
+            else:
+                msg = msg.format(*self.args)
+        return msg
+
+
+logging.setLogRecordFactory(_LogRecord)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12843568)
+ You could do the formatting yourself: 
+
+  logging.info('date={}'.format(date))
+  
+
+ As was pointed out by Martijn Pieters, this will always run the string formatting, while using the logging module would cause the formatting to only be performed if the message is actually logged.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12843139)
+ You cannot use new-style formatting when using the logging module; use  %s  instead of  {} . 
+
+  logging.info('date=%s', date)
+  
+
+ The logging module uses the old-style  %  operator to format the log string. See the http://docs.python.org/library/logging.html#logging.Logger.debug for more detail. 
+
+ If you really want to use  str.format()  string formatting, consider using custom objects that apply the formatting 'late', when actually converted to a string: 
+
+  class BraceMessage(object):
+    def __init__(self, fmt, *args, **kwargs):
+        self.fmt = fmt
+        self.args = args
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return self.fmt.format(*self.args, **self.kwargs)
+
+__ = BraceMessage
+
+logging.info(__('date={}', date))
+  
+
+ This is an approach the https://docs.python.org/3/howto/logging-cookbook.html#using-custom-message-objects, and it happens to work on Python 2 too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38153450)
+ You could either use 
+
+  logging.debug('ATTEMPTS:%s', attempts)
+  
+
+  
+
+  logging.debug('ATTEMPTS:{0}'.fmat(attempts))
+  
+
+ The first method passes two parameters into the logging.debug function which will automatically fmat the log. The second method passes in a single pre-fmatted string into the logging.debug function. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13131690)
+  EDIT:  take a look at the https://stackoverflow.com/a/24683360/4279 unlike this answer; it allows to use alternative formatting styles without the boilerplate while calling logger's methods (debug(), info(), error(), etc). 
+
+ 
+
+ From the docs — http://docs.python.org/3/howto/logging-cookbook.html#use-of-alternative-formatting-styles: 
+
+ 
+   Logging calls (logger.debug(), logger.info() etc.) only take
+  positional parameters for the actual logging message itself, with
+  keyword parameters used only for determining options for how to handle
+  the actual logging call (e.g. the exc_info keyword parameter to
+  indicate that traceback information should be logged, or the extra
+  keyword parameter to indicate additional contextual information to be
+  added to the log). So you cannot directly make logging calls using
+  str.format() or string.Template syntax, because internally the logging
+  package uses %-formatting to merge the format string and the variable
+  arguments. There would no changing this while preserving backward
+  compatibility, since all logging calls which are out there in existing
+  code will be using %-format strings. 
+ 
+
+ And: 
+
+ 
+   There is, however, a way that you can use {}- and $- formatting to
+  construct your individual log messages. Recall that for a message you
+  can use an arbitrary object as a message format string, and that the
+  logging package will call str() on that object to get the actual
+  format string. 
+ 
+
+ Copy-paste this to  wherever  module: 
+
+  class BraceMessage(object):
+    def __init__(self, fmt, *args, **kwargs):
+        self.fmt = fmt
+        self.args = args
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return self.fmt.format(*self.args, **self.kwargs)
+  
+
+  
+
+  from wherever import BraceMessage as __
+
+log.debug(__('Message with {0} {name}', 2, name='placeholders'))
+  
+
+ Note: actual formatting is delayed until it is necessary e.g., if DEBUG messages are not logged then the formatting is not performed at all. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36294984)
+ As other answers mention, the brace-style formatting https://docs.python.org/3/howto/logging-cookbook.html#use-of-alternative-formatting-styles is only used on the format string, not the actual log messages. 
+
+ As of Python 3.5, there is no nice way to use brace-style formatting to log messages. 
+
+ However, as with most things in Python, there is a not-nice way. 
+
+ The following monkey-patches the  logging  module to create a  get_logger  function that will return a logger that uses the new-style formatting for every log record that it handles. 
+
+  import functools
+import logging
+import types
+
+def _get_message(record):
+    """Replacement for logging.LogRecord.getMessage
+    that uses the new-style string formatting for
+    it's messages"""
+    msg = str(record.msg)
+    args = record.args
+    if args:
+        if not isinstance(args, tuple):
+            args = (args,)
+        msg = msg.format(*args)
+    return msg
+
+def _handle_wrap(fcn):
+    """Wrap the handle function to replace the passed in
+    record's getMessage function before calling handle"""
+    @functools.wraps(fcn)
+    def handle(record):
+        record.getMessage = types.MethodType(_get_message, record)
+        return fcn(record)
+    return handle
+
+def get_logger(name=None):
+    """Get a logger instance that uses new-style string formatting"""
+    log = logging.getLogger(name)
+    if not hasattr(log, "_newstyle"):
+        log.handle = _handle_wrap(log.handle)
+    log._newstyle = True
+    return log
+  
+
+  
+
+  >>> log = get_logger()
+>>> log.warning("{!r}", log)
+<logging.RootLogger object at 0x4985a4d3987b>
+  
+
+ 
+
+ Notes: 
+
+ 
+ Will only affect specific loggers created by the  get_logger  function. 
+ If the logger is accessed again from a normal  logging.getLogger()  call, the new-style formatting will still apply 
+ kwargs are not supported 
+ Performance hit should be minimal (rewriting a single function pointer for each log message) 
+ The formatting of the message is delayed until it is output 
+ Doesn't stop the args from being stored on  logging.LogRecord  objects (useful in certain cases) 
+ From looking at the https://github.com/python/cpython/blob/master/Lib/logging/__init__.py it seems like it should work all the way back to Python 2.6 when https://docs.python.org/2.6/library/stdtypes.html#str.format was introduced (but was only tested on Python 3.5). 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44190696)
+ Here's something real simple that works: 
+
+  debug_logger: logging.Logger = logging.getLogger("app.debug")
+
+def mydebuglog(msg: str, *args, **kwargs):
+    if debug_logger.isEnabledFor(logging.DEBUG):
+        debug_logger.debug(msg.format(*args, **kwargs))
+  
+
+  
+
+  mydebuglog("hello {} {val}", "Python", val="World")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26003573)
+
+
+ Here is another option that does not have the keyword problems mentioned in Dunes' answer. It can only handle positional ( {0} ) arguments and not keyword ( {foo} ) arguments. It also does not require two calls to format (using the underscore). It does have the ick-factor of subclassing  str : 
+
+<pre class="lang-py prettyprint-override"> class BraceString(str):
+    def __mod__(self, other):
+        return self.format(*other)
+    def __str__(self):
+        return self
+
+
+class StyleAdapter(logging.LoggerAdapter):
+
+    def __init__(self, logger, extra=None):
+        super(StyleAdapter, self).__init__(logger, extra)
+
+    def process(self, msg, kwargs):
+        if kwargs.pop('style', "%") == "{":  # optional
+            msg = BraceString(msg)
+        return msg, kwargs
+  
+
+ You use it like this: 
+
+<pre class="lang-py prettyprint-override"> logger = StyleAdapter(logging.getLogger(__name__))
+logger.info("knights:{0}", "ni", style="{")
+logger.info("knights:{}", "shrubbery", style="{")
+  
+
+ Of course, you can remove the check noted with  # optional  to force all messages through the adapter to use new-style formatting. 
+
+ 
+
+  Note for anyone reading this answer years later : Starting with  Python 3.2 , you can https://docs.python.org/3.2/howto/logging-cookbook.html#use-of-alternative-formatting-styles with  Formatter  objects: 
+
+ 
+   Logging (as of 3.2) provides improved support for these two additional formatting styles. The 
+  Formatter class been enhanced to take an additional, optional keyword parameter named  style . This 
+  defaults to  '%' , but other possible values are  '{'  and  '$' , which correspond to the other two 
+  formatting styles. Backwards compatibility is maintained by default (as you would expect), but by 
+  explicitly specifying a style parameter, you get the ability to specify format strings which work 
+  with https://docs.python.org/3.2/library/stdtypes.html#str.format or 
+  https://docs.python.org/3.2/library/string.html#string.Template.  
+ 
+
+ The docs provide the example
+ logging.Formatter('{asctime} {name} {levelname:8s} {message}', style='{')  
+
+ Note that in this case you still can't call the  logger  with the new format. I.e., the following still won't work: 
+
+<pre class="lang-py prettyprint-override"> logger.info("knights:{say}", say="ni")  # Doesn't work!
+logger.info("knights:{0}", "ni")  # Doesn't work either
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/24683360)
+ This was my solution to the problem when I found logging only uses printf style formatting. It allows logging calls to remain the same -- no special syntax such as  log.info(__("val is {}", "x")) . The change required to code is to wrap the logger in a  StyleAdapter . 
+
+  from inspect import getargspec
+
+class BraceMessage(object):
+    def __init__(self, fmt, args, kwargs):
+        self.fmt = fmt
+        self.args = args
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return str(self.fmt).format(*self.args, **self.kwargs)
+
+class StyleAdapter(logging.LoggerAdapter):
+    def __init__(self, logger):
+        self.logger = logger
+
+    def log(self, level, msg, *args, **kwargs):
+        if self.isEnabledFor(level):
+            msg, log_kwargs = self.process(msg, kwargs)
+            self.logger._log(level, BraceMessage(msg, args, kwargs), (), 
+                    **log_kwargs)
+
+    def process(self, msg, kwargs):
+        return msg, {key: kwargs[key] 
+                for key in getargspec(self.logger._log).args[1:] if key in kwargs}
+  
+
+ Usage is: 
+
+  log = StyleAdapter(logging.getLogger(__name__))
+log.info("a log message using {type} substiution", type="brace")
+  
+
+ It's worth noting that this implementation has problems if key words used for brace substitution include  level ,  msg ,  args ,  exc_info ,  extra  or  stack_info . These are argument names used by the  log  method of  Logger . If you need to one of these names then modify  process  to exclude these names or just remove  log_kwargs  from the  _log  call. On a further note, this implementation also silently ignores misspelled keywords meant for the Logger (eg.  ectra ). 
+
+
+

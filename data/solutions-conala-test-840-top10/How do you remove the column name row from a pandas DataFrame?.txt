@@ -1,0 +1,262 @@
+Query: How do you remove the column name row from a pandas DataFrame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/43417334)
+ If you are only given that DataFrame and can't change how it is constructed you can call http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html#pandas.DataFrame.reset_index to extract the index into a column: 
+
+  In [13]: df = pd.DataFrame(data={
+    ...:     'asc': [['XM', 'NM', 'XM'], ['NM', 'XM'], ['NM', 'NM', 'NM'], ['NM']],
+    ...:     'sym': [{'CP', 'BT', 'MF'}, {'BC', 'CP'}, {'NT', 'IF', 'NT5'}, {'BA'}],
+    ...: }, index=[('A', 'A'), ('A', 'C'), ('A', 'G'), ('A', 'U')])
+
+In [14]: df
+Out[14]:
+                 asc            sym
+(A, A)  [XM, NM, XM]   {BT, CP, MF}
+(A, C)      [NM, XM]       {CP, BC}
+(A, G)  [NM, NM, NM]  {NT, NT5, IF}
+(A, U)          [NM]           {BA}
+
+In [15]: df.reset_index(drop=False)
+Out[15]:
+    index           asc            sym
+0  (A, A)  [XM, NM, XM]   {BT, CP, MF}
+1  (A, C)      [NM, XM]       {CP, BC}
+2  (A, G)  [NM, NM, NM]  {NT, NT5, IF}
+3  (A, U)          [NM]           {BA}
+  
+
+ To remove that index entirely you would use  drop=True . The name can be changed by first naming the index with  df.index.name = 'some_name' . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35193818)
+ It is no empty row. Try remove  index.name  by  df.index.name=None  and no empty row.  If you http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html from column with  name ,  index.name  is column name like  index  in this sample. 
+
+  import pandas as pd
+
+data = [('index', 'name', 'age'), 
+        ('idx01', 'John', 23), 
+        ('idx02', 'Marc', 32), 
+        ('idx03', 'Helena', 12)]
+
+columns = data.pop(0)
+df = pd.DataFrame(data, columns=columns).set_index(columns[0])
+print(df)
+         name  age
+index             
+idx01    John   23
+idx02    Marc   32
+idx03  Helena   12
+
+df.index.name=None
+print(df)
+         name  age
+idx01    John   23
+idx02    Marc   32
+idx03  Helena   12
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43136765)
+  df = pd.DataFrame([['Jhon',15,'A'],['Anna',19,'B'],['Paul',25,'D']])
+df. columns = ['Name','Age','Grade']
+
+df
+Out[472]: 
+   Name  Age Grade
+0  Jhon   15     A
+1  Anna   19     B
+2  Paul   25     D
+  
+
+ You can get the index of your row: 
+
+  i = df[((df.Name == 'jhon') &( df.Age == 15) & (df.Grade == 'A'))].index
+  
+
+ and then drop it: 
+
+  df.drop(i)
+Out[474]: 
+   Name  Age Grade
+1  Anna   19     B
+2  Paul   25     D
+  
+
+ As @jezrael pointed our, you can also just negate all three: 
+
+  df[((df.Name != 'jhon') &( df.Age != 15) & (df.Grade != 'A'))]
+Out[477]: 
+   Name  Age Grade
+1  Anna   19     B
+2  Paul   25     D
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51374150)
+ DataFrame dropna() method will drop entire row if any value in the row is missing. 
+
+  df1 = df.dropna()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19781773)
+ Figured out a way to do this: 
+
+  df.to_csv('filename.csv', header = False)
+  
+
+ This tells pandas to write a csv file without the header. You can do the same with df.to_excel. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42894501)
+ I'm assuming that you aren't just trying to remove the model name, but also remove everything before the name. 
+
+ The code below accomplishes what you want: 
+
+  import pandas as pd
+
+df = pd.DataFrame( {'A':['Ford', 'Toyota', 'Ford'], 
+                    'B':['Ford F-Series pickup', 'Toyota Camry', 'Ford Taurus/Taurus X']} )
+
+df['C'] = df.apply(lambda x: x['B'].split(x['A'], 1), axis=1)['B']
+print(df)
+  
+
+  
+
+          A                     B                 C
+0    Ford  Ford F-Series pickup   F-Series pickup
+1  Toyota          Toyota Camry             Camry
+2    Ford  Ford Taurus/Taurus X   Taurus/Taurus X
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53675380)
+ Using  re  package to remove the undesired redundant string and  apply  function to rows in pandas  DataFrame  should do the work. 
+
+ In below code you can see a possible solution: 
+
+  import pandas as pd
+import re
+
+def removeReduntantData(row):
+    if row["strength"] is not None:
+        string = row["strength"].replace(" ", "\s?")
+        return re.sub(re.compile(string+"\s?", re.IGNORECASE), "", row["name"]).strip()
+    else:
+        return row["name"]
+
+df = pd.DataFrame({"name":["Vitamin B12 Tab 500mcg","Vitamin B12 Tab 5mcg","Vitamin B12 Tablets 250mcg","Vitamin B12-folic Acid","Vitamin B6 & B12 With Folic Acid","Vitamin Deficiency Injectable System - B12","Vitamine 110 Liq","Vitamine B-12 Tab 100mcg","Vitamine B12 25 Mcg - Tablet","Vitamine B12 250mcg"],\
+"strength":["500 mcg","5 mcg","250 mcg",None,None,None,None,"100 mcg","25 mcg","250 mcg"]})
+
+df["name"] = df.apply(removeReduntantData, axis=1)
+  
+
+ The output  DataFrame  is then: 
+
+  >>> df
+                                         name strength
+0                             Vitamin B12 Tab  500 mcg
+1                             Vitamin B12 Tab    5 mcg
+2                         Vitamin B12 Tablets  250 mcg
+3                      Vitamin B12-folic Acid     None
+4            Vitamin B6 & B12 With Folic Acid     None
+5  Vitamin Deficiency Injectable System - B12     None
+6                            Vitamine 110 Liq     None
+7                           Vitamine B-12 Tab  100 mcg
+8                       Vitamine B12 - Tablet   25 mcg
+9                                Vitamine B12  250 mcg
+  
+
+ In this way you end up using the  strength  column to look for redundant string within the  name  column and remove them, taking into account the redundant string might not have a space in between. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51498559)
+  
+
+  df=df.drop_duplicates(subset=['name'],keep=False)
+df[(df['age'].notnull()] #or df[(df['age']!='Nan')] (as your input Contains Nan as string)
+  
+
+ Explanation: 
+
+ First remove the duplicates and pass  keep=False  to remove all duplicates. . 
+
+ Output: 
+
+    age     name
+1  22    Harry
+4   5  William
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35663205)
+ If you pass header=False, you will get this error 
+
+  TypeError: Passing a bool to header is invalid. Use header=None 
+for no header or header=int or list-like of ints to specify the 
+row(s) making up the column names
+  
+
+ Instead, use header=None 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/19861545)
+ You can apply a function that tests row-wise your  DataFrame  for the presence of strings, e.g., say that  df  is your  DataFrame   
+
+   rows_with_strings  = df.apply(
+       lambda row : 
+          any([ isinstance(e, basestring) for e in row ])
+       , axis=1) 
+  
+
+ This will produce a mask for your DataFrame indicating which rows contain at least one string. You can hence select the rows without strings through the opposite mask 
+
+   df_with_no_strings = df[~rows_with_strings]
+  
+
+ . 
+
+  Example:  
+
+   a = [[1,2],['a',2], [3,4], [7,'d']]
+ df = pd.DataFrame(a,columns = ['a','b'])
+
+
+ df 
+   a  b
+0  1  2
+1  a  2
+2  3  4
+3  7  d
+
+select  = df.apply(lambda r : any([isinstance(e, basestring) for e in r  ]),axis=1) 
+
+df[~select]                                                                                                                                
+
+    a  b
+ 0  1  2
+ 2  3  4
+  
+
+
+

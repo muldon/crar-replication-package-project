@@ -1,0 +1,213 @@
+Query: variable number of digit in format string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13780221)
+ I do not think there is a format string which removes the zero. However, you could use  lstrip : 
+
+  In [25]: n = 0.12345
+In [26]: '{:.3f}'.format(n).lstrip('0')
+Out[26]: '.123'
+  
+
+ At least that is safer than  str(n)[1:] , which would remove a signficiant digit if  n  were equal to a number bigger than 1 or less than -1. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3505870)
+  >>> print '{0}'.format('5'.zfill(2))
+05
+  
+
+ Read more http://docs.python.org/tutorial/inputoutput.html#fancier-output-formatting. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53377656)
+ You can print the number to 2 digits of precision, then convert back to a float by specifying the required number of decimal places: 
+
+  # Format the number to scientific notation with one digit before
+# the decimal point and one after, then split the sctring into the mantissa
+# and exponent.
+a, b = ('{0:.1E}'.format(.0000004565)).split("E")
+
+# If the exponent is -n, get the number of required decimal digits as n+1.
+c=1-int(b)
+
+# Set up a '%0.xf' format string where x is the required number of digits,
+# and use that format to print the reassembled scientific notation value
+res = ('%%0.%df' % c) % float(a+"E"+b)
+  
+
+ This works with some numbers >1, but breaks down above 99. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49673031)
+ The solution I came up with is: 
+
+  # Loop over all 4 digit numbers
+for x in range(1000, 10000):
+  # Multiply x*x
+  square = x*x
+  # Convert to a string
+  square = str(square)
+  # Check if the square is 8 digits long
+  if len(square) == 8:
+    # Check if the last 4 digets match x
+    if square.endswith(str(x)):
+      # print the number and it's square
+      print('x    = {}\nx**2 = {}'.format(str(x), square))
+  
+
+ Which outputs: 
+
+  x    = 9376
+x**2 = 87909376
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25242100)
+ I recommend defining a class that interprets a string formatter to give what you want. 
+Inside that class, you determine the length of the integer portion of your float and use that to define the appropriate string format. 
+In a nutshell, the class creates a formatter like  '{:4.1f}'  if your input is  12.345  (because you have two digits before the decimal separator) and  {:4.2f}  if your input it  1.2345  (because you have only one digit before the decimal separator). The total number of digits ( 4 in this example) is provided as an input. 
+The new formatter is:  {:nQ}  where  n  is the total number of digits (so in the above example, you'd specify  {:4Q} to get the output you want. 
+Here's the code:   
+
+  import math
+
+class IntegerBasedFloat(float):
+    def __format__(self, spec):
+        value = float(self)
+
+        # apply the following only, if the specifier ends in Q
+        # otherwise, you maintain the original float format
+        if spec.endswith('Q'):
+            # split the provided float into the decimal 
+            # and integer portion (for this math is required):
+            DEC, INT = math.modf(value)
+
+            # determine the length of the integer portion:
+            LEN = len(str(abs(int(INT))))
+
+            # calculate the number of available decimals 
+            # based on the overall length
+            # the -1 is required because the separator 
+            # requires one digit
+            DECIMALS = int(spec[-2]) - LEN - 1
+
+            if DECIMALS < 0:
+                print 'Number too large for specified format'
+            else:
+                # create the corresponding float formatter
+                # that can be evaluated as usual:
+                spec = spec[-2] + '.' + str(DECIMALS) + 'f'
+
+        return format(value, spec)
+
+DATA = [12.345, 2.3456, 345.6789]
+
+print '{:4Q}'.format(IntegerBasedFloat(DATA[0]))
+print '{:4Q}'.format(IntegerBasedFloat(DATA[1]))
+print '{:4Q}'.format(IntegerBasedFloat(DATA[2]))
+print 'This is a "custom" float: {:5Q} and a "regular" float: {:5.3f}'.format(IntegerBasedFloat(12.3456),12.3456)
+  
+
+ The output should be:   
+
+  12.3
+2.35
+ 346
+This is a "custom" float: 12.35 and a "regular" float: 12.346
+  
+
+ 
+
+ This answer is inspired by: 
+  - https://stackoverflow.com/questions/6681743/splitting-a-number-into-the-integer-and-decimal-parts-in-python 
+  - https://stackoverflow.com/questions/19864302/add-custom-conversion-types-for-string-formatting 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17873357)
+ The problem is that you're returning it as an int. If you have leading 0's, they won't be included. If you want to print the return value as a 4 digit number, you can use http://docs.python.org/2/library/string.html#formatstrings as follows: 
+
+  input = 9988
+output = make_nine(input)
+print "{0:0>4}".format(output)
+  
+
+ If you want to generalize this to n-digit inputs, you can do the following (format specifier within a format string, to specify the width): 
+
+  input = 9988
+output= make_nine(input)
+print "{1:0>{0}}".format(len(str(input)), output)
+  
+
+ Of course, it might make sense to just leave the output of the function as a string, depending on your application. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9975744)
+ If you wrap the percentage in a class, you can do things in its  format  method and still use it for normal calculations. You can also parse the arguement to  format  (the part between : and } in '{1:3}', to override the at_least value: 
+
+  import sys
+import math
+
+class Percentage(float):
+    _at_least = 2
+    def __init__(self, val):
+        self._x = val
+
+    def __format__(self, s):
+        #print 's [%s]' % (repr(s))
+        at_least = Percentage._at_least
+        try:
+            at_least = int(s)
+        except:
+            pass
+        return '{1:.{0}%}'.format(max(at_least, int(-math.log10(self._x))-1), 
+                                  self._x)
+
+for x in (1., .1, .123456, .0123, .00123, .000123, .0000123, .00000123):
+    p = Percentage(x)
+    print '{0} {1:3} {2}'.format(x, p, 50 * p)
+  
+
+ Outputs: 
+
+  1.0 100.000% 50.0
+0.1 10.000% 5.0
+0.123456 12.346% 6.1728
+0.0123 1.230% 0.615
+0.00123 0.123% 0.0615
+0.000123 0.012% 0.00615
+1.23e-05 0.001% 0.000615
+1.23e-06 0.0001% 6.15e-05
+  
+
+ You can do some more clever parsing for at_least to also specify field width, alignment etc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14932351)
+ http://docs.python.org/2/library/stdtypes.html#string-formatting-operations, for  printf -style string formatting. 
+
+  >>> def percent(value, digits=0):
+...     return '%.*f%%' % (digits, value * 100)
+...
+>>> percent(0.1565, 2)
+'15.65%'
+  
+
+ Advanced string formatting (defined in http://www.python.org/dev/peps/pep-3101/ and documented in http://docs.python.org/2/library/string.html#formatstrings) doesn't seem to be capable of doing this in one pass. (See http://docs.python.org/2/library/string.html#format-specification-mini-language:  precision  is  integer  only.) 
+
+
+

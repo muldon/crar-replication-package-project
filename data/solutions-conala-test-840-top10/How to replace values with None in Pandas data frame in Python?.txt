@@ -1,0 +1,294 @@
+Query: How to replace values with None in Pandas data frame in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17097397)
+ Actually in later versions of pandas this will give a TypeError: 
+
+  df.replace('-', None)
+TypeError: If "to_replace" and "value" are both None then regex must be a mapping
+  
+
+ You can do it by passing either a list or a dictionary: 
+
+  In [11]: df.replace('-', df.replace(['-'], [None]) # or .replace('-', {0: None})
+Out[11]:
+      0
+0  None
+1     3
+2     2
+3     5
+4     1
+5    -5
+6    -1
+7  None
+8     9
+  
+
+ But I recommend using NaNs rather than None: 
+
+  In [12]: df.replace('-', np.nan)
+Out[12]:
+     0
+0  NaN
+1    3
+2    2
+3    5
+4    1
+5   -5
+6   -1
+7  NaN
+8    9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49406417)
+ I prefer the solution using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.replace.html#pandas-dataframe-replace with a  dict  because of its simplicity and elegance: 
+
+  df.replace({'-': None})
+  
+
+ You can also have more replacements: 
+
+  df.replace({'-': None, 'None': None})
+  
+
+ And even for larger replacements, it is always obvious and clear what is replaced by what - which is way harder for long lists, in my opinion. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22974440)
+  where  is probably what you're looking for.  
+
+  data=data.where(data=='-', None) 
+  
+
+ From the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.where.html:  
+
+ 
+    where  [returns] an object of same shape as self and whose corresponding entries are from self where cond is True and otherwise are from other). 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54684499)
+ In pandas is best avoid loops, because slow, so use https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html with test missing values by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.isna.html or 
+http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.notna.html for vectorized solution: 
+
+  df['Intervention'] = np.where(df['Intervention'].isna(),'No Intervention','Yes Intervention')
+  
+
+  
+
+  df['Intervention'] = np.where(df['Intervention'].notna(),'Yes Intervention','No Intervention')
+  
+
+ If  NaN  is string then test by  ==  or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.eq.html: 
+
+  df['Intervention']=np.where(df['Intervention'].eq('NaN'),'No Intervention','Yes Intervention')
+  
+
+ But if need also test in list use https://docs.scipy.org/doc/numpy/reference/generated/numpy.select.html: 
+
+  m1 = df['Intervention'].isin(intervention_list)
+m2 = df['Intervention'].isna()
+
+#if not match m1 or m2 create default None
+df['Intervention'] = np.select([m1, m2],
+                              ['Yes Intervention','No Intervention'],
+                              default=None)
+  
+
+ 
+
+  #if not match m1 or m2 set original value column Intervention
+df['Intervention'] = np.select([m1, m2],
+                              ['Yes Intervention','No Intervention'],
+                              default=df['Intervention'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40899647)
+ So long as the other values in your column are all valid numeric values and there are no  NaN  values already, you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_numeric.html#pandas.to_numeric to force the string values into a numeric value, in this case  NaN . 
+
+ You can then replace  NaN  with  1 , but because of the introduction of  NaN , the  dtype  is changed to  float  so we need to case the  dtype  to  int  using http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.astype.html: 
+
+  In [6]:    
+# read the data into our df
+import pandas as pd
+import io
+​
+t="""8                                                        0
+9                                                        0
+10                                                       0
+11                                                       0
+12                                                       0
+13                                                    Dogs
+14                                                    Cats"""
+df = pd.read_csv(io.StringIO(t), delim_whitespace=True, header=None)
+df
+
+Out[6]:
+    0     1
+0   8     0
+1   9     0
+2  10     0
+3  11     0
+4  12     0
+5  13  Dogs
+6  14  Cats
+  
+
+ Now convert the strings, replace them with  1  and cast the Series dtype back to int: 
+
+  In [7]:
+df[1] = pd.to_numeric(df[1], errors='coerce').fillna(1).astype(int)
+df
+
+Out[7]:
+    0  1
+0   8  0
+1   9  0
+2  10  0
+3  11  0
+4  12  0
+5  13  1
+6  14  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39559825)
+ I think you can use  indexing   [1:]  - select all values excluding first: 
+
+  addresses = [x for x in addresses[1:] if str(x) != 'nan']
+  
+
+  
+
+  addresses = df.loc[1:, 'addresses'].tolist()
+  
+
+  
+
+  df = pd.DataFrame({'addresses':[4,8,7]})
+print (df)
+   addresses
+0          4
+1          8
+2          7
+
+addresses = df.loc[1:, 'addresses'].tolist()
+print (addresses)
+[8, 7]
+  
+
+ Another solution, thanks https://stackoverflow.com/questions/39559805/skip-first-row-in-pandas-dataframe-when-creating-list/39559825?noredirect=1#comment66430370_39559825: 
+
+  import pandas as pd
+import io
+
+temp=u"""10
+20
+30
+"""
+#after testing replace io.StringIO(temp) to filename
+df = pd.read_csv(io.StringIO(temp), header=None, skiprows=[0], names=['addresses'])
+print (df)
+   addresses
+0         20
+1         30 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34146247)
+ In your code  df  is a class object. To create an empty data frame you need to instantiate it. https://docs.python.org/2/tutorial/classes.html#class-objects classes in Python uses function notation. Also, we don't need to pass the default parameters when we read the excel file. This will help the code look cleaner. 
+    Also, we don't need to pass the default parameters when we read the excel file. This will help the code look cleaner.   
+
+  from pandas import DataFrame as df
+class Data:
+    x = df()
+
+    @staticmethod
+    def import_File(df_name, file):
+        df_name = pd.io.excel.read_excel(file.replace('"',''), sheetname='Sheet1')
+  
+
+ When you pass  Data.x  to  import_File() ,  df_name  will refer to the same object as  Data.x , which in this case is an empty dataframe. However, when you assign  pd.io.excel.read_excel(file)  to  df_name  then the connection between  df_name  and the empty dataframe is broken, and  df_name  now refers to the excel dataframe.  Data.x  has undergone no change during this process so it is still connected to for the empty data frame object. 
+
+ A simpler way to see this with strings: 
+
+  x = 'red'
+df_name = x
+  
+
+ We can break the  df_name  connection between string object 'red' and form a new one with object 'excel`. 
+
+  df_name = 'excel'
+print(x)
+'red'
+  
+
+ However, there's a simple fix for  Data.x  to return the excel dataframe. 
+
+  from pandas import DataFrame as df
+class Data:
+   x = df()
+
+   @staticmethod
+   def import_File(file):
+       Data.x = pd.io.excel.read_excel(file.replace('"',''), sheetname='Sheet1')
+
+def inputdata():
+    Data.import_File(r"C:\Users\Data\try.xlsx")
+    print(Data.x)
+  
+
+ However, I don't recommend using staticmethods, and you should include a constructor in your class as the other answer has recommended. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32545370)
+ I think @Joop's response is more elegant. However, if you find that there are certain other values that should be replaced by  NA/NaN , after reading in the CSV, then you can use: 
+
+  pandas_dataframe.replace(['bad_data_1', 'bad_data_2'], [None, None], inplace=True)
+  
+
+ Set inplace to  False  if you want to create a separate dataframe. 
+
+ And if you know the bad values while reading the CSV, then modifying @Joop's response to include the list as: 
+
+  train_df = pd.read_csv('/my.csv', na_values=["bad_value_1", "bad_value_2"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41789236)
+ You could loop through each dataframe and replace  None  and empty strings with  np.NaN . Whenever there are presence of any  NaNs , fill the complete row with it. 
+
+  for df in [df1, df2, df3]:
+    df.replace({None: np.NaN, "": np.NaN}, inplace=True)
+    df.loc[df.isnull().any(axis=1), ['high_tem', 'low_tem']] = np.NaN
+  
+
+ Following this,  df1 ,  df2  and  df3  would be modified accordingly. 
+
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.combine_first.html in  df1→df2→df3  order to fill the missing values. 
+
+  df1.combine_first(df2).combine_first(df3)
+  
+
+ https://i.stack.imgur.com/GBKOU.png 
+
+
+

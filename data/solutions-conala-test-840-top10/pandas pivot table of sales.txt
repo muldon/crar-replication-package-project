@@ -1,0 +1,425 @@
+Query: pandas pivot table of sales
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39229396)
+ It seems that the problem comes from the different types for column rep and sales, if you convert the sales to  str  type and specify the aggfunc as  sum , it works fine: 
+
+  df.sales = df.sales.astype(str)
+
+pd.pivot_table(df, index=['country'], columns=['year'], values=['rep', 'sales'], aggfunc='sum')
+
+#        rep                            sales
+#  year 2013    2014    2015    2016    2013    2014    2015    2016
+# country                               
+# fr    None    kyle    claire  None    None      10      20    None
+# uk    kyle    None    None    john      12    None    None    10
+#usa    None    None    None    john    None    None    None    21
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39355438)
+ simple  pivot_table()  solution: 
+
+  In [16]: df.pivot_table(index='saleid', columns='upc', aggfunc='size', fill_value=0)
+Out[16]:
+upc                                00000000000888  00264850000000  02316877000000  02317639000000  05051969277205
+saleid
+155_01072401_20090616_135224_0010               0               0               1               0               1
+155_01605733_20090616_135221_0016               0               1               0               0               0
+155_02127453_20090616_135212_0021               1               0               0               1               0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39229232)
+ You could use  set_index  and  unstack : 
+
+  df = pd.DataFrame(data)
+df.set_index(['year','country']).unstack('year')
+  
+
+  
+
+            rep                     sales                  
+year     2013  2014    2015  2016  2013  2014  2015  2016
+country                                                  
+fr       None  kyle  claire  None   NaN  10.0  20.0   NaN
+uk       kyle  None    None  john  12.0   NaN   NaN  10.0
+usa      None  None    None  john   NaN   NaN   NaN  21.0
+  
+
+ Or, using  pivot_table  with  aggfunc='first' : 
+
+  df.pivot_table(index='country', columns='year', values=['rep','sales'], aggfunc='first')
+  
+
+  
+
+            rep                     sales                  
+year     2013  2014    2015  2016  2013  2014  2015  2016
+country                                                  
+fr       None  kyle  claire  None  None    10    20  None
+uk       kyle  None    None  john    12  None  None    10
+usa      None  None    None  john  None  None  None    21
+  
+
+ With  aggfunc='first' , each  (country, year, rep)  or  (country, year, sales) 
+group is aggregrated by taking the first value found. In your case there appears to be no duplicates, so the first value is the same as the only value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37202041)
+  
+
+  table = pd.pivot_table(data, index=['State'],columns = ['City'],values=['SalesToday', 'SalesMTD','SalesYTD'],\
+                      aggfunc=np.sum, margins=True)
+  
+
+ https://i.stack.imgur.com/aK54T.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54568748)
+ You ca use https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.pivot_table.html: 
+
+  df_new= df.pivot_table(index=['Date','Month'],columns='ProductCategory',values='Sales').\
+reset_index().rename_axis(None,1)
+df_new['Total_Sales']=df_new.iloc[:,2:].sum(axis=1)
+print(df_new)
+
+       Date     Month  Clothing  Grossery   Toys  Total_Sales
+0  1/1/2009  2009-Jan    1755.0     524.0  936.0       3215.0
+1  2/1/2009  2009-Feb    1729.0     496.0    NaN       2225.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48309834)
+ This is just a simple pivot table, is it not? 
+
+  df.pivot_table(index=['account', 'pseudo'], columns='week', values='sales')
+
+week               2017-12-16  2017-12-23  2017-12-30
+account    pseudo                                    
+4430012511 6362          5.58         NaN         NaN
+           31527          NaN         NaN        2.79
+           31608          NaN       19.53         NaN
+           145584        8.37         NaN         NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39353909)
+   Option 1   
+
+  df.groupby(['saleid', 'upc']).size().unstack(fill_value=0)
+  
+
+ https://i.stack.imgur.com/6yvfj.png 
+
+   Option 2   
+
+  pd.crosstab(df.saleid, df.upc)
+  
+
+ https://i.stack.imgur.com/6yvfj.png 
+
+ Setup</h3>
+
+  from StringIO import StringIO
+import pandas as pd
+
+text = """    saleid                              upc
+0   155_02127453_20090616_135212_0021   02317639000000
+1   155_02127453_20090616_135212_0021   00000000000888
+2   155_01605733_20090616_135221_0016   00264850000000
+3   155_01072401_20090616_135224_0010   02316877000000
+4   155_01072401_20090616_135224_0010   05051969277205"""
+
+df = pd.read_csv(StringIO(text), delim_whitespace=True, dtype=str)
+df
+  
+
+ <a href="https://i.stack.imgur.com/qM9sA.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54568768)
+ Change first list to new index by columns  Date  and  Month , add  Sales  to  values , add aggregate function and specify column name of total column: 
+
+  df = pd.crosstab(index=[df_train.Date,df_train.Month],
+                 columns=df_train.ProductCategory, 
+                 values=df_train.Sales, 
+                 aggfunc='sum', 
+                 margins=True,
+                 margins_name='Total Sales')
+print (df)
+ProductCategory       Clothing  Grossery   Toys  Total Sales
+Date        Month                                           
+1/1/2009    2009-Jan    1755.0     524.0  936.0       3215.0
+2/1/2009    2009-Feb    1729.0     496.0    0.0       2225.0
+Total Sales             3484.0    1020.0  936.0       5440.0
+  
+
+ If necessary remove last row and convert  MultiIndex  to columns: 
+
+  df = df.iloc[:-1].reset_index().rename_axis(None, axis=1)
+print (df)
+
+       Date     Month  Clothing  Grossery   Toys  Total Sales
+0  1/1/2009  2009-Jan    1755.0     524.0  936.0       3215.0
+1  2/1/2009  2009-Feb    1729.0     496.0    0.0       2225.0
+  
+
+ Solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.pivot_table.html with no  margins : 
+
+  df = df_train.pivot_table(index=['Date','Month'], 
+                          columns='ProductCategory', 
+                          values='Sales', aggfunc='sum')
+df['Total Sales'] = df.sum(axis=1)
+df = df.reset_index().rename_axis(None, axis=1)
+print (df)
+       Date     Month  Clothing  Grossery   Toys  Total Sales
+0  1/1/2009  2009-Jan    1755.0     524.0  936.0       3215.0
+1  2/1/2009  2009-Feb    1729.0     496.0    0.0       2225.0
+  
+
+ And solution with  margins : 
+
+  df = df_train.pivot_table(index=['Date','Month'],
+                          columns='ProductCategory', 
+                          values='Sales', 
+                          aggfunc='sum', 
+                          margins=True,
+                          margins_name='Total Sales')
+print (df)
+ProductCategory       Clothing  Grossery   Toys  Total Sales
+Date        Month                                           
+1/1/2009    2009-Jan    1755.0     524.0  936.0       3215.0
+2/1/2009    2009-Feb    1729.0     496.0    0.0       2225.0
+Total Sales             3484.0    1020.0  936.0       5440.0
+
+df = df.iloc[:-1].reset_index().rename_axis(None, axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42017825)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.cut.html: 
+
+  item_sale_avg = pd.DataFrame({'Sales':[100,500,600,1500,2000]})
+
+print (item_sale_avg)
+   Sales
+0    100
+1    500
+2    600
+3   1500
+4   2000
+
+bins = [-np.inf,500, 1500, np.inf]
+labels=['low','medium','high']
+item_sale_avg['Price Category'] = pd.cut(item_sale_avg['Sales'], bins=bins, labels=labels)
+print (item_sale_avg)
+   Sales Price Category
+0    100            low
+1    500            low
+2    600         medium
+3   1500         medium
+4   2000           high
+
+#bins not include the rightmost edge - parameter right=False
+item_sale_avg['Price Category'] = pd.cut(item_sale_avg['Sales'],
+                                         bins=bins, labels=labels, right=False)
+print (item_sale_avg)
+   Sales Price Category
+0    100            low
+1    500         medium
+2    600         medium
+3   1500           high
+4   2000           high
+  
+
+ Another less flexible solution with http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.where.html: 
+
+  item_sale_avg['Price Category'] = np.where(item_sale_avg.Sales <= 500, 'low', 
+                                  np.where(item_sale_avg.Sales >= 1500, 'high', 'medium'))
+
+print (item_sale_avg)
+   Sales Price Category
+0    100            low
+1    500            low
+2    600         medium
+3   1500           high
+4   2000           high
+  
+
+ 
+
+  item_sale_avg['Price Category'] = np.where(item_sale_avg.Sales < 500, 'low', 
+                                  np.where(item_sale_avg.Sales >= 1500, 'high', 'medium'))
+
+print (item_sale_avg)
+0    100            low
+1    500         medium
+2    600         medium
+3   1500           high
+4   2000           high
+  
+
+  Timings : 
+
+  item_sale_avg = pd.DataFrame({'Sales':[100,500,600,1500,2000]})
+
+print (item_sale_avg)
+item_sale_avg = pd.concat([item_sale_avg]*100000).reset_index(drop=True)
+
+In [19]: %timeit item_sale_avg['Price Category'] = np.where(item_sale_avg.Sales < 500, 'low',  np.where(item_sale_avg.Sales >= 1500, 'high', 'medium'))
+10 loops, best of 3: 70.4 ms per loop
+
+#ResMar solution
+In [20]: %timeit item_sale_avg['Price Category1'] = item_sale_avg['Sales'].map(lambda price: 'low' if price < 500 else 'medium' if price < 1500 else 'high')
+10 loops, best of 3: 125 ms per loop
+
+In [21]: %timeit item_sale_avg['Price Category2'] = pd.cut(item_sale_avg['Sales'], bins=[-np.inf,500, 1500, np.inf], labels=['low','medium','high'], right=False)
+100 loops, best of 3: 9.17 ms per loop
+  
+
+ EDIT: 
+
+ You need first http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.map.html by  dict  created from  pivot_table  or  groupby  with  mean  (faster is  groupby  as  pivot_table ): 
+
+  d = df.groupby('Item_Identifier')['Sales'].mean().to_dict()
+print (d)
+{'Beef': 3030.0, 'Milk': 1233.3333333333333, 'Tea': 150.0}
+
+print (df['Item_Identifier'].map(d))
+0    1233.333333
+1    1233.333333
+2    1233.333333
+3    3030.000000
+4    3030.000000
+5     150.000000
+6     150.000000
+7     150.000000
+Name: Item_Identifier, dtype: float64
+
+bins = [df['Sales'].min(),500, 1500, df['Sales].max()]
+labels=['low','medium','high']
+df['Price Category'] = pd.cut(df['Item_Identifier'].map(d), bins=bins, labels=labels)
+print (df)
+  Item_Identifier  Sales Price Category
+0            Milk    500         medium
+1            Milk   1200         medium
+2            Milk   2000         medium
+3            Beef     60           high
+4            Beef   6000           high
+5             Tea    150            low
+6             Tea    100            low
+7             Tea    200            low
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16002870)
+ We could use  groupby  instead of  pivot_table : 
+
+  import numpy as np
+import pandas as pd
+
+
+def label(ser):
+    return '{s} Total'.format(s=ser)
+
+filename = 'data.txt'
+df = pd.read_table(filename, delimiter='\t')
+
+total = pd.DataFrame({'region': ['Grand Total'],
+                      'invoice_count': df['invoice_count'].sum(),
+                      'sales': df['sales'].sum()})
+total['total_rank'] = 1
+
+region_total = df.groupby(['region'], as_index=False).sum()
+region_total['area'] = region_total['region'].apply(label)
+region_total['region_rank'] = 1
+
+area_total = df.groupby(['region', 'area'], as_index=False).sum()
+area_total['distributor'] = area_total['area'].apply(label)
+area_total['area_rank'] = 1
+
+dist_total = df.groupby(
+    ['region', 'area', 'distributor'], as_index=False).sum()
+dist_total['salesrep'] = dist_total['distributor'].apply(label)
+
+rep_total = df.groupby(
+    ['region', 'area', 'distributor', 'salesrep'], as_index=False).sum()
+
+# UNION the DataFrames into one DataFrame
+result = pd.concat([total, region_total, area_total, dist_total, rep_total])
+
+# Replace NaNs with empty strings
+result.fillna({'region': '', 'area': '', 'distributor': '', 'salesrep':
+              ''}, inplace=True)
+
+# Reorder the rows
+sorter = np.lexsort((
+    result['distributor'].rank(),
+    result['area_rank'].rank(),
+    result['area'].rank(),
+    result['region_rank'].rank(),
+    result['region'].rank(),
+    result['total_rank'].rank()))
+result = result.take(sorter)
+result = result.reindex(
+    columns=['region', 'area', 'distributor', 'salesrep', 'invoice_count', 'sales'])
+print(result.to_string(index=False))
+  
+
+  
+
+        region           area        distributor             salesrep  invoice_count  sales
+ Grand Total                                                                   800  16000
+     Central  Central Total                                                    400   8000
+     Central    Butterworth  Butterworth Total                                 200   4000
+     Central    Butterworth      HIN MARKETING  HIN MARKETING Total            100   2000
+     Central    Butterworth      HIN MARKETING                  OSE             50   1000
+     Central    Butterworth      HIN MARKETING                  TLS             50   1000
+     Central    Butterworth         KWANG HENG     KWANG HENG Total            100   2000
+     Central    Butterworth         KWANG HENG                  LBH             50   1000
+     Central    Butterworth         KWANG HENG                  TCS             50   1000
+     Central           Ipoh         Ipoh Total                                 200   4000
+     Central           Ipoh           CORE SYN       CORE SYN Total            100   2000
+     Central           Ipoh           CORE SYN               LILIAN             50   1000
+     Central           Ipoh           CORE SYN                 TEOH             50   1000
+     Central           Ipoh         SGH EDERAN     SGH EDERAN Total            100   2000
+     Central           Ipoh         SGH EDERAN                 CHAN             50   1000
+     Central           Ipoh         SGH EDERAN              KAMACHI             50   1000
+        East     East Total                                                    400   8000
+        East             JB           JB Total                                 200   4000
+        East             JB            LEI WAH        LEI WAH Total            100   2000
+        East             JB            LEI WAH                 NF05             50   1000
+        East             JB            LEI WAH                 NF06             50   1000
+        East             JB         WONDER F&B     WONDER F&B Total            100   2000
+        East             JB         WONDER F&B                 MONC             50   1000
+        East             JB         WONDER F&B                SEREN             50   1000
+        East             PJ           PJ Total                                 200   4000
+        East             PJ              HEBAT          HEBAT Total            100   2000
+        East             PJ              HEBAT                 MIGI             50   1000
+        East             PJ              HEBAT                  OGI             50   1000
+        East             PJ           PENGEDAR       PENGEDAR Total            100   2000
+        East             PJ           PENGEDAR                 NORM             50   1000
+        East             PJ           PENGEDAR                SIMON             50   1000
+  
+
+
+

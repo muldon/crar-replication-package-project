@@ -1,0 +1,250 @@
+Query: how do i write logs and display them realtime in a java swing application
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10601777)
+ Use a  JEditorPane : 
+
+  JEditorPane jep = new JEditorPane();
+jep.setEditable(false);   
+
+try {
+  jep.setPage("http://www.yoursite.com");
+}catch (IOException e) {
+  jep.setContentType("text/html");
+  jep.setText("<html>Could not load</html>");
+} 
+
+JScrollPane scrollPane = new JScrollPane(jep);     
+JFrame f = new JFrame("Test HTML");
+f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+f.getContentPane().add(scrollPane);
+f.setPreferredSize(new Dimension(800,600));
+f.setVisible(true);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20179104)
+  JFXPanel  extends  javax.swing.JComponent  so you will add the  JFXPanel  to the  JFrame  just as you would with other Swing components:     jFrame.getContentPane().add(myJFXPanel)    
+
+  SSCCE:    
+
+  package stack;
+
+import javafx.application.Platform;
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.Scene;
+import javafx.scene.effect.Reflection;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
+
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+
+public class FXInSwing extends JFrame{
+
+    JFXPanel panel;
+    Scene scene;
+    StackPane stack;
+    Text hello;
+
+    boolean wait = true;
+
+    public FXInSwing(){
+        panel = new JFXPanel();
+        Platform.runLater(new Runnable(){
+            @Override
+            public void run() {
+                stack = new StackPane();
+                scene = new Scene(stack,300,300);
+                hello = new Text("Hello");
+
+                scene.setFill(Color.BLACK);
+                hello.setFill(Color.WHEAT);
+                hello.setEffect(new Reflection());
+
+                panel.setScene(scene);
+                stack.getChildren().add(hello);
+
+                wait = false;
+            }
+        });
+        this.getContentPane().add(panel);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        this.setSize(300, 300);
+        this.setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable(){
+            @Override
+            public void run() {
+                new FXInSwing();
+            }
+        });
+    }
+}  
+  
+
+ Remember when you are working with a  JFXPanel , you should initialize it on the Swing Event Dispatching Thread but the  setScene()  should be done on the JavaFX Application Thread. Else, you will get an exception. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22984168)
+ Maybe https://sites.google.com/site/ibrabel/sscce/logtofile what you need...  
+
+  import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.IOException;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+
+/**
+ * LogToFile class
+ * This class is intended to be use with the default logging class of java
+ * It save the log in an XML file  and display a friendly message to the user
+ * @author Ibrabel <ibrabel@gmail.com>
+ */
+public class LogToFile {
+
+    protected static final Logger logger=Logger.getLogger("MYLOG");
+    /**
+     * log Method 
+     * enable to log all exceptions to a file and display user message on demand
+     * @param ex
+     * @param level
+     * @param msg 
+     */
+    public static void log(Exception ex, String level, String msg){
+
+        FileHandler fh = null;
+        try {
+            fh = new FileHandler("log.xml",true);
+            logger.addHandler(fh);
+            switch (level) {
+                case "severe":
+                    logger.log(Level.SEVERE, msg, ex);
+                    if(!msg.equals(""))
+                        JOptionPane.showMessageDialog(null,msg,
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                    break;
+                case "warning":
+                    logger.log(Level.WARNING, msg, ex);
+                    if(!msg.equals(""))
+                        JOptionPane.showMessageDialog(null,msg,
+                            "Warning", JOptionPane.WARNING_MESSAGE);
+                    break;
+                case "info":
+                    logger.log(Level.INFO, msg, ex);
+                    if(!msg.equals(""))
+                        JOptionPane.showMessageDialog(null,msg,
+                            "Info", JOptionPane.INFORMATION_MESSAGE);
+                    break;
+                case "config":
+                    logger.log(Level.CONFIG, msg, ex);
+                    break;
+                case "fine":
+                    logger.log(Level.FINE, msg, ex);
+                    break;
+                case "finer":
+                    logger.log(Level.FINER, msg, ex);
+                    break;
+                case "finest":
+                    logger.log(Level.FINEST, msg, ex);
+                    break;
+                default:
+                    logger.log(Level.CONFIG, msg, ex);
+                    break;
+            }
+        } catch (IOException | SecurityException ex1) {
+            logger.log(Level.SEVERE, null, ex1);
+        } finally{
+            if(fh!=null)fh.close();
+        }
+    }
+
+    public static void main(String[] args) {
+
+        /*
+            Create simple frame for the example
+        */
+        JFrame myFrame = new JFrame();
+        myFrame.setTitle("LogToFileExample");
+        myFrame.setSize(300, 100);
+        myFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        myFrame.setLocationRelativeTo(null);
+        JPanel pan = new JPanel();
+        JButton severe = new JButton("severe");
+        pan.add(severe);
+        JButton warning = new JButton("warning");
+        pan.add(warning);
+        JButton info = new JButton("info");
+        pan.add(info);
+
+        /*
+            Create an exception on click to use the LogToFile class
+        */
+        severe.addActionListener(new ActionListener(){
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                int j = 20, i = 0;
+                try {
+                    System.out.println(j/i);
+                } catch (ArithmeticException ex) {
+                    log(ex,"severe","You can't divide anything by zero");
+                }
+
+            }
+
+        });
+
+        warning.addActionListener(new ActionListener(){
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                int j = 20, i = 0;
+                try {
+                    System.out.println(j/i);
+                } catch (ArithmeticException ex) {
+                    log(ex,"warning","You can't divide anything by zero");
+                }
+
+            }
+
+        });
+
+        info.addActionListener(new ActionListener(){
+
+            @Override
+            public void actionPerformed(ActionEvent ae) {
+                int j = 20, i = 0;
+                try {
+                    System.out.println(j/i);
+                } catch (ArithmeticException ex) {
+                    log(ex,"info","You can't divide anything by zero");
+                }
+
+            }
+
+        });
+
+        /*
+            Add the JPanel to the JFrame and set the JFrame visible
+        */
+        myFrame.setContentPane(pan);
+        myFrame.setVisible(true);
+    }
+}
+  
+
+
+

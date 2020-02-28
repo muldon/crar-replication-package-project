@@ -1,0 +1,202 @@
+Query: How to sort Counter by value? - python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16801275)
+  from operator import itemgetter
+print sorted( my_counter.items(),key=itemgetter(1),reverse=True)
+  
+
+ should work fine :)  
+
+ dictionaries have no order which is what a counter is so you must sort the item list if you want it in some order... in this case ordered by the "value" rather than the "key" 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20950667)
+  
+
+  >>> from collections import Counter
+>>> x = Counter({'a':5, 'b':3, 'c':7})
+  
+
+ Using the sorted keyword key and a lambda function: 
+
+  >>> sorted(x.items(), key=lambda i: i[1])
+[('b', 3), ('a', 5), ('c', 7)]
+>>> sorted(x.items(), key=lambda i: i[1], reverse=True)
+[('c', 7), ('a', 5), ('b', 3)]
+  
+
+ This works for all dictionaries. However  Counter  has a special function which already gives you the sorted items (from most frequent, to least frequent). It's called  most_common() : 
+
+  >>> x.most_common()
+[('c', 7), ('a', 5), ('b', 3)]
+>>> list(reversed(x.most_common()))  # in order of least to most
+[('b', 3), ('a', 5), ('c', 7)]
+  
+
+  
+
+  >>> x.most_common(2)  # specify number you want
+[('c', 7), ('a', 5)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52913923)
+ More general sorted, where the  key  keyword defines the sorting method, minus before numerical type indicates descending:  
+
+  >>> x = Counter({'a':5, 'b':3, 'c':7})
+>>> sorted(x.items(), key=lambda k: -k[1])  # Ascending
+[('c', 7), ('a', 5), ('b', 3)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33529723)
+ The problem here is that  Counter  dicts are unordered, and  most_common  doesn't care about the keys.  To accomplish this, you need to sort the dict's items and then pull off the 3 most common. 
+
+  counter = Counter('abcdef')
+most_common = sorted(counter.items(), key=lambda pair: (-pair[1], pair[0])) 
+  
+
+ This will sort on  -pair[1]  (the counts) first.  Higher counts will appear first because of the negative.  Next we sort on  pair[0]  (the key) which will order lexicographically in normal increasing order. 
+
+ From here, you need to slice off the items that you want ... 
+
+  most_common[:3]
+  
+
+ 
+
+ Alternatively, we can take a page out of https://hg.python.org/cpython/file/2.7/Lib/collections.py#l472 and re-implement  most_common  to take the keys into account. 
+
+  import heapq as _heapq
+
+def most_common(counter, n=None):
+    '''List the n most common elements and their counts from the most
+    common to the least.  If n is None, then list all element counts.
+
+    >>> Counter('abcdeabcdabcaba').most_common(3)
+    [('a', 5), ('b', 4), ('c', 3)]
+
+    '''
+    # Emulate Bag.sortedByCount from Smalltalk
+    sort_key = lambda pair: (-pair[1], pair[0])
+    if n is None:
+        return sorted(counter.iteritems(), key=sort_key)
+    return _heapq.nsmallest(n, counter.iteritems(), key=sort_key)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39049830)
+ To count the words in the string, you can simply use  Counter  from  collections . Then sort it in the descending order of counts. 
+
+ Your code can be shortened to 
+
+  from collections import Counter
+s = "betty bought a bit of butter but the butter was bitter"
+c = Counter(i for i in s.split())
+print sorted(c.items(),key=lambda x:x[1],reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36108934)
+ If you are already using a Counter object, there is the Counter.most_common method. This will return a list of the items in order of highest to lowest frequency. 
+
+  >>> b.most_common()
+[('d', 4), ('a', 2), ('b', 2), ('c', 2)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20950686)
+ Use the http://docs.python.org/2/library/collections.html#collections.Counter.most_common, it'll sort the items  for you : 
+
+  >>> from collections import Counter
+>>> x = Counter({'a':5, 'b':3, 'c':7})
+>>> x.most_common()
+[('c', 7), ('a', 5), ('b', 3)]
+  
+
+ It'll do so in the most efficient manner possible; if you ask for a Top N instead of all values, a  heapq  is used instead of a straight sort: 
+
+  >>> x.most_common(1)
+[('c', 7)]
+  
+
+ Outside of counters, sorting can always be adjusted based on a  key  function;  .sort()  and  sorted()  both take callable that lets you specify a value on which to sort the input sequence;  sorted(x, key=x.get, reverse=True)  would give you the same sorting as  x.most_common() , but only return the keys, for example: 
+
+  >>> sorted(x, key=x.get, reverse=True)
+['c', 'a', 'b']
+  
+
+ or you can sort on only the value given  (key, value)  pairs: 
+
+  >>> sorted(x.items(), key=lambda pair: pair[1], reverse=True)
+[('c', 7), ('a', 5), ('b', 3)]
+  
+
+ See the http://docs.python.org/2/howto/sorting.html for more information. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16749654)
+ Take a look at collections.Counter 
+
+  >>> wordlist = ['foo', 'bar', 'foo', 'baz']
+>>> import collections
+>>> counter = collections.Counter(wordlist)
+>>> counter.most_common()
+[('foo', 2), ('baz', 1), ('bar', 1)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33216978)
+ A rather nice addition to https://stackoverflow.com/a/20950686/249341 answer is to get back a  dictionary  sorted by occurrence since  Collections.most_common  only returns a tuple. I often couple this with a json output for handy log files:  
+
+  from collections import Counter, OrderedDict
+
+x = Counter({'a':5, 'b':3, 'c':7})
+y = OrderedDict(x.most_common())
+  
+
+ With the output: 
+
+  OrderedDict([('c', 7), ('a', 5), ('b', 3)])
+{
+  "c": 7, 
+  "a": 5, 
+  "b": 3
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33040505)
+ you can use Counter 
+
+  from collections import Counter
+text = "I have something like this in Python to count the frequency of characters in a text, but i can't sort the values on the dictionary"
+print(Counter(text))
+  
+
+ output: 
+
+  Counter({' ': 24, 't': 15, 'e': 11, 'n': 9, 'h': 8, 'i': 8, 'o': 8, 'a': 7, 'c': 6, 's': 5, 'r': 5, 'u': 4, 'y': 3, 'f': 2, 'l': 2, 'v': 2, "'": 1, 'q': 1, 'd': 1, 'I': 1, 'm': 1, 'g': 1, 'b': 1, 'x': 1, ',': 1, 'P': 1, 'k': 1})
+  
+
+
+

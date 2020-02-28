@@ -1,0 +1,260 @@
+Query: Concatenating two one-dimensional NumPy arrays
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9236952)
+ The first parameter to  concatenate  should itself be a  sequence of arrays  to concatenate:  
+
+  numpy.concatenate((a,b)) # Note the extra parentheses.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42387839)
+ There are several possibilities for concatenating 1D arrays, e.g., 
+
+
+
+  numpy.r_[a, a],
+numpy.stack([a, a]).reshape(-1),
+numpy.hstack([a, a]),
+numpy.concatenate([a, a])
+  
+
+ All those options are equally fast for large arrays; for small ones,  concatenate  has a slight edge: 
+
+ https://i.stack.imgur.com/bnHEk.png 
+
+ The plot was created with https://github.com/nschloe/perfplot: 
+
+
+
+  import numpy
+import perfplot
+
+perfplot.show(
+    setup=lambda n: numpy.random.rand(n),
+    kernels=[
+        lambda a: numpy.r_[a, a],
+        lambda a: numpy.stack([a, a]).reshape(-1),
+        lambda a: numpy.hstack([a, a]),
+        lambda a: numpy.concatenate([a, a])
+        ],
+    labels=['r_', 'stack+reshape', 'hstack', 'concatenate'],
+    n_range=[2**k for k in range(19)],
+    xlabel='len(a)',
+    logx=True,
+    logy=True,
+    )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14482791)
+ Note that  a  and  b  are both one-dimensional; there's no axis 1 to concatenate along.  You want http://docs.scipy.org/doc/numpy/reference/generated/numpy.vstack.html: 
+
+  >>> import numpy as np
+>>> a = np.array([1,2,3])
+>>> b = a.copy()
+>>> np.vstack([a,b])
+array([[1, 2, 3],
+       [1, 2, 3]])
+  
+
+ Alternatively, you could reshape  a  and  b  first: 
+
+  >>> np.concatenate([a[np.newaxis,:],b[np.newaxis,:]],axis = 0)
+array([[1, 2, 3],
+       [1, 2, 3]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37369976)
+ If you have two-dimensional matrices, you can use http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.dstack.html: 
+
+  z = np.dstack((x, y))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9236970)
+ The line should be: 
+
+  numpy.concatenate([a,b])
+  
+
+ The arrays you want to concatenate need to passed in as a sequence, not as separate arguments. 
+
+ From the http://docs.scipy.org/doc/numpy/reference/generated/numpy.concatenate.html: 
+
+ 
+    numpy.concatenate((a1, a2, ...), axis=0)  
+  
+   Join a sequence of arrays together. 
+ 
+
+ It was trying to interpret your  b  as the axis parameter, which is why it complained it couldn't convert it into a scalar. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38252162)
+ I think this was already answered here: 
+
+ https://stackoverflow.com/questions/4158388/numpy-concatenating-multidimensional-and-unidimensional-arrays?rq=1 
+
+  import numpy
+a = numpy.array([[1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5]])
+b = numpy.array([5, 6, 6])
+c = numpy.column_stack((a,b))
+print a
+print b
+print c
+print a.shape
+print b.shape
+print c.shape
+  
+
+ This gives you: 
+
+  [[1 2 3 4 5]
+ [1 2 3 4 5]
+ [1 2 3 4 5]]
+[5 6 6]
+[[1 2 3 4 5 5]
+ [1 2 3 4 5 6]
+ [1 2 3 4 5 6]]
+(3, 5)
+(3,)
+(3, 6)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21226896)
+ You can use http://scipy-lectures.github.io/intro/numpy/operations.html#broadcasting to do calculation on the two arrays, turning  a  into a vertical 2D array using  newaxis : 
+
+  In [11]: a = np.array([1, 2, 3]) # n1 = 3
+    ...: b = np.array([4, 5]) # n2 = 2
+    ...: #if function is c(i, j) = a(i) + b(j)*2:
+    ...: c = a[:, None] + b*2
+
+In [12]: c
+Out[12]: 
+array([[ 9, 11],
+       [10, 12],
+       [11, 13]])
+  
+
+  
+
+  In [28]: a = arange(100)
+
+In [29]: b = arange(222)
+
+In [30]: timeit r = np.array([[f(i, j) for j in b] for i in a])
+10 loops, best of 3: 29.9 ms per loop
+
+In [31]: timeit c = a[:, None] + b*2
+10000 loops, best of 3: 71.6 us per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21226644)
+ You could use  list comprehensions  to create an array of arrays: 
+
+  import numpy as np
+
+# Arrays
+a = np.array([1, 2, 3]) # n1 = 3
+b = np.array([4, 5]) # n2 = 2
+
+# Your function (just an example)
+def f(i, j):
+    return i + j
+
+result = np.array([[f(i, j)for j in b ]for i in a])
+print result
+  
+
+  Output:  
+
+  [[5 6]
+ [6 7]
+ [7 8]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43197096)
+ You can use  dstack  +  reshape : 
+
+  a = np.array([[1,2,3],
+[4,5,6],
+[7,8,9],
+[10,11,12],
+[13,14,15]])
+
+# use `dstack` to stack the two arrays(one with last row removed, the other with first 
+# row removed), along the third axis, and then use reshape to flatten the second and third
+# dimensions
+np.dstack([a[:-1], a[1:]]).reshape(a.shape[0]-1, -1)
+
+#array([[ 1,  4,  2,  5,  3,  6],
+#       [ 4,  7,  5,  8,  6,  9],
+#       [ 7, 10,  8, 11,  9, 12],
+#       [10, 13, 11, 14, 12, 15]])
+  
+
+ To generalize to arbitrary  p , use a list comprehension to generate a list of shifted arrays and then do  stack+reshape : 
+
+  n, m = a.shape
+p = 3
+np.dstack([a[i:(n-p+i+1)] for i in range(p)]).reshape(n-p+1, -1)
+
+#array([[ 1,  4,  7,  2,  5,  8,  3,  6,  9],
+#       [ 4,  7, 10,  5,  8, 11,  6,  9, 12],
+#       [ 7, 10, 13,  8, 11, 14,  9, 12, 15]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38252868)
+ So one array has 2 dimensions, the other 1: 
+
+  (129873, 12)
+(129873,)
+  
+
+ You need to change the 2nd to have shape  (129873,1) .  Then you can concatenate on axis 1. 
+
+ There are a number of way of do this.  The  [:,None]  or  np.newaxis  indexing is my favorite: 
+
+  In [648]: A=np.ones((3,4),int)
+
+In [649]: B=np.ones((3,),int)
+
+In [650]: B[:,None].shape
+Out[650]: (3, 1)
+
+In [651]: np.concatenate((A,B[:,None]),axis=1).shape
+Out[651]: (3, 5)
+  
+
+  B.reshape(-1,1)  also works. Also  np.atleast_2d(B).T  and  np.expand_dims(B,1) . 
+
+  np.column_stack((A,B))  uses  np.array(arr, copy=False, subok=True, ndmin=2).T  to ensure each array has the right number of dimensions. 
+
+ While there are friendly covers to  concatenate  like  column_stack , it's important to know how to change dimensions directly. 
+
+
+

@@ -1,0 +1,280 @@
+Query: Python Pandas : group by in group by and average?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35946483)
+  
+
+  df['Date'] = pd.to_datetime(df['Date'])
+print(df.set_index('Date').groupby(pd.TimeGrouper('15D')).mean())
+  
+
+ Output: 
+
+                    Value
+Date
+2014-01-03  2579.400000
+2014-01-18  3218.333333
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43472662)
+ I would simply do this, which literally follows what your desired logic was: 
+
+  df.groupby(['org']).mean().groupby(['cluster']).mean()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53339296)
+ You can use https://pandas.pydata.org/pandas-docs/stable/groupby.html#new-syntax-to-window-and-resample-operations on  groupby  object directly as: 
+
+  df['moving'] = df.groupby('object').rolling(10)['value'].mean()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53339204)
+ You can use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rolling.html with  transform : 
+
+  df['moving'] = df.groupby('object')['value'].transform(lambda x: x.rolling(10, 1).mean())
+  
+
+ The  1  in  rolling  is for minimum number of periods. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54429910)
+ An easy way is to group by  ID  and take the average of the  val  column: 
+
+  print(df.groupby("ID").agg({"val": "mean"}).reset_index())
+#  ID       val
+#0  a  0.333333
+#1  b  0.500000
+  
+
+ Or more succinctly as pointed out by https://stackoverflow.com/users/3923281/alex-riley: 
+
+  df.groupby('ID', as_index=False).mean()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49268801)
+ You can using  str.split  to get group key 
+
+  df.fillna(0).groupby(df.Names.str.split(' ',expand=True)[0]).mean()
+Out[352]: 
+       Score1  Score2
+0                    
+Dan      30.0    15.0
+Jason    15.0    50.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30328738)
+ If you want to first take mean on  ['cluster', 'org']  combination and then again take mean on  cluster  groups 
+
+  In [59]: (df.groupby(['cluster', 'org'], as_index=False).mean()
+            .groupby('cluster')['time'].mean())
+Out[59]:
+cluster
+1          15
+2          54
+3           6
+Name: time, dtype: int64
+  
+
+ If you wan't mean values by  cluster  only, then you could 
+
+  In [58]: df.groupby(['cluster']).mean()
+Out[58]:
+              time
+cluster
+1        12.333333
+2        54.000000
+3         6.000000
+  
+
+ You could  groupby  on  ['cluster', 'org']  and then take  mean()  
+
+  In [57]: df.groupby(['cluster', 'org']).mean()
+Out[57]:
+               time
+cluster org
+1       a    438886
+        c        23
+2       d      9874
+        h        34
+3       w         6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41453636)
+ use  pct_change</codein a  groupby  
+
+  d1 = df.set_index(['Date', 'Group']).Value
+d2 = d1.groupby(level='Group').pct_change()
+print(d2)
+
+Date        Group
+2016-01-02  A             NaN
+2016-01-03  A       -0.062500
+2016-01-04  A       -0.066667
+2016-01-05  A        0.214286
+2016-01-06  A        0.117647
+2016-01-07  A        0.052632
+2016-01-02  B             NaN
+2016-01-03  B       -0.187500
+2016-01-04  B        0.000000
+2016-01-02  C             NaN
+2016-01-03  C        0.000000
+Name: Value, dtype: float64
+  
+
+ 
+
+ One of many ways to visualize and compare is to see how they grow.  In this case, I'd 
+
+ 
+  fillna(0)  
+  add(1)  
+  cumprod()  
+ 
+
+ 
+
+  d2.fillna(0).add(1).cumprod().unstack().plot()
+  
+
+ https://i.stack.imgur.com/Gx9Om.png 
+
+ 
+
+   setup </strong  
+
+  from io import StringIO
+import pandas as pd
+
+txt = """Group   Date       Value
+  A     01-02-2016     16 
+  A     01-03-2016     15 
+  A     01-04-2016     14 
+  A     01-05-2016     17 
+  A     01-06-2016     19 
+  A     01-07-2016     20 
+  B     01-02-2016     16 
+  B     01-03-2016     13 
+  B     01-04-2016     13 
+  C     01-02-2016     16 
+  C     01-03-2016     16 """
+
+df = pd.read_clipboard(parse_dates=[1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50679691)
+ Try using  groupby  then get the values of it then convert  group  to a dictionary then create a data frame out of the dictionary then transpose it then create a new column for the average using  mean : 
+
+  import pandas as pd
+df = pd.DataFrame({'Village': ['Village1', 'Village1',
+                               'Village1', 'Village1', 'Village2',
+                               'Village2', 'Village2', 'Village2'],
+                   'Yield (in kg)': [0.22,0.23,0.55,0.2, 0.88, 0.89, 0.63, 0.55]})
+group = df.groupby('Village')['Yield (in kg)'].apply(lambda x: x.values)
+df = pd.DataFrame(group.to_dict()).T
+df.columns = df.columns.astype(str)
+df['Average'] = df.mean(axis=1)
+print(df)
+  
+
+ Output: 
+
+            0     1     2     3      Average
+Village1  0.22  0.23  0.55  0.20   0.3000
+Village2  0.88  0.89  0.63  0.55   0.7375
+  
+
+ to rename the columns: 
+
+  df.columns = ['Yield (in kg)-'+i for i in df.columns if i != 'Average']
+  
+
+ Output: 
+
+            Yield (in kg)-0  Yield (in kg)-1  Yield (in kg)-2  Yield (in kg)-3   /
+Village1   0.22             0.23             0.55             0.20   
+Village2   0.88             0.89             0.63             0.55   
+
+                         Average  
+Village1                 0.3000  
+Village2                 0.7375
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35450444)
+ You can calculate the statistics manually by iterating group by group: 
+
+  # Set up input
+import pandas as pd
+df = pd.DataFrame([
+        [1, 1, 0.5], [1, 1, 0.5], [1, 0, 1], 
+        [2, 1, 0.5], [2, 0, 1], [2, 1, 0.5], 
+        [3, 1, 0.5], [3, 0, 1], [3, 1, 0.5]
+    ], columns=['a', 'b', 'c'])
+df
+   a  b    c
+0  1  1  0.5
+1  1  1  0.5
+2  1  0  1.0
+3  2  1  0.5
+4  2  0  1.0
+5  2  1  0.5
+6  3  1  0.5
+7  3  0  1.0
+8  3  1  0.5
+
+# Perform grouping, excluding the current row
+results = []
+grouped = df.groupby(['a'])
+for key, group in grouped:
+    for idx, row in group.iterrows():
+        # The group excluding current row
+        group_other = group.drop(idx)  
+        avg = group_other['b'].mean()
+        results.append(row.tolist() + [avg])
+
+# Compare our results with what is expected
+results_df = pd.DataFrame(
+    results, columns=['a', 'b', 'c', 'c_new']
+)
+results_df
+   a  b    c  c_new
+0  1  1  0.5    0.5
+1  1  1  0.5    0.5
+2  1  0  1.0    1.0
+3  2  1  0.5    0.5
+4  2  0  1.0    1.0
+5  2  1  0.5    0.5
+6  3  1  0.5    0.5
+7  3  0  1.0    1.0
+8  3  1  0.5    0.5
+  
+
+ This way you can use any statistic you want. 
+
+
+

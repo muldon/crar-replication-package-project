@@ -1,0 +1,326 @@
+Query: Splitting dictionary/list inside a Pandas Column into Separate Columns
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49335250)
+ I think you need: 
+
+ 
+  ast  for convert  string s to  dictionaries  
+ reshape by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.stack.html  
+ convert  index  to column by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html 
+ remove duplicates by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop_duplicates.html 
+ 
+
+ 
+
+  import ast
+df = (pd.DataFrame(df['CATEGORY'].apply(ast.literal_eval).values.tolist())
+       .stack()
+       .reset_index(level=0, drop=True)
+       .reset_index()
+       .drop_duplicates()
+       .rename(columns={'index':'CATEGORY_ID', 0:'CATEGORY_NAME'}))
+print (df)
+   CATEGORY_ID      CATEGORY_NAME
+0           60              SHOES
+1           46           HARDWARE
+3          219  GOVERNMENT OFFICE
+5           87            ARCADES
+  
+
+ EDIT: Solution is a bit simplify, for joining dupplicates  CATEGORY_ID  use  groupby  with  join : 
+
+  import ast
+df = (pd.DataFrame(df['CATEGORY'].apply(ast.literal_eval).values.tolist(), index=df['ID'])
+       .stack()
+       .reset_index()
+       .rename(columns={'level_1':'CATEGORY_ID', 0:'CATEGORY_NAME'})
+       )
+print (df)
+   ID  CATEGORY_ID      CATEGORY_NAME
+0   1           60              SHOES
+1   2           46           HARDWARE
+2   3           60              SHOES
+3   4          219  GOVERNMENT OFFICE
+4   5           60              SHOES
+5   5           87            ARCADES
+
+
+df1 = df.groupby('ID')['CATEGORY_ID'].apply(lambda x: ', '.join(x.astype(str))).reset_index()
+print (df1)
+   ID CATEGORY_ID
+0   1          60
+1   2          46
+2   3          60
+3   4         219
+4   5      60, 87
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28443409)
+ The way I did it was split the list into seperate columns, and then  melt ed it to put each timestamp in a separate row. 
+
+  In [48]: df = pd.DataFrame([[1,2,[1,2,4]],[4,5,[1,3]],],columns=['a','b','TimeStamp'])
+    ...: df
+Out[48]: 
+   a  b  TimeStamp
+0  1  2  [1, 2, 4]
+1  4  5     [1, 3]
+  
+
+ You can convert the column to a list and then back to a  DataFrame  to split it into columns: 
+
+  In [53]: TScolumns = pd.DataFrame(df.TimeStamp.tolist(), )
+    ...: TScolumns
+Out[53]: 
+   0  1   2
+0  1  2   4
+1  1  3 NaN
+  
+
+  
+
+  In [90]: df = df.drop('TimeStamp',axis=1)
+In [58]: split = pd.concat([df, TScolumns], axis=1)
+    ...: split
+Out[58]: 
+   a  b  0  1   2
+0  1  2  1  2   4
+1  4  5  1  3 NaN
+  
+
+ Finally, use  melt  to get it into the shape you want: 
+
+  In [89]: pd.melt(split, id_vars=['a', 'b'], value_name='TimeStamp')
+Out[89]: 
+   a  b variable  TimeStamp
+0  1  2        0          1
+1  4  5        0          1
+2  1  2        1          2
+3  4  5        1          3
+4  1  2        2          4
+5  4  5        2        NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54084341)
+ Using  DataFrame  constructor and  groupby   
+
+  df=pd.DataFrame(list(my_dict.values()))
+df.groupby(1)[0].apply(list).to_frame(0).T
+1 category subcategory
+0      [a]   [bc, c_d]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51964805)
+ You can use  join  with  pop  +  tolist . Performance is comparable to  concat  with  drop  +  tolist , but some may find this syntax cleaner: 
+
+  res = df.join(pd.DataFrame(df.pop('b').tolist()))
+  
+
+ Benchmarking with other methods: 
+
+  df = pd.DataFrame({'a':[1,2,3], 'b':[{'c':1}, {'d':3}, {'c':5, 'd':6}]})
+
+def joris1(df):
+    return pd.concat([df.drop('b', axis=1), df['b'].apply(pd.Series)], axis=1)
+
+def joris2(df):
+    return pd.concat([df.drop('b', axis=1), pd.DataFrame(df['b'].tolist())], axis=1)
+
+def jpp(df):
+    return df.join(pd.DataFrame(df.pop('b').tolist()))
+
+df = pd.concat([df]*1000, ignore_index=True)
+
+%timeit joris1(df.copy())  # 1.33 s per loop
+%timeit joris2(df.copy())  # 7.42 ms per loop
+%timeit jpp(df.copy())     # 7.68 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38233518)
+ Try this:   The data returned from SQL has to converted into a Dict.  
+or could it be   "Pollutant Levels"   is now  Pollutants'  
+
+     StationID                   Pollutants
+0       8809  {"a":"46","b":"3","c":"12"}
+1       8810   {"a":"36","b":"5","c":"8"}
+2       8811            {"b":"2","c":"7"}
+3       8812                   {"c":"11"}
+4       8813          {"a":"82","c":"15"}
+
+
+df2["Pollutants"] = df2["Pollutants"].apply(lambda x : dict(eval(x)) )
+df3 = df2["Pollutants"].apply(pd.Series )
+
+    a    b   c
+0   46    3  12
+1   36    5   8
+2  NaN    2   7
+3  NaN  NaN  11
+4   82  NaN  15
+
+
+result = pd.concat([df, df3], axis=1).drop('Pollutants', axis=1)
+result
+
+   StationID    a    b   c
+0       8809   46    3  12
+1       8810   36    5   8
+2       8811  NaN    2   7
+3       8812  NaN  NaN  11
+4       8813   82  NaN  15
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47267783)
+ Use https://docs.scipy.org/doc/numpy/reference/generated/numpy.repeat.html with https://docs.scipy.org/doc/numpy/reference/generated/numpy.concatenate.html for flattening first and thenhttp://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.groupby.html with  list  and last http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.to_dict.html: 
+
+  a = np.repeat(df['id'], df['token_list'].str.len())
+b = np.concatenate(df['token_list'].values)
+
+d = a.groupby(b).apply(list).to_dict()
+print (d)
+
+{'c': [1, 2, 4], 'a': [1, 3], 'b': [1], 'd': [2], 'e': [3], 'f': [3, 4]}
+  
+
+  
+
+  print (a)
+0    1
+0    1
+0    1
+1    2
+1    2
+2    3
+2    3
+2    3
+3    4
+3    4
+Name: id, dtype: int64
+
+print (b)
+['a' 'b' 'c' 'c' 'd' 'a' 'e' 'f' 'c' 'f']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38231651)
+ To convert the string to an actual dict, you can do  df['Pollutant Levels'].map(eval) . Afterwards, the solution below can be used to convert the dict to different columns. 
+
+ 
+
+ Using a small example, you can use  .apply(pd.Series) : 
+
+  In [2]: df = pd.DataFrame({'a':[1,2,3], 'b':[{'c':1}, {'d':3}, {'c':5, 'd':6}]})
+
+In [3]: df
+Out[3]:
+   a                   b
+0  1           {u'c': 1}
+1  2           {u'd': 3}
+2  3  {u'c': 5, u'd': 6}
+
+In [4]: df['b'].apply(pd.Series)
+Out[4]:
+     c    d
+0  1.0  NaN
+1  NaN  3.0
+2  5.0  6.0
+  
+
+ To combine it with the rest of the dataframe, you can  concat  the other columns with the above result: 
+
+  In [7]: pd.concat([df.drop(['b'], axis=1), df['b'].apply(pd.Series)], axis=1)
+Out[7]:
+   a    c    d
+0  1  1.0  NaN
+1  2  NaN  3.0
+2  3  5.0  6.0
+  
+
+ 
+
+ Using your code, this also works if I leave out the  iloc  part: 
+
+  In [15]: pd.concat([df.drop('b', axis=1), pd.DataFrame(df['b'].tolist())], axis=1)
+Out[15]:
+   a    c    d
+0  1  1.0  NaN
+1  2  NaN  3.0
+2  3  5.0  6.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51997454)
+ Simple solution is to convert your  scene  column to the list of dictionaries and create new data frame with default constructor: 
+
+  pd.DataFrame(df.scene.tolist()).fillna(0)
+  
+
+  
+
+    kitchen living others  study
+0   0.297  0.515      0      0
+1   0.401      0      0  0.005
+2       0      0      0  0.913
+3       0      0      0      0
+4       0      0      0      0
+  
+
+ One of the "default" way to create DataFrame is to use a list of dictionaries. In this case each dictionary of list will be converted to the separate row and each key of dict will be used for the column heading. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47060992)
+ Sounds awfully boring but just iterate over the values directly - this way you can call  append  and avoid whatever rebinding occurs with  += , making things significantly faster.  
+
+  for val in my_df.my_list:
+    val.append(99)
+  
+
+    
+
+  >>> import timeit
+>>> setup = '''
+import pandas as pd; import numpy as np
+df = pd.DataFrame({'my_list': np.random.randint(0, 100, (500, 500)).tolist()})
+'''
+
+>>> min(timeit.Timer('for val in df.my_list: val.append(90)', 
+                     setup=setup).repeat(10, 1000))
+0.05669815401779488
+
+>>> min(timeit.Timer('df.my_list += [90]', 
+                     setup=setup).repeat(10, 1000))
+2.7741127769695595
+  
+
+ 
+
+ Of course, if speed (or even if not speed) is important to you, you should question if you  really  need to have lists inside a DataFrame. Consider working on a NumPy array until you need Pandas utility and doing something like  
+
+  np.c_[arr, np.full(arr.shape[0], 90)]
+  
+
+ or at least splitting your lists inside the DataFrame to separate columns and assigning a new column . 
+
+
+

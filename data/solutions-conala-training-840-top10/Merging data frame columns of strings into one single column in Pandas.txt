@@ -1,0 +1,310 @@
+Query: Merging data frame columns of strings into one single column in Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38550190)
+ A faster (but uglier) version is with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.cat.html: 
+
+  df[0].str.cat(df.ix[:, 1:].T.values, sep=' ')
+
+0    New york Atlanta Mumbai
+1     Beijing Paris Budapest
+2    Brussels Oslo Singapore
+Name: 0, dtype: object
+  
+
+ On a larger (10kx5) DataFrame: 
+
+  %timeit df.apply(" ".join, axis=1)
+10 loops, best of 3: 112 ms per loop
+
+%timeit df[0].str.cat(df.ix[:, 1:].T.values, sep=' ')
+100 loops, best of 3: 4.48 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38550047)
+ Suppose you have a  DataFrame  like so: 
+
+  >>> df
+          0        1          2
+0  New york  Atlanta     Mumbai
+1   Beijing    Paris   Budapest
+2  Brussels     Oslo  Singapore
+  
+
+ Then, a simple use of the  pd.DataFrame.apply  method will work nicely: 
+
+  >>> df.apply(" ".join, axis=1)
+0    New york Atlanta Mumbai
+1     Beijing Paris Budapest
+2    Brussels Oslo Singapore
+dtype: object
+  
+
+ Note, I have to pass  axis=1  so that it is applied across the columns, rather than down the rows. I.e: 
+
+  >>> df.apply(" ".join, axis=0)
+0    New york Beijing Brussels
+1           Atlanta Paris Oslo
+2    Mumbai Budapest Singapore
+dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38551192)
+  
+
+  In [160]: df1.add([' '] * (df1.columns.size - 1) + ['']).sum(axis=1)
+Out[160]:
+0    New york Atlanta Mumbai
+1     Beijing Paris Budapest
+2    Brussels Oslo Singapore
+dtype: object
+  
+
+  
+
+  In [162]: [' '] * (df.columns.size - 1) + ['']
+Out[162]: [' ', ' ', '']
+  
+
+  Timing against 300K rows DF:  
+
+  In [68]: df = pd.concat([df] * 10**5, ignore_index=True)
+
+In [69]: df.shape
+Out[69]: (300000, 3)
+
+In [76]: %timeit df.apply(" ".join, axis=1)
+1 loop, best of 3: 5.8 s per loop
+
+In [77]: %timeit df[0].str.cat(df.ix[:, 1:].T.values, sep=' ')
+10 loops, best of 3: 138 ms per loop
+
+In [79]: %timeit pir(df)
+1 loop, best of 3: 499 ms per loop
+
+In [80]: %timeit pir2(df)
+10 loops, best of 3: 174 ms per loop
+
+In [81]: %timeit pir3(df)
+10 loops, best of 3: 115 ms per loop
+
+In [159]: %timeit df.add([' '] * (df.columns.size - 1) + ['']).sum(axis=1)
+1 loop, best of 3: 478 ms per loop
+  
+
+  Conclusion:  current winner is https://stackoverflow.com/a/38550724/5741205 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49497525)
+ One way is to use  pd.DataFrame.join  after filtering out null values. 
+
+ Data from @ALollz. 
+
+  import pandas as pd
+
+df1 = pd.DataFrame({'Country': ['USA', 'UK', 'Finland', 'Spain', 'Australia']})
+df2 = pd.DataFrame({'Comments': ['X', None, 'Y', None, 'Z']})
+
+res = df1.join(pd.DataFrame(list(filter(None, df2.values)), columns=['comments']))
+  
+
+  
+
+       Country comments
+0        USA        X
+1         UK        Y
+2    Finland        Z
+3      Spain      NaN
+4  Australia      NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38550724)
+ Here are a couple more ways: 
+
+  def pir(df):
+    df = df.copy()
+    df.insert(2, 's', ' ', 1)
+    df.insert(1, 's', ' ', 1)
+    return df.sum(1)
+
+def pir2(df):
+    df = df.copy()
+    return pd.MultiIndex.from_arrays(df.values.T).to_series().str.join(' ').reset_index(drop=True)
+
+def pir3(df):
+    a = df.values[:, 0].copy()
+    for j in range(1, df.shape[1]):
+        a += ' ' + df.values[:, j]
+    return pd.Series(a)
+  
+
+ 
+
+ Timing</h3>
+
+  pir3  seems fastest over small  df  
+
+ https://i.stack.imgur.com/9djGS.png 
+
+  pir3  still fastest over larger  df  30,000 rows 
+
+ <a href="https://i.stack.imgur.com/iaM8y.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38551387)
+ If you prefer something more explicit... 
+
+ Starting with a dataframe df that looks like this: 
+
+  >>> df
+          A         B          C
+0  New york   Beijing   Brussels
+1   Atlanta     Paris       Oslo
+2    Mumbai  Budapest  Singapore
+  
+
+ You can create a new column like this: 
+
+  df['result'] = df['A'] + ' ' + df['B'] + ' ' + df['C']
+  
+
+ In this case the result is stored in the 'result' column of the original DataFrame: 
+
+            A         B          C                     result
+0  New york   Beijing   Brussels  New york Beijing Brussels
+1   Atlanta     Paris       Oslo         Atlanta Paris Oslo
+2    Mumbai  Budapest  Singapore  Mumbai Budapest Singapore
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/10909560)
+ You could first identify the index-duplicated (not value) row using  groupby  method, and then do a sum/mean operation on all the rows with the duplicate index. 
+
+  data1 = data1.groupby(data1.index).sum()
+data2 = data2.groupby(data2.index).sum()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37365832)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.merge.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop.html column  ('A', 0) : 
+
+  cols = list(zip(si.columns, range(si.shape[1])))
+si.columns = pd.MultiIndex.from_tuples(cols)
+print (si)
+       A   D   E
+       0   1   2
+0   text  T1   9
+1  text2  T2  10
+2  text3  T3  11
+
+print (pd.merge(mi,si, left_on=[('B','BB1')], right_on=[('A', 0)]).drop([('A', 0)], axis=1))
+   A      B      C   D   E
+  AA    BB1 BB2 CC   1   2
+0  1   text   5  7  T1   9
+1  2  text2   6  8  T2  10
+2  3  text3   7  9  T3  11
+  
+
+ EDIT by comment - use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_level_values.html: 
+
+  print (df)
+   A      B      C   D   E
+  AA    BB1 BB2 CC   1   2
+0  1   text   5  7  T1   9
+1  2  text2   6  8  T2  10
+2  3  text3   7  9  T3  11
+
+print (df.columns.get_level_values(0))
+Index(['A', 'B', 'B', 'C', 'D', 'E'], dtype='object')
+
+cols = list(zip(df.columns.get_level_values(0), df.columns.get_level_values(0)))
+df.columns = pd.MultiIndex.from_tuples(cols)
+print (df)
+   A      B     C   D   E
+   A      B  B  C   D   E
+0  1   text  5  7  T1   9
+1  2  text2  6  8  T2  10
+2  3  text3  7  9  T3  11
+  
+
+ EDIT1: If you need merge on multiple columns: 
+
+  print (mi)
+   A      B      C
+  AA    BB1 BB2 CC
+0  1   text   5  7
+1  2  text2   6  8
+2  3  text3   7  9
+
+cols = list(zip(si.columns, range(si.shape[1])))
+si.columns = pd.MultiIndex.from_tuples(cols)
+print (si)
+       A   D  E
+       0   1  2
+0   text  T1  1
+1  text2  T2  2
+2  text3  T3  3
+
+df = (pd.merge(mi,si, left_on=[('B','BB1'),('A','AA')], right_on=[('A', 0), ('E', 2)])
+        .drop([('A', 0), ('E', 2)], axis=1))
+
+print (df)
+   A      B      C   D
+  AA    BB1 BB2 CC   1
+0  1   text   5  7  T1
+1  2  text2   6  8  T2
+2  3  text3   7  9  T3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49497345)
+ If by "sort the second dataframe" you mean move the NULL values to the end of the list and keep the rest of the order in tact, then this will get the job done. 
+
+  import pandas as pd
+df1 = pd.DataFrame({'Country': ['USA', 'UK', 'Finland', 'Spain', 'Australia'],
+                   'Name': ['Sam', 'Chris', 'Jeff', 'Kartik', 'Mavenn']})
+df2 = pd.DataFrame({'Comments': ['X', None, 'Y', None, 'Z']})
+
+df1['Comments'] = df2[df2.Comments.notnull()].reset_index().drop(columns='index')
+
+     Country    Name Comments
+0        USA     Sam        X
+1         UK   Chris        Y
+2    Finland    Jeff        Z
+3      Spain  Kartik      NaN
+4  Australia  Mavenn      NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39247955)
+ try this it may work use  numpy  as  np : 
+
+  data_norm = data_x_filled.copy() #Has training + test data frames combined to form single data frame
+normalizer = StandardScaler()
+data_array = normalizer.fit_transform(data_norm.ix[:,data_norm.columns!='SI No'])
+data_norm = pd.DataFrame(np.column_stack((data_norm['SI No'].values,data_array)),columns = data_norm.columns).set_index(data_norm.index)
+  
+
+
+

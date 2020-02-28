@@ -1,0 +1,463 @@
+Query: Manually raising (throwing) an exception
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2052396)
+ 
+    DON'T DO THIS . Raising a bare  Exception  is absolutely  not  the right thing to do; see https://stackoverflow.com/a/24065533 instead. 
+ 
+
+ Can't get much more pythonic than this: 
+
+  raise Exception("I know python!")
+  
+
+ See http://docs.python.org/reference/simple_stmts.html#the-raise-statement for python if you'd like more info. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30317038)
+ For the common case where you need to throw an exception in response to some unexpected conditions, and that you never intend to catch, but simply to fail fast to enable you to debug from there if it ever happens — the most logical one seems to be  AssertionError : 
+
+  if 0 < distance <= RADIUS:
+    #Do something.
+elif RADIUS < distance:
+    #Do something.
+else:
+    raise AssertionError("Unexpected value of 'distance'!", distance)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24065533)
+ 
+   How do I manually throw/raise an exception in Python? 
+ 
+
+ https://docs.python.org/3/library/exceptions.html#exception-hierarchy.   
+
+ Be specific in your message, e.g.: 
+
+  raise ValueError('A very specific bad thing happened.')
+  
+
+ Don't raise generic exceptions 
+
+ Avoid raising a generic Exception. To catch it, you'll have to catch all other more specific exceptions that subclass it. 
+
+ Problem 1: Hiding bugs</h3>
+
+  raise Exception('I know Python!') # Don't! If you catch, likely to hide bugs.
+  
+
+ For example: 
+
+  def demo_bad_catch():
+    try:
+        raise ValueError('Represents a hidden bug, do not catch this')
+        raise Exception('This is the exception you expect to handle')
+    except Exception as error:
+        print('Caught this error: ' + repr(error))
+
+>>> demo_bad_catch()
+Caught this error: ValueError('Represents a hidden bug, do not catch this',)
+  
+
+ Problem 2: Won't catch</h3>
+
+ and more specific catches won't catch the general exception: 
+
+  def demo_no_catch():
+    try:
+        raise Exception('general exceptions not caught by specific handling')
+    except ValueError as e:
+        print('we will not catch exception: Exception')
+
+
+>>> demo_no_catch()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 3, in demo_no_catch
+Exception: general exceptions not caught by specific handling
+  
+
+ Best Practices:  raise  statement 
+
+ https://docs.python.org/3/library/exceptions.html#exception-hierarchy. 
+
+  raise ValueError('A very specific bad thing happened')
+  
+
+ which also handily allows an arbitrary number of arguments to be passed to the constructor: 
+
+  raise ValueError('A very specific bad thing happened', 'foo', 'bar', 'baz') 
+  
+
+ These arguments are accessed by the  args  attribute on the Exception object. For example: 
+
+  try:
+    some_code_that_may_raise_our_value_error()
+except ValueError as err:
+    print(err.args)
+  
+
+   
+
+  ('message', 'foo', 'bar', 'baz')    
+  
+
+ In Python 2.5, an actual  message  attribute was added to BaseException in favor of encouraging users to subclass Exceptions and stop using  args , but http://www.python.org/dev/peps/pep-0352/#retracted-ideas. 
+
+ Best Practices:  except  clause 
+
+ When inside an except clause, you might want to, for example, log that a specific type of error happened, and then re-raise. The best way to do this while preserving the stack trace is to use a bare raise statement. For example: 
+
+  logger = logging.getLogger(__name__)
+
+try:
+    do_something_in_app_that_breaks_easily()
+except AppError as error:
+    logger.error(error)
+    raise                 # just this!
+    # raise AppError      # Don't do this, you'll lose the stack trace!
+  
+
+ Don't modify your errors... but if you insist.</h3>
+
+ You can preserve the stacktrace (and error value) with  sys.exc_info() , but  this is way more error prone  and  has compatibility problems between Python 2 and 3 , prefer to use a bare  raise  to re-raise.  
+
+ To explain - the  sys.exc_info()  returns the type, value, and traceback.  
+
+  type, value, traceback = sys.exc_info()
+  
+
+ This is the syntax in Python 2 - note this is not compatible with Python 3: 
+
+      raise AppError, error, sys.exc_info()[2] # avoid this.
+    # Equivalently, as error *is* the second object:
+    raise sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+  
+
+ If you want to, you can modify what happens with your new raise - e.g. setting new args for the instance: 
+
+  def error():
+    raise ValueError('oops!')
+
+def catch_error_modify_message():
+    try:
+        error()
+    except ValueError:
+        error_type, error_instance, traceback = sys.exc_info()
+        error_instance.args = (error_instance.args[0] + ' <modification>',)
+        raise error_type, error_instance, traceback
+  
+
+ And we have preserved the whole traceback while modifying the args. Note that this is  not a best practice  and it is  invalid syntax  in Python 3 (making keeping compatibility much harder to work around). 
+
+  >>> catch_error_modify_message()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 3, in catch_error_modify_message
+  File "<stdin>", line 2, in error
+ValueError: oops! <modification>
+  
+
+ In https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement: 
+
+      raise error.with_traceback(sys.exc_info()[2])
+  
+
+ Again: avoid manually manipulating tracebacks. It's https://docs.python.org/2/reference/simple_stmts.html#the-raise-statement and more error prone. And if you're using threading and  sys.exc_info  you may even get the wrong traceback (especially if you're using exception handling for control flow - which I'd personally tend to avoid.) 
+
+ Python 3, Exception chaining</h3>
+
+ In Python 3, you can chain Exceptions, which preserve tracebacks: 
+
+      raise RuntimeError('specific message') from error
+  
+
+ Be aware: 
+
+ 
+ this  does  allow changing the error type raised, and 
+ this is  not  compatible with Python 2. 
+ 
+
+ Deprecated Methods:</h3>
+
+ These can easily hide and even get into production code. You want to raise an exception, and doing them will raise an exception,  but not the one intended!  
+
+ http://www.python.org/dev/peps/pep-3109/ is the following: 
+
+  raise ValueError, 'message' # Don't do this, it's deprecated!
+  
+
+ Only https://docs.python.org/2/whatsnew/2.5.html#pep-352-exceptions-as-new-style-classes (2.4 and lower), you may still see people raising strings: 
+
+  raise 'message' # really really wrong. don't do this.
+  
+
+ In all modern versions, this will actually raise a TypeError, because you're not raising a BaseException type. If you're not checking for the right exception and don't have a reviewer that's aware of the issue, it could get into production. 
+
+ Example Usage 
+
+ I raise Exceptions to warn consumers of my API if they're using it incorrectly: 
+
+  def api_func(foo):
+    '''foo should be either 'baz' or 'bar'. returns something very useful.'''
+    if foo not in _ALLOWED_ARGS:
+        raise ValueError('{foo} wrong, use "baz" or "bar"'.format(foo=repr(foo)))
+  
+
+ Create your own error types when apropos 
+
+ 
+    "I want to make an error on purpose, so that it would go into the except"  
+ 
+
+ You can create your own error types, if you want to indicate something specific is wrong with your application, just subclass the appropriate point in the exception hierarchy: 
+
+  class MyAppLookupError(LookupError):
+    '''raise this when there's a lookup error for my app'''
+  
+
+  
+
+  if important_key not in resource_dict and not ok_to_be_missing:
+    raise MyAppLookupError('resource is missing, and that is not ok.')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43092920)
+  Read the existing answers first, this is just an addendum.  
+
+ Notice that you can raise exceptions with or without arguments. 
+
+ Example: 
+
+  raise SystemExit
+  
+
+ exits the program but you might want to know what happened.So you can use this. 
+
+  raise SystemExit("program exited")
+  
+
+ this will print "program exited" to stderr before closing the program. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54768419)
+ AFAIK, there is no other way than to set  __cause__  manually. 
+
+ But since you create a custom exception, this might be helpful: 
+
+  class MyCustomException(Exception):
+    def __init__(self, cause=None)
+        self.__cause__ = cause
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40493467)
+ In Python3 there are 4 different syntaxes for rasing exceptions:  
+
+  1. raise exception 
+2. raise exception (args) 
+3. raise
+4. raise exception (args) from original_exception
+  
+
+ 
+    1. raise exception vs. 2. raise exception (args)  
+ 
+
+ If you use  raise exception (args)   to raise an exception then the    args  will be printed when you print the exception object - as shown in the example below.  
+
+    #raise exception (args)
+    try:
+        raise ValueError("I have raised an Exception")
+    except ValueError as exp:
+        print ("Error", exp)     # Output -> Error I have raised an Exception 
+
+
+
+  #raise execption 
+    try:
+        raise ValueError
+    except ValueError as exp:
+        print ("Error", exp)     # Output -> Error 
+  
+
+ 
+    3.raise  
+ 
+
+  raise  statement without any arguments re-raises the last exception. 
+This is useful if you need to perform some actions after catching the exception and  then want to re-raise it. But if there was no exception before,  raise  statement raises   TypeError  Exception.  
+
+  def somefunction():
+    print("some cleaning")
+
+a=10
+b=0 
+result=None
+
+try:
+    result=a/b
+    print(result)
+
+except Exception:            #Output ->
+    somefunction()           #some cleaning
+    raise                    #Traceback (most recent call last):
+                             #File "python", line 8, in <module>
+                             #ZeroDivisionError: division by zero
+  
+
+ 
+    4. raise exception (args) from original_exception  
+ 
+
+ This statement is used to create exception chaining in which an exception that is raised in response to another exception can contain the details of the original exception - as shown in the example below. 
+
+  class MyCustomException(Exception):
+pass
+
+a=10
+b=0 
+reuslt=None
+try:
+    try:
+        result=a/b
+
+    except ZeroDivisionError as exp:
+        print("ZeroDivisionError -- ",exp)
+        raise MyCustomException("Zero Division ") from exp
+
+except MyCustomException as exp:
+        print("MyException",exp)
+        print(exp.__cause__)
+  
+
+  Output:  
+
+  ZeroDivisionError --  division by zero
+MyException Zero Division 
+division by zero
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22094948)
+ The error is not raised unless you call http://docs.python.org/2/library/multiprocessing.html#multiprocessing.pool.AsyncResult.get of http://docs.python.org/2/library/multiprocessing.html#multiprocessing.pool.AsyncResult (the return value of the  apply_async ): 
+
+ According to the http://docs.python.org/2/library/multiprocessing.html#multiprocessing.pool.AsyncResult.get: 
+
+ 
+   Return the result when it arrives. If timeout is not None and the
+  result does not arrive within timeout seconds then
+  multiprocessing.TimeoutError is raised.  If the remote call raised an
+  exception then that exception will be reraised by get() . 
+ 
+
+  def pool():
+    pool = mp.Pool(processes=1)
+    result = pool.apply_async(worker, args=())
+    result.get() # <------------
+    pool.close()
+    pool.join()
+    print "Multiprocessing done!"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7687232)
+ Another option is to simply store the exception if you don't want to lose it: 
+
+ Python 3.x version: 
+
+  try:
+    file_path = "whatever.jpg"
+    # do stuff with file
+except BaseException as e:
+    try:
+        os.unlink(file_path)
+    except Exception:
+        traceback.print_exc()
+    raise e
+  
+
+ The Python 2.x version is slightly more complex since you need to store the complete exception information manually (otherwise you'd lose the traceback): 
+
+  try:
+    file_path = "whatever.jpg"
+    # do stuff with file
+except:
+    e = sys.exc_info()
+    try:
+        os.unlink(file_path)
+    except Exception:
+        traceback.print_exc()
+    raise e[0], e[1], e[2]
+  
+
+  Edit : Only catch subclasses of  Exception  in the inner  try  block, since you don't want do catch  SystemExit  or  KeyboardInterrupt  here.  Also report any excpetion that occurred during unlinking instead of just dropping it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32910579)
+ You can manually (partially) simulate the impact of an exception, by jumping to the appropriate line in the  except  clause, and in case you also catch an exception object (which in your case you don't), explicitly create it. 
+
+  # a.py
+line1@ def fn2():
+line2@    # do some work
+line3@    try:
+line4@        fn1()
+line5@    except:
+line6@        print 'exception'
+
+(Pdb) b 4
+(Pdb) c
+> a.py(4)fn2()
+-> fn1()
+(Pdb) j 6
+> a.py(6)fn2()
+-> print 'exception'
+(Pdb) e = ValueError(5)
+(Pdb) <<the rest of your debugging here>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47875377)
+ There is nothing wrong with manually raising an exception. Collecting your cols in some collection will make validation easier: 
+
+  class Translator(object):
+    def __init__(self, tracking_col=..., coding_col=..., qualifying_code_col=..., 
+                 translation_col=...):
+        self._results = []
+        self.cols = [tracking_col, coding_col, qualifying_code_col, translation_col]
+        self.validate_cols(self)
+
+    def validate_cols(self):
+        if len(self.cols) > len(set(self.cols)):
+            raise ...
+
+    @property
+    def tracking_col(self):
+        return cols[0]
+
+    # ...
+  
+
+
+

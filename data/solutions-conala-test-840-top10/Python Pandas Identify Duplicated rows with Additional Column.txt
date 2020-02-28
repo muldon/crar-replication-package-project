@@ -1,0 +1,288 @@
+Query: Python Pandas Identify Duplicated rows with Additional Column
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37497630)
+ Here is my approach with a recursive function: 
+
+  dfnondup = df.drop_duplicates(['PplNum', 'RoomNum'])
+
+
+def rename_dup(df):
+    def rename_dup(df, c, dfnew):
+        dfnondup = df.drop_duplicates(['PplNum', 'RoomNum'])
+        dfnondup['C'] = pd.Series([c] * len(dfnondup), index=dfnondup.index)
+        dfnew = pd.concat([dfnew, dfnondup], axis=0)
+        c += 1
+        dfdup = df[df.duplicated(['PplNum', 'RoomNum'])]
+        if dfdup.empty:
+            return dfnew, c
+        else:
+            return rename_dup(dfdup, c, dfnew)
+
+    return rename_dup(df, 1, pd.DataFrame())
+
+
+dfnew, c = rename_dup(df)
+  
+
+ The result  dfnew  will be 
+
+  dfnew
+Out[28]: 
+   PplNum  RoomNum  Value  C
+0       1        0    265  1
+1       1       12    170  1
+2       2        0    297  1
+3       2       12     85  1
+4       2        0     41  2
+5       2       12    144  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37497576)
+ you can do it using http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html together with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.cumcount.html function: 
+
+  In [102]: df['C'] = df.groupby(['PplNum','RoomNum']).cumcount() + 1
+
+In [103]: df
+Out[103]:
+   PplNum  RoomNum  Value  C
+0       1        0    265  1
+1       1       12    170  1
+2       2        0    297  1
+3       2       12     85  1
+4       2        0     41  2
+5       2       12    144  2
+  
+
+  
+
+  In [101]: df.groupby(['PplNum','RoomNum']).cumcount() + 1
+Out[101]:
+0    1
+1    1
+2    1
+3    1
+4    2
+5    2
+dtype: int64
+  
+
+ http://pandas.pydata.org/pandas-docs/stable/groupby.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41971497)
+ You can convert cells not starting with  a  to missing values and forward fill the series and then do  value_counts : 
+
+  df.B.where(df.B.str.startswith("a"), None).ffill().value_counts()
+​
+#a0    3
+#a1    2
+#a2    1
+#Name: B, dtype: int64
+  
+
+ 
+
+ If you have duplicated  a s appear, to differentiate them, you can create an additional group variable with  cumsum : 
+
+  start_a = df.B.str.startswith("a")
+df.groupby(by = [df.B.where(start_a, None).ffill(), start_a.cumsum().rename('g')]).size()
+
+#B   g        # here is an extra group variable to differentiate possible duplicated a rows
+#a0  1    3
+#a1  2    2
+#a2  3    1
+#dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14955343)
+ There is a DataFrame method http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.duplicated.html for the first column:  
+
+  In [11]: df.duplicated(['Column2', 'Column3', 'Column4'])
+Out[11]: 
+0    False
+1    False
+2     True
+
+In [12]: df['is_duplicated'] = df.duplicated(['Column2', 'Column3', 'Column4'])
+  
+
+ To do the second you could try something like this: 
+
+  In [13]: g = df.groupby(['Column2', 'Column3', 'Column4'])
+
+In [14]: df1 = df.set_index(['Column2', 'Column3', 'Column4'])
+
+In [15]: df1.index.map(lambda ind: g.indices[ind][0])
+Out[15]: array([0, 1, 0])
+
+In [16]: df['dup_index'] = df1.index.map(lambda ind: g.indices[ind][0])
+
+In [17]: df
+Out[17]: 
+   Column1 Column2 Column3  Column4 is_duplicated  dup_index
+0        1     ABC     DEF       10         False          0
+1        2     XYZ     DEF       40         False          1
+2        3     ABC     DEF       10          True          0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44530944)
+ You could use https://pandas.pydata.org/pandas-docs/stable/text.html#indexing-with-str to obtain the first four characters,
+and use the https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.duplicated.html to identify duplicates: 
+
+  In [89]: df.loc[~df['POSTCODES'].str[:4].duplicated(keep='first')]
+Out[89]: 
+  POSTCODES
+0   DD1 1DB
+2  DD10 8JG
+  
+
+ Since  duplicated(keep='first')  marks duplicates as True, the row we wish to keep would be marked False. So to select the False rows with https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html, the  ~  is used to http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52378172)
+ To identify rows that have at least one matching column: 
+
+  >>> df.apply(lambda x: x.dropna().duplicated()).any(axis=1)
+0    False
+1     True
+2     True
+3    False
+4     True
+dtype: bool
+  
+
+ In the above, rows 1, 2 and 4 are 'duplicates'. Row 1: Liquor, Row 2: Ethanol, and Row 4: Aluminum. 
+
+ I'm not clear about your fill logic, however. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45329904)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html with columns  name1  and  Series  created by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.cumcount.html and then reshape by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.unstack.html. 
+
+ Last rename columns and create columns from  index  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html: 
+
+  df = df.set_index(['name1','name2', df.groupby(['name1','name2']).cumcount()])['data1'] \
+       .unstack().rename(columns = lambda x: 'data' + str(x + 1)).reset_index()
+print (df)
+  name1 name2  data1  data2
+0     a     x      1      5
+1     a     y      2      6
+2     b     x      3      7
+3     b     y      4      8
+  
+
+ Another solution is create  list  and then new  df  by  DataFrame  constructor: 
+
+  df1 = df.groupby(['name1','name2'])['data1'].apply(list)
+df = pd.DataFrame(df1.values.tolist(), index=df1.index)
+df = df.rename(columns = lambda x: 'data' + str(x + 1)).reset_index()
+print (df)
+  name1 name2  data1  data2
+0     a     x      1      5
+1     a     y      2      6
+2     b     x      3      7
+3     b     y      4      8
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40435354)
+ All of the above seem unnecessarily heavy and tedious methods --there's a one line solution to the problem. This applies if some column names are duplicated and you wish to remove them: 
+
+  df = df.loc[:,~df.columns.duplicated()]
+  
+
+ [update] How it works:</h3>
+
+ Suppose the columns of the data frame are  ['alpha','beta','alpha']  
+
+  df.columns.duplicated()  returns a boolean array: a  True  or  False  for each column. If it is  False  then the column name is unique up to that point, if it is  True  then the column name is duplicated earlier. For example, using the given example, the returned value would be  [False,False,True] .  
+
+  Pandas  allows one to index using boolean values whereby it selects only the  True  values. Since we want to keep the unduplicated columns, we need the above boolean array to be flipped (ie  [True, True, False] = ~[False,False,True] ) 
+
+ Finally,  df.loc[:,[True,True,False]]  selects only the non-duplicated columns using the aforementioned indexing capability.  
+
+  Note : the above only checks columns names,  not  column values. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51133762)
+ pd.Series.duplicated</h3>
+
+ Since you are using Pandas, you can use  pd.Series.duplicated  after concatenating column names: 
+
+  # concatenate column labels
+s = pd.concat([df.columns.to_series() for df in (df1, df2, df3)])
+
+# keep all duplicates only, then extract unique names
+res = s[s.duplicated(keep=False)].unique()
+
+print(res)
+array(['b', 'e'], dtype=object)
+  
+
+ pd.Series.value_counts</h3>
+
+ Alternatively, you can extract a series of counts and identify rows which have a count greater than 1: 
+
+  s = pd.concat([df.columns.to_series() for df in (df1, df2, df3)]).value_counts()
+
+res = s[s > 1].index
+
+print(res)
+Index(['e', 'b'], dtype='object')
+  
+
+ collections.Counter</h3>
+
+ The classic Python solution is to use  collections.Counter  followed by a list comprehension. Recall that  list(df)  returns the columns in a dataframe, so we can use this  map  and  itertools.chain  to produce an iterable to feed  Counter . 
+
+  from itertools import chain
+from collections import Counter
+
+c = Counter(chain.from_iterable(map(list, (df1, df2, df3))))
+
+res = [k for k, v in c.items() if v > 1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40082961)
+ Here's one way 
+
+  In [237]: dff = (df.groupby(['A','B','C','D','E','F'])['G'].unique()
+   .....:          .apply(pd.Series, 1).fillna(0))
+
+In [238]: dff.columns =  ['G_%s' % (x+1) for x in dff.columns]
+
+In [239]: dff
+Out[239]:
+                                  G_1   G_2   G_3
+A      B       C  D  E     F
+apple  orange  10 20 cat   rat   10.0  20.0   0.0
+cherry date    56 91 tiger lion  65.0   0.0   0.0
+grapes banana  22 34 dog   frog  34.0  40.0  67.0
+kiwi   avocado 90 89 ant   fox   76.0   0.0   0.0
+  
+
+
+

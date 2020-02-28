@@ -1,0 +1,221 @@
+Query: How do I use a MD5 hash (or other binary data) as a key name?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4508199)
+ I find using a base64 encoding of the binary data a reasonable solution. Based on your code you could do something like: 
+
+  import hashlib
+import base64
+print base64.b64encode(hashlib.md5('thecakeisalie').digest())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4509581)
+ The App Engine http://code.google.com/intl/en/appengine/docs/python/datastore/keysandentitygroups.html says: 
+
+ 
+   A key_name is stored as a Unicode
+  string (with str values converted as
+  ASCII text). 
+ 
+
+ The key has to be an unicode-encodeable-string. You need to change the digest() call to hexdigest(), ie: 
+
+  k = hashlib.md5('thecakeisalie').hexdigest()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4622181)
+ decode the bytestring with http://en.wikipedia.org/wiki/ISO/IEC_8859-1 
+
+  >>> hashlib.md5('thecakeisalie').digest().decode("iso-8859-1")
+u"'\xfc\xce\x84h\xa9\x1e\x8a\x12;\xa5\xb1K\xea\xef\xd6"
+  
+
+ This is basically a "NOP" conversion. It creates a unicode object that is the same length as the initial string and can be converted back to a string just by  .encode("iso-8859-1")  if you wish 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4729511)
+ An entity key in App Engine can have either an ID (a 4 byte integer), or a name (500 byte UTF-8 encoded string). 
+
+ An MD5 digest is 16 bytes of binary data: too large for an integer, (likely to be) invalid UTF-8. Some form of encoding must be used. 
+
+ If hexdigest() is too verbose at 32 bytes then try base64 at 24 bytes. 
+
+ Whatever encoding scheme you use will ultimately be converted to UTF-8 by the datastore, so the following, which at first looks like an optimal encoding... 
+
+  >>> u = hashlib.md5('thecakeisalie').digest().decode("iso-8859-1")
+>>> len(u)
+16
+  
+
+ ...when encoded into it's final representation is two bytes longer than the base64 encoding: 
+
+  >>> s = u.encode('utf-8')
+>>> len(s)
+26
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4622329)
+ Let's think about data sizes. The optimal solution here is 16 bytes: 
+
+  >>> hashlib.md5('thecakeisalie').digest() 
+"'\xfc\xce\x84h\xa9\x1e\x8a\x12;\xa5\xb1K\xea\xef\xd6"
+
+>>> len(hashlib.md5('thecakeisalie').digest())
+16
+  
+
+ The first thing you thought of was hexdigest, but it's not very close to 16 bytes: 
+
+  >>> hashlib.md5('thecakeisalie').hexdigest() 
+'27fcce8468a91e8a123ba5b14beaefd6'
+
+>>> len(hashlib.md5('thecakeisalie').hexdigest())
+32
+  
+
+ But this won't give you ascii-encodable bytes, so we have to do something else. The simple thing to do is use the python representation: 
+
+  >>> repr(hashlib.md5('thecakeisalie').digest())
+'"\'\\xfc\\xce\\x84h\\xa9\\x1e\\x8a\\x12;\\xa5\\xb1K\\xea\\xef\\xd6"'
+
+>>> len(repr(hashlib.md5('thecakeisalie').digest()))
+54
+  
+
+ We can get rid of a bunch of that by removing the "\x" escapes and the surrounding quotes: 
+
+  >>> repr(hashlib.md5('thecakeisalie').digest())[1:-1].replace('\\x','')
+"'fcce84ha91e8a12;a5b1Keaefd6"
+
+>>> len(repr(hashlib.md5('thecakeisalie').digest())[1:-1].replace('\\x',''))
+28
+  
+
+ That's pretty good, but base64 does a little better: 
+
+  >>> base64.b64encode(hashlib.md5('thecakeisalie').digest())
+J/zOhGipHooSO6WxS+rv1g==
+>>> len(base64.b64encode(hashlib.md5('thecakeisalie').digest()))
+24
+  
+
+ Overall, base64 is most space-efficient, but I'd just go with hexdigest as it's likely to be most optimized (time-efficient). 
+
+ 
+
+ Gnibbler's answer gives a length of 16! 
+
+  >>> hashlib.md5('thecakeisalie').digest().decode("iso-8859-1")
+u"'\xfc\xce\x84h\xa9\x1e\x8a\x12;\xa5\xb1K\xea\xef\xd6"
+>>> len(hashlib.md5('thecakeisalie').digest().decode("iso-8859-1"))
+16
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4032736)
+ That's what Python's http://docs.python.org/library/hmac.html module is for, don't use the MD5 function directly. 
+
+  # Right
+import hmac
+# Note that hmac.new defaults to using MD5
+hmac.new("password", "message").hexdigest() # 'f37438341e3d22aa11b4b2e838120dcf'
+
+# Wrong
+from hashlib import md5
+md5("message"+"password").hexdigest() # 'd0647ee3be62a57c9475541c378b1fac'
+md5("password"+"message").hexdigest() # 'c494404d2dd827b05e27bd1f30a763d2'
+  
+
+ Also take a look at how HMAC is implemented (e.g. on http://en.wikipedia.org/wiki/HMAC). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27387410)
+ The most important thing to realize was that the openssl md5 hash is calculated the same way as the hashlib.md5(...hexdigest( method 
+
+  import base64
+import hashlib    
+hex_hash = hashlib.md5(open("putty_upx.exe".read(.hexdigest(
+>> '4bd2f7940a1ec86efe1d1178b4cb23b7'
+hex_hash.decode("hex"
+>> 'K\xd2\xf7\x94\n\x1e\xc8n\xfe\x1d\x11x\xb4\xcb#\xb7'    
+b64_md5_hash = base64.b64encode(hex_hash.decode("hex"
+>> 'S9L3lAoeyG7+HRF4tMsjtw=='
+len(b64_md5_hash
+>> 24 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10569944)
+ The https://www.dlitz.net/software/pycrypto/api/current/Crypto.Signature-module.html module is what you want. From the <code.PKCS1_v1_5  documentation: 
+
+<pre class="lang-py prettyprint-override"> key = RSA.importKey(open('pubkey.der').read())
+h = SHA.new(message)
+verifier = PKCS1_v1_5.new(key)
+if verifier.verify(h, signature):
+   print "The signature is authentic."
+else:
+   print "The signature is not authentic."
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26426051)
+ The MD5 calculate by boto is the base 64 encode of checksum. The 'Content-MD5' in header for a given file to be uploaded/already uploaded can be calculated by: 
+
+  import hashlib, base64
+conn = S3Connection(access_key, secret_key)
+bucket = conn.get_bucket('bucket_name')
+#If you want to calculate MD5 of a file already uploaded
+obj_key = bucket.get_key('file_name_in_s3')
+content = obj_key.get_contents_as_string()
+m = hashlib.md5()
+m.update(content)
+value = m.digest()
+remote_md5 = base64.b64encode(value)
+
+#To calculate md5 of a file to be uploaded to S3
+cur_md5 = base64.b64encode(hashlib.md5(open('Local/Path/To/File').read()).digest())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38806131)
+ you need to construct a new md5 object for each file and read it completely. .  
+
+  def md5_files(path, blocksize = 2**20):    
+    hashes = {}
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            print(file_path)
+            with open(file_path, "rb") as f:
+                data = f.read(blocksize)
+                hasher = hashlib.md5(data)
+                while data:
+                    data = f.read(blocksize)   
+                    hasher.update(data)             
+                hashes[file_path] = hasher.hexdigest()
+    return hashes
+  
+
+
+

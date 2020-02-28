@@ -1,0 +1,241 @@
+Query: Python match string if it does not start with X
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15749642)
+  import re
+
+def matches(pat, s):
+    p  = re.compile(pat.replace('0', '[01]') + '$')
+    return p.match(s) is not None
+
+print matches('11111', '11111')
+print matches('11111', '11011')
+print matches('11010', '11111')
+print matches('11010', '11011')
+  
+
+ You say "match to a  longer  string s1", but you don't say whether you'd like to match the start of the string, or the end etc. Until I better understand your requirements, this performs an exact match. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23325289)
+ The  string  attribute of a regex match object contains the  input  string of the match, not the matched content.  
+
+ If you want the (first) matching part, you need to change three things: 
+
+ 
+ use  re.search()  because  re.match()  will only find a match at the start of the string, 
+ access the  group()  method of the match object, 
+ use  +  instead of  *   you'll get an empty (zero-length) match unless the match happens to be at the start of the string. 
+ 
+
+ Therefe, use 
+
+  >>> re.search(r'[\d.]+', '<some>some 344.3404.3 numbers<tag>').group()
+'344.3404.3'
+  
+
+  
+
+  >>> re.findall(r'[\d.]+', '<some>some 344.3404.3 numbers me 234.432<tag>')
+['344.3404.3', '234.432']
+  
+
+ if you expect me than one match. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30485291)
+ The https://docs.python.org/2/library/re.html forces your regex engine to match the regex from start of string. and since your string doesn't start with  DATA_ARRAY  it returns  None . 
+
+ And as @nanny mentioned If you also want it to match the start of each line, use  re.MULTILINE  flag : 
+
+  regx = re.compile("^DATA_ARRAY Some\[\].*?};", re.DOTALL|re.MULTILINE)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29806773)
+ "Why" questions are hard to answer. As a matter of fact, you could define the function   re.match()  like this: 
+
+  def match(pattern, string, flags):
+    return re.search(r"\A(?:" + pattern + ")", string, flags)
+  
+
+ (because  \A  always matches at the start of the string, regardless of the  re.M  flag status´).  
+
+ So  re.match  is a useful shortcut but not strictly necessary. It's especially confusing for Java programmers who have  Pattern.matches()  which anchors the search to the start  and end   of the string (which is probably a more common use case than just anchoring to the start). 
+
+ It's different for the  match  and  search  methods of regex  objects , though, as Eric has pointed out. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10766348)
+ I believe there is no use. The following is copy/pasted from: http://docs.python.org/library/re.html#search-vs-match 
+
+ Python offers two different primitive operations based on regular expressions:  re.match()  checks for a match only at the beginning of the string, while  re.search()  checks for a match anywhere in the string (this is what Perl does by default). 
+
+ For example: 
+
+  >>> re.match("c", "abcdef")  # No match
+>>> re.search("c", "abcdef") # Match
+<_sre.SRE_Match object at ...>
+  
+
+ Regular expressions beginning with  '^'  can be used with  search()  to restrict the match at the beginning of the string: 
+
+  >>> re.match("c", "abcdef")  # No match
+>>> re.search("^c", "abcdef") # No match
+>>> re.search("^a", "abcdef")  # Match
+<_sre.SRE_Match object at ...>
+  
+
+ Note however that in MULTILINE mode  match()  only matches at the beginning of the string, whereas using  search()  with a regular expression beginning with  '^'  will match at the beginning of each line. 
+
+  >>> re.match('X', 'A\nB\nX', re.MULTILINE)  # No match
+>>> re.search('^X', 'A\nB\nX', re.MULTILINE)  # Match
+<_sre.SRE_Match object at ...>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/250306)
+ Taken from  
+
+ http://docs.python.org/3.3/howto/regex.html 
+
+ 
+   span() returns both start and end indexes in a single tuple. Since the
+  match method only checks if the RE matches at the start of a string,
+  start() will always be zero. However, the search method of RegexObject
+  instances scans through the string, so the match may not start at zero
+  in that case. 
+ 
+
+  >>> p = re.compile('[a-z]+')
+>>> print p.match('::: message')
+None
+>>> m = p.search('::: message') ; print m
+<re.MatchObject instance at 80c9650>
+>>> m.group()
+'message'
+>>> m.span()
+(4, 11)
+  
+
+ Combine that with: 
+
+ In Python 2.2, the finditer() method is also available, returning a sequence of MatchObject instances as an iterator. 
+
+  >>> p = re.compile( ... )
+>>> iterator = p.finditer('12 drummers drumming, 11 ... 10 ...')
+>>> iterator
+<callable-iterator object at 0x401833ac>
+>>> for match in iterator:
+...     print match.span()
+...
+(0, 2)
+(22, 24)
+(29, 31)
+  
+
+ you should be able to do something on the order of 
+
+  for match in re.finditer(r'[a-z]', 'a1b2c3d4'):
+   print match.span()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43149115)
+ The problem you get is related to the fact that a lookahead is a http://www.regular-expressions.info/lookaround.html that consumes (i.e. adds to the match result) no text. It is a mere position in the string. Thus, all your matches start and end at the same location in the string. 
+
+ You need to enclose the lookahead pattern with a http://www.regular-expressions.info/brackets.html (i.e.  (?=(11111)) ) and access start and end of group  1  (with  i.start(1)  and  i.end(1) ): 
+
+  import re
+s = '1'*15     
+result = re.finditer(r'(?=(11111))', s)
+
+for i in result:
+    print(i.start(1), i.end(1))
+  
+
+ See the http://ideone.com/M21znx, its output is 
+
+  (0, 5)
+(1, 6)
+(2, 7)
+(3, 8)
+(4, 9)
+(5, 10)
+(6, 11)
+(7, 12)
+(8, 13)
+(9, 14)
+(10, 15)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35053022)
+  match_obj = re.match(r'\b[a-z]+$', self.name, re.I)
+  
+
+  match  starts from  start  of string and compares and gives a match if it can match 0 or more characters from start.To make a complete match use  $  instead of  \b  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44980529)
+ There are a couple of options in Python to match an entire input with a regex. 
+
+ Python 2 
+
+ In Python 2.x, you may use 
+
+  re.match(r'\d+$') # re.match anchors the match at the start of the string, so $ is what remains to add
+  
+
+ or - to avoid matching before the final  \n  in the string: 
+
+  re.match(r'\d+\Z') # \Z will only match at the very end of the string
+  
+
+ Or the same as above with  re.search  method requiring the use of  ^  /  \A  start-of-string anchor as it does not anchor the match at the start of the string: 
+
+  re.search(r'^\d+$')
+re.search(r'\A\d+\Z')
+  
+
+ Note that  \A  is an unambiguous string start anchor, its behavior cannot be redefined with any modifiers ( re.M  /  re.MULTILINE  can only redefine the  ^   and  $  behavior). 
+
+ Python 3 
+
+ All those cases described in the Python 2 section and one more useful method, https://docs.python.org/3/library/re.html#re.fullmatch (also present in the https://pypi.python.org/pypi/regex/): 
+
+ 
+   If the whole  string  matches the regular expression  pattern , return a corresponding match object. Return  None  if the string does not match the pattern; note that this is different from a zero-length match. 
+ 
+
+ So, after you compile the regex, just use the appropriate method: 
+
+  _rex = re.compile("\d+")
+if _rex.fullmatch(s):
+    doStuff()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6631503)
+  ^  and  $  mean "start of line" and "end of line", not "start of string" and "end of string". Use  \A  for "start of string" and  \Z  for "end of string". 
+
+
+

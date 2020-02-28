@@ -1,0 +1,242 @@
+Query: Simple URL GET/POST
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4476389)
+  requests  
+
+<p 
+
+ Here's a few common ways to use it: 
+
+  import requests
+url = 'https://...'
+payload = {'key1': 'value1', 'key2': 'value2'}
+
+# GET
+r = requests.get(url)
+
+# GET with params in URL
+r = requests.get(url, params=payload)
+
+# POST with form-encoded data
+r = requests.post(url, data=payload)
+
+# POST with JSON 
+import json
+r = requests.post(url, data=json.dumps(payload))
+
+# Response, status etc
+r.text
+r.status_code
+  
+
+  httplib2  
+
+<p 
+
+  >>> from httplib2 import Http
+>>> from urllib import urlencode
+>>> h = Http()
+>>> data = dict(name="Joe", comment="A test comment")
+>>> resp, content = h.request("http://bitworking.org/news/223/Meet-Ares", "POST", urlencode(data))
+>>> resp
+{'status': '200', 'transfer-encoding': 'chunked', 'vary': 'Accept-Encoding,User-Agent',
+ 'server': 'Apache', 'connection': 'close', 'date': 'Tue, 31 Jul 2007 15:29:52 GMT', 
+ 'content-type': 'text/html'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4476392)
+ You could use this to wrap urllib2: 
+
+  def URLRequest(url, params, method="GET"):
+    if method == "POST":
+        return urllib2.Request(url, data=urllib.urlencode(params))
+    else:
+        return urllib2.Request(url + "?" + urllib.urlencode(params))
+  
+
+ That will return a http://docs.python.org/library/urllib2.html#urllib2.Request object that has result data and response codes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43308290)
+ The usuage of  python-requests  may not as complex as you think. It will automatically handle the redirect of your post ( or  session.get() ). 
+
+ Here,  session.post()  method return a  response  obejct: 
+
+  r = s.post('website', data=payload)
+  
+
+ which means  r.url  is current url you are looking for. 
+
+ If you still want to refresh current page, just use: 
+
+  s.get(r.url)
+  
+
+ To verify whether you has login successfully, one solution is to  do the login in your browser. 
+
+ Based on the title or content of the webpage returned (i.e, use the content in  r.text ), you can judge whether you have made it. 
+
+ BTW,  python-requests  is a great library, enjoy it.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10022497)
+ Even easier: via the http://docs.python-requests.org/en/latest/index.html module. 
+
+  import requests
+get_response = requests.get(url='http://google.com')
+post_data = {'username':'joeb', 'password':'foobar'}
+# POST some form-encoded data:
+post_response = requests.post(url='http://httpbin.org/post', data=post_data)
+  
+
+ To send data that is not form-encoded, send it serialised as a string (example taken from the http://docs.python-requests.org/en/latest/user/quickstart/#more-complicated-post-requests): 
+
+  import json
+post_response = requests.post(url='http://httpbin.org/post', data=json.dumps(post_data))
+# If using requests v2.4.2 or later, pass the dict via the json parameter and it will be encoded directly:
+post_response = requests.post(url='http://httpbin.org/post', json=post_data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43835472)
+ You can get  flask  to validate the parameters and throw an error automatically if you are willing to switch from  URL parameters  (i.e. anything after the '?' symbol in the URL) to  path parameters  (i.e. anything that is in the  Path  HTTP header, or the part of the URL after the first '/' and abefore the '?'). 
+
+ Your example could look like this: 
+
+  @app.route('/post/<int:node_id>/<float:lat>/<float:lng>', methods=['POST'])
+def process_post_request(node_id, lat, lng):
+    # do some work
+    return your_result
+  
+
+ Then you could send request to URL that would look for example like this:  http://example.com/post/1234/-11.45/21.34  
+
+ You can find more about this here: http://flask.pocoo.org/docs/0.12/quickstart/#variable-rules 
+
+ For securing access you can use some of the example snippets here: http://flask.pocoo.org/snippets/category/authentication/ 
+
+ I would recommend restricting access to HTTPS only and using the basic auth if you are just playing around. This is something you can do with a simple decorator as described here: http://flask.pocoo.org/snippets/8/ 
+
+ You will get a prompt in your browser asking you for username and password and browser will remember it for the duration of the session. Alternatively, you can set the username and password in base64 encoded form in the  Authorization  header: https://en.wikipedia.org/wiki/Basic_access_authentication 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4476425)
+  import urllib
+
+def fetch_thing(url, params, method):
+    params = urllib.urlencode(params)
+    if method=='POST':
+        f = urllib.urlopen(url, params)
+    else:
+        f = urllib.urlopen(url+'?'+params)
+    return (f.read(), f.code)
+
+
+content, response_code = fetch_thing(
+                              'http://google.com/', 
+                              {'spam': 1, 'eggs': 2, 'bacon': 0}, 
+                              'GET'
+                         )
+  
+
+ [Update] 
+
+ Some of these answers are old. Today I would use the  requests  module like the answer by robaple. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17451314)
+ HTTP GET requests usually include the parameters in the URL since there's no other place to pass them (there's no request body). 
+
+ HTTP POST requests usually include the parameters in the request body, though it's still possible to include the parameters in the URL. 
+
+ It looks like you're using some sort of Javascript to post the form.  Make sure you are using a POST request and putting the parameters in the POST body.  Most libraries automatically put params in the POST body as long as you're issuing a POST request. 
+
+ EDIT: 
+
+ Forms usually issue POST requests by default.  Usually the  <form>  element will have an  action  attribute that specifies the URL to send to.  However, if it doesn't have an  action  attribute it'll issue a POST request to the current URL. 
+
+ In your case the current URL contains parameters and those are submitted again with your request.  You should have a few options. 
+
+ 
+  Specify the  action  in your form so you aren't submitting to the same url with parameters already attached.  
+  In your request handler, read the data out of the post body ( request.POST['input1'] ) instead of the url.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31948165)
+ The problem is that you have to tell  DetailView  that it should use  post_id  keyword in the URL instead of default ones  pk  or  slug  in order to get the object that will be displayed.  
+
+ This can be done by setting https://docs.djangoproject.com/en/1.8/ref/class-based-views/mixins-single-object/#django.views.generic.detail.SingleObjectMixin.pk_url_kwarg attribute: 
+
+  (Your url definition is also wrong, always end your url definitions with  $ . Below is the corrected version)  
+
+  url(r'(?P<post_id>\d+)$', GenreDetail.as_view(), name = 'post'),
+url(r'(?P<post_id>\d+)/(?P<slug>[-\w]+)$', GenreDetail.as_view()),
+  
+
+ The following urls will match given the url patterns above: 
+
+ 
+ /2 
+ /2/memoirs-of-a-geisha-by-arthur-golden 
+ 
+
+ 
+
+  from django.views.generic import DetailView 
+
+class GenreDetail(DetailView):
+    model = Post
+    template_name = "post.html"
+    pk_url_kwarg = "post_id"
+  
+
+ Alternatively, you can just change  post_id  to  pk  in your url so you don't have to touch anything in your view: 
+
+  url(r'(?P<pk>\d+)$', GenreDetail.as_view(), name = 'post'),
+url(r'(?P<pk>\d+)/(?P<slug>[-\w]+)$', GenreDetail.as_view()),
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6348765)
+ This may have been answered before: https://stackoverflow.com/questions/3238925/python-urllib-urllib2-post. 
+
+ Your server is likely performing a 302 redirect from  http://myserver/post_service  to  http://myserver/post_service/ . When the 302 redirect is performed, the request changes from POST to GET (see http://bugs.python.org/issue1401). Try changing  url  to  http://myserver/post_service/ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6348737)
+ Have a read of the http://www.voidspace.org.uk/python/articles/urllib2.shtml. Pulled from there is the following simple example of a POST request. 
+
+  url = 'http://myserver/post_service'
+data = urllib.urlencode({'name' : 'joe', 'age'  : '10'})
+req = urllib2.Request(url, data)
+response = urllib2.urlopen(req)
+print response.read()
+  
+
+ As suggested by @Michael Kent do consider http://pypi.python.org/pypi/requests, it's great. 
+
+  EDIT:  This said, I do not know why passing data to urlopen() does not result in a POST request; It should. I suspect your server is redirecting, or misbehaving. 
+
+
+

@@ -1,0 +1,461 @@
+Query: How to monitor file or directory changes?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14810636)
+ Java 7 has introduced  WatchService  which watches registered objects for changes and event. 
+
+ Example - 
+
+  Path myDir = Paths.get("D:/test");       
+
+    try {
+       WatchService watcher = myDir.getFileSystem().newWatchService();
+       myDir.register(watcher, StandardWatchEventKind.ENTRY_CREATE, 
+       StandardWatchEventKind.ENTRY_DELETE, StandardWatchEventKind.ENTRY_MODIFY);
+
+       WatchKey watckKey = watcher.take();
+
+       List<WatchEvent<?>> events = watckKey.pollEvents();
+       for (WatchEvent event : events) {
+            if (event.kind() == StandardWatchEventKind.ENTRY_CREATE) {
+                System.out.println("Created: " + event.context().toString());
+            }
+            if (event.kind() == StandardWatchEventKind.ENTRY_DELETE) {
+                System.out.println("Delete: " + event.context().toString());
+            }
+            if (event.kind() == StandardWatchEventKind.ENTRY_MODIFY) {
+                System.out.println("Modify: " + event.context().toString());
+            }
+        }
+
+    } catch (Exception e) {
+        System.out.println("Error: " + e.toString());
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36697270)
+ I made some classes for this. 
+
+  public interface FileAvailableListener {
+    public void fileAvailable(File file) throws IOException;
+}
+  
+
+  
+
+  public class FileChange {
+
+private long lastModified;
+private long size;
+private long lastCheck;
+
+public FileChange(File file) {
+    this.lastModified=file.lastModified();
+    this.size=file.length();
+    this.lastCheck = System.currentTimeMillis();
+}
+
+public long getLastModified() {
+    return lastModified;
+}
+public long getSize() {
+    return size;
+}
+public long getLastCheck() {
+    return lastCheck;
+}
+
+public boolean isStable(FileChange other,long stableTime) {
+    boolean b1 = (getLastModified()==other.getLastModified());
+    boolean b2 = (getSize()==other.getSize());
+    boolean b3 = ((other.getLastCheck()-getLastCheck())>stableTime);
+    return b1 && b2 && b3;
+}
+}
+  
+
+  
+
+  public class DirectoryWatcher {
+
+private Timer timer;
+private List<DirectoryMonitorTask> tasks = new ArrayList<DirectoryMonitorTask>();
+
+public DirectoryWatcher() throws URISyntaxException, IOException, InterruptedException {
+    super();
+    timer = new Timer(true);        
+}
+public void addDirectoryMonitoringTask(DirectoryMonitorTask task,long period) {
+    tasks.add(task);
+    timer.scheduleAtFixedRate(task, 5000, period);      
+}
+public List<DirectoryMonitorTask> getTasks() {
+    return Collections.unmodifiableList(tasks);
+}
+public Timer getTimer() {
+    return timer;
+}
+}
+  
+
+   
+
+  class DirectoryMonitorTask extends TimerTask {
+
+public final static String DIRECTORY_NAME_ARCHIVE="archive";
+public final static String DIRECTORY_NAME_ERROR="error";
+public final static String LOCK_FILE_EXTENSION=".lock";
+public final static String ERROR_FILE_EXTENSION=".error";   
+public final static String FILE_DATE_FORMAT="yyyyMMddHHmmssSSS";
+
+private String name;
+private FileAvailableListener listener;
+private Path directory;
+private File directoryArchive;
+private File directoryError;
+private long stableTime;
+private FileFilter filter;
+private WatchService watchService;
+private SimpleDateFormat dateFormatter = new SimpleDateFormat(FILE_DATE_FORMAT);
+private Hashtable<File,FileChange> fileMonitor = new Hashtable<File,FileChange>();
+
+public DirectoryMonitorTask(String name,FileAvailableListener listener,Path directory,long stableTime,FileFilter filter) throws IOException {
+    super();
+    this.name=name;
+    this.listener=listener;
+    this.directory=directory;
+    this.stableTime=stableTime;
+    if (stableTime<1) {
+        stableTime=1000;
+    }
+    this.filter=filter;
+    validateNotNull("Name",name);
+    validateNotNull("Listener",listener);
+    validateNotNull("Directory",directory);
+    validate(directory);
+    directoryArchive = new File(directory.toFile(),DIRECTORY_NAME_ARCHIVE);
+    directoryError = new File(directory.toFile(),DIRECTORY_NAME_ERROR);
+    directoryArchive.mkdir();
+    directoryError.mkdir();
+    //
+    log("Constructed for "+getDirectory().toFile().getAbsolutePath());
+
+    initialize();
+    //
+    watchService = FileSystems.getDefault().newWatchService();
+    directory.register(watchService,StardWatchEventKinds.ENTRY_CREATE,StardWatchEventKinds.ENTRY_DELETE,StardWatchEventKinds.ENTRY_MODIFY);
+    log("Started");
+}
+
+private void initialize() {
+    File[] files = getDirectory().toFile().listFiles();
+    for (File file : files) {
+        if (isLockFile(file)) {
+            file.delete();
+        } else if (acceptFile(file)) {
+            fileMonitor.put(file,new FileChange(file));
+            log("Init file added -"+file.getName());
+        }
+    }
+}
+public SimpleDateFormat getDateFormatter() {
+    return dateFormatter;
+}
+public Path getDirectory() {
+    return directory;
+}
+public FileAvailableListener getListener() {
+    return listener;
+}
+public String getName() {
+    return name;
+}
+public WatchService getWatchService() {
+    return watchService;
+}
+public long getStableTime() {
+    return stableTime;
+}
+public File getDirectoryArchive() {
+    return directoryArchive;
+}
+public File getDirectoryError() {
+    return directoryError;
+}
+public FileFilter getFilter() {
+    return filter;
+}   
+public Iterator<File> getMonitoredFiles() {
+    return fileMonitor.keySet().iterator();
+}
+
+@Override
+public void run() {
+    WatchKey key;
+    try {
+        key = getWatchService().take();
+        // Poll all the events queued for the key
+        for (WatchEvent<?> event : key.pollEvents()) {                                      
+            @SuppressWarnings("unchecked")
+            Path filePath = ((WatchEvent<Path>) event).context();
+            File file = filePath.toFile();
+            if ((!isLockFile(file)) && (acceptFile(file))) {
+                switch (event.kind().name()) {
+                    case "ENTRY_CREATE":
+                        //                          
+                        fileMonitor.put(file,new FileChange(file));
+                        log("File created ["+file.getName()+"]");
+                        break;
+                        //
+                    case "ENTRY_MODIFY":
+                        //                          
+                        fileMonitor.put(file,new FileChange(file));
+                        log("File modified ["+file.getName()+"]");
+                        break;  
+                        //
+                    case "ENTRY_DELETE":
+                        //
+                        log("File deleted ["+file.getName()+"]");
+                        createLockFile(file).delete();
+                        fileMonitor.remove(file);                           
+                        break;
+                        //
+                }
+            }
+        }
+        // reset is invoked to put the key back to ready state
+        key.reset();
+    } catch (InterruptedException e) {              
+        e.printStackTrace();
+    }
+
+    Iterator<File> it = fileMonitor.keySet().iterator();
+
+    while (it.hasNext()) {
+        File file = it.next();  
+        FileChange fileChange = fileMonitor.get(file);
+        FileChange fileChangeCurrent = new FileChange(file);
+
+        if (fileChange.isStable(fileChangeCurrent, getStableTime())) {
+            log("File is stable ["+file.getName()+"]");
+            String filename = getDateFormatter().format(new Date())+"_"+file.getName();
+            File lockFile = createLockFile(file);
+            if (!lockFile.exists()) {
+                log("File do not has lock file ["+file.getName()+"]");
+                try {
+                    Files.createFile(lockFile.toPath());
+                    log("Processing file ["+file.getName()+"]");
+                    getListener().fileAvailable(file);                      
+                    file.renameTo(new File(getDirectoryArchive(),filename));
+                    log("Moved to archive file ["+file.getName()+"]");
+                } catch (IOException e) {                       
+                    file.renameTo(new File(getDirectoryError(),filename));
+                    createErrorFile(file,e);
+                    log("Moved to error file ["+file.getName()+"]");
+                } finally {
+                    lockFile.delete();
+
+                }
+            } else {                    
+                log("File do has lock file ["+file.getName()+"]");
+                fileMonitor.remove(file);
+            }               
+        } else {                
+            log("File is unstable ["+file.getName()+"]");
+            fileMonitor.put(file,fileChangeCurrent);
+        }
+    }       
+}
+
+public boolean acceptFile(File file) {
+    if (getFilter()!=null) {
+        return getFilter().accept(file);
+    } else {
+        return true;
+    }       
+}
+
+public boolean isLockFile(File file) {
+    int pos = file.getName().lastIndexOf('.');
+    String extension="";
+    if (pos!=-1) {
+        extension = file.getName().substring(pos).trim().toLowerCase();
+    }   
+    return(extension.equalsIgnoreCase(LOCK_FILE_EXTENSION));
+}
+
+private File createLockFile(File file) {
+    return new File(file.getParentFile(),file.getName()+LOCK_FILE_EXTENSION);
+}
+
+private void createErrorFile(File file,IOException exception) {
+    File errorFile = new File(file.getParentFile(),file.getName()+ERROR_FILE_EXTENSION);
+
+    StringWriter sw = null;
+    PrintWriter pw = null;
+    FileWriter fileWriter = null;
+    try {
+        //          
+        fileWriter = new FileWriter(errorFile);
+        if (exception!=null) {
+            sw = new StringWriter();
+            pw = new PrintWriter(sw);
+            exception.printStackTrace(pw);      
+            fileWriter.write(sw.toString());
+        } else {
+            fileWriter.write("Exception is null.");
+        }
+        //      
+        fileWriter.flush();
+        //
+    } catch (IOException e) {
+    } finally {
+        if (sw!=null) {
+            try {
+                sw.close();
+            } catch (IOException e1) {              
+            }
+        }
+        if (pw!=null) {
+            pw.close();
+        }
+        if (fileWriter!=null) {
+            try {
+                fileWriter.close();
+            } catch (IOException e) {                   
+            }
+        }
+    }
+}
+
+private void validateNotNull(String name,Object obj) {
+    if (obj==null) {
+        throw new NullPointerException(name+" is null.");
+    }           
+}       
+private void validate(Path directory) throws IOException {          
+    File file = directory.toFile();
+    if (!file.exists()) {
+        throw new IOException("Directory ["+file.getAbsolutePath()+"] do not exists.");
+    } else if (!file.isDirectory()) {
+        throw new IOException("Directory ["+file.getAbsolutePath()+"] is not a directory.");
+    } else if (!file.canRead()) {               
+        throw new IOException("Can not read from directory ["+file.getAbsolutePath()+"].");
+    } else if (!file.canWrite()) {
+        throw new IOException("Can not write to directory ["+file.getAbsolutePath()+"] .");
+    }       
+}
+
+private void log(String msg) {
+    //TODO
+    System.out.println("Task ["+getName()+"] "+msg);
+}
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37238183)
+ There is a very elegant way to create a  Call Back  system and implementing it via implementing  ReadableByteChannel  in order to monitor the progerss of copying files. Also the benefit is there is no need to monitor a directory. You can explicitly monitor the progress of the file which is being copied. 
+
+ The main idea is proposed by http://www.java2s.com/Tutorials/Java/IO_How_to/FileChannel/Monitor_progress_of_FileChannels_transferFrom_method.htm site, but changed it a little to fit in your problem: 
+
+  import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+interface ProgressCallBack {
+    public void callback(CallbackByteChannel rbc, double progress);
+}   
+
+public class Main{
+    public static void main(String[] args) {
+
+        ProgressCallBack progressCallBack = new ProgressCallBack() {
+            @Override
+            public void callback(CallbackByteChannel rbc, double progress) {
+                System.out.println(rbc.getReadSoFar());
+                System.out.println(progress);
+            }
+        };
+
+        try {
+            copy("SOURCE FILE PATH", "DESTINATION FILE PATH", progressCallBack);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void copy(String source, String destination, ProgressCallBack callBack) throws IOException {
+        FileOutputStream fos = null;
+        FileChannel sourceChannel = null;
+        try {
+            sourceChannel = new FileInputStream(new File(source)).getChannel();
+            ReadableByteChannel rbc = new CallbackByteChannel(sourceChannel, Files.size(Paths.get(source)), callBack);
+            fos = new FileOutputStream(destination);
+            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if(sourceChannel.isOpen()){
+                sourceChannel.close();
+            }
+            fos.close();
+        }
+    }
+}
+
+class CallbackByteChannel implements ReadableByteChannel {
+    ProgressCallBack delegate;
+    long size;
+    ReadableByteChannel rbc;
+    long sizeRead;
+
+    CallbackByteChannel(ReadableByteChannel rbc, long expectedSize, ProgressCallBack delegate) {
+        this.delegate = delegate;
+        this.size = expectedSize;
+        this.rbc = rbc;
+    }
+
+    public void close() throws IOException {
+        rbc.close();
+    }
+
+    public long getReadSoFar() {
+        return sizeRead;
+    }
+
+    public boolean isOpen() {
+        return rbc.isOpen();
+    }
+
+    public int read(ByteBuffer bb) throws IOException {
+        int n;
+        double progress;
+        if ((n = rbc.read(bb)) > 0) {
+            sizeRead += n;
+            progress = size > 0 ? (double) sizeRead / (double) size * 100.0 : -1.0;
+            delegate.callback(this, progress);
+        }
+        return n;
+    }
+}
+  
+
+ . 
+
+
+

@@ -1,0 +1,249 @@
+Query: How can I check if a Pandas dataframe's index is sorted
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17347945)
+ How about: 
+
+  df.index.is_monotonic  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20278283)
+ To sort a column descending, while maintaining the index ascending: 
+
+  import pandas as pd
+df = pd.DataFrame(index=range(5), data={'c': [4,2,2,4,2]})
+df.index = df.index[::-1]
+print df.sort(column='c', ascending=False)
+  
+
+ Output: 
+
+     c
+1  4
+4  4
+0  2
+2  2
+3  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15023917)
+ You can http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.reindex.html by the index of the (sorted) Series: 
+
+  In [1]: df = pd.DataFrame([[1, 2], [3, 4]], index=list('ab'))
+
+In [2]: s = pd.Series([2,1], index=list('ab'))
+
+In [3]: s
+Out[3]: 
+a    2
+b    1
+
+In [4]: s.sort()
+
+In [5]: df.reindex(s.index)
+Out[5]: 
+   0  1
+b  3  4
+a  1  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16629125)
+ When index is unique, pandas use a hashtable to map key to value O(1). When index is non-unique and sorted, pandas use binary search O(logN), when index is random ordered pandas need to check all the keys in the index O(N). 
+
+ You can call  sort_index  method: 
+
+  import numpy as np
+import pandas as pd
+x = np.random.randint(0, 200, 10**6)
+df1 = pd.DataFrame({'x':x})
+df2 = df1.set_index('x', drop=False)
+df3 = df2.sort_index()
+%timeit df1.loc[100]
+%timeit df2.loc[100]
+%timeit df3.loc[100]
+  
+
+ result: 
+
+  10000 loops, best of 3: 71.2 µs per loop
+10 loops, best of 3: 38.9 ms per loop
+10000 loops, best of 3: 134 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17316417)
+ If  sort  is all allowed, try 
+
+  all(df.sort_index().index == df.index)
+  
+
+  
+
+  all(a <= b for a, b in zip(df.index, df.index[1:]))
+  
+
+ The first one is more readable while the second one has smaller time complexity. 
+
+ EDIT 
+
+ Add another method I've just found. Similar with the second one but the comparison is vetorized 
+
+  all(df.index[:-1] <= df.index[1:]) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48626951)
+ You can use sorted and reindex i.e  
+
+  df = pd.DataFrame([1,2,3,4,5,6,7,8],index=['a12','a10','a11','a15','a5','a6','b11','b12'])
+
+import re
+df.reindex(sorted(df.index,key=lambda x: re.sub('[A-z]','',x)))
+
+
+    0
+a10  2
+a11  3
+b11  7
+a12  1
+b12  8
+a15  4
+a5   5
+a6   6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27024387)
+ You can use a combination of groupby and apply: 
+
+  In [2]: df = pd.DataFrame({
+            'transID':  range(8),
+            'Location': ['New York','Chicago','New York','New York','Atlanta','Los Angeles',
+                            'Chicago','Atlanta'],
+            'Sales':    np.random.randint(0,10000,8)}).set_index('transID')
+In [3]: df
+Out[3]:
+        Location    Sales
+transID
+0       New York    1082
+1       Chicago     1664
+2       New York    692
+3       New York    5669
+4       Atlanta     7715
+5       Los Angeles 987
+6       Chicago     4085
+7       Atlanta     2927
+
+In [4]: df.groupby('Location').apply(lambda d: d.sort()).reset_index('Location',drop=True)
+Out[4]:
+        Location    Sales
+transID
+4       Atlanta     7715
+7       Atlanta     2927
+1       Chicago     1664
+6       Chicago     4085
+5       Los Angeles 987
+0       New York    1082
+2       New York    692
+3       New York    5669
+  
+
+ I drop 'Location' at in the last line because groupby inserts the grouped levels into the first positions in the index. Sorting and then dropping them preserves the sorted order. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50107507)
+ You can use the ascending parameter in sort_index, but you must pass it as a list for it to work correctly as of pandas 0.22.0. 
+
+  import pandas as pd
+import numpy as np
+df = pd.DataFrame({'idx_0':[2]*6+[1]*5,
+                   'idx_1':[6,4,2,10,18,5,11,1,7,9,3],
+                   'value_1':np.arange(11,0,-1),
+                   'MyName':list('SORTEDFRAME')})
+
+df = df.set_index(['idx_0','idx_1'])
+df
+  
+
+ Output: 
+
+              MyName  value_1
+idx_0 idx_1                
+2     6          S       11
+      4          O       10
+      2          R        9
+      10         T        8
+      18         E        7
+      5          D        6
+1     11         F        5
+      1          R        4
+      7          A        3
+      9          M        2
+      3          E        1
+  
+
+ Sorting by values and index should get "FRAMESORTED" instead of "SORTEDFRAME" 
+
+  df.sort_values('value_1', ascending=False)\
+  .sort_index(level=0, ascending=[True])
+  
+
+ Output: 
+
+              MyName  value_1
+idx_0 idx_1                
+1     11         F        5
+      1          R        4
+      7          A        3
+      9          M        2
+      3          E        1
+2     6          S       11
+      4          O       10
+      2          R        9
+      10         T        8
+      18         E        7
+      5          D        6
+  
+
+ Note you must pass  ascending  parameter in  sort_index  as a list and not as a scalar.  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40262748)
+ I think you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_index.html: 
+
+  all_data = all_data.sort_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52609176)
+ You would use this code to add a new composite column and set index to it: 
+
+  newcol = ddf.col1 + "|" + ddf.col2
+ddf = ddf.assign(ind=newcol)
+ddf = ddf.set_index('ind', sorted=True)
+  
+
+ If the dataframe was sorted by (col1, col2) then it will be sorted by newcol so you can use sorted=True. 
+
+
+

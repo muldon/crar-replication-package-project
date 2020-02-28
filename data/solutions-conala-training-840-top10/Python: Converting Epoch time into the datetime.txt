@@ -1,0 +1,207 @@
+Query: Python: Converting Epoch time into the datetime
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8022219)
+ A combination of  datetime.timetuple()  and  time.mktime() : 
+
+  >>> import datetime
+>>> import time
+>>> now = datetime.datetime.now()
+>>> secondsSinceEpoch = time.mktime(now.timetuple())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/46914259)
+  >>> import datetime
+>>> datetime.datetime.fromtimestamp(1347517370).strftime('%Y-%m-%d %H:%M:%S')
+'2012-09-13 14:22:50' # Local time
+  
+
+ To get UTC: 
+
+  >>> datetime.datetime.utcfromtimestamp(1347517370).strftime('%Y-%m-%d %H:%M:%S')
+  '2012-09-13 06:22:50'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15953715)
+ You can also use  datetime : 
+
+  >>> import datetime
+>>> datetime.datetime.fromtimestamp(1347517370).strftime('%c')
+  '2012-09-13 02:22:50'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17257177)
+ To convert a datetime with timezone to epoch (POSIX timestamp): 
+
+  from datetime import datetime
+import pytz
+
+tz = pytz.timezone('CST6CDT')
+
+# a datetime with timezone
+dt_with_tz = tz.localize(datetime(2012, 8, 28, 19, 33, 50), is_dst=None)
+
+# get timestamp
+ts = (dt_with_tz - datetime(1970, 1, 1, tzinfo=pytz.utc)).total_seconds()
+# -> 1346200430.0
+  
+
+ It is how  datetime.timestamp  method is implemented for timezone-aware  datetime  objects in Python 3. 
+
+ To get "now epoch": 
+
+  from datetime import datetime
+
+now_epoch = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
+  
+
+ Or (assuming  time  uses POSIX epoch): 
+
+  import time
+
+now_epoch = time.time()
+  
+
+ Getting "beginning of current day epoch" is more complex because current day may be different in different timezones: 
+
+  from datetime import datetime, time
+import pytz
+
+tz = pytz.timezone('CST6CDT')
+
+# get current date in given timezone
+today = datetime.now(tz).date()
+# -> datetime.date(2013, 6, 22)
+
+# get beginning of current day in given timezone as a datetime with timezone
+midnight = tz.localize(datetime.combine(today, time(0, 0)), is_dst=None)
+# -> datetime.datetime(2013, 6, 22, 0, 0, tzinfo=<DstTzInfo 'CST6CDT'...>)
+
+# get timestamp
+ts = (midnight - datetime(1970, 1, 1, tzinfo=pytz.utc)).total_seconds()
+# -> 1371877200.0 
+  
+
+ See https://stackoverflow.com/a/11236372/4279. 
+
+ To get "beginning of current day epoch" assuming UTC date: 
+
+  from datetime import datetime, date
+
+# get current date in UTC
+utc_date = datetime.utcnow().date()
+# -> datetime.date(2013, 6, 23)
+
+# get timestamp
+ts = (utc_date - date(1970, 1, 1)).days * 86400
+# -> 1371945600
+  
+
+ See https://stackoverflow.com/a/8778548/4279. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6918527)
+  from datetime import datetime
+
+dtstr = '2010-12-19 03:44:34.778000'
+format = "%Y-%m-%d %H:%M:%S.%f"
+a = datetime.strptime(dtstr,format)
+print a.microsecond
+  
+
+  time  handles seconds since the Unix epoch, so using  time  loses the microseconds. Use  datetime.strptime  directly. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13260035)
+  datetime.fromtimestamp(self.epoch)  returns localtime that shouldn't be used with an arbitrary timezone.localize(); you need  utcfromtimestamp()  to get datetime in UTC and then convert it to a desired timezone: 
+
+  from datetime import datetime
+import pytz
+
+# get time in UTC
+utc_dt = datetime.utcfromtimestamp(posix_timestamp).replace(tzinfo=pytz.utc)
+
+# convert it to tz
+tz = pytz.timezone('America/New_York')
+dt = utc_dt.astimezone(tz)
+
+# print it
+print(dt.strftime('%Y-%m-%d %H:%M:%S %Z%z'))
+  
+
+ Or a simpler alternative is to construct from the timestamp directly: 
+
+  from datetime import datetime
+import pytz
+
+# get time in tz
+tz = pytz.timezone('America/New_York')
+dt = datetime.fromtimestamp(posix_timestamp, tz)
+# print it
+print(dt.strftime('%Y-%m-%d %H:%M:%S %Z%z'))
+  
+
+ It converts from UTC implicitly in this case. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48237097)
+ From https://stackoverflow.com/a/11743262/4020527 on a question about getting epoch time from Python's  datetime : 
+
+ 
+   Python doesn't actually support %s as an argument to strftime (if you check at http://docs.python.org/library/datetime.html#strftime-and-strptime-behavior it's not in the list), the only reason it's working is because  Python is passing the information to your system's strftime, which uses your local timezone.  
+ 
+
+ That answer suggests two different methods of getting the epoch time that I had to slightly modify for UTC: 
+
+  int((datetime.datetime.utcnow() - datetime.datetime(1970,1,1)).total_seconds())
+  
+
+ and a Python 3 way: 
+
+  int(datetime.datetime.now().timestamp())
+  
+
+ The use of  datetime.now()  instead of  datetime.utcnow()  in the second solution is intentional - for reasons I'm not sure of, calling  timestamp()  on  datetime.now()  returns the UTC epoch time and on  datetime.utcnow()  it returns your timezone's epoch time. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27246418)
+ If you want to get the seconds since epoch, you can use  python-dateutil  to convert it to a  datetime  object and then convert it so seconds using the  strftime  method.  
+
+  >>> import dateutil.parser as dp
+>>> t = '1984-06-02T19:05:00.000Z'
+>>> parsed_t = dp.parse(t)
+>>> t_in_seconds = parsed_t.strftime('%s')
+>>> t_in_seconds
+'455047500'
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21787591)
+ those are miliseconds, just divide them by 1000, since gmtime expects seconds ... 
+
+  time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(1236472051807/1000.0))
+  
+
+
+

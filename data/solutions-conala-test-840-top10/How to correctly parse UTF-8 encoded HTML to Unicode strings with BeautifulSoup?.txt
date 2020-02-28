@@ -1,0 +1,231 @@
+Query: How to correctly parse UTF-8 encoded HTML to Unicode strings with BeautifulSoup?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20205716)
+ Encoding the result to  utf-8  seems to work for me: 
+
+  print (soup.find('div', id='navbutton_account')['title']).encode('utf-8')
+  
+
+  
+
+  Hier kÃ¶nnen Sie sich kostenlos registrieren und / oder einloggen!
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20215100)
+ As justhalf points out above, my question here is essentially a duplicate of https://stackoverflow.com/q/7219361/234938. 
+
+ The HTML content reported itself as UTF-8 encoded and, for the most part it was, except for one or two rogue invalid UTF-8 characters. 
+
+ This apparently confuses BeautifulSoup about which encoding is in use, and when trying to first decode as UTF-8 when passing the content to BeautifulSoup like 
+this: 
+
+  soup = BeautifulSoup(response.read().decode('utf-8'))
+  
+
+ I would get the error: 
+
+  UnicodeDecodeError: 'utf8' codec can't decode bytes in position 186812-186813: 
+                    invalid continuation byte
+  
+
+ Looking more closely at the output, there was an instance of the character  Ü  which was wrongly encoded as the invalid byte sequence  0xe3 0x9c , rather than the correct http://www.fileformat.info/info/unicode/char/00dc/index.htm. 
+
+ As the currently https://stackoverflow.com/a/7222936/234938 on that question suggests, the invalid UTF-8 characters can be removed while parsing, so that only valid data is passed to BeautifulSoup: 
+
+  soup = BeautifulSoup(response.read().decode('utf-8', 'ignore'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8913694)
+ If you know what the encoding of file will be, try decoding your string before passing it to BeautifulSoup and explicitly ignore non-utf8 characters. 
+
+  unicode_html = myfile.read().decode('utf-8', 'ignore')
+soup = BeautifulSoup (unicode_html)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5746959)
+ Because BeautifulSoup works internally with unicode strings. Printing unicode strings to the console will cause Python to try the conversion of unicode to the default encoding of Python which is usually ascii. This will in general fail for non-ascii web-site. You may learn the basics about Python and Unicode by googling for "python + unicode". Meanwhile convert
+your unicode strings to utf-8 using 
+
+  print some_unicode_string.decode('utf-8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9575003)
+ I assume your XHTML document is encoded in utf-8. The issue is that the encoding is not specified in the HTML document. By default, browsers and lxml.html assume HTML documents are encoded in ISO-8859-1, that's why your document is incorrectly parsed. If you open it in your browser, it will also be displayed incorrectly. 
+
+ You can specify the encoding of your document like this : 
+
+  <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>title</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+</head>
+  
+
+ You can force the encoding used by lxml this way (like your can change the encoding used in your browser) : 
+
+  file = open(fname)
+filecontents = file.read()
+filecontents = filecontents.decode("utf-8")
+htree = lxml.html.fromstring(filecontents)
+print htree.xpath("//span[@id='demo']")[0].text
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28185155)
+ Using BeautifulSoup you can parse the HTML and access the http://www.crummy.com/software/BeautifulSoup/bs4/doc/#encodings attrbute: 
+
+  import urllib2
+from bs4 import BeautifulSoup
+
+html = urllib2.urlopen('http://www.sohu.com').read()
+soup = BeautifulSoup(html)
+
+>>> soup.original_encoding
+u'gbk'
+  
+
+ And this agrees with the encoding declared in the  <meta>  tag in the HTML's  <head> : 
+
+  <meta http-equiv="content-type" content="text/html; charset=GBK" />
+
+>>> soup.meta['content']
+u'text/html; charset=GBK'
+  
+
+ Now you can decode the HTML: 
+
+  decoded_html = html.decode(soup.original_encoding)
+  
+
+ but there not much point since the HTML is already available as unicode: 
+
+  >>> soup.a['title']
+u'\u641c\u72d0-\u4e2d\u56fd\u6700\u5927\u7684\u95e8\u6237\u7f51\u7ad9'
+>>> print soup.a['title']
+搜狐-中国最大的门户网站
+>>> soup.a.text
+u'\u641c\u72d0'
+>>> print soup.a.text
+搜狐
+  
+
+ It is also possible to attempt to detect it using the  chardet  module (although it is a bit slow): 
+
+  >>> import chardet
+>>> chardet.detect(html)
+{'confidence': 0.99, 'encoding': 'GB2312'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26612567)
+ You should  not  decode the response. First of all, you are incorrectly assuming the response is UTF-8 encoded (it is not, as the error shows), but more importantly, BeautifulSoup will detect the encoding  for you . See the http://www.crummy.com/software/BeautifulSoup/bs4/doc/#encodings of the BeautifulSoup documentation. 
+
+ Pass a byte string to BeautifulSoup and it'll use any  <meta>  header proclaiming the correct encoding, or do great job of autodetecting the encoding for you. 
+
+ In the event that auto-detection fails, you can always fall back to the server-provided encoding: 
+
+  encoding = page.info().get_charset()
+page = page.read()
+soup = BeautifulSoup(page)
+if encoding is not None and soup.original_encoding != encoding:
+    print('Server and BeautifulSoup disagree')
+    print('Content-type states it is {}, BS4 states thinks it is {}'.format(encoding, soup.original_encoding)
+    print('Forcing encoding to server-supplied codec')
+    soup = BeautifulSoup(page, from_encoding=encoding)
+  
+
+ This still leaves the actual decoding to BeautifulSoup, but if the server included a  charset  parameter in the  Content-Type  header then the above assumes that the server is correctly configured and forces BeautifulSoup to use that encoding. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50549390)
+ The JSON you are reading was written incorrectly and the Unicode strings decoded from it will have to be re-encoded with the wrong encoding used, then decoded with the correct encoding. 
+
+ Here's an example: 
+
+  #!python3
+import json
+
+# The bad JSON you have
+bad_json = r'{"sender_name": "Horn\u00c3\u00adkov\u00c3\u00a1"}'
+print('bad_json =',bad_json)
+
+# The wanted result from json.loads()
+wanted = {'sender_name':'Horníková'}
+
+# What correctly written JSON should look like
+good_json = json.dumps(wanted)
+print('good_json =',good_json)
+
+# What you get when loading the bad JSON.
+got = json.loads(bad_json)
+print('wanted =',wanted)
+print('got =',got)
+
+# How to correct the mojibake string
+corrected_sender = got['sender_name'].encode('latin1').decode('utf8')
+print('corrected_sender =',corrected_sender)
+  
+
+ Output: 
+
+  bad_json = {"sender_name": "Horn\u00c3\u00adkov\u00c3\u00a1"}
+good_json = {"sender_name": "Horn\u00edkov\u00e1"}
+wanted = {'sender_name': 'Horníková'}
+got = {'sender_name': 'HornÃ\xadkovÃ¡'}
+corrected_sender = Horníková
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31146912)
+ This may not be the best solution, but this is what I do when scraping non-ascii sites. And it works perfect everytime. 
+
+ Change the default encoding to the same as of the website. In your case  utf-8  
+
+  import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+  
+
+ so to print/save or parse any non-ascii character you simply do, 
+
+  print 'non-ascii character'.encode('utf-8','ignore') # Replace your text or variable instead of 'non-ascii character'
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/8693052)
+ Ok i found the solution in my last try, maybe it will help others with the same problem.
+It needs to be encoded, not decoded 
+
+  
+
+  print( [e.encode('utf-8', 'ignore') for e in stuff] )
+  
+
+
+

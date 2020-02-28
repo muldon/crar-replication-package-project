@@ -1,0 +1,254 @@
+Query: Sending http headers with python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13203677)
+ There are ways to do this, but it you're trying to completely control the requests at byte level, it may be easier to just use a socket: 
+
+  s = socket.socket()
+s.connect((host, 80))
+s.sendall(myrequest)
+  
+
+ You can actually hook the socket up to some HTTP parser libraries after sending, but this may be a complicated. If you're after analyzing the entire result, you're probably better off just reading the whole result right from the socket: 
+
+  s.shutdown(socket.SHUT_WR)
+result = ''
+while True:
+    buf = s.read(4096)
+    if not buf: break
+    result += buf
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3473627)
+ Use  putrequest  instead of  request . Since  request  also can send headers, it will send a blank line to the server to indicate end of headers, so sending headers afterward will create an error. 
+
+ Alternatively, you could do as is done http://docs.python.org/library/httplib.html: 
+
+  import httplib, urllib
+params = urllib.urlencode({'spam': 1, 'eggs': 2, 'bacon': 0})
+headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+conn = httplib.HTTPConnection("musi-cal.mojam.com:80")
+conn.request("POST", "/cgi-bin/query", params, headers)
+response = conn.getresponse()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13203700)
+ As abartnert points out, you can just use a socket for this if you'd like, but I think it's worth noting that CURL does what you require as well. From the man page at http://curl.haxx.se/docs/manpage.html : 
+
+  Remove an internal header by giving a replacement without
+content on the right side of the colon, as in: -H "Host:".
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19058409)
+ Anatomy of an http response 
+
+ Example (loading this page) 
+
+  HTTP/1.1 200 OK
+Cache-Control: public, max-age=60
+Content-Type: text/html; charset=utf-8
+Content-Encoding: gzip
+Expires: Fri, 27 Sep 2013 19:22:41 GMT
+Last-Modified: Fri, 27 Sep 2013 19:21:41 GMT
+Vary: *
+X-Frame-Options: SAMEORIGIN
+Date: Fri, 27 Sep 2013 19:21:41 GMT
+Content-Length: 12706
+
+<!DOCTYPE html>
+<html>
+... truncated rest of body ...
+  
+
+ 
+ The first line is the  status line  and consists of the  status code  and  status text . 
+  Headers  are key/value pairs. Headers are ended with an empty new line. The empty line denotes there are no more headers and the start of the payload / body follows. 
+  body  consumes the rest of the message. 
+ 
+
+ The following explains how to extract the 3 parts: 
+
+ Status Line 
+
+ Use the following to get the status line sent back from the server 
+
+  >>> bad_r = requests.get('http://httpbin.org/status/404')
+>>> bad_r.status_code
+404
+
+>>> bad_r.raise_for_status()
+Traceback (most recent call last):
+  File "requests/models.py", line 832, in raise_for_status
+    raise http_error
+requests.exceptions.HTTPError: 404 Client Error
+  
+
+ http://docs.python-requests.org/en/latest/user/quickstart/#more-complicated-post-requests 
+
+ Headers: 
+
+  r = requests.get('http://en.wikipedia.org/wiki/Monty_Python')
+# response headers: 
+r.headers
+# request headers:
+r.request.headers
+  
+
+ Body 
+
+ Use  r.text . 
+
+ Post Request Encoding 
+
+ The 'content-type' you send to the server in the request should match the content-type you're actually sending. In your case, you are sending json but telling the server you're sending form data (which is the default if you do not specify). 
+
+ From the headers you show above: 
+
+  "Content-Type":"application/x-www-form-urlencoded",  
+
+ But your request.post call sets  data=json.dumps(data)  which is JSON. The headers should say: 
+
+  "Content-type": "application/json",  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7064915)
+ Those  are  all of the headers the server is sending when you do the request with  urllib2 . 
+
+ Firefox is showing you the headers it's sending to the server as well. 
+
+ When the server gets those headers from Firefox, some of them may trigger it to send back additional headers, so you end up with more response headers as well. 
+
+ Duplicate the exact headers Firefox sends, and you'll get back an identical response. 
+
+ Edit: That  location  header is sent by the page that does the redirect, not the page you're redirected to. Just use  response.url  to get the location of the page you've been sent to. 
+
+ That first URL uses a 302 redirect. If you don't want to follow the redirect, but see the headers from the first page instead, use a http://docs.python.org/library/urllib.html#urllib.URLopener instead of a  FancyURLOpener , which automatically follows redirects. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47664119)
+  r.request  is the corresponding  Request  object you need. 
+
+  import requests
+
+r = requests.post(url=url, data=data, headers=headers, auth=(self.api_key, ''))
+print r.request.headers
+print r.request.body
+  
+
+ You can do it after you get the response, everything will still be there. See http://docs.python-requests.org/en/master/user/advanced/#prepared-requests. 
+
+ As for your edited question, use  requests.post(url=url, json=data, ...) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5606179)
+ Look at urllib module: 
+
+ (with Python 3.1, in Python 2, use urllib2.urlopen instead)
+For retrieving cookies: 
+
+  >>> import urllib.request
+>>> d = urllib.request.urlopen("http://www.google.co.uk")
+>>> d.getheader('Set-Cookie')
+'PREF=ID=a45c444aa509cd98:FF=0:TM=14.....'
+  
+
+ And for sending, simply send a Cookie header with request.  
+
+  r=urllib.request.Request("http://www.example.com/",headers={'Cookie':"session_id=1231245546"})
+urllib.request.urlopen(r)
+  
+
+ Edit: 
+
+ The "http.cookie"("Cookie" for Python 2) may work for you better: 
+
+ http://docs.python.org/library/cookie.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2286478)
+ Use  C = http.cookie.SimpleCookie  to hold the cookies and then  C.output()  to create the headers for it. 
+
+ http://docs.python.org/3.1/library/http.cookies.html#example 
+
+ The request handler has a  wfile  attribute, which is the socket. 
+
+  req_handler.send_response(200, 'OK')
+req_handler.wfile.write(C.output()) # you may need to .encode() the C.output()
+req_handler.end_headers()
+#write body...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15663033)
+ Are you asking how to see what headers your browser or mechanize is sending?  
+
+ 
+
+  Browser  
+
+ Like the other commentators say you can check the headers sent by the browsers with a plugin like http://getfirebug.com (Firefox), Developer tools (IE http://msdn.microsoft.com/en-gb/library/ie/gg589507%28v=vs.85%29.aspx, Chrome  https://developers.google.com/chrome-developer-tools/ and Opera http://www.opera.com/dragonfly/documentation/network/)  etc. 
+
+ 
+
+  Mechanize  
+
+ With mechanize you can get a copy of the headers sent by doing something like  
+
+  import mechanize 
+
+br = mechanize.Browser()
+br.open("http://stackoverflow.com")
+request = br.request
+request.header_items()
+  
+
+ Which gives in this case  
+
+  [('Host', 'stackoverflow.com'), ('User-agent', 'Python-urllib/2.7')]
+  
+
+ 
+
+  Other/One off  
+
+ As always for a one off debug or if nothing is provided then you can use http://www.wireshark.org to check what headers are been sent over the network.  Tip : use a filter like  (http.request.uri == "http://stackoverflow.com/")   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/987271)
+ In  urllib , it's done like this: 
+
+  import urllib
+
+class AppURLopener(urllib.FancyURLopener):
+    version = "MyStrangeUserAgent"
+
+urllib._urlopener = AppURLopener()
+  
+
+ and then just use  urllib.urlopen  normally. In  urllib2 , use  req = urllib2.Request(...)  with a parameter of  headers=somedict  to set all the headers you want (including user agent) in the new request object  req  that you make, and  urllib2.urlopen(req) . 
+
+ Other ways of sending HTTP requests have other ways of specifying headers, of course. 
+
+
+

@@ -1,0 +1,375 @@
+Query: How to account for accent characters for regex in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18663728)
+ Try the following: 
+
+  hashtags = re.findall(r'#(\w+)', str1, re.UNICODE)
+  
+
+ http://www.regex101.com/r/cJ1wX7 
+
+  EDIT 
+Check the useful comment below from Martijn Pieters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42192335)
+ You may also want to use  
+
+  import unicodedata
+output = unicodedata.normalize('NFD', my_unicode).encode('ascii', 'ignore')
+  
+
+ how do i convert all those escape characters into their respective characters like if there is an unicode à, how do i convert that into a standard a?
+Assume you have loaded your unicode into a variable called my_unicode... normalizing à into a is this simple... 
+
+ import unicodedata
+output = unicodedata.normalize('NFD', my_unicode).encode('ascii', 'ignore')
+Explicit example... 
+
+  myfoo = u'àà'
+myfoo
+u'\xe0\xe0'
+unicodedata.normalize('NFD', myfoo).encode('ascii', 'ignore')
+'aa'
+  
+
+ check this answer it helped me a lot: https://stackoverflow.com/questions/14118352/how-to-convert-unicode-accented-characters-to-pure-ascii-without-accents 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15791464)
+ With the https://pypi.python.org/pypi/python-Levenshtein/: 
+
+  In [1]: import unicodedata, string
+
+In [2]: from Levenshtein import distance
+
+In [3]: def remove_accents(data):
+   ...:     return ''.join(x for x in unicodedata.normalize('NFKD', data)
+   ...:                             if x in string.ascii_letters).lower()
+
+In [4]: def norm_dist(s1, s2):
+   ...:     norm1, norm2 = remove_accents(s1), remove_accents(s2)
+   ...:     d1, d2 = distance(s1, s2), distance(norm1, norm2)
+   ...:     return (d1+d2)/2.
+
+In [5]: norm_dist(u'ab', u'ac')
+Out[5]: 1.0
+
+In [6]: norm_dist(u'àb', u'ab')
+Out[6]: 0.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46917216)
+ Use  \W : 
+
+  import re
+s = "віч на́ віч"
+final_s = re.findall('\W+', s)[0]
+  
+
+ Output: 
+
+  "віч на́ віч"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20891834)
+  edit:  Definitely an issue with the combining diacritics, you need to normalize both the regular expression and the strings you are trying to match.  For example: 
+
+  import unicodedata
+
+regex = unicodedata.normalize('NFC', ur'([aeioäëöáéíóàèìò])([aeioäëöáéíóúàèìò]):')
+string = unicodedata.normalize('NFC', u'aä:dtcbd')
+newString = re.sub(regex, ur'\1:\2', string)
+  
+
+ Here is an example that shows why you might hit an issue without the normalization.  The string  u'á'  could either be the single code point LATIN SMALL LETTER A WITH ACCUTE (U+00E1) or it could be two code points, LATIN SMALL LETTER A (U+0061) followed by COMBINING ACUTE ACCENT (U+0301).  These will probably look the same, but they will have very different behaviors in a regex because you can match the combining accent as its own character.  That is what is happening here with the string  'á:tdfrec' , a regular 'a' is captured in group 1, and the combining diacritic is captured in group 2. 
+
+ By normalizing both the regex and the string you are matching you ensure this doesn't happen, because the NFC normalization will replace the diacritic and the character before it with a single equivalent character. 
+
+ . 
+
+ 
+
+ I think your issue here is that the string you are attempting to do the replacement on is a byte string, not a Unicode string. 
+
+ If these are string literals make sure you are using the  u  prefix, e.g.  string = u'aä:dtcbd' .  If they are not literals you will need to decode them, e.g.  string = string.decode('utf-8')  (although you may need to use a different codec). 
+
+ You should probably also https://stackoverflow.com/questions/16467479/normalizing-unicode, because part of the issue may have something to do with combining diacritics. 
+
+ Note that in this case the http://docs.python.org/2/library/re.html#re.UNICODE flag will not make a difference, because that only changes the meaning of character class shorthands like  \w  and  \d .  The important thing here is that if you are using a Unicode regular expression, it should probably be applied to a Unicode string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43635442)
+ https://pypi.python.org/pypi/Unidecode is often mentioned for removing accents in Python, but it also does more than that : it converts  '°'  to  'deg' , which might not be the desired output. 
+
+ https://docs.python.org/2/library/unicodedata.html seems to have https://stackoverflow.com/a/39612904/6419007. 
+
+ With any pattern 
+
+ This method should work with any pattern and any text. 
+
+ You can temporarily remove the accents from both the text and regex pattern. The match information from https://docs.python.org/3/library/re.html#re.finditer (start and end indices) can be used to modify the original, accented text. 
+
+ Note that the matches must be reversed in order to not modify the following indices. 
+
+  import re
+import unicodedata
+
+original_text = "I'm drinking a 80° café in a cafe with Chloë, François Déporte and Francois Deporte."
+
+accented_pattern = r'a café|François Déporte'
+
+def remove_accents(s):
+    return ''.join((c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn'))
+
+print(remove_accents('äöüßéèiìììíàáç'))
+# aoußeeiiiiiaac
+
+pattern = re.compile(remove_accents(accented_pattern))
+
+modified_text = original_text
+matches = list(re.finditer(pattern, remove_accents(original_text)))
+
+for match in matches[::-1]:
+    modified_text = modified_text[:match.start()] + 'X' + modified_text[match.end():]
+
+print(modified_text)
+# I'm drinking a 80° café in X with Chloë, X and X.
+  
+
+ If pattern is a word or a set of words 
+
+ You could : 
+
+ 
+ remove the accents out of your pattern words and save them in a set for fast lookup 
+ look for every word in your text with  \w+  
+ remove the accents from the word:
+
+ 
+ If it matches, replace by  X  
+ If it doesn't match, leave the word untouched 
+  
+ 
+
+ 
+
+  import re
+from unidecode import unidecode
+
+original_text = "I'm drinking a café in a cafe with Chloë."
+
+def remove_accents(string):
+    return unidecode(string)
+
+accented_words = ['café', 'français']
+
+words_to_remove = set(remove_accents(word) for word in accented_words)
+
+def remove_words(matchobj):
+    word = matchobj.group(0)
+    if remove_accents(word) in words_to_remove:
+        return 'X'
+    else:
+        return word
+
+print(re.sub('\w+', remove_words, original_text))
+# I'm drinking a X in a X with Chloë.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45662493)
+ Here's a solution based on https://docs.python.org/3/library/difflib.html and https://docs.python.org/3/library/unicodedata.html with no dependencies whatsoever: 
+
+  import unicodedata
+from difflib import Differ
+
+# function taken from https://stackoverflow.com/a/517974/1222951
+def remove_accents(input_str):
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    only_ascii = nfkd_form.encode('ASCII', 'ignore').decode()
+    return only_ascii
+
+def compare(wrong, right):
+    # normalize both strings to make sure equivalent (but
+    # different) unicode characters are canonicalized 
+    wrong = unicodedata.normalize('NFKC', wrong)
+    right = unicodedata.normalize('NFKC', right)
+
+    num_diffs = 0
+    index = 0
+    differences = list(Differ().compare(wrong, right))
+    while True:
+        try:
+            diff = differences[index]
+        except IndexError:
+            break
+
+        # diff is a string like "+ a" (meaning the character "a" was inserted)
+        # extract the operation and the character
+        op = diff[0]
+        char = diff[-1]
+
+        # if the character isn't equal in both
+        # strings, increase the difference counter
+        if op != ' ':
+            num_diffs += 1
+
+        # if a character is wrong, there will be two operations: one
+        # "+" and one "-" operation
+        # we want to count this as a single mistake, not as two mistakes
+        if op in '+-':
+            try:
+                next_diff = differences[index+1]
+            except IndexError:
+                pass
+            else:
+                next_op = next_diff[0]
+                if next_op in '+-' and next_op != op:
+                    # skip the next operation, we don't want to count
+                    # it as another mistake
+                    index += 1
+
+                    # we know that the character is wrong, but
+                    # how wrong is it?
+                    # if the only difference is the accent, it's
+                    # a minor mistake
+                    next_char = next_diff[-1]
+                    if remove_accents(char) == remove_accents(next_char):
+                        num_diffs -= 0.5
+
+        index += 1
+
+    # output the difference as a ratio of
+    # (# of wrong characters) / (length of longest input string)
+    return num_diffs / max(len(wrong), len(right))
+  
+
+ 
+
+  
+
+  for w, r in (('ab','ac'),
+            ('àb','ab'),
+            ('être','etre'),
+            ('très','trés'),
+            ):
+    print('"{}" and "{}": {}% difference'.format(w, r, compare(w, r)*100))
+  
+
+
+
+  "ab" and "ac": 50.0% difference
+"àb" and "ab": 25.0% difference
+"être" and "etre": 12.5% difference
+"très" and "trés": 12.5% difference
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50762487)
+ To match 2 capturing groups, you could remove this part  |[WU]  from your regex and add  \s+  to account for the following whitespace characters so that you don't have to trim that match. 
+
+ Your regex could look likehttps://regex101.com/r/u08eoD/1 
+
+ Or instead of using  . , you could use  [^>]+  
+
+ https://regex101.com/r/lLeoZK/1 
+
+ That would match 
+
+ 
+ Match  <  
+  (@[^>]+)  Capture in  group 1 and  @ , then not  >  using a negated character class 
+ Match  >  
+  \s+  Match on or more whitespace characters 
+  (.*)  Capture zero or more characters in group 2 (If there has to be at least 1 character following you could use  .+  instead) 
+ 
+
+ http://rextester.com/YHSQCN49105 
+
+ If you only want to allow uppercase characters and numbers, you could use: 
+
+ https://regex101.com/r/8q8UVf/1 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35783136)
+ A workaround to achieve the desired goal would be to use https://pypi.python.org/pypi/Unidecode to get rid of all diacritics first, and then just match agains the regular  e  
+
+  re.match(r"^e$", unidecode("é"))
+  
+
+ Or in this simplified case 
+
+  unidecode("é") == "e"
+  
+
+ 
+
+ Another solution which doesn't depend on the unidecode-library, preserves unicode and gives more control is manually removing the diacritics as follows: 
+
+ Use https://docs.python.org/3/library/unicodedata.html#unicodedata.normalize to turn your input string into normal form D (for decomposed), making sure composite characters like  é  get turned into the decomposite form  e\u301  (e + COMBINING ACUTE ACCENT) 
+
+  >>> input = "Héllô"
+>>> input
+'Héllô'
+>>> normalized = unicodedata.normalize("NFKD", input)
+>>> normalized
+'He\u0301llo\u0302'
+  
+
+ Then, remove all codepoints which fall into the category http://www.fileformat.info/info/unicode/category/Mn/list.htm (short  Mn ). Those are all characters that have no width themselves and just decorate the previous character.
+Use https://docs.python.org/3/library/unicodedata.html#unicodedata.category to determine the category.  
+
+  >>> stripped = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+>>> stripped
+'Hello'
+  
+
+ The result can be used as a source for regex-matching, just as in the unidecode-example above.
+Here's the whole thing as a function: 
+
+  def remove_diacritics(text):
+    """
+    Returns a string with all diacritics (aka non-spacing marks) removed.
+    For example "Héllô" will become "Hello".
+    Useful for comparing strings in an accent-insensitive fashion.
+    """
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31609516)
+ Some languages have combining diacritics as language letters and accent diacritics to specify accent. 
+
+ I think it is more safe to specify explicitly what diactrics you want to strip: 
+
+  def strip_accents(string, accents=('COMBINING ACUTE ACCENT', 'COMBINING GRAVE ACCENT', 'COMBINING TILDE')):
+    accents = set(map(unicodedata.lookup, accents))
+    chars = [c for c in unicodedata.normalize('NFD', string) if c not in accents]
+    return unicodedata.normalize('NFC', ''.join(chars))
+  
+
+
+

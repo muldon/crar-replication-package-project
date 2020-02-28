@@ -1,0 +1,138 @@
+Query: Copy a Directory recursively
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20085222)
+ You need to use walkFileTree to copy directories.  If you use Files.copy on a directory only an empty directory will be created. 
+
+ Following code taken/adapted from http://codingjunkie.net/java-7-copy-move/ 
+
+  File src = new File("c:\\temp\\srctest");
+File dest = new File("c:\\temp\\desttest");
+Path srcPath = src.toPath();
+Path destPath = dest.toPath();
+
+Files.walkFileTree(srcPath, new CopyDirVisitor(srcPath, destPath, StandardCopyOption.REPLACE_EXISTING));
+
+public static class CopyDirVisitor extends SimpleFileVisitor<Path>
+{
+    private final Path fromPath;
+    private final Path toPath;
+    private final CopyOption copyOption;
+
+    public CopyDirVisitor(Path fromPath, Path toPath, CopyOption copyOption)
+    {
+        this.fromPath = fromPath;
+        this.toPath = toPath;
+        this.copyOption = copyOption;
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
+    {
+        Path targetPath = toPath.resolve(fromPath.relativize(dir));
+        if( !Files.exists(targetPath) )
+        {
+            Files.createDirectory(targetPath);
+        }
+        return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+    {
+        Files.copy(file, toPath.resolve(fromPath.relativize(file)), copyOption);
+        return FileVisitResult.CONTINUE;
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26214647)
+  public static void copyFolder(File source, File destination)
+{
+    if (source.isDirectory())
+    {
+        if (!destination.exists())
+        {
+            destination.mkdirs();
+        }
+
+        String files[] = source.list();
+
+        for (String file : files)
+        {
+            File srcFile = new File(source, file);
+            File destFile = new File(destination, file);
+
+            copyFolder(srcFile, destFile);
+        }
+    }
+    else
+    {
+        InputStream in = null;
+        OutputStream out = null;
+
+        try
+        {
+            in = new FileInputStream(source);
+            out = new FileOutputStream(destination);
+
+            byte[] buffer = new byte[1024];
+
+            int length;
+            while ((length = in.read(buffer)) > 0)
+            {
+                out.write(buffer, 0, length);
+            }
+        }
+        catch (Exception e)
+        {
+            try
+            {
+                in.close();
+            }
+            catch (IOException e1)
+            {
+                e1.printStackTrace();
+            }
+
+            try
+            {
+                out.close();
+            }
+            catch (IOException e1)
+            {
+                e1.printStackTrace();
+            }
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30391873)
+ you could use these methods: 
+
+      Files.copy(source, target, options)
+    Files.walkFileTree(Path start, Set<FileVisitOption> options, int maxDepth, FileVisitor<? super Path> visitor) throws IOException
+  
+
+ Just walk thru the file tree, and in the FileVisitor do the copy. 
+
+ example how to do that with working code: 
+
+ change in this first example below one line, add the  <Path>  type to FileVisitor, like this: 
+
+          Files.walkFileTree(source, options, Integer.MAX_VALUE, new FileVisitor<Path>() {....
+  
+
+ http://javatutorialhq.com/java/example-source-code/io/nio/folder-copy/ 
+
+ and this: http://www.studytrails.com/java-io/file-listing-directory-walking.jsp 
+
+
+

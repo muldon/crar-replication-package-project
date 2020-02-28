@@ -1,0 +1,289 @@
+Query: What's the best way to aggregate the boolean values of a Python dictionary?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2806640)
+ in python 2.5+: 
+
+  all(dict.itervalues())
+  
+
+ in python 3+ 
+
+  all(dict.values())
+  
+
+  dict  is a bad variable name, though, because it is the name of a builtin type 
+
+ Edit: add syntax for python 3 version.  values()  constructs a view in python 3, unlike 2.x where it builds the list in memory. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35679662)
+ I think you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.transform.html for creating boolean mask and then http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing like: 
+
+  print simple
+         E
+S C  R    
+0 C0 R0  0
+     R1  1
+     R2  2
+     R3  3
+  C1 R0  1
+     R1  2
+     R2  3
+     R3  4
+  C2 R0  2
+     R1  3
+     R2  4
+     R3  5
+
+mask = (simple.groupby(level=['S','C']).transform(sum)< 7)['E']
+print mask
+S  C   R 
+0  C0  R0     True
+       R1     True
+       R2     True
+       R3     True
+   C1  R0    False
+       R1    False
+       R2    False
+       R3    False
+   C2  R0    False
+       R1    False
+       R2    False
+       R3    False
+Name: E, dtype: bool
+  
+
+    
+
+  simple.loc[mask, 'E'] = 0
+print simple
+         E
+S C  R    
+0 C0 R0  0
+     R1  0
+     R2  0
+     R3  0
+  C1 R0  1
+     R1  2
+     R2  3
+     R3  4
+  C2 R0  2
+     R1  3
+     R2  4
+     R3  5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50772444)
+ Create boolean mask by compare column by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.gt.html with aggregate  sum  for count  True s values: 
+
+  df1 = (df['nice_numbers'].gt(180)
+                         .groupby(df['activity'], sort=False)
+                         .sum()
+                         .astype(int)
+                         .reset_index())
+  
+
+ Similar solution with  sum  by index created by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html: 
+
+  df1 = df.set_index('activity')['nice_numbers'].gt(180).sum(level=0).astype(int).reset_index()
+print (df1)
+     activity  nice_numbers
+0    sleeping             0
+1     walking             3
+2     working             5
+3  restaurant             4
+4     driving             2
+5        home             1
+  
+
+ EDIT: 
+
+ For more metrics for  nice_numbers  column use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.DataFrameGroupBy.agg.html: 
+
+  agg = ('abobe_180_count', lambda x: x.gt(180).sum()), ('average', 'mean')
+df1 = df.groupby('activity')['nice_numbers'].agg(agg).reset_index()
+print (df1)
+     activity  abobe_180_count     average
+0     driving                2  181.333333
+1        home                1  123.333333
+2  restaurant                4  192.000000
+3    sleeping                0   63.666667
+4     walking                3  137.166667
+5     working                5  187.000000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42897470)
+ If need count one value only the simpliest is sum  True  values of boolean mask: 
+
+  print (df.Sales == 0)
+0     True
+1     True
+2    False
+3    False
+4    False
+Name: Sales, dtype: bool
+
+
+a = (df.Sales == 0).sum()
+print (a)
+2
+  
+
+ And if need count all values need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html and aggregate http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html or use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html: 
+
+  df = df.groupby('Sales').size()
+print (df)
+Sales
+0        2
+588      1
+9240     1
+33496    1
+dtype: int64
+  
+
+  
+
+  df = df['Sales'].value_counts()
+print (df)
+0        2
+9240     1
+588      1
+33496    1
+Name: Sales, dtype: int64
+  
+
+ 
+
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.query.html or http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing if need filter: 
+
+  df = df.query('Sales == 0')
+print (df)
+   Sales Close_Date
+0      0   04/01/12
+1      0        NaN
+  
+
+  
+
+  df = df[df.Sales == 0]
+print (df)
+   Sales Close_Date
+0      0   04/01/12
+1      0        NaN
+  
+
+  Timings : 
+
+  #[500000 rows x 2 columns]
+df = pd.concat([df]*100000).reset_index(drop=True)
+print (df)
+
+In [37]: %timeit ((df.Sales == 0).sum())
+The slowest run took 4.18 times longer than the fastest. This could mean that an intermediate result is being cached.
+100 loops, best of 3: 4.62 ms per loop
+
+In [38]: %timeit (Counter(df.Sales)[0])
+10 loops, best of 3: 82.4 ms per loop
+  
+
+ but this can be faster: 
+
+  a = (df.Sales.value == 0).sum()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1608053)
+  
+
+  num_true = sum(1 for condition in d.values() if condition)
+  
+
+ For conciseness (this works because True is a subclass of int with a value 1): 
+
+  num_true = sum(d.values())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44553303)
+ 
+ Create a boolean filter on the second column ( (df['2'] > 0) ) 
+ Group it by the first column 
+ Aggregate with  sum   and  size  (sum will count the ones that satisfy the condition) 
+ Divide sum by size to get the percentage: 
+ 
+
+ 
+
+  res = (df['2'] > 0).groupby(df['1']).agg(['sum', 'size'])    
+res['sum'] / res['size']
+
+Out: 
+1
+A    0.666667
+B    0.250000
+dtype: float64
+  
+
+ This can be done in a more compact way with a lambda expression: 
+
+  df.groupby('1')['2'].agg(lambda x: (x > 0).sum() / x.size)
+Out: 
+1
+A    0.666667
+B    0.250000
+Name: 2, dtype: float64
+  
+
+ but I suspect that the first one is more efficient. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36178116)
+ You can do, with  itertools  help: 
+
+  import itertools
+import numpy as np
+
+def f(serie):
+    xs = []
+    for el, gr in itertools.groupby(serie):
+        x = np.repeat(True, len(list(gr)))
+        if len(x)>=3:
+           x[1:]=False
+        xs.append(x)
+    return np.concatenate(xs)
+
+df[df[['A','B','C']].apply(f, axis=0).apply(np.all, axis=1)]
+
+#Out[64]:
+#       Date   Time  A   B   C
+#0  1.1.2015  00:00  2  16  50
+#3  1.1.2015  03:00  3   7  31
+#8  1.1.2015  08:00  3  11  28
+#9  1.1.2015  09:00  2  18  17
+  
+
+ The idea is to use the utility function  f  to count the number of consecutive element in a column and create the associated desired boolean mask - eg you can check the result of  f(df['A']) . And then aggregate these boolean masks using  np.all  to filter your original dataframe. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26718717)
+ As the error message says,  false  is not defined, because in Python, the boolean have a capital letter, so it's  False  and  True . 
+
+
+

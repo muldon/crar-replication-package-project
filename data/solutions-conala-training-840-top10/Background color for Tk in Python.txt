@@ -1,0 +1,261 @@
+Query: Background color for Tk in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9558768)
+ Digging through the Tk source code lead me to the answer! The  inactiveselectbackground  option sets the color. 
+
+<pre class="lang-python prettyprint-override"> import Tkinter as tk
+
+root = tk.Tk()
+
+# Create a Text widget with a red selected text background
+# And green selected text background when not focused
+text = tk.Text(root, selectbackground="red", inactiveselectbackground="green")
+text.pack()
+
+# Add some text, and select it
+text.insert("1.0", "Hello, world!")
+text.tag_add("sel", "1.0", "end")
+
+# Create an Entry widget to easily test the focus behavior
+entry = tk.Entry(root)
+entry.pack()
+
+entry.insert("0", "Focus me!")
+
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49855988)
+ 
+   frame.config(background="black")  returns the error  unknown option "-background"  because this is a  ttk.Frame , not a  tkinter.Frame  and the background of a  ttk.Frame  is changed using a  ttk.Style  (see example below).  
+   lab.config(background="black")   gives the error  'NoneType' object has no attribute 'config'  because you did  lab = tk.Label(...).grid(...)  and  grid  returns  None  so  lab  is  None , not a  Label .  
+   root.config(background="black")  does nothing because the widgets fill the window so you cannot see the background like naknak12 explained.  
+ 
+
+ Here is an example using  ttk  widgets: 
+
+  import tkinter
+from tkinter import ttk
+
+root = tkinter.Tk()
+root.configure(background='black')
+# style configuration
+style = ttk.Style(root)
+style.configure('TLabel', background='black', foreground='white')
+style.configure('TFrame', background='black')
+
+frame = ttk.Frame(root)
+frame.grid(column=0, row=0)
+
+ttk.Button(frame, text="Open file", command=None).grid(column=0, row=1)
+lab = ttk.Label(frame, text="test test test test test test ")
+lab.grid(column=0, row=2)
+
+
+root.mainloop()
+  
+
+ And an example without  ttk : 
+
+  import tkinter
+
+root = tkinter.Tk()
+
+frame = tkinter.Frame(root)
+frame.grid(column=0, row=0)
+
+tkinter.Button(frame, text="Open file", command=None).grid(column=0, row=1 )
+lab = tkinter.Label(frame, text="test test test test test test ")
+lab.grid(column=0, row=2)
+
+root.configure(background='black')
+lab.configure(background='black', foreground='white')
+frame.configure(background='black')
+
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52781794)
+ Your class inherits from  tk.Canvas  
+
+  class HoverCanvas(tk.Canvas):
+  
+
+ but you call the  __init__  method of  tk.Frame  
+
+  tk.Frame.__init__(self,master=master,**kw)
+  
+
+ You should call the  __init__  method of  tk.Canvas  instead. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14284595)
+ Option for text cursor color in Tk is  -insertbackground . 
+
+  textWidget.config(insertbackground=...)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17902036)
+ The code below works fine for me on an iMac with Python 3.3.2 and Tcl/Tk 8.5. Also works on a Mac G5 with Python 3.3.2 and Tcl/Tk 8.4. It does NOT work on Windows XP sp3 with Python 3.3.2 and Tcl/Tk 8.5. In the latter case, the entry background, as it did for you, remains stubbornly white. 
+
+ Here's why it doesn't change colors in Windows. The example there is also in Tcl. 
+
+ https://groups.google.com/forum/#!topic/comp.lang.tcl/RmbiFrTFCdw 
+
+ I worked on your nonworking example a little, and it also works on my Mac, except that I get no response from "active" and "focus" in the map. Nothing happens there. 
+
+ Some of this is still very mysterious to me. It looks like there is some help here: 
+http://wiki.tcl.tk/38127 
+http://wiki.tcl.tk/37973 
+but it's in Tcl and assumes some knowledge on the part of the viewer just to read it. 
+
+ Here's my example that I mentioned at the beginning of this post: 
+
+  from tkinter import *
+from tkinter.ttk import *
+
+
+class App(Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        s = Style()
+        s.configure('Pink.TEntry', background='hot pink')
+        self.e1 = Entry(self)
+        print("Our entry is of type {}".format(type(self.e1)))
+        b = Button(self, text="Switch Styles", command=self.switch)
+        self.pink = False
+
+        self.e1.pack()
+        b.pack()
+
+    def switch(self):
+        if self.pink:
+            print("going white", end="")
+            self.e1["style"] = "TEntry"
+        else:
+            print("going pink", end="")
+            self.e1["style"] = "Pink.TEntry"
+        self.pink = not self.pink
+        print("; style is now {}".format(self.e1["style"]))
+
+root = Tk()
+a = App(root)
+a.pack()
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23737869)
+ From  help(Tk.PhotoImage) : 
+
+ 
+   Widget which can display colored images in GIF, PPM/PGM format. 
+ 
+
+ So, you need to save your image as a GIF or Portable Bit Map (PPM/PGM). 
+
+ Next, I think you're mixing up  PIL 's  ImageTk.PhotoImage  class with  Tkinter 's built-in  tk.PhotoImage  class. The  tk.PhotoImage  class needs a  name  argument assigned in its constructor: 
+
+   |  __init__(self, name=None, cnf={}, master=None, **kw)
+ |      Create an image with NAME.
+ |      
+ |      Valid resource names: data, format, file, gamma, height, palette,
+ |      width.
+  
+
+ So you just need to specify the file, like this: 
+
+  background_image = tk.PhotoImage(file="background.gif")
+  
+
+ However, you'll run into another issue later, because you'll find that the  Label  widget has a non-transparent background color, so it won't display like in your expected output. You can overcome this by using the  Canvas  widget to hold the background and its  create_text()  method to make text on the background. 
+
+ EDIT: Here's a simple example of using a  Canvas  to make a background, which will preserve the transparency of text: 
+
+  from Tkinter import *
+
+root = Tk()
+
+canvas = Canvas(root, width=200, height=200)
+canvas.pack(fill=BOTH, expand=1)
+
+bg = PhotoImage(file='background.gif')
+canvas.create_image(0, 0, image=bg)
+
+canvas.create_text(50, 50, text='Short')
+
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2519550)
+ You can take a look at python tkinter standard module, it is a binding to Tk UI, but that executes Tcl code in the background. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54160607)
+ Having more than one instance of  Tk  in a program is a big no. Read https://stackoverflow.com/questions/37502942/tkinter-creating-multiple-windows-use-new-tk-instance-or-toplevel-or-frame#37503535. Quoting it here : 
+
+ 
+   Every tkinter program needs exactly one instance of Tk. Tkinter is a wrapper around an embedded tcl interpreter. Each instance of Tk gets its own copy of the interpreter, so two Tk instances have two different namespaces. 
+  
+   If you need multiple windows, create one instance of Tk and then additional windows should be instances of Toplevel. 
+ 
+
+ So, if you need multiple windows, use a  Toplevel . Here is an example. 
+
+ P.S. For styling a  ttk  widget, read the http://infohost.nmt.edu/tcc/help/pubs/tkinter/web/ttk-style-layer.html.   .configure()  of  ttk.Style() . 
+
+  import tkinter as tk
+import tkinter.ttk as ttk
+
+r = tk.Tk()
+
+def callback():
+    r2 = tk.Toplevel()
+
+    c2 = ttk.Combobox(r2, style='ARD.TCombobox')
+    c2.pack()
+
+b = tk.Button(r, text = 'Open', command = callback)
+b.pack()
+
+combostyle = ttk.Style()
+combostyle.configure('ARD.TCombobox', background="#ffcc66", fieldbackground="#ffff99")
+
+c = ttk.Combobox(style='ARD.TCombobox')
+c.pack()
+
+r.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18025958)
+ I know this is kinda an old question but: 
+
+  root["bg"] = "black"
+  
+
+ will also do what you want and it involves less typing. 
+
+
+

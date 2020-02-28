@@ -1,0 +1,214 @@
+Query: Sorting a list of tuples by the addition of second and third element of the tuple
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40384631)
+  sorted(a, key=lambda x: (sum(x[1:3]), x[0]))
+  
+
+ Where  a  is your list.  
+
+  sorted(a, key=lambda x: (sum(x[1:3]), x[0]), reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40384753)
+ You can set a tuple as the key to sort your list: 
+
+  sorted(lst, key = lambda x: (sum(x[1:]), x[0]))
+  
+
+ In this way, it will firstly sort by the sum of the last two elements of the tuple and then by the first element of the tuple. 
+
+ And if you like the result in descending order, as @Moses commented, you can specify the the  reverse  parameter to be  True : 
+
+  sorted(lst, key = lambda x: (sum(x[1:]), x[0]), reverse = True)
+  
+
+  Update :
+To handle descending, ascending order differently, since the  sum  here is numeric, you can negate the  sum  as well. In this way, it will be sorted in descending order for the  sum  but alphabetically for the first letter. 
+
+  sorted(lst, key = lambda x: (-sum(x[1:]), x[0]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51691388)
+ And if you are using python 3.X, you may apply the  sorted  function on the  mylist.   This is just an addition to the answer that @Sven Marnach has given above. 
+
+  # using *sort method*
+mylist.sort(lambda x: x[1]) 
+
+# using *sorted function*
+sorted(mylist, key = lambda x: x[1]) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46974597)
+ You could use a https://docs.python.org/3/library/collections.html#collections.defaultdict to handle this. Use the first and last elements of the tuple as a key and the second as the value, which is accumulated by addition: 
+
+  from collections import defaultdict
+
+l = [(u'basic', 7698, '01-2017'),
+     (u'basic', 7685, '01-2017'),
+     (u'Gross', 4875.0, u'01-2017'),
+     (u'Gross', 4875.0, u'01-2017')]
+
+d = defaultdict(int)
+for t in l:
+    d[(t[0], t[-1])] += t[1]
+
+# create list of tuples from the defaultdict values
+result = [(k[0], d[k], k[1]) for k in d]
+
+>>> print(result)
+[(u'basic', 15383, '01-2017'), (u'Gross', 9750.0, u'01-2017')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46020708)
+ Try sorting on key which sorts lists in place. And also offers convenient way to sort tuples based on index of tuple elements. 
+i.e.  tup[0]  to sort on first tuple element 
+      tup[1]  to sort on second and so on.   
+
+ See https://wiki.python.org/moin/HowTo/Sorting for details. 
+
+  t =  [(100,100,100),(255,0,0),(200,200,200),(0,255,0) ]
+>>> t.sort(key=lambda tup:tup[0])
+>>> t
+[(0, 255, 0), (100, 100, 100), (200, 200, 200), (255, 0, 0)]
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51338387)
+ (1) Improvements 
+
+ You can use sets for the final result in the third matrix, as  a + b = c  must hold identically. This already replaces one nested loop with a constant-time lookup. I will show you an example of how to do this below, but we first ought to introduce some notation. 
+
+ For a set-based approach to work, we need a hashable type. Lists will thus not work, but a https://docs.python.org/3.3/tutorial/datastructures.html#tuples-and-sequences will: it is an ordered, immutable structure. There is, however, a problem: tuple addition is defined as appending, that is, 
+
+  (0, 1) + (1, 0) = (0, 1, 1, 0).  
+
+ This will not do for our use-case: we need element-wise addition. As such, we subclass the built-in tuple as follows, 
+
+  class AdditionTuple(tuple):
+
+    def __add__(self, other):
+        """
+        Element-wise addition.
+        """
+        if len(self) != len(other):
+            raise ValueError("Undefined behaviour!")
+
+        return AdditionTuple(self[idx] + other[idx]
+                             for idx in range(len(self)))
+  
+
+ Where we override the default behaviour of  __add__ . Now that we have a data-type amenable to our problem, let's prepare the data. 
+
+  
+
+  A = [[-1, 0], [0, -1], [4, 1], [-1, 2]]
+B = [[1, 2], [0, 3], [3, 1]]
+C = [[0, 2], [2, 3]]
+  
+
+ .  
+
+  from types import SimpleNamespace
+
+A = [AdditionTuple(item) for item in A]
+B = [AdditionTuple(item) for item in B]
+C = {tuple(item): SimpleNamespace(idx=idx, values=[])
+     for idx, item in enumerate(C)}
+  
+
+ That is, we modify  A  and  B  to use our new data-type, and turn  C  into a dictionary which supports (amortised)  O(1)  look-up times. 
+
+ We can now do the following, eliminating one loop altogether, 
+
+  from itertools import product
+
+for a, b in product(enumerate(A), enumerate(B)):
+    idx_a, a_i = a
+    idx_b, b_j = b
+
+    if a_i + b_j in C:  # a_i + b_j == c_k, identically
+        C[a_i + b_j].values.append((idx_a, idx_b))
+  
+
+  
+
+  >>>print(C)
+{(2, 3): namespace(idx=1, values=[(3, 2)]), (0, 2): namespace(idx=0, values=[(0, 0), (1, 1)])}
+  
+
+ Where for each value in  C , you get the index of that value (as  idx ), and a list of tuples of  (idx_a, idx_b)  whose elements of  A  and  B  together sum to the value at  idx  in  C . 
+
+ Let us briefly analyse the complexity of this algorithm. Redefining the lists  A ,  B , and  C  as above is linear in the length of the lists. Iterating over  A  and  B  is of course in  O(|A| * |B|) , and the nested condition computes the element-wise addition of the tuples: this is linear in the length of the tuples themselves, which we shall denote  k . The whole algorithm then runs in  O(k * |A| * |B|) . 
+
+ This is a substantial improvement over your current  O(k * |A| * |B| * |C|)  algorithm. 
+
+ (2) Matrix plotting 
+
+ Use a https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.dok_matrix.html, a sparse SciPy matrix representation. Then you can use any heatmap-plotting library you like on the matrix, e.g. https://seaborn.pydata.org/generated/seaborn.heatmap.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31861725)
+ You can do this by sorting the list based on second and third element , and then using https://docs.python.org/2/library/itertools.html#itertools.groupby . Then for each group, you can take the first elements from the elements inside it. Example - 
+
+  >>> a = [('a', 'b', 'c'), ('d', 'e', 'f'), ('g', 'e', 'f'), ('h', 'b', 'c')]
+>>> lst = []
+>>> new_a = sorted(a, key=lambda i: (i[1], i[2]))
+>>> for _, x in itertools.groupby(new_a, lambda i: (i[1], i[2])):
+...     lst.append(tuple(y[0] for y in x))
+...
+>>> lst
+[('a', 'h'), ('d', 'g')]
+  
+
+ 
+
+ This can also be done in one line as (though unreadable) -  
+
+  >>> l = [tuple(y[0] for y in x) for _, x in itertools.groupby(sorted(a, key=lambda i: (i[1], i[2])), lambda i: (i[1], i[2]))]
+>>> l
+[('a', 'h'), ('d', 'g')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46982791)
+ Use a  defaultdict  as a grouper: 
+
+  >>> from collections import defaultdict
+>>> grouper = defaultdict(lambda: (0,0))
+>>> list_of_tuples = [(1, 3, 1), (1, 2, 4), (2, 1, 0), (2, 2, 0)]
+>>> for a, b, c in list_of_tuples:
+...     x, y = grouper[a]
+...     grouper[a] = (x + b, y + c)
+...
+>>> grouper
+defaultdict(<function <lambda> at 0x102b240d0>, {1: (5, 5), 2: (3, 0)})
+  
+
+ Now, you can always get a list of tuples back like this: 
+
+  >>> [(k, a, b) for k, (a, b) in grouper.items()]
+[(1, 5, 5), (2, 3, 0)]
+  
+
+
+

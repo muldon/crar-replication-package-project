@@ -1,0 +1,303 @@
+Query: How do I get host default timezone id?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35332270)
+ The https://stackoverflow.com/a/35312406/642706 is correct. 
+
+ If you meant you changed the time zone of your host operating system while running that code, know that the Java Virtual Machine (JVM) has its own current default time zone.  
+
+ Usually that default is picked up from that of the host OS. If so in your case, that must mean your Java implementation is detecting the host time zone only at launch and not checking for later changes in the host OS‘ time zone.  
+
+ The time zone of your JVM can also be set as a configuration parameter upon launch. In that case I should think the JVM would purposely ignore the host OS’ time zone changes.  
+
+ Any Java code in any thread of any app within that JVM can change the JVM’s current default time zone at any moment during runtime. Again, I should think the JVM would purposely ignore the host OS’ time zone changes.  
+
+ The class doc for http://docs.oracle.com/javase/8/docs/api/java/util/TimeZone.html#getDefault-- outlines steps taking in determining the current default time zone. 
+
+ 
+   If the cached default TimeZone is available, its clone is returned. Otherwise, the method takes the following steps to determine the default time zone. 
+  
+   • Use the  user.timezone  property value as the default time zone ID if it's available. 
+  
+   • Detect the platform time zone ID. The source of the platform time zone and ID mapping may vary with implementation. 
+  
+   • Use GMT as the last resort if the given or detected time zone ID is unknown. 
+  
+   The default TimeZone created from the ID is cached, and its clone is returned. The  user.timezone  property value is set to the ID upon return. 
+ 
+
+ In my reading of that, it says the JVM is not going to detect any changes to the host OS setting. Once launched, and once a default has been determined, it is stored in that  user.timezone  property (and a value in cache) until changed with a call to http://docs.oracle.com/javase/8/docs/api/java/util/TimeZone.html#setDefault-java.util.TimeZone-. 
+
+ java.time 
+
+ You are using the old java.util.Date class which has been supplanted by the https://docs.oracle.com/javase/8/docs/api/java/time/package-summary.html in Java 8. 
+
+ Use the https://docs.oracle.com/javase/8/docs/api/java/time/ZonedDateTime.html class and specify the desired/expected time zone.  
+
+  ZoneId zoneId = ZoneId.of( " America/Montreal" );
+ZonedDateTime zdt = ZonedDateTime.now( ZoneId );
+  
+
+ You should almost never depend on the JVM’s current default time zone ( nor the current default  Locale ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22664132)
+ No,  TimeZone  API figures out day light savings. You are using a custom time zone ID. 
+
+ From the Documentation of TimeZone API 
+
+ 
+   No daylight saving time transition schedule can be specified with a custom time zone ID 
+ 
+
+ So, you need to specify the time zone ID available to get day light savings 
+
+ 
+   Typically, you get a TimeZone using getDefault which creates a TimeZone based on the time zone where the program is running. For example, for a program running in Japan, getDefault creates a TimeZone object based on Japanese Standard Time.You can also get a TimeZone using getTimeZone along with a time zone ID. For instance, the time zone ID for the U.S. Pacific Time zone is "America/Los_Angeles". So, you can get a U.S. Pacific Time TimeZone object with: 
+ 
+
+ Use the time zone ID, this will take care of day light savings in that particular zone 
+
+   TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46243973)
+ Joda-Time caches the default timezone. 
+
+ If you run this code (in my JVM, the default timezone is  America/Sao_Paulo ): 
+
+  System.out.println("JVM default=" + TimeZone.getDefault().getID()); // America/Sao_Paulo
+DateTimeZone t1 = DateTimeZone.getDefault();
+System.out.println("Joda Default=" + t1); // America/Sao_Paulo
+
+// setting the default timezone to London
+TimeZone.setDefault(TimeZone.getTimeZone("Europe/London"));
+System.out.println("JVM default=" + TimeZone.getDefault().getID()); // Europe/London
+DateTimeZone t2 = DateTimeZone.getDefault();
+System.out.println("Joda Default=" + t2); // America/Sao_Paulo
+System.out.println(t1 == t2);  // true
+  
+
+ The output will be: 
+
+ 
+   JVM default=America/Sao_Paulo 
+  Joda Default=America/Sao_Paulo 
+  JVM default=Europe/London 
+  Joda Default=America/Sao_Paulo 
+  true 
+ 
+
+ Also note that  t1 == t2  returns  true , which means they are exactly the same instance. 
+
+ To set Joda's default timezone after changing the JVM default, you must set it in  DateTimeZone  too: 
+
+  // change Joda's default timezone to be the same as the JVM's
+DateTimeZone.setDefault(DateTimeZone.forTimeZone(TimeZone.getDefault()));
+DateTimeZone t3 = DateTimeZone.getDefault();
+System.out.println("Joda Default=" + t3); // Europe/London
+System.out.println(t1 == t3); // false
+  
+
+ This outputs: 
+
+ 
+   Joda Default=Europe/London 
+  false 
+ 
+
+ After restarting everything, the cache disappears and Joda-Time gets the new default when first called. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30133134)
+ The implementation of getTimeZone(String id) actually changed from JDK 7 to 8. 
+
+ In JDK 7 "est" is actually returning a timeZone with id "est". Running the following test case on java 7 will succeed (and fail on java 8): 
+
+  @Test
+public void estTimeZoneJava7() {
+    TimeZone timeZone = TimeZone.getTimeZone("est");
+    assertEquals("est", timeZone.getID()) ;
+}
+  
+
+ With Java 8 the timezone "est" is actually handled as a unknown timezone and will in fact return the GMT timezone with id "GMT". The following test case will succeed on Java 8 (and fail on java 7). 
+
+  @Test
+public void estTimeZoneJava8() {
+    TimeZone timeZone = TimeZone.getTimeZone("est");
+    assertEquals("GMT", timeZone.getID());
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52055916)
+ You are definitely missing a small thing and that is you are not setting a default value: 
+
+  TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+  
+
+ So the code would look like: 
+
+  TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+Calendar cal_Two = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+System.out.println(cal_Two.getTime());
+  
+
+  Explanation : If you want to change the time zone, set the default time zone using  TimeZone.setDefault()   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46170346)
+ You need to set time zone and you will get desired result.  
+
+  TimeZone.setDefault(TimeZone.getTimeZone("IST"));  
+
+ Here is a working code.  
+
+  import java.util.Calendar;
+import java.util.TimeZone;  
+public class Cal {
+
+    public static void main(String[] args) {
+        // TODO Auto-generated method stub
+        TimeZone.setDefault(TimeZone.getTimeZone("IST")); // Add this before print
+        Calendar c = Calendar.getInstance();    
+        System.out.println(c.getTime());
+        c.set(2007, 0, 1);
+        System.out.println(c.getTime());
+    }
+
+}
+  
+
+ As per https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html  "Typically, you get a TimeZone using getDefault which creates a TimeZone based on the time zone where the program is running. For example, for a program running in Japan, getDefault creates a TimeZone object based on Japanese Standard Time."  
+
+ SO when you running in different timezone it is using as default timezone. . I attach doc. please read. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/86303)
+ @Ed Thomas: 
+
+ I've tried something very similar to your example and I get very different results: 
+
+  String testString = "Friday, September 26, 2008 8:30 PM Pacific Standard Time";
+DateFormat df = new SimpleDateFormat("EEEE, MMMM dd, yyyy hh:mm aa zzzz");
+
+System.out.println("The default TimeZone is: " + TimeZone.getDefault().getDisplayName());
+
+System.out.println("DateFormat timezone before parse: " + df.getTimeZone().getDisplayName());
+
+Date date = df.parse(testString);
+
+System.out.println("Parsed [" + testString + "] to Date: " + date);
+
+System.out.println("DateFormat timezone after parse: " + df.getTimeZone().getDisplayName());
+  
+
+ Output: 
+
+ 
+   The default TimeZone is: Eastern Standard Time 
+  
+   DateFormat timezone before parse: Eastern Standard Time 
+  
+   Parsed [Friday, September 26, 2008 8:30 PM Pacific Standard Time] to Date: Sat Sep 27 00:30:00 EDT 2008 
+  
+   DateFormat timezone after parse: Eastern Standard Time 
+ 
+
+ Seems like  DateFormat.getTimeZone()  returns the same TimeZone before and after the  parse() ... even if I throw in an explicit  setTimeZone()  before calling  parse() . 
+
+ Looking at the source for DateFormat and SimpleDateFormat, seems like  getTimeZone()  just returns the TimeZone of the underlying Calendar... which will default to the Calendar of the default Locale/TimeZone unless you specify a certain one to use. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10711526)
+ Well, it ain't pretty, but here's what I ended up with (basically, iterate over available TZ's, searching for a  getDisplayName()  match): 
+
+ // NOTE: vTZID is the timezone ID as presented by the iCalendar format
+// For example 'Eastern Standard Time'.  I only do this if the TZ cannot be found by the normal method
+// (that is, TimeZone.getTimeZone()) 
+
+  boolean foundTZ=false;
+for (String availId : TimeZone.getAvailableIDs()){
+  if (vTZID.trim().equalsIgnoreCase(TimeZone.getTimeZone(availId).getDisplayName())){
+    vTimezone = TimeZone.getTimeZone(availId);
+    foundTZ = true;
+    break;
+  }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24806352)
+ Here is a way to get the id of a  TimeZone  that matches your local system clock's offset, 
+
+  Calendar cal = Calendar.getInstance();
+long milliDiff = cal.get(Calendar.ZONE_OFFSET);
+// Got local offset, now loop through available timezone id(s).
+String [] ids = TimeZone.getAvailableIDs();
+String name = null;
+for (String id : ids) {
+  TimeZone tz = TimeZone.getTimeZone(id);
+  if (tz.getRawOffset() == milliDiff) {
+    // Found a match.
+    name = id;
+    break;
+  }
+}
+System.out.println(name);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/20227224)
+ The source code for https://github.com/FasterXML/jackson-datatype-joda/blob/master/src/main/java/com/fasterxml/jackson/datatype/joda/deser/DateTimeDeserializer.java shows it uses the timezone from  DeserializationContext  which is provided by  ObjectMapper  during deserialization. If you look at http://fasterxml.github.io/jackson-databind/javadoc/2.2.0/com/fasterxml/jackson/databind/ObjectMapper.html API, you will see there is method for setting the timezone: 
+
+  public ObjectMapper setTimeZone(TimeZone tz)
+  
+
+ Thus you can use this method to configure your  ObjectMapper  and set the timezone to the correct one. 
+
+ For what concerns the default value, it seems the Javadoc says one thing, but the code shows another. 
+
+ Javadoc for  ObjectMapper.setTimeZone(TimeZone tz) : 
+
+  /**
+  * Method for overriding default TimeZone to use for formatting.
+  * Default value used is {@link TimeZone#getDefault()}.
+  */
+  
+
+ However, the code sets the timezone explicitly on: 
+
+  protected final static BaseSettings DEFAULT_BASE = new BaseSettings(
+    ...
+    // TimeZone.getDefault()
+    TimeZone.getTimeZone("GMT"),
+    ...
+  
+
+ So, apparently, it actually uses GMT, and not the default JVM default. 
+
+ I would say that probably the best choice would be not relying on this and set it by yourself on  ObjectMapper.setTimeZone(TimeZone tz) . 
+
+
+

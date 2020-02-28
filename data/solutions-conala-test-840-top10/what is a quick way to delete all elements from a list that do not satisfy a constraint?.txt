@@ -1,0 +1,272 @@
+Query: what is a quick way to delete all elements from a list that do not satisfy a constraint?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3895480)
+ I would use a generator expression over a list comprehension to avoid a potentially large, intermediate list. 
+
+  result = (x for x in l if f(x))
+# print it, or something
+print list(result)
+  
+
+ Like a list comprehension, this will not modify your original list, in place. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3895431)
+  [x for x in lst if fn(x) != 0]
+  
+
+ This is a "list comprehension", one of Python's nicest pieces of syntactical sugar that often takes lines of code in other languages and additional variable declarations, etc. 
+
+ See: 
+http://docs.python.org/tutorial/datastructures.html#list-comprehensions 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30709565)
+ You can implement the on_model_change and on_model_delete functions. So you can check if the data is unique and give a more user friendly message in case a constraint is not satisfied. Here is an example of checking some constraints before the delete/insert/update operation 
+
+  class ExampleView(ModelView):
+    def on_model_delete(self, model):
+        #check constraint
+
+
+    def on_model_change(self, form, model, is_created):
+        #insert 
+        if is created:
+            #check constraint
+        #update
+        else:
+            #check constraint
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/18190440)
+ Yes, I'd also go for numpy: 
+
+  import numpy as np
+
+T = [[2,5],[4,7],[8,6],[34,74],[32,35],[24,7],[12,5],[0,34]]
+T = np.array(T)
+for t in T:
+    if np.all(t>0) & np.all(t<10):
+        print t
+    else:
+        print 'none'
+
+[2 5]
+[4 7]
+[8 6]
+none
+none
+none
+none
+none
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21870185)
+ How about using Python's handy https://stackoverflow.com/questions/509211/pythons-slice-notation syntax: 
+
+  while len(best_list_ever) > 1:
+    best_list_ever = best_list_ever[1::2]
+  
+
+ The expression  best_list_ever[1::2]  is a list of every other element in the original list. 
+
+ Edit: I'm actually pretty confused about the circular constraint thing, but if it's accurately documented by ysakamoto then maybe look to gnibbler's answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3895473)
+  edit : see the bottom for the best answer. 
+
+ If you need to mutate an existing list, for example because you have another reference to it somewhere else, you'll need to actually  remove  the values from the list. 
+
+ I'm not aware of any such function in Python, but something like this would work (untested code): 
+
+  def cull_list(lst, pred):
+    """Removes all values from ``lst`` which for which ``pred(v)`` is false."""
+    def remove_all(v):
+        """Remove all instances of ``v`` from ``lst``"""
+        try:
+             while True:
+                 lst.remove(v)
+        except ValueError:
+             pass
+
+    values = set(lst)
+
+    for v in values:
+        if not pred(v):
+            remove_all(v)
+  
+
+ A probably more-efficient alternative that may look a bit too much like C code for some people's taste: 
+
+  def efficient_cull_list(lst, pred):
+    end = len(lst)
+    i = 0
+    while i < end:
+        if not pred(lst[i]):
+            del lst[i]
+            end -= 1
+        else:
+            i += 1
+  
+
+  edit... : as Aaron pointed out in the comments, this can be done much more cleanly with something like 
+
+  def reversed_cull_list(lst, pred):
+    for i in range(len(lst) - 1, -1, -1):
+        if not pred(lst[i]):
+            del lst[i]
+  
+
+  ...edit  
+
+ The trick with these routines is that using a function like  enumerate , as suggested by (an) other responder(s), will not take into account the fact that elements of the list have been removed.  The only way (that I know of) to do that is to just track the index manually instead of allowing python to do the iteration.  There's bound to be a speed compromise there, so it may end up being better just to do something like 
+
+  lst[:] = (v for v in lst if pred(v))
+  
+
+ Actually, now that I think of it, this is by far the most sensible way to do an 'in-place' filter on a list.  The generator's values are iterated before filling  lst 's elements with them, so there are no index conflict issues.    
+
+  lst[:] = [v for v in lst if pred(v)]
+  
+
+ I don't think it will make much difference in this case, in terms of efficiency. 
+
+ Either of these last two approaches will, if I understand correctly how they actually work, make an extra copy of the list, so one of the bona fide in-place solutions mentioned above would be better if you're dealing with some "huge tracts of land." 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7623750)
+  list_1 = [['good',100, 20, 0.2],['bad', 10, 0, 0.0],['change', 1, 2, 2]]
+list_1 = [item for item in list_1 if item[2] >= 5 or item[3] >= 0.3]
+  
+
+ You can also use  if not (item[2] < 5 and item[3] < 0.3)  for the condition if you want. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41151481)
+ You can use the standard library and a few clever list comprehensions to do this. First, we create the columns, with one in each being  1  or  0  so we satisfy the sum constraint. Then we flip the columns into rows to get the result. 
+
+  from random import choice, randint
+
+def generate_matrix(m, n):
+    # Generate the columns
+    columns = []
+    for x in range(n):
+        column = [0 for y in range(m)]
+        column[randint(0, m - 1)] = choice([0, 1])
+        columns.append(column)
+    # Rotate the columns into rows
+    rows = [
+        [c[x] for c in columns]
+        for x in range(m)
+    ]
+    return rows
+
+m, n = 5, 4
+matrix = generate_matrix(m, n)
+  
+
+ Example output: 
+
+  [0, 1, 0, 0]
+[0, 0, 0, 0]
+[0, 0, 0, 0]
+[0, 0, 1, 0]
+[0, 0, 0, 0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18189990)
+ I would avoid complicated code and go for  numpy : 
+
+  a = np.array(T)
+
+test = (a>0) & (a<10)
+#array([[ True,  True],
+#       [ True,  True],
+#       [ True,  True],
+#       [False, False],
+#       [False, False],
+#       [False,  True],
+#       [False,  True],
+#       [False, False]], dtype=bool)
+
+test.all(axis=1)
+#array([ True,  True,  True, False, False, False, False, False], dtype=bool)
+  
+
+ Which you can reuse as a list calling  test.any(axis=1).tolist() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54206869)
+ As described in the https://docs.djangoproject.com/en/2.1/ref/models/fields/#django.db.models.CASCADE django merely emulates this behaviour instead of deferring it to the database. 
+
+ 
+   Django emulates the behavior of the SQL constraint ON DELETE CASCADE and also deletes the object containing the ForeignKey. 
+ 
+
+ So to answer your question: This is expected behavior and will still work just like you would expect it to work on the database level. 
+
+ 
+   How else can I get my models.py file to output a cascading delete foreign key constraint? 
+ 
+
+ You can't as django currently does not support this feature. However there is a ticket discussing to add it: https://code.djangoproject.com/ticket/21961 
+
+ 
+
+ Edit for further clarification on how to enforce this at database-level</h3>
+
+ While I highly recommend to just let django handle this for you there might be reasons not to do so.  
+
+ To opt out of database table creation or deletion operations you can set https://docs.djangoproject.com/en/2.1/ref/models/options/#managed to  False  in the  Meta  class of  ArticleStat . That would however also mean that you are now responsible to do the migrations manually e.g. writing the  CREATE TABLE  statement to define the table including the foreign key constraint (which you thus have full control over now). Another consideration to take into account is that you should instruct django to not do anything on deletion of a referenced  Article  object anymore (as your database is now responsible for that). That can be ensured by setting  on_delete  to https://docs.djangoproject.com/en/2.1/ref/models/fields/#django.db.models.DO_NOTHING. 
+
+ Put together your  ArticleStat  would now look like this: 
+
+  class ArticleStat(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+  
+
+ 
+
+ A comment about signals prompted me to revisit this and list some pitfalls to consider.</h3>
+
+ 
+  opting out means opting out of django signals as well. In particular  pre_delete  and  post_delete  won't be fired for cascaded objects anymore.  
+  As mentioned in the https://code.djangoproject.com/ticket/21961 mixing database- and django-cascading won't play nicely together. 
+
+ 
+   If a model A references a model B using CASCADE_DB, but model B
+  references model C using regular CASCADE, a deletion of A won't
+  cascade all the way to C. 
+  
+ 
+
+ That being said I couldn't find any definite proof of why django is handling this the way it does currently.  
+
+
+

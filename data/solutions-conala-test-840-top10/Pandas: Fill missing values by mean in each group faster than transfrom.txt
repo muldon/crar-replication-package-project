@@ -1,0 +1,184 @@
+Query: Pandas: Fill missing values by mean in each group faster than transfrom
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/44166647)
+ Use  groupby ,  transfrom , and lamdba function with  fillna  and  mean : 
+
+  df = df.assign(Temp=df.groupby('Groups')['Temp'].transform(lambda x: x.fillna(x.mean())))
+print(df)
+  
+
+ Output: 
+
+     Temp
+0  27.0
+1  23.0
+2  25.0
+3   NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40682534)
+ .  it's slow because you're using a  lambda  
+
+  df[['value']].fillna(df.groupby('group').transform('mean'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40686772)
+ Here's a NumPy approach using https://docs.scipy.org/doc/numpy/reference/generated/numpy.bincount.html that's pretty efficient for such bin-based summing/averaging operations - 
+
+  ids = df.group.values                    # Extract 2 columns as two arrays
+vals = df.value.values
+
+m = np.isnan(vals)                             # Mask of NaNs
+grp_sums = np.bincount(ids,np.where(m,0,vals)) # Group sums with NaNs as 0s
+avg_vals = grp_sums*(1.0/np.bincount(ids,~m))        # Group averages
+vals[m] = avg_vals[ids[m]]              # Set avg values into NaN positions
+  
+
+ Note that this would update the  value  column. 
+
+  Runtime test  
+
+ Datasizes : 
+
+  size = 1000000  # DataFrame length
+ngroups = 10  # Number of Groups
+  
+
+  
+
+  In [17]: %timeit df.groupby("group").transform(lambda x: x.fillna(x.mean()))
+1 loops, best of 3: 276 ms per loop
+
+In [18]: %timeit bincount_based(df)
+100 loops, best of 3: 13.6 ms per loop
+
+In [19]: 276.0/13.6  # Speedup
+Out[19]: 20.294117647058822
+  
+
+   20x+   speedup there! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19966142)
+ One way would be to use  transform : 
+
+  >>> df
+  name  value
+0    A      1
+1    A    NaN
+2    B    NaN
+3    B      2
+4    B      3
+5    B      1
+6    C      3
+7    C    NaN
+8    C      3
+>>> df["value"] = df.groupby("name").transform(lambda x: x.fillna(x.mean()))
+>>> df
+  name  value
+0    A      1
+1    A      1
+2    B      2
+3    B      2
+4    B      3
+5    B      1
+6    C      3
+7    C      3
+8    C      3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/22073789)
+ Inspired by Jeff's answer. This is the fastest method on my machine: 
+
+  pd.Series(np.repeat(grp.mean().values, grp.count().values))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41625525)
+ You can use  groupby.transform()  to fill missing values by group: 
+
+  df['x3'] = df.groupby(["x1", "x2"])['x3'].transform(lambda x: x.fillna(x.mean()))
+  
+
+ https://i.stack.imgur.com/seKys.jpg 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40682687)
+ I'd do it this way 
+
+  df.loc[df.value.isnull(), 'value'] = df.groupby('group').value.transform('mean')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48895077)
+ Let's look at using  groupby  and  transform  with  div : 
+
+ MVCE: 
+
+  df = pd.DataFrame({'Date':pd.date_range('2018-02-10','2018-02-12',freq='H'),'A':np.random.randint(0,100,49),'B':np.random.randint(100,200,49),'C':np.random.random(49)})
+
+df = df.set_index('Date')
+
+print(df.head())
+  
+
+ Output: 
+
+                        A    B         C
+Date                                  
+2018-02-10 00:00:00  11  131  0.474226
+2018-02-10 01:00:00  35  188  0.998742
+2018-02-10 02:00:00  97  182  0.683685
+2018-02-10 03:00:00   0  134  0.845094
+2018-02-10 04:00:00  24  173  0.238379
+  
+
+ Use groupby, transfrom and div: 
+
+  df[['A','B','C']].div(df.groupby(df.index.floor('D')).transform('mean'))
+  
+
+ Output head(): 
+
+                          A         B         C
+Date                                             
+2018-02-10 00:00:00  0.362637  0.866593  0.931739
+2018-02-10 01:00:00  1.153846  1.243660  1.962284
+2018-02-10 02:00:00  3.197802  1.203969  1.343275
+2018-02-10 03:00:00  0.000000  0.886439  1.660404
+2018-02-10 04:00:00  0.791209  1.144432  0.468357
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53339320)
+ https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.fillna.html + https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html +  transform  +  mean </h3>
+
+ This seems intuitive: 
+
+  df['value'] = df['value'].fillna(df.groupby('name')['value'].transform('mean'))
+  
+
+ The  groupby  +  transform  syntax maps the groupwise mean to the index of the original dataframe. This is roughly equivalent to https://stackoverflow.com/a/19966142/9209546, but avoids the need to define an anonymous  lambda  function. 
+
+
+

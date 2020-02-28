@@ -1,0 +1,224 @@
+Query: How to get all sub-elements of an element tree with Python ElementTree?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10409082)
+ All sub-elements (descendants) of  elem : 
+
+  all_descendants = list(elem.iter())
+  
+
+ A more complete example: 
+
+  >>> import xml.etree.ElementTree as ET
+>>> a = ET.Element('a')
+>>> b = ET.SubElement(a, 'b')
+>>> c = ET.SubElement(a, 'c')
+>>> d = ET.SubElement(a, 'd')
+>>> e = ET.SubElement(b, 'e')
+>>> f = ET.SubElement(d, 'f')
+>>> g = ET.SubElement(d, 'g')
+>>> [elem.tag for elem in a.iter()]
+['a', 'b', 'e', 'c', 'd', 'f', 'g']
+  
+
+ To exclude the root itself: 
+
+  >>> [elem.tag for elem in a.iter() if elem is not a]
+['b', 'e', 'c', 'd', 'f', 'g']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10412866)
+ If you want to get all elements 'a', you can use: 
+
+  a_lst = list(elem.iter('a'))
+  
+
+ If the  elem  is also 'a', it will be included. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4790421)
+ http://docs.python.org/library/xml.etree.elementtree.html?highlight=elementtree#elementtree-objects's http://docs.python.org/library/xml.etree.elementtree.html?highlight=elementtree#xml.etree.ElementTree.ElementTree.iter (or http://docs.python.org/library/xml.etree.elementtree.html?highlight=elementtree#xml.etree.ElementTree.ElementTree.getiterator for Python <2.7) willl recursively return all the nodes in a tree, then just test for your condition and create the http://docs.python.org/library/xml.etree.elementtree.html?highlight=subelement#xml.etree.ElementTree.SubElement: 
+
+  from xml.etree import ElementTree as ET
+tree = ET.parse(input)
+for e in tree.getiterator():
+    if int(e.get('value')) < 5:
+        ET.SubElement(e,'D',dict(name='error'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42552523)
+ None of the existing answers will find all children. This solution uses BeautifulSoup instead of ETree, but will find all children, instead of just top-level: 
+
+  from bs4 import BeautifulSoup    
+
+with open(filename) as f:
+    soup = BeautifulSoup(f, 'xml')
+
+results = soup.find_all('element_name')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27504275)
+ To find all elements based on a part of their text value: 
+
+  "//*[contains(text(), 'some_value')]"
+  
+
+ For example, if you have this: 
+
+  <div id="somediv">
+    <span>Something is here</span>
+    #
+</div>
+  
+
+ You can find all sub-elements containing the word "here" like this: 
+
+  "//div[@id='somediv']//*[contains(text(), 'here')]"
+  
+
+ Or you can for example find all sub-div  span  elements containing the word "Something": 
+
+  "//div[@id='somediv']//span[contains(text(), 'Something')]"
+  
+
+ As for parsing this in  lxml : 
+
+  from lxml import etree
+outtxt = response.read()
+root = etree.fromstring(outtxt)
+root.xpath("my_xpath_expression")
+  
+
+  Update:   
+
+ To get the full XPath expression for an element, use the  ElementTree.getPath()  method, like so: 
+
+  tree = etree.ElementTree(root)
+# this will print XPath of all
+# elements in 'root'
+for e in root.iter():
+    print tree.getpath(e)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20932594)
+ In my experience, you can use the method below to get what you want: 
+ xml.etree.ElementTree.SubElement ( I will just call it  ET.Subelement )  http://docs.python.org/2/library/xml.etree.elementtree.html#xml.etree.ElementTree.SubElement   
+
+ Here is the steps: 
+Before your iteration, you should get the parent element of these iterated element first, store it into variable  parent . 
+
+ Then, 
+1, store the element  <pre class='inner'>...   into a variable  temp  
+
+ 2, add a new subelement  div  into  parent :  
+
+  div = ET.SubElement(parent, 'div')
+  
+
+ and set the attrib of  div : 
+
+  div.set('class','wrapper')
+  
+
+ 3, add the element in step 1 as a subelement of  div , 
+
+  ET.SubElement(div, temp)  
+  
+
+ 4, delete the element in step 1: 
+
+  parent.remove(temp)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32514588)
+ You need to get the tails of all the subelements to get all the text for stuff: 
+
+  >>> import xml.etree.ElementTree as ET
+>>> root = ET.fromstring('<stuff>fee <i>italic</i> fie <b>bold</b> foe</stuff>')
+>>> print('Text:', root.text)
+>>> for child in root:
+...     print('Element:', child.tag)
+...     print('Text:', child.tail)
+Text: fee 
+Element: i
+Text:  fie 
+Element: b
+Text:  foe
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34073787)
+ Quoth http://lxml.de/tutorial.html: 
+
+ 
+   If you want to  copy  an element to a different position in  lxml.etree , consider creating an independent deep copy using the  copy  module from Python's standard library. 
+ 
+
+ So, in your example, 
+
+  for element in tree2.iter():
+    if element.tag == 'element':
+        new_child = copy.deepcopy(tree1.getroot())
+        element.insert(0, new_child)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26006192)
+ Unfortunately, element tree elements don't know who their parents are.  There is a workaround -- https://stackoverflow.com/a/2170994/748858: 
+
+  tree = ET.parse('file.xml')
+root = tree.getroot()
+parent_map = dict((c, p) for p in tree.getiterator() for c in p)
+
+# list so that we don't mess up the order of iteration when removing items.
+iterator = list(root.getiterator('Target'))
+
+for item in iterator:
+    old = item.find('ID')
+    text = old.text
+    if '12345' in text:
+        parent_map[item].remove(item)
+        continue
+
+tree.write('out.xml')
+  
+
+  Untested  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3763097)
+ The getchildren method returns a list of sub-elements of an Element object.  You could then use the built-in index method of a list. 
+
+  >>> import xml.etree.ElementTree as ET
+>>> root = ET.Element("html")
+>>> head = ET.SubElement(root, "head")
+>>> body = ET.SubElement(root, "body")
+>>> root.getchildren().index(body)
+1
+  
+
+
+

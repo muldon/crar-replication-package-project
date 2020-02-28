@@ -1,0 +1,231 @@
+Query: How to slice a list of strings with space delimiter?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40535251)
+ You can try list comprehension: 
+
+  [x.split()[-1] for x in Original_List]  
+
+ Hope this helps! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38547191)
+  
+
+  In [152]:  [50.0, 100.0, 150.0, 5.0, 200.0, 300.0, 10.0, 400.0]
+Out[152]: [50.0, 100.0, 150.0, 5.0, 200.0, 300.0, 10.0, 400.0]
+In [153]: np.r_[50.0, 100.0:150.0:5.0, 200.0:300.0:10.0, 400.0]
+Out[153]: 
+array([  50.,  100.,  105.,  110.,  115.,  120.,  125.,  130.,  135.,
+        140.,  145.,  200.,  210.,  220.,  230.,  240.,  250.,  260.,
+        270.,  280.,  290.,  400.])
+  
+
+ I added the  :  in the  ipython  editor.  I'm not really doing string operation, e.g.  np.r_['50.0', '100.0:150.0:5.0',...] . 
+
+ An equivalent expression uses  slice : 
+
+  np.r_[50.0, slice(100.0,150.0,5.0), slice(200.0,300.0,10.0), 400.0]
+  
+
+ or if the list is  ll : 
+
+  np.r_[ll[0], slice(*ll[1:4]), slice(*ll[4:7]), ll[7]]
+  
+
+ In an indexing context  [] , the  a:b:c  expression is translated into a slice object,  slice(a,b,c) .   r_  then converts it to a  arange(a,b,c)  and in turn concatenates those. 
+
+ So effectively the  r_  expression is: 
+
+  np.concatenate([ [ll[0]], np.arange(*ll[1:4]), np.arange(*ll[4:7]), [ll[7]] ])
+  
+
+ A numpy way of grouping the middle values in to 3's and putting them in slices is: 
+
+  In [166]: [slice(*ii) for ii in np.array(ll[1:-1]).reshape(-1,3)]
+Out[166]: [slice(100.0, 150.0, 5.0), slice(200.0, 300.0, 10.0)]
+  
+
+ (this is an alterantive to @Moses's use of  iter ).  But embedding this kind of list in  np.r_  (or even  np.concatenate ) is tricky. 
+
+ It may be easier to generate the  arange  directly: 
+
+  In [189]: subl = [np.arange(*ii) for ii in np.array(ll[1:-1]).reshape(-1,3)]
+In [190]: subl
+Out[190]: 
+[array([ 100.,  105.,  110.,  115.,  120.,  125.,  130.,  135.,  140.,  145.]),
+ array([ 200.,  210.,  220.,  230.,  240.,  250.,  260.,  270.,  280.,  290.])]
+In [191]: np.concatenate([[ll[0]]]+subl+[[ll[-1]]])
+Out[191]: 
+array([  50.,  100.,  105.,  110.,  115.,  120.,  125.,  130.,  135.,
+        140.,  145.,  200.,  210.,  220.,  230.,  240.,  250.,  260.,
+        270.,  280.,  290.,  400.])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51003415)
+ In a nutshell, every list slicing operation involves making a copy of the relevant object references ( but not the objects themselves ). 
+
+ In your example: 
+
+ 
+  arr[2:]  makes a copy of the object references stored in  arr  starting at index 2, and places them into an unnamed new list (which I'll refer to as  L1 ). 
+  [::-1]  makes a copy of the object references in  L1  and places them, in reverse order, into an unnamed new list (which I'll refer to as  L2 ). 
+  arr[2:] = ...  replaces object references stored in  arr  with those stored in  L2 . 
+ 
+
+ It's worth noting that none of this is guaranteed. This is just what CPython does currently. 
+
+ Some relevant functions are: 
+
+ 
+  list_slice  - simple slice (no stride) 
+  list_subscript  - subscript, inc. extended slice (with stride) 
+  list_ass_slice  - simple slice assignment (no stride) 
+  list_ass_subscript  - subscript assignment, inc. using an extended slice 
+ 
+
+ Take a look at the implementation of  list : https://github.com/python/cpython/blob/master/Objects/listobject.c 
+
+ There are some fun tidbits to be found there, such as https://github.com/python/cpython/blob/master/Objects/listobject.c#L2861. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54299770)
+ You can use  min  to find the closest space to the middle and then slice the string. 
+
+  s = "The cat jumped over the moon very quickly."
+
+mid = min((i for i, c in enumerate(s) if c == ' '), key=lambda i: abs(i - len(s) // 2))
+
+fst, snd = s[:mid], s[mid+1:]
+
+print(fst)
+print(snd)
+  
+
+ Output</h3>
+
+  The cat jumped over
+the moon very quickly.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38547182)
+ You can't have numbers delimited by  :  without wrapping them with  ""  (i.e as strings). You can however do what you intend using  slice : 
+
+  s = [50.0, 100.0, 150.0, 5.0, 200.0, 300.0, 10.0, 400.0]
+
+it = iter(s[1:-1])
+s[1:-1] = map(slice, *(it,)*3)
+print(s)
+# [50.0, slice(100.0, 150.0, 5.0), slice(200.0, 300.0, 10.0), 400.0]
+  
+
+ 
+
+ And can now be used with  np.r_  and  np.concatenate  as follows: 
+
+  >>> np.concatenate([np.r_[i] for i in s])
+array([  50.,  100.,  105.,  110.,  115.,  120.,  125.,  130.,  135.,
+        140.,  145.,  200.,  210.,  220.,  230.,  240.,  250.,  260.,
+        270.,  280.,  290.,  400.])
+  
+
+ which yields your desired result. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52976669)
+ All you need is  .split()  as below: 
+
+  the_stuff = data.split('|')[0]
+  
+
+ This will split the line using  |  as the delimiter and give the results in a tuple, but the  [0]  only returns the first offset in the tuple which is everything before the first  | . 
+
+ If you want all 3 components, then you just need: 
+
+  tuple_of_the_stuff = data.split('|')
+  
+
+ And now you have a tuple of:   (' xbox 360 ', ' 10000 ', ' NEW ')  
+
+ Edit:  and as suggested below, you can use  .strip()  to clean up the resulting values of your tuple at some point. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40535248)
+ That's how: 
+
+  new_list = [x.split()[-1] for x in Original_List]
+  
+
+ Please include your attempts in the future when asking questions. 
+
+ There is no argument passed to  split  as you can see and that means it takes the default which is the space. Then, the newly created sublists are  sliced  and just the last item is taken (that's what the  [-1]  is for). . 
+
+ Of course as most of the times in programming (if not always) there are many ways to do a task. Another for example would be this: 
+
+  new_list = [y for item in [x.split() for x in Original_List] for y in item if '.' in y]
+  
+
+ With this second one you are looking for substrings that contain dots  '.' . You could also replace that with  '. . That's a more solid way to look for filenames or filenames of a specific extension since they are bound to contain at least one dot. 
+
+ What the two approaches have in common is that they are  list comprehensions . This is a core concept in python and i would suggest looking at it if you are serious about this. 
+
+ Hope this helps! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42703086)
+ easy with a list comprehension and 2 nested  str.join : 
+
+  "; ".join([" ".join(line[i:i+20]) for i in range(0,len(line),20)])
+  
+
+ You slice the list to take every 20 elements for the inner part, to create the list of space separated strings, and join the resulting list with your "outer" separator. 
+
+ It works even if the list size isn't dividable by 20 and is super fast  
+
+ (note that I'm forcing list creation for the outside  join  because  join  needs to create a list anyway. It's faster than passing a generator comprehension in that case) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51478900)
+   .txt  file as a csv using pandas, with a space  " "  as the delimiter, such as: 
+
+  impt pandas as pd
+
+data = pd.read_csv('your file.txt', delim_whitespace=True)
+  
+
+ You can then select the columns you want using: 
+
+  data['inc']
+  
+
+   
+
+  data['inc'].tolist()
+  
+
+ if you want it as a list instead of a slice. 
+
+  Edit  
+
+ As pointed out in the comments, do not use  sep=" "  but rather  delim_whitespace=True  
+
+
+

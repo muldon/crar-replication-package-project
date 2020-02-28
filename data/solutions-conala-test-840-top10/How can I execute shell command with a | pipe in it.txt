@@ -1,0 +1,166 @@
+Query: How can I execute shell command with a | pipe in it
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9393536)
+ From the manual: 
+
+ 
+   to get anything other than None in the result tuple, you need to give
+  stdout=PIPE and/or stderr=PIPE 
+ 
+
+  p2 = subprocess.Popen(["grep", "-c", "test"], stdin=p1.stdout, stdout=subprocess.PIPE)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18050955)
+ Call with  shell=True  argument. For example, 
+
+  import subprocess
+
+subprocess.call('grep -r PASSED *.log | sort -u | wc -l', shell=True)
+  
+
+ 
+
+  
+
+  import glob
+import subprocess
+
+grep = subprocess.Popen(['grep', '-r', 'PASSED'] + glob.glob('*.log'), stdout=subprocess.PIPE)
+sort = subprocess.Popen(['sort', '-u'], stdin=grep.stdout, stdout=subprocess.PIPE)
+exit_status = subprocess.call(['wc', '-l'], stdin=sort.stdout)
+  
+
+ See http://docs.python.org/2/library/subprocess.html#replacing-shell-pipeline. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9393539)
+  
+
+  >>> import subprocess
+>>> p1 = subprocess.Popen(["echo", "This_is_a_testing"], stdout=subprocess.PIPE)
+>>> p2 = subprocess.Popen(["grep", "-c", "test"], stdin=p1.stdout)
+>>> 1
+p1.stdout.close()
+>>> p2.communicate()
+(None, None)
+>>>
+  
+
+ here you get 1 as output after you write  p2 = subprocess.Popen(["grep", "-c", "test"], stdin=p1.stdout) , Do not ignore this output in the context of your question.  
+
+ If this is what you want, then pass  stdout=subprocess.PIPE  as argument to the second  Popen : 
+
+  >>> p1 = subprocess.Popen(["echo", "This_is_a_testing"], stdout=subprocess.PIPE)
+>>> p2 = subprocess.Popen(["grep", "test"], stdin=p1.stdout, stdout=subprocess.PIPE)
+>>> p2.communicate()
+('This_is_a_testing\n', None)
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39727561)
+ If you want to execute many commands one after the other in the same  session/shell , you must start a shell and feed it with all the commands, one at a time followed by a new line, and close the pipe at the end. It makes sense if some commands are not true processes but shell commands that could for example change the shell environment. 
+
+ Example using Python 2.7 under Windows: 
+
+  encoding = 'latin1'
+p = subprocess.Popen('cmd.exe', stdin=subprocess.PIPE,
+             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+for cmd in cmds:
+    p.stdin.write(cmd + "\n")
+p.stdin.close()
+print p.stdout.read()
+  
+
+ To have this code run under Linux, you would have to replace  cmd.exe  with  /bin/bash  and probably change the encoding to utf8.  
+
+ For Python 3, you would have to encode the commands and probably decode their output, and to use parentheses with print. 
+
+ Beware: this can only work for little output. If there was enough output to fill the pipe buffer before closing the stdin pipe, this code would deadlock. A more robust way would be to have a second thread to read the output of the commands to avoid that problem. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41238532)
+ I think this should work: 
+
+  p = subprocess.Popen( 'mailq |grep \"^[A-F0-9]\" |sort -k5n -k6n |head -n 1', shell=True,
+                         stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+response = p.stdout.readlines(-1)[0]
+print response
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18051211)
+ The other answers would work. But here's a more elegant approach, IMO, which is to use http://plumbum.readthedocs.org/. 
+
+  from plumbum.cmd import grep, sort, wc
+cmd = grep['-r']['PASSED']['*.log'] | sort['-u'] | wc['-l']  # construct the command
+print cmd() # run the command
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7224204)
+ http://docs.python.org/library/subprocess.html#subprocess-replacements. 
+
+ http://docs.python.org/library/subprocess.html allows piping and capturing stdout, as you want. 
+
+  process = subprocess.call(command_string.split(), ..., stdout=subprocess.PIPE, ...) 
+
+... handle your output from process.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39635023)
+ While the accepted answer is correct/working, another option would be to use the  Popen.communicate()  method to pass something to a process' stdin: 
+
+  >>> import subprocess
+>>> p2 = subprocess.Popen(["grep", "-c", "test"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+>>> p2.communicate("This_is_a_testing")
+('1\n', None)
+>>> print p2.returncode
+0
+>>>>
+  
+
+ This resolves the need to execute another command just to redirect it's output, if the output is already known in the python script itself. 
+
+ However  communicate  has the side-effect, that it waits for the process to terminate. If asynchronous execution is needed/desired using two processes might be the better option. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10673224)
+ You probably want  subprocess.Popen .  To communicate with the process, you'd use the  communicate  method. 
+
+ e.g. 
+
+  process=subprocess.Popen(['command','--option','foo'],
+                         stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+inputdata="This is the string I will send to the process"
+stdoutdata,stderrdata=process.communicate(input=inputdata)
+  
+
+
+

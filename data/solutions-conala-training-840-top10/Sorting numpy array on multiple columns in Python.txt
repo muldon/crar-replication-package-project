@@ -1,0 +1,228 @@
+Query: Sorting numpy array on multiple columns in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42811860)
+ You need http://library.isr.ist.utl.pt/docs/numpy/reference/generated/numpy.lexsort.html, which is equivalent to  argsort  but based on multiple sorting keys; Given multiple arrays, it returns the index to sort the arrays in an order: 
+
+ 
+   Given multiple sorting keys, which can be interpreted as columns in a
+  spreadsheet, lexsort returns an array of integer indices that
+  describes the sort order by multiple columns. The last key in the
+  sequence is used for the primary sort order, the second-to-last key
+  for the secondary sort order, and so on. The keys argument must be a
+  sequence of objects that can be converted to arrays of the same shape.
+  If a 2D array is provided for the keys argument, it’s rows are
+  interpreted as the sorting keys and sorting is according to the last
+  row, second last row etc. 
+ 
+
+  a[:, np.lexsort(a[:0:-1])]
+#array([[2, 1, 3, 2, 3, 2, 1, 4, 0, 4, 3, 2, 4, 4, 4, 4],
+#       [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7],
+#       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+#       [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18920011)
+ The syntax is quite unwieldy and looks weird, but the cleanest thing to do is https://docs.scipy.org/doc/numpy/reference/generated/numpy.lexsort.html. 
+
+  data = np.array([[3, 0, 0, .24],
+                 [4, 1, 1, .41],
+                 [2, 1, 1, .63],
+                 [1, 1, 3, .38]]) #imagine rows of a spreadsheet
+#now do sortrows(data,[3,-4])
+ix = np.lexsort((data[:, 3][::-1], data[:, 2])) 
+#this yields [0, 2, 1, 3]
+
+#note that lexsort sorts first from the last row, so sort keys are in reverse order
+
+data[ix]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38194077)
+ You can sort on multiple columns as per Steve Tjoa's method by using a stable sort like mergesort and sorting the indices from the least significant to the most significant columns: 
+
+  a = a[a[:,2].argsort()] # First sort doesn't need to be stable.
+a = a[a[:,1].argsort(kind='mergesort')]
+a = a[a[:,0].argsort(kind='mergesort')]
+  
+
+ This sorts by column 0, then 1, then 2. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30562519)
+ You can use  np.dstack  and http://docs.scipy.org/doc/numpy/reference/generated/numpy.lexsort.html . for example if you want to sort based on the array  b (second axis) then  a  and then  c  : 
+
+  >>> d=np.dstack((a,b,c))[0]
+>>> indices=np.lexsort((d[:,1],d[:,0],d[:,2]))
+>>> d[indices]
+array([[  3,   9,  90],
+       [  1,  10, 100],
+       [  1,  10, 100],
+       [  2,  11, 111],
+       [  5,  20, 200],
+       [  6,  20, 200],
+       [  4,  22, 220]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40850612)
+ For the following numpy array, the answer is: 
+
+  import numpy as np
+
+
+x = np.array([(2015, 34, 12, 13), (2016, 41, 6, 7), (2016, 17, 5, 2),
+       (2013, 21, 8, 19), (2013, 1, 81, 9)], 
+      dtype=[('year', '<i8'), ('tigers', '<i8'), ('monkeys', '<i8'), ('cows', '<i8')])
+
+x[numpy.sort(x.dtype.names)]
+
+# Output:
+array([(13, 12, 34, 2015), (7, 6, 41, 2016), (2, 5, 17, 2016),
+       (19, 8, 21, 2013), (9, 81, 1, 2013)], 
+      dtype=[('cows', '<i8'), ('monkeys', '<i8'), ('tigers', '<i8'), ('year', '<i8')])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20644005)
+ I was struggling with the same thing and just got help and solved the problem. It works smoothly if your array have column names (structured array) and I think this is a very simple way to sort using the same logic that excel does: 
+
+  array_name[array_name[['colname1','colname2']].argsort()]
+  
+
+ Note the double-brackets enclosing the sorting criteria. And off course, you can use more than 2 columns as sorting criteria. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2706764)
+ You can use  np.complex_sort .  This has the side effect of changing your data to floating point, I hope that's not a problem: 
+
+  >>> a = np.array([[3, 2], [6, 2], [3, 6], [3, 4], [5, 3]])
+>>> atmp = np.sort_complex(a[:,0] + a[:,1]*1j)
+>>> b = np.array([[np.real(x), np.imag(x)] for x in atmp])
+>>> b
+array([[ 3.,  2.],
+       [ 3.,  4.],
+       [ 3.,  6.],
+       [ 5.,  3.],
+       [ 6.,  2.]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26036376)
+ The title says "sorting 2D arrays". Although the questioner uses an  (N,2) -shaped array, it's possible to generalize unutbu's solution to work with any  (N,M)  array, as that's what people might actually be looking for. 
+
+ One could  transpose  the array and use slice notation with negative  step  to pass all the columns to  lexsort  in reversed order: 
+
+  >>> import numpy as np
+>>> a = np.random.randint(1, 6, (10, 3))
+>>> a
+array([[4, 2, 3],
+       [4, 2, 5],
+       [3, 5, 5],
+       [1, 5, 5],
+       [3, 2, 1],
+       [5, 2, 2],
+       [3, 2, 3],
+       [4, 3, 4],
+       [3, 4, 1],
+       [5, 3, 4]])
+
+>>> a[np.lexsort(np.transpose(a)[::-1])]
+array([[1, 5, 5],
+       [3, 2, 1],
+       [3, 2, 3],
+       [3, 4, 1],
+       [3, 5, 5],
+       [4, 2, 3],
+       [4, 2, 5],
+       [4, 3, 4],
+       [5, 2, 2],
+       [5, 3, 4]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22699957)
+ Use  .argsort()  it returns an  numpy.array  of indices that sort the given  numpy.array .  You call it as a function or as a method on your array.  For example, suppose you have 
+
+  import numpy as np
+
+arr = np.array([[-0.30565392, -0.96605562],
+                [ 0.85331367, -2.62963495],
+                [ 0.87839643, -0.28283675],
+                [ 0.72676698,  0.93213482],
+                [-0.52007354,  0.27752806],
+                [-0.08701666,  0.22764316],
+                [-1.78897817,  0.50737573],
+                [ 0.62260038, -1.96012161],
+                [-1.98231706,  0.36523876],
+                [-1.07587382, -2.3022289 ]])
+  
+
+   .argsort()  on the column you want to sort, and it will give you an array of row indices that sort that particular column which you can pass as an index to your original array. 
+
+  >>> arr[arr[:, 1].argsort()]
+array([[ 0.85331367, -2.62963495],
+       [-1.07587382, -2.3022289 ],
+       [ 0.62260038, -1.96012161],
+       [-0.30565392, -0.96605562],
+       [ 0.87839643, -0.28283675],
+       [-0.08701666,  0.22764316],
+       [-0.52007354,  0.27752806],
+       [-1.98231706,  0.36523876],
+       [-1.78897817,  0.50737573],
+       [ 0.72676698,  0.93213482]])
+  
+
+ You can equivalently use  numpy.argsort()  
+
+  >>> arr[np.argsort(arr[:, 1])]
+array([[ 0.85331367, -2.62963495],
+       [-1.07587382, -2.3022289 ],
+       [ 0.62260038, -1.96012161],
+       [-0.30565392, -0.96605562],
+       [ 0.87839643, -0.28283675],
+       [-0.08701666,  0.22764316],
+       [-0.52007354,  0.27752806],
+       [-1.98231706,  0.36523876],
+       [-1.78897817,  0.50737573],
+       [ 0.72676698,  0.93213482]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21190244)
+ You can create a masked array: 
+
+  a = np.loadtxt('test.txt')
+
+mask = np.isnan(a)
+ma = np.ma.masked_array(a, mask=mask)
+  
+
+ And then sort  a  using the masked array: 
+
+  a[np.argsort(ma[:, 1])]
+  
+
+
+

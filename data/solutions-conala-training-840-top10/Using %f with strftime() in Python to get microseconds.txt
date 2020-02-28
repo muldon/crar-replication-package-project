@@ -1,0 +1,272 @@
+Query: Using %f with strftime() in Python to get microseconds
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6677762)
+ You can use datetime's strftime function to get this. The problem is that time's strftime accepts a timetuple that does not carry microsecond information. 
+
+  from datetime import datetime
+datetime.now().strftime("%H:%M:%S.%f")
+  
+
+ Should do the trick! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23367128)
+ This should do the work 
+
+  import datetime
+datetime.datetime.now().strftime("%H:%M:%S.%f")
+  
+
+ It will print  
+
+  HH:MM:SS.microseconds  like this e.g  14:38:19.425961  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6677830)
+ You can also get microsecond precision from the  time  module using its  time()  function. 
+( time.time()  returns the time in seconds since epoch. Its fractional part is the time in microseconds, which is what you want.) 
+
+  >>> from time import time
+>>> time()
+... 1310554308.287459   # the fractional part is what you want.
+
+
+# comparision with strftime -
+>>> from datetime import datetime
+>>> from time import time
+>>> datetime.now().strftime("%f"), time()
+... ('287389', 1310554310.287459)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17270917)
+ When the "%f" for micro seconds isn't working please use the following method 
+
+  import datetime
+
+def getTimeStamp():
+    dt = datetime.datetime.now()
+    return dt.strftime("%Y%j%H%M%S") + str(dt.microsecond)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6677382)
+ You are looking at the wrong documentation. The  time  module http://docs.python.org/2/library/time.html#time.strftime.  
+
+ You can use the  datetime  module http://docs.python.org/2/library/datetime.html#strftime-strptime-behavior like this: 
+
+  >>> from datetime import datetime
+>>>
+>>> now = datetime.now()
+>>> now.strftime("%H:%M:%S.%f")
+'12:19:40.948000'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41679167)
+ With python  time  module you can't get microseconds with  %f . 
+
+ For those who still want to go with  time  module only, here is a workaround: 
+
+  now = time.time()
+mlsec = repr(now).split('.')[1][:3]
+print time.strftime("%Y-%m-%d %H:%M:%S.{} %Z".format(mlsec), time.localtime(now))
+  
+
+ You should get something like  2017-01-16 16:42:34.625 EET  (yes, I use miliseconds as it's fairly enough). 
+
+ To brake the code into details, paste below code into python console: 
+
+  import time
+# get current timestamp
+now = time.time()
+# debug now
+now
+print now
+type(now)
+# debug strf time
+struct_now = time.localtime(now)
+print struct_now
+type(struct_now)
+# print nicely formatted date
+print time.strftime("%Y-%m-%d %H:%M:%S %Z", struct_now)
+# get miliseconds
+mlsec = repr(now).split('.')[1][:3]
+print mlsec
+# get your required timestamp string
+timestamp = time.strftime("%Y-%m-%d %H:%M:%S.{} %Z".format(mlsec), struct_now)
+print timestamp
+  
+
+ For clarification purposes, I also paste my python 2.7.12 result here: 
+
+  >>> import time
+>>> # get current timestamp
+... now = time.time()
+>>> # debug now
+... now
+1484578293.519106
+>>> print now
+1484578293.52
+>>> type(now)
+<type 'float'>
+>>> # debug strf time
+... struct_now = time.localtime(now)
+>>> print struct_now
+time.struct_time(tm_year=2017, tm_mon=1, tm_mday=16, tm_hour=16, tm_min=51, tm_sec=33, tm_wday=0, tm_yday=16, tm_isdst=0)
+>>> type(struct_now)
+<type 'time.struct_time'>
+>>> # print nicely formatted date
+... print time.strftime("%Y-%m-%d %H:%M:%S %Z", struct_now)
+2017-01-16 16:51:33 EET
+>>> # get miliseconds
+... mlsec = repr(now).split('.')[1][:3]
+>>> print mlsec
+519
+>>> # get your required timestamp string
+... timestamp = time.strftime("%Y-%m-%d %H:%M:%S.{} %Z".format(mlsec), struct_now)
+>>> print timestamp
+2017-01-16 16:51:33.519 EET
+>>>
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52944446)
+ If timezone out colon is ok, you can use 
+
+  d = datetime.datetime(2018, 10, 9, 8, 19, 16, 999578, 
+                      tzinfo=dateutil.tz.tzoffset(None, 7200))
+s = d.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + d.strftime('%z')
+# '2018-10-09T08:19:16.999+0200'
+  
+
+ For colon, you need to split the timezone and add it there yourself.  %z  does not produce  Z  either for UTC. 
+
+ 
+
+ And Python 3.6 supports  timespec='milliseconds'  so you should shim this: 
+
+  try:
+    datetime.datetime.now().isoformat(timespec='milliseconds')
+    def milliseconds_timestamp(d):
+        return d.isoformat(timespec='milliseconds')
+
+except TypeError:
+    def milliseconds_timestamp(d):
+        z = d.strftime('%z')
+        z = z[:3] + ':' + z[3:]
+        return d.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + z
+  
+
+ Given the latter definition in Python 3.6, 
+
+  >>> milliseconds_timestamp(d) == d.isoformat(timespec='milliseconds')
+True
+  
+
+  
+
+  >>> milliseconds_timestamp(d)
+'2018-10-09T08:19:16.999+02:00'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42934069)
+ From datetime.datetime you already can export to timestamps with method strftime. Following your function example: 
+
+  import datetime
+def UtcNow():
+    now = datetime.datetime.utcnow()
+    return int(now.strftime("%s"))
+  
+
+ If you want microseconds, you need to change the export string and cast to float like:  return float(now.strftime("%s.%f"))      
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30557844)
+ Use strptime to create a datetime object then use strftime to format it they way you want: 
+
+  from datetime import datetime
+
+s= "2015-05-31 21:02:36.452000"
+
+print(datetime.strptime(s,"%Y-%m-%d %H:%M:%S.%f").strftime("%d-%b-%Y %H:%m:%S"))
+31-May-2015 21:05:36
+  
+
+ The format string is the following: 
+
+  %Y  Year with century as a decimal number.
+%m  Month as a decimal number [01,12].    
+%d  Day of the month as a decimal number [01,31].
+%H  Hour (24-hour clock) as a decimal number [00,23]. 
+%M  Minute as a decimal number [00,59].
+%S  Second as a decimal number [00,61]. 
+%f  Microsecond as a decimal number
+  
+
+ In strftime we use %b which is: 
+
+  %b  Locale’s abbreviated month name.
+  
+
+ Obviously we just ignore the microseconds in the output string. 
+
+ If you already have a datetime object just call strftime on the datetime object: 
+
+  print(dt.strftime("%d-%b-%Y %H:%m:%S"))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27251994)
+ Your date is UTC time in https://tools.ietf.org/html/rfc3339#section-5.6, you could parse it using only stdlib: 
+
+  from datetime import datetime
+
+utc_dt = datetime.strptime('1984-06-02T19:05:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+
+# Convert UTC datetime to seconds since the Epoch
+timestamp = (utc_dt - datetime(1970, 1, 1)).total_seconds()
+# -> 455051100.0
+  
+
+ See also  https://stackoverflow.com/a/8778548/4279  
+
+ 
+   How do I convert it back to ISO 8601 format?  
+ 
+
+ To convert POSIX timestamp back, create a UTC datetime object from it, and format it using  .strftime()  method: 
+
+  from datetime import datetime, timedelta
+
+utc_dt = datetime(1970, 1, 1) + timedelta(seconds=timestamp)
+print(utc_dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ'))
+# -> 1984-06-02T19:05:00.000000Z
+  
+
+ Note: It prints six digits after the decimal point (microseconds). To get three digits, see  https://stackoverflow.com/q/26586943/4279 . 
+
+
+

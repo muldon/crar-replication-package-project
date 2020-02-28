@@ -1,0 +1,347 @@
+Query: Dot notation string manipulation
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38983595)
+ If you are satisfied with the precision in scientific notation, then could we just take a simple string manipulation approach? Maybe it's not terribly clever, but it seems to work (passes all of the use cases you've presented), and I think it's fairly understandable: 
+
+  def float_to_str(f):
+    float_string = repr(f)
+    if 'e' in float_string:  # detect scientific notation
+        digits, exp = float_string.split('e')
+        digits = digits.replace('.', '').replace('-', '')
+        exp = int(exp)
+        zero_padding = '0' * (abs(int(exp)) - 1)  # minus 1 for decimal point in the sci notation
+        sign = '-' if f < 0 else ''
+        if exp > 0:
+            float_string = '{}{}{}.0'.format(sign, digits, zero_padding)
+        else:
+            float_string = '{}0.{}{}'.format(sign, zero_padding, digits)
+    return float_string
+
+n = 0.000000054321654321
+assert(float_to_str(n) == '0.000000054321654321')
+
+n = 0.00000005
+assert(float_to_str(n) == '0.00000005')
+
+n = 420000000000000000.0
+assert(float_to_str(n) == '420000000000000000.0')
+
+n = 4.5678e-5
+assert(float_to_str(n) == '0.000045678')
+
+n = 1.1
+assert(float_to_str(n) == '1.1')
+
+n = -4.5678e-5
+assert(float_to_str(n) == '-0.000045678')
+  
+
+  Performance : 
+
+ I was worried this approach may be too slow, so I ran  timeit  and compared with the OP's solution of decimal contexts. It appears the string manipulation is actually quite a bit faster.  Edit : It appears to only be much faster in Python 2. In Python 3, the results were similar, but with the decimal approach slightly faster. 
+
+  Result : 
+
+ 
+  Python 2: using  ctx.create_decimal() :  2.43655490875   
+  Python 2: using string manipulation:  0.305557966232   
+  Python 3: using  ctx.create_decimal() :  0.19519368198234588   
+  Python 3: using string manipulation:  0.2661344590014778   
+ 
+
+ Here is the timing code: 
+
+  from timeit import timeit
+
+CODE_TO_TIME = '''
+float_to_str(0.000000054321654321)
+float_to_str(0.00000005)
+float_to_str(420000000000000000.0)
+float_to_str(4.5678e-5)
+float_to_str(1.1)
+float_to_str(-0.000045678)
+'''
+SETUP_1 = '''
+import decimal
+
+# create a new context for this task
+ctx = decimal.Context()
+
+# 20 digits should be enough for everyone :D
+ctx.prec = 20
+
+def float_to_str(f):
+    """
+    Convert the given float to a string,
+    without resorting to scientific notation
+    """
+    d1 = ctx.create_decimal(repr(f))
+    return format(d1, 'f')
+'''
+SETUP_2 = '''
+def float_to_str(f):
+    float_string = repr(f)
+    if 'e' in float_string:  # detect scientific notation
+        digits, exp = float_string.split('e')
+        digits = digits.replace('.', '').replace('-', '')
+        exp = int(exp)
+        zero_padding = '0' * (abs(int(exp)) - 1)  # minus 1 for decimal point in the sci notation
+        sign = '-' if f < 0 else ''
+        if exp > 0:
+            float_string = '{}{}{}.0'.format(sign, digits, zero_padding)
+        else:
+            float_string = '{}0.{}{}'.format(sign, zero_padding, digits)
+    return float_string
+'''
+
+print(timeit(CODE_TO_TIME, setup=SETUP_1, number=10000))
+print(timeit(CODE_TO_TIME, setup=SETUP_2, number=10000))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35118414)
+ if  '.' in s ,  s.rpartition('.')  finds last dot in  s , 
+and returns  (before_last_dot, dot, after_last_dot) : 
+
+  s = "classes.students.grades"
+s.rpartition('.')[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35118430)
+ The best way to do this is using the https//docs.python.org/3.5/library/stdtypes.html?highlight=rpartition#str.rsplit method and pass in the  maxsplit  argument. 
+
+  >>> s = "classes.students.grades"
+>>> before, after = s.rsplit('.', maxsplit=1) # rsplit('.', 1) in Python 2.x onwards
+>>> before
+'classes.students'
+>>> after
+'grades'
+  
+
+ You can also use the https//docs.python.org/3.5/library/stdtypes.html?highlight=rfind#str.rfind method with normal slice operation. 
+
+ To get everything before last  .  
+
+  >>> s = "classes.students.grades"
+>>> last_index = s.rfind('.')
+>>> s[last_index]
+'classes.students'
+  
+
+   .  
+
+  >>> s[last_index + 1]
+'grades'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52155253)
+ You could use a custom float to string conversion function which checks if the number will be accepted by Ada using a regular expression (which tests if there are only non-dots before the exponent character, and in which case only convert with  format ): 
+
+  import re
+
+def ada_compliant_float_as_string(f):
+    return "{:.1e}".format(f) if re.match("^-?[^\.]e",str(f)) else str(f)
+
+for f in [-1e-5,1e-5,1.4e-5,-12e4,1,1.0]:
+    print(ada_compliant_float_as_string(f))
+  
+
+ prints: 
+
+  -1.0e-05
+1.0e-05
+1.4e-05
+-120000.0
+1
+1.0
+  
+
+ only the first value is corrected, other values are just the string representation of a float, unchanged. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51271182)
+ I think the simplest way to achieve what you are looking for, i.e.  dot separating the thousands and comma the cents  would be to use string manipulation. You can create a new function to do so and then use  apply  to apply it on the respective dataframe column 
+
+  x = [200, 295.40, 2850, 100, 195.01]
+df = pd.DataFrame(x, columns=["value"])
+df.value = df.value.map('{:,.2f}'.format)
+df
+      value
+0    200.00
+1    295.40
+2  2,850.00
+3    100.00
+4    195.01
+  
+
+ now create a function to change dots to commas and commas to dots and apply it to the dataframe column 
+
+  def change_format(x):
+    return str(x).replace('.', '/').replace(',', '.').replace('/', ',')
+
+df.value = df.value.apply(change_format)
+df  
+      value
+0    200,00
+1    295,40
+2  2.850,00
+3    100,00
+4    195,01
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35638746)
+ If your goal is to get rid of a final component that's just a single digit, start and end with  re.sub() : 
+
+  s = re.sub(r"\.\d$", "", s)
+  
+
+ This will do the job, and leave other strings alone. . 
+
+ If you do want to know about the general case (separate out the last component, no matter what it is), then use  rsplit  to split your string once: 
+
+  >>> "hel.lo.there".rsplit(".", 1)
+['hel.lo', 'there']
+  
+
+ If there's no dot in the string you'll just get one element in your array, the entire string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35118303)
+ you can use https//docs.python.org/2/library/string.html#string.split and https//docs.python.org/2/library/string.html#string.join together 
+
+  s = "classes.students.grades"
+print '.'.join(s.split('.')[-1])
+  
+
+ You are splitting the string on  .  - it'll give you a list of strings, after that you are joining the list elements back to string separating them by  .   
+
+  [-1]  will pick all the elements from the list but the last one 
+
+ To check what comes after the last  .  
+
+  s.split('.')[-1]
+  
+
+ Another way is to use https//docs.python.org/2/library/string.html#string.rsplit. It works the same way as  split  but if you provide  maxsplit  parameter it'll split the string starting from the end 
+
+  rest, last = s.rsplit('.', 1)
+
+'classes.students'
+'grades'
+  
+
+ You can also use https//docs.python.org/2/library/re.html#re.sub to substitute the part after the last  .  with an empty string 
+
+  re.sub('\.[^.]+$', '', s)
+  
+
+ And the last part of your question to wrap words in  []  i would recommend to use https//docs.python.org/2/library/string.html#string.Formatter.format and https//docs.python.org/2/tutorial/datastructures.html#list-comprehensions 
+
+  ''.join("[{}]".format(e) for e in s.split('.'))
+  
+
+ It'll give you the desired output 
+
+  [classes][students][grades]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42691073)
+ There are two  sum-reductions  happening - One from the marix-multilication with  np.dot , and then with the explicit  sum . 
+
+ We could use https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html to do both of those in one go, like so - 
+
+  np.einsum('ij,jk->k',a,b)
+  
+
+  
+
+  In [27]: a = np.random.rand(3,4)
+
+In [28]: b = np.random.rand(4,3)
+
+In [29]: np.sum(a.dot(b), axis = 0)
+Out[29]: array([ 2.70084316,  3.07448582,  3.28690401])
+
+In [30]: np.einsum('ij,jk->k',a,b)
+Out[30]: array([ 2.70084316,  3.07448582,  3.28690401])
+  
+
+  
+
+  In [45]: a = np.random.rand(1000,200)
+
+In [46]: b = np.random.rand(200,1000)
+
+In [47]: %timeit np.sum(a.dot(b), axis = 0)
+100 loops, best of 3: 5.5 ms per loop
+
+In [48]: %timeit np.einsum('ij,jk->k',a,b)
+10 loops, best of 3: 71.8 ms per loop
+  
+
+ Sadly, doesn't look like we are doing any better with  np.einsum . 
+
+ 
+
+ For changing to  np.sum(a.dot(b), axis = 1) , just swap the output string notation there -  np.einsum('ij,jk->i',a,b) , like so - 
+
+  In [42]: np.sum(a.dot(b), axis = 1)
+Out[42]: array([ 3.97805141,  3.2249661 ,  1.85921549])
+
+In [43]: np.einsum('ij,jk->i',a,b)
+Out[43]: array([ 3.97805141,  3.2249661 ,  1.85921549])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12414913)
+ You could use an infinite, nested http://docs.python.org/library/collections.html#collections.defaultdict: 
+
+  >>> from collections import defaultdict
+>>> infinitedict = lambda: defaultdict(infinitedict)
+>>> d = infinitedict()
+>>> d['key1']['key2']['key3']['key4']['key5'] = 'test'
+>>> d['key1']['key2']['key3']['key4']['key5']
+'test'
+  
+
+ Given your dotted string, here's what you can do: 
+
+  >>> import operator
+>>> keys = "a.b.c".split(".")
+>>> lastplace = reduce(operator.getitem, keys[:-1], d)
+>>> lastplace.has_key(keys[-1])
+False
+  
+
+ You can set a value: 
+
+  >>> lastplace[keys[-1]] = "something"
+>>> reduce(operator.getitem, keys, d)
+'something'
+>>> d['a']['b']['c']
+'something'
+  
+
+
+

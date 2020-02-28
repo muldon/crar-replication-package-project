@@ -1,0 +1,201 @@
+Query: How can I disable logging while running unit tests in Python Django?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5255760)
+  logging.disable(logging.CRITICAL)
+  
+
+ will disable all logging calls with levels less severe than or equal to  CRITICAL . Logging can be re-enabled with 
+
+  logging.disable(logging.NOTSET)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3798131)
+ As an easy alternative, you can disable logging when running tests in your settings file like this: 
+
+  if 'test' in sys.argv:
+    logger.removeHandler(handler)
+    logger.setLevel(logging.ERROR)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48172890)
+ There is some pretty and clean method to suspend logging in tests with  unittest.mock.patch  method. 
+
+  foo.py :
+ 
+
+  import logging
+
+
+logger = logging.getLogger(__name__)
+
+def bar():
+    logger.error('There is some error output here!')
+    return True
+  
+
+  tests.py :
+ 
+
+  from unittest import mock, TestCase
+from foo import bar
+
+
+class FooBarTestCase(TestCase):
+    @mock.patch('foo.logger', mock.Mock())
+    def test_bar(self):
+        self.assertTrue(bar())
+  
+
+ And  python3 -m unittest tests  will produce no logging output. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49792616)
+ I've found that for tests within  unittest  or similar a framework, the most effective way to safely disable unwanted logging in unit tests is to enable/disable in the  setUp / tearDown  methods of a particular test case.  This lets one target specifically where logs should be disabled.  You could also do this explicitly on the logger of the class you're testing. 
+
+  import unittest
+import logging
+
+class TestMyUnitTest(unittest.TestCase):
+    def setUp(self):
+        logging.disable(logging.CRITICAL)
+
+    def tearDown(self):
+        logging.disable(logging.NOTSET)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4370766)
+ I prefer run tests with separate settings_test.py, where I can remove unnecessary applications, middleware and other stuff that I don't need during testing. And I can disable logging output here also by this way: 
+
+  from settings import *
+import logging
+
+# direct all logging output to nowhere
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+logging.getLogger().addHandler(NullHandler())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/25021711)
+ I like Hassek's custom test runner idea.  It should be noted that  DjangoTestSuiteRunner  is no longer the default test runner in Django 1.6+, it has been replaced by the  DiscoverRunner .  For default behaviour, the test runner should be more like: 
+
+  import logging
+
+from django.test.runner import DiscoverRunner
+
+class NoLoggingTestRunner(DiscoverRunner):
+    def run_tests(self, test_labels, extra_tests=None, **kwargs):
+
+        # disable logging below CRITICAL while testing
+        logging.disable(logging.CRITICAL)
+
+        return super(NoLoggingTestRunner, self).run_tests(test_labels, extra_tests, **kwargs)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44511698)
+ Sometimes you want the logs and sometimes not. I have this code in my  settings.py  
+
+  import sys
+
+if '--no-logs' in sys.argv:
+    print('> Disabling logging levels of CRITICAL and below.')
+    sys.argv.remove('--no-logs')
+    logging.disable(logging.CRITICAL)
+  
+
+ So if you run your test with the  --no-logs  options you'll get only the  critical  logs: 
+
+  $ python ./manage.py tests --no-logs
+> Disabling logging levels of CRITICAL and below.
+  
+
+ It's very helpful if you want speedup the tests on your continuous integration flow. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3234698)
+ I patched http://github.com/schinckel/django-test-extensions to also do this. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15191895)
+ Easiest thing I've used: 
+
+  import logging
+
+class MyTestClass(TestCase):
+    def setUp(self):
+        logging.disable(logging.CRITICAL)
+  
+
+ This requires no editing, patching, extra installs, and so on. All logging is turned completely off. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/7732916)
+ Since you are in Django, you could add these lines to your settings.py: 
+
+  import sys
+import logging
+
+if len(sys.argv) > 1 and sys.argv[1] == 'test':
+    logging.disable(logging.CRITICAL)
+  
+
+ That way you don't have to add that line in every setUp() on your tests. :) 
+
+ You could also do a couple of handy changes for your test needs this way. 
+
+ There is another "nicer" or "cleaner" way to add specifics to your tests and that is making your own test runner. 
+
+ Just create a class like this: 
+
+  import logging
+
+from django.test.simple import DjangoTestSuiteRunner
+from django.conf import settings
+
+class MyOwnTestRunner(DjangoTestSuiteRunner):
+    def run_tests(self, test_labels, extra_tests=None, **kwargs):
+
+        # Don't show logging messages while testing
+        logging.disable(logging.CRITICAL)
+
+        return super(MyOwnTestRunner, self).run_tests(test_labels, extra_tests, **kwargs)
+  
+
+ And now add to your settings.py file: 
+
+  TEST_RUNNER = "PATH.TO.PYFILE.MyOwnTestRunner"
+#(for example, 'utils.mytest_runner.MyOwnTestRunner')
+  
+
+ This lets you do one really handy modification that the other approach doesn't, which is to make Django just tests the applications that you want. You can do that by changing the test_labels adding this line to the test runner: 
+
+  if not test_labels:
+    test_labels = ['my_app1', 'my_app2', ...]
+  
+
+
+

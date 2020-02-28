@@ -1,0 +1,294 @@
+Query: How do I ping a host?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18030305)
+ You can use this method to ping hosts on Windows or other platforms:   
+
+  private static boolean ping(String host) throws IOException, InterruptedException {
+    boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+
+    ProcessBuilder processBuilder = new ProcessBuilder("ping", isWindows? "-n" : "-c", "1", host);
+    Process proc = processBuilder.start();
+
+    int returnVal = proc.waitFor();
+    return returnVal == 0;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29460716)
+ I think this code will help you: 
+
+  public class PingExample {
+    public static void main(String[] args){
+        try{
+            InetAddress address = InetAddress.getByName("192.168.1.103");
+            boolean reachable = address.isReachable(10000);
+
+            System.out.println("Is host reachable? " + reachable);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8816971)
+  long currentTime = System.currentTimeMillis();
+boolean isPinged = InetAddress.getByName(servername).isReachable(2000); // 2 seconds
+currentTime = System.currentTimeMillis() - currentTime;
+if(isPinged) {
+    System.out.println("pinged successfully in "+ currentTime+ "millisecond");
+} else {
+    System.out.println("PIng failed.");
+}
+  
+
+ But this will use ICMP ping only in windows system. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11506847)
+ Check your connectivity. On my Computer this prints REACHABLE for both IP's: 
+
+ 
+   Sending Ping Request to 127.0.0.1 
+  Host is reachable 
+  Sending Ping Request to 173.194.32.38 
+  Host is reachable 
+ 
+
+ EDIT: 
+
+ You could try modifying the code to use getByAddress() to obtain the address: 
+
+  public static void main(String[] args) throws UnknownHostException, IOException {
+    InetAddress inet;
+
+    inet = InetAddress.getByAddress(new byte[] { 127, 0, 0, 1 });
+    System.out.println("Sending Ping Request to " + inet);
+    System.out.println(inet.isReachable(5000) ? "Host is reachable" : "Host is NOT reachable");
+
+    inet = InetAddress.getByAddress(new byte[] { (byte) 173, (byte) 194, 32, 38 });
+    System.out.println("Sending Ping Request to " + inet);
+    System.out.println(inet.isReachable(5000) ? "Host is reachable" : "Host is NOT reachable");
+}
+  
+
+ The getByName() methods may attempt some kind of reverse DNS lookup which may not be possible on your machine, getByAddress() might bypass that. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52073515)
+ Even though this does not rely on ICMP on Windows, this implementation works pretty well with the new https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html 
+
+  public static Duration ping(String host) {
+    Instant startTime = Instant.now();
+    try {
+        InetAddress address = InetAddress.getByName(host);
+        if (address.isReachable(1000)) {
+            return Duration.between(startTime, Instant.now());
+        }
+    } catch (IOException e) {
+        // Host not available, nothing to do here
+    }
+    return Duration.ofDays(1);
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32637531)
+ Here is a method for pinging an IP address in  Java  that should work on  Windows  and  Unix  systems: 
+
+  import org.apache.commons.lang3.SystemUtils;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+
+public class CommandLine
+{
+    /**
+     * @param ipAddress The internet protocol address to ping
+     * @return True if the address is responsive, false otherwise
+     */
+    public static boolean isReachable(String ipAddress) throws IOException
+    {
+        List<String> command = buildCommand(ipAddress);
+        ProcessBuilder processBuilder = new ProcessBuilder(command);
+        Process process = processBuilder.start();
+
+        try (BufferedReader standardOutput = new BufferedReader(new InputStreamReader(process.getInputStream())))
+        {
+            String outputLine;
+
+            while ((outputLine = standardOutput.readLine()) != null)
+            {
+                // Picks up Windows and Unix unreachable hosts
+                if (outputLine.toLowerCase().contains("destination host unreachable"))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static List<String> buildCommand(String ipAddress)
+    {
+        List<String> command = new ArrayList<>();
+        command.add("ping");
+
+        if (SystemUtils.IS_OS_WINDOWS)
+        {
+            command.add("-n");
+        } else if (SystemUtils.IS_OS_UNIX)
+        {
+            command.add("-c");
+        } else
+        {
+            throw new UnsupportedOperationException("Unsupported operating system");
+        }
+
+        command.add("1");
+        command.add(ipAddress);
+
+        return command;
+    }
+}
+  
+
+ Make sure to add https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 to your dependencies. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18845416)
+ Either open a TCP Socket to a port you think is open (22 for Linux, 139 for Windows, etc.) 
+
+  public static boolean isReachableByTcp(String host, int port, int timeout) {
+    try {
+        Socket socket = new Socket();
+        SocketAddress socketAddress = new InetSocketAddress(host, port);
+        socket.connect(socketAddress, timeout);
+        socket.close();
+        return true;
+    } catch (IOException e) {
+        return false;
+    }
+}
+  
+
+ Or use some hack to send an actual ping. (inspired from here: http://www.inprose.com/en/content/icmp-ping-in-java) 
+
+  public static boolean isReachableByPing(String host) {
+    try{
+        String cmd = "";
+
+        if(System.getProperty("os.name").startsWith("Windows"))
+            cmd = "cmd /C ping -n 1 " + host + " | find \"TTL\"";
+        else
+            cmd = "ping -c 1 " + host;
+
+        Process myProcess = Runtime.getRuntime().exec(cmd);
+        myProcess.waitFor();
+
+        return myProcess.exitValue() == 0;
+    } catch( Exception e ) {
+        e.printStackTrace();
+        return false;
+    }
+}
+  
+
+ Same hack for Android can be found https://stackoverflow.com/questions/3905358/how-to-ping-external-ip-from-java-android: 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19315562)
+  InetAddress  class has a method which uses ECMP Echo Request (aka ping) to determine the hosts availability. 
+
+  String ipAddress = "192.168.1.10";
+InetAddress inet = InetAddress.getByName(ipAddress);
+boolean reachable = inet.isReachable(5000);
+  
+
+ If the above  reachable  variable is true, then it means that the host has properly answered with ECMP Echo Reply (aka pong) within given time (in millis). 
+
+  Note:  Not all implementations have to use ping. http://docs.oracle.com/javase/7/docs/api/java/net/InetAddress.html#isReachable%28int%29: 
+
+ 
+   A typical implementation will use ICMP ECHO REQUESTs if the privilege
+  can be obtained, otherwise it will try to establish a TCP connection
+  on port 7 (Echo) of the destination host. 
+ 
+
+ Therefore the method can be used to check hosts availability, but it can not universally be used to check for ping-based checks. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8815119)
+ as viralpatel specified you can use  Runtime.exec()  
+
+ following is an example of it  
+
+  class pingTest {
+
+    public static void main(String[] args) {
+        String ip = "127.0.0.1";
+        String pingResult = "";
+
+        String pingCmd = "ping " + ip;
+        try {
+            Runtime r = Runtime.getRuntime();
+            Process p = r.exec(pingCmd);
+
+            BufferedReader in = new BufferedReader(new
+            InputStreamReader(p.getInputStream()));
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                System.out.println(inputLine);
+                pingResult += inputLine;
+            }
+            in.close();
+
+        } catch (IOException e) {
+            System.out.println(e);
+        }
+
+    }
+}
+  
+
+  output  
+
+  Pinging 127.0.0.1 with 32 bytes of data:
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+Reply from 127.0.0.1: bytes=32 time<1ms TTL=128
+
+Ping statistics for 127.0.0.1:
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 0ms, Maximum = 0ms, Average = 0ms
+  
+
+ refer http://www.velocityreviews.com/forums/t146589-ping-class-java.html 
+
+
+

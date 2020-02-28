@@ -1,0 +1,260 @@
+Query: Turn Pandas Multi-Index into column
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25733562)
+ The  reset_index()  is a pandas DataFrame method that will transfer index values into the DataFrame as columns.  The default setting for the parameter is  drop=False  (which will keep the index values as columns). 
+
+ All you have to do add  .reset_index(inplace=True)  after the name of the DataFrame: 
+
+  df.reset_index(inplace=True)  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42236752)
+ You could use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html to accomplish this.  
+
+  >>> s1.set_index(['level_0', 'level_1'], drop=True)
+                        0         1         2         3
+level_0 level_1                                        
+bar     one     -0.300791  0.013540  0.713098 -0.359717
+        two      1.044732 -0.364056  1.055409  0.341651
+baz     one      0.340860  0.092612 -0.275117  0.271777
+        two      0.653210 -0.254870  0.745544 -1.787725
+foo     one     -0.594016 -0.034900 -0.495453  0.153198
+        two      0.852272 -2.460928 -0.248302  0.534830
+qux     one     -0.396236  0.302698  1.791999  0.422901
+        two      1.379244 -0.612005 -0.614633 -0.538105
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22233719)
+ You can use http://pandas.pydata.org/pandas-docs/version/0.18.0/generated/pandas.MultiIndex.droplevel.html: 
+
+  >>> cols = pd.MultiIndex.from_tuples([("a", "b"), ("a", "c")])
+>>> df = pd.DataFrame([[1,2], [3,4]], columns=cols)
+>>> df
+   a   
+   b  c
+0  1  2
+1  3  4
+
+[2 rows x 2 columns]
+>>> df.columns = df.columns.droplevel()
+>>> df
+   b  c
+0  1  2
+1  3  4
+
+[2 rows x 2 columns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53905456)
+ You can use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html: 
+
+  >>> df.loc[1]
+  
+
+ Example</h3>
+
+  >>> print(df)
+       result
+A B C        
+1 1 1       6
+    2       9
+  2 1       8
+    2      11
+2 1 1       7
+    2      10
+  2 1       9
+    2      12
+
+>>> print(df.loc[1])
+     result
+B C        
+1 1       6
+  2       9
+2 1       8
+  2      11
+
+>>> print(df.loc[2, 1])
+   result
+C        
+1       7
+2      10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48431992)
+ pass to a dataframe 
+
+  df.index=pd.to_datetime(pd.DataFrame(df.index.values.tolist(), columns=['year','month','day']))
+df
+Out[669]: 
+            3 months
+1987-01-02         1
+1987-01-05         2
+1987-01-06         3
+1987-01-07         4
+1987-01-08         5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28209159)
+ you can group by columns a and b and call  count  on the group by object: 
+
+  df =pd.DataFrame({'A':[1,4,1,4,4], 'B':[23,45,23,45,45]})
+df.groupby(['A','B'])['A'].count()
+  
+
+ returns: 
+
+  A  B 
+1  23    2
+4  45    3
+  
+
+  Edited to make the answer more explicit  
+
+ To turn the  series  back to a  dataframe  with a column named count: 
+
+  _ = df.groupby(['A','B'])['A'].count()
+  
+
+ the name of the series becomes the column name: 
+
+  _.name = 'Count'
+  
+
+ resetting the index, promotes the multi-index to columns and turns the series into a dataframe: 
+
+  df =_.reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18835121)
+ One way is to use the  get_level_values  Index method: 
+
+  In [11]: df
+Out[11]:
+     0
+A B
+1 4  1
+2 5  2
+3 6  3
+
+In [12]: df.iloc[df.index.get_level_values('A') == 1]
+Out[12]:
+     0
+A B
+1 4  1
+  
+
+ In 0.13 you'll be able to use https://github.com/pydata/pandas/pull/4180: 
+
+  df.xs(1, level='A', drop_level=False) # axis=1 if columns
+  
+
+ Note: if this were column MultiIndex rather than index, you could use the same technique: 
+
+  In [21]: df1 = df.T
+
+In [22]: df1.iloc[:, df1.columns.get_level_values('A') == 1]
+Out[22]:
+A  1
+B  4
+0  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48444290)
+ If your first column is already in index, then you can use the following: 
+
+  df.set_index('date', append=True)['website+']\
+  .apply(pd.Series).stack().reset_index(level=-1, drop=True)\
+  .to_frame(name='website+')
+  
+
+ Output: 
+
+                 website+
+    date               
+0   2014-11-26        A
+238 2015-12-20        B
+    2015-12-20        C
+297 2016-02-17        D
+303 2016-02-23        E
+    2016-02-23        F
+    2016-02-23        G
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29077875)
+  
+
+  import numpy as np
+import pandas as pd
+
+columns = pd.MultiIndex.from_arrays([['a1','a1','a2','a2'], ['b1','b2','b3','b4']])
+index = pd.MultiIndex.from_tuples([(0,'c1','d1'), (0, 'c2', 'd3')])
+df = pd.DataFrame(np.arange(1,9).reshape(2,-1), columns=columns, index=index)
+#         a1    a2   
+#         b1 b2 b3 b4
+# 0 c1 d1  1  2  3  4
+#   c2 d3  5  6  7  8
+  
+
+ then you could use  reorder_levels  to avoid (most of) those stack/unstack calls: 
+
+  df.unstack(level=1).reorder_levels([2,0,1], axis=1)
+  
+
+  
+
+        c1  c2  c1  c2  c1  c2  c1  c2
+      a1  a1  a1  a1  a2  a2  a2  a2
+      b1  b1  b2  b2  b3  b3  b4  b4
+0 d1   1 NaN   2 NaN   3 NaN   4 NaN
+  d3 NaN   5 NaN   6 NaN   7 NaN   8
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45982834)
+  Option 1    
+
+  df.index.to_series().nunique()
+
+3
+  
+
+ 
+
+  Option 2    
+
+  df.groupby(df.index.names).ngroups
+# df.groupby(level=df.index.names).ngroups
+# for pandas < 0.20 or if column name conflict
+
+3
+  
+
+
+

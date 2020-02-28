@@ -1,0 +1,92 @@
+Query: Generating MD5 digest from File or InputStream object
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50226113)
+ It can be achieved by following steps in Java: 
+
+ 
+ Get InputStream of the S3 Object 
+ Use MessageDigest and DigestInputStream classes for the SHA-256 hash(or SHA-1 or MD5) 
+ 
+
+ Following is the snippet on how to do it: 
+
+  String getS3FileHash(AmazonS3 amazonS3, String s3bucket, String filePath) {
+    try {
+        InputStream inputStream = amazonS3.getObject(s3bucket, filePath).getObjectContent();
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+        DigestInputStream digestInputStream = new DigestInputStream(inputStream, messageDigest);
+        byte[] buffer = new byte[4096];
+        int count = 0;
+        while (digestInputStream.read(buffer) > -1) {
+            count++;
+        }
+        log.info("total read: " + count);
+        MessageDigest digest = digestInputStream.getMessageDigest();
+        digestInputStream.close();
+        byte[] md5 = digest.digest();
+        StringBuilder sb = new StringBuilder();
+        for (byte b: md5) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString().toLowerCase();
+    } catch (Exception e) {
+        log.error(e);
+    }
+    return null; 
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8338800)
+  InputStream.toString()  probably doesn't do what you want it to.  It's not overridden in the normal JDK, so it's basically  Object.toString() ...which will return you a string like  "java.io.InputStream@12345678" .  Even if Android's stuff did return a string representing the stream's contents, it'd get really weird since you never specify what encoding to use to convert bytes to chars. 
+
+ You should read the stream in if you want to MD5 it.   
+
+  private static char[] hexDigits = "0123456789abcdef".toCharArray();
+
+public String md5(InputStream is) throws IOException
+{
+    byte[] bytes = new byte[4096];
+    int read = 0;
+    MessageDigest digest = MessageDigest.getInstance("MD5");
+    while ((read = is.read(bytes)) != -1)
+    {
+        digest.update(bytes, 0, read);
+    }
+
+    byte[] messageDigest = digest.digest();
+
+    StringBuilder sb = new StringBuilder(32);
+
+    // Oh yeah, this too.  Integer.toHexString doesn't zero-pad, so
+    // (for example) 5 becomes "5" rather than "05".
+    for (byte b : messageDigest)
+    {
+        sb.append(hexDigits[(b >> 4) & 0x0f]);
+        sb.append(hexDigits[b & 0x0f]);
+    }
+
+    return sb.toString();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5470279)
+      String input = "168";
+    MessageDigest md = MessageDigest.getInstance("MD5");
+    byte[] md5sum = md.digest(input.getBytes());
+    String output = String.fmat("%032X", new BigInteger(1, md5sum));
+  
+
+  
+
+  DatatypeConverter.printHexBinary( MessageDigest.getInstance("MD5").digest("a".getBytes("UTF-8")))
+  
+
+
+

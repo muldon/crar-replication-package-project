@@ -1,0 +1,176 @@
+Query: How can I concatenate a Series onto a DataFrame with Pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20512678)
+ You can convert to DataFrame and concatenate afterwards: 
+
+  >>> pd.concat([students, pd.DataFrame(marks)], axis=1)
+        0     0
+0    Alex  0.80
+1  Lauren  0.75
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41793622)
+ You can apply a pd.Series transformation and concat the two: 
+
+  pd.concat([df, df['dictionary'].apply(pd.Series)], axis=1)
+Out: 
+         dictionary    a    b    c
+0  {'b': 2, 'a': 1}  1.0  2.0  NaN
+1  {'b': 3, 'c': 4}  NaN  3.0  4.0
+  
+
+ Or you could use  join  
+
+  In [4]: df.join(df.dictionary.apply(pd.Series))
+Out[4]:
+           dictionary    a    b    c
+0  {u'a': 1, u'b': 2}  1.0  2.0  NaN
+1  {u'c': 4, u'b': 3}  NaN  3.0  4.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37909639)
+ Following onto Mike Chirico's answer...  if you want to append a list  after  the dataframe is already populated... 
+
+  >>> list = [['f','g']]
+>>> df = df.append(pd.DataFrame(list, columns=['col1','col2']),ignore_index=True)
+>>> df
+  col1 col2
+0    a    b
+1    d    e
+2    f    g
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41970572)
+ As per https://stackoverflow.com/a/38231651/454773, you can use  .apply(pd.Series)  to map the dict containing column onto new columns and then concatenate these new columns back into the original dataframe minus the original dict containing column: 
+
+  dw=pd.DataFrame( [[20, 30, {"ab":"1", "we":"2", "as":"3"},"String"]],
+                columns=['ColA', 'ColB', 'ColC', 'ColdD'])
+pd.concat([dw.drop(['ColC'], axis=1), dw['ColC'].apply(pd.Series)], axis=1)
+  
+
+ Returns: 
+
+  ColA    ColB    ColdD   ab  as  we
+20      30      String  1   3   2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18956276)
+ You can concatenate the two time series and st by index. Since the values in the second series are  NaN  you can  interpolate  and the just select out the values that represent the points from the second series: 
+
+   pd.concat([data, ts]).st_index().interpolate().reindex(ts.index)
+  
+
+  
+
+   pd.concat([data, ts]).st_index().interpolate()[ts.index]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41793635)
+ A vectorized approach by converting the given series to it's  list  representation and then performing concatenation column-wise:  
+
+  pd.concat([df['dictionary'], pd.DataFrame(df['dictionary'].values.tolist())], axis=1)
+  
+
+ https://i.stack.imgur.com/Crvem.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23522030)
+ No need to initialize an empty DataFrame (you weren't even doing that, you'd need  pd.DataFrame()  with the parens).  
+
+ Instead, to create a DataFrame where each series is a column,  
+
+ 
+ make a list of Series,  series , and  
+ concatenate them horizontally with  df = pd.concat(series, axis=1)  
+ 
+
+ Something like: 
+
+  series = [pd.Series(mat[name][:, 1]) for name in Variables]
+df = pd.concat(series, axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45910169)
+ If you start with numpy arrays, you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.concatenate.html: 
+
+  pd.np.concatenate([np.repeat([1, 2], 2), np.arange(5, 10, 2), np.random.random_sample(3)])
+#array([ 1.        ,  1.        ,  2.        ,  2.        ,  5.        ,
+#        7.        ,  9.        ,  0.61116272,  0.48863116,  0.84436643])
+  
+
+ 
+
+ If you start with  pandas.Series  objects, you can https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.append.html one series to another: 
+
+  s1 = pd.Series(np.repeat([1, 2], 2))
+s2 = pd.Series(np.arange(5, 10, 2))
+s3 = pd.Series(np.random.random_sample(3))
+​    
+s1.append([s2, s3], ignore_index=True)
+#0    1.000000
+#1    1.000000
+#2    2.000000
+#3    2.000000
+#4    5.000000
+#5    7.000000
+#6    9.000000
+#7    0.766968
+#8    0.730897
+#9    0.196995
+#dtype: float64
+  
+
+ or use  pd.concat  method: 
+
+  pd.concat([s1, s2, s3], ignore_index=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45861879)
+ If you start out with an equivalent multi-index for  new_data , you can concatenate the  Series es directly with  pd.concat  without coercing to  DataFrame  and back, as in: 
+
+  new_series = pd.Series([0.8,0.9,0.7],
+              index=pd.MultiIndex.from_tuples([('three',x) for x in range(1,4)])
+            )
+pd.concat([my_series,new_series]) #note OP changed name of orig series from df to my_series
+#==============================================================================
+# one    1    0.236158
+#        3    0.699102
+#        7    0.421937
+# two    2    0.887081
+#        4    0.520304
+#        5    0.211461
+# three  1    0.800000
+#        2    0.900000
+#        3    0.700000
+# dtype: float64
+#==============================================================================
+
+type(pd.concat([my_series,new_series])) # pandas.core.series.Series
+  
+
+
+

@@ -1,0 +1,195 @@
+Query: How to generate a list from a pandas DataFrame with the column name and column values?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11812627)
+ My naive approach would be using iteritems with 'll' as a list of lists and l as a single list. 
+
+  df = DataFrame({'one':[1,1], 'two':[2,1], 'three':[3,1], 'four':[3,1] })
+
+ll = []
+
+for idx,row in df.iteritems():
+    l = row.values.tolist()
+    l.insert(0,idx)
+    ll.append(l)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28282579)
+ Strictly speaking if you want nested lists (and not a list of tuples) you can do 
+
+  df.values.tolist()
+  
+
+ as df.values is a numpy array. That will give you a list of lists as requested: 
+
+  [[0.0001313652121930252, 3.5915356549999985e-05], 
+ [3.5915356549999985e-05, 0.00011634321240684215]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53185872)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.stack.html for Series with  MultiIndex , then flatten it in list comprehension and pass to DataFrame constructor: 
+
+  s = df.stack()
+#python 3.6+
+df1 = pd.DataFrame([s.values],  columns=[f'{j}-{i}' for i, j in s.index])
+#python bellow 3.6
+#df1 = pd.DataFrame([s.values],  columns=['{}-{}'.format(i, j) for i, j in s.index])
+print (df1)
+   A-d1  B-d1  C-d1  A-d2  B-d2  C-d2
+0     1     2     3     4     5     6
+  
+
+ Or flatten data by https://docs.scipy.org/doc/numpy/reference/generated/numpy.ravel.html and create new columns by https://docs.python.org/3.6/library/itertools.html#itertools.product: 
+
+  from  itertools import product
+
+c = [f'{j}-{i}' for i, j in product(df.index, df.columns)]
+df1 = pd.DataFrame([df.values.ravel()], columns=c)
+print (df1)
+   A-d1  B-d1  C-d1  A-d2  B-d2  C-d2
+0     1     2     3     4     5     6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11811425)
+ Simplest way is probably  list(dt.T.itertuples())  (where  dt  is your dataframe).  This generates a list of tuples. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20566408)
+ @BrenBarn answer above yields a list of tuples not a list of list as asked in question.  I specifically needed a list of lists to be able to write the dataframe into spreadsheed using DataNitro.   Adapted the above example with list comprehension: 
+
+  [list(x) for x in dt.T.itertuples()]
+  
+
+ This yields the result as needed 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34241488)
+ IIUC, given your  concat  dataframe  df  you can: 
+
+  df = pandas.concat([list of series objects],axis=1,join='inner')
+  
+
+ and then assign the column names as a list of functions names: 
+
+  df.columns = [functionA.__name__, functionB.__name__, etc.]
+  
+
+ Hope that helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34241484)
+ You can set the column names in a second step: 
+
+  df = pandas.concat([list of series objects],axis=1,join='inner')
+df.columns = [functionA.__name__, functionB.__name__]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34013907)
+ I doubt this is the best answer but I think it works. I hate using  for  loops in pandas but I couldn't think of a pandas way to do it. 
+
+  import pandas as pd
+import numpy as np
+
+#array_size = 10
+
+#--- Generate Data and create toy Dataframe ---
+array_size = 750
+np.random.seed(1)
+data = np.random.randint(0, 1000000, array_size**2)
+data = data.reshape((array_size, array_size))
+df = pd.DataFrame(data, columns=['c'+str(i) for i in range(1, (array_size)+1)])
+df.index = df.columns
+
+#--- Transpose the dataframe to more familiarly sort by columns instead of rows ---
+df = df.T
+
+#--- Rank values in dataframe using max method where highest value is rank 1 ---
+df = df.rank(method='max', ascending=False)
+
+#--- Create empty dataframe to put data into ---
+new_df = pd.DataFrame()
+
+#--- For loop for each column to get top ranks less than 5, sort them, reset index, drop i column
+for i in df.columns:
+  s = df[i][df[i] < 5].sort_values().reset_index().drop(i, axis=1)
+  new_df = pd.concat([new_df, s.T])
+
+#--- The new_df index will say 'index', this reassigns the transposed column names to new_df's index
+new_df.index = df.columns
+print(new_df)
+  
+
+ Outputs: 
+
+           0     1     2     3
+c1    c479  c545  c614  c220
+c2    c249  c535  c231  c680
+c3    c657  c603  c137  c740
+c4    c674  c424  c426  c127
+...    ...   ...   ...   ...
+c747  c251  c536  c321  c296
+c748   c55  c383  c437  c103
+c749  c138  c495  c299  c295
+c750  c178  c556  c491  c445
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19788289)
+ It should work if length of the list is equal to the number of rows in the DataFrame 
+
+  >>> df = pd.DataFrame({'A':[1,2,3], 'B':[4,5,6]})
+>>> df['C'] = [10,20,30]
+>>> df
+   A  B   C
+0  1  4  10
+1  2  5  20
+2  3  6  30
+  
+
+ If your list is shorter or longer than DataFrame, then you'll receive an error  Length of values does not match length of index . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45221383)
+ You can use  nested list comprehension : 
+
+  pd.DataFrame([[a*b for b in L1] for a in L2])
+  
+
+ This generates: 
+
+  >>> pd.DataFrame([[a*b for b in L1] for a in L2])
+    0  1   2   3   4   5
+0  40  5  20  10  35  25
+1  24  3  12   6  21  15
+2  72  9  36  18  63  45
+3   8  1   4   2   7   5
+4  16  2   8   4  14  10
+5  48  6  24  12  42  30
+  
+
+ So the outer list comprehension  [... for a in L2]  iterates over  L2  and assigns the values to variable  a . For every such variable, we generate a list (again with list comprehension) with  [a*b for b in L1]  where we thus iterate over the values in  L1  and generate a list where we multiply the values with  a . 
+
+
+

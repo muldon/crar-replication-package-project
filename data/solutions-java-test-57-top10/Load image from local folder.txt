@@ -1,0 +1,240 @@
+Query: Load image from local folder
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8270422)
+ . The parameters:  
+
+ 
+  styleDefinitions  is a string with the css stylesheet definitions. 
+  flatImageFolder  is a boolean value. If true, all local images with relative urls are taken from the  src/main/resources/images  folder. If false they have to be placed inside the folder in the appropriate subfolders. 
+ 
+
+ The java code: 
+
+  public class SeleniumTools {
+    public function loadCSS(String styleDefinitions, Boolean flatImageFolder) {
+        Pattern pattern;
+        if(flatImageFolder) {
+            pattern = Pattern.compile("url\\((?:.*?\\/)(.*?).(png|gif)\\)");
+        } else {
+            pattern = Pattern.compile("url\\(((?:.*?\\/).*?).(png|gif)\\)");
+        }
+        Matcher matcher = pattern.matcher(styleDefinitions);
+        StringBuffer styleDefinitionsWithInlineImageData = new StringBuffer();
+        int lastMatchEndPosition = 0;
+        while(matcher.find()) {
+            String filename = matcher.group(1);
+            String extension = matcher.group(2);
+            lastMatchEndPosition = matcher.end();
+            matcher.appendReplacement(styleDefinitionsWithInlineImageData, "url(" + convertImageToBinaryData(
+                        SeleniumTools.class.getResourceAsStream("/images/" + filename + "." + extension), extension) + ")");
+        }
+        // add all definitions from the last match until the end of the stylesheet
+        styleDefinitionsWithInlineImageData.append(styleDefinitions.substring(lastMatchEndPosition));
+        String script = "jQuery('<style type=\"text/css\">" + styleDefinitionsWithInlineImageData.toString() + "</style>').appendTo('html > head');";
+        ((JavascriptExecutor) webDriver).executeScript(script);
+    }
+
+    private static String convertImageToBinaryData(InputStream imageInputStream, String fileExtension) {
+        BufferedImage image;
+        try {
+            image = ImageIO.read(imageInputStream);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, fileExtension, baos);
+            return "data:image/" + fileExtension + ";base64," + Base64.encode(baos.toByteArray());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15037676)
+ You can use something like this if you are trying to load an image from a local location. 
+
+  File file = new File("D:/project/resources/imageA.jpg");
+Image image = ImageIO.read(file);
+  
+
+ If you are planning to read the image from a URL, use the below code: 
+
+  URL url = new URL("http://www.google.co.in/images/srpr/logo3w.png");
+Image image = ImageIO.read(url);
+  
+
+ Please have a look at the below code for better understanding: 
+
+  package com.stack.overflow.works.main;
+
+import java.awt.Image;
+import java.net.URL;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+
+/**
+ * @author sarath_sivan
+ */
+
+public class ImageLoader {
+
+    private ClassLoader classLoader = ClassLoader.getSystemClassLoader();
+    private Image image = null;
+    private URL url = null;
+
+    /**
+     * Loading image from a URL with the help of java.net.URL class.
+     */
+    public void loadFromURL() {
+        image = null;
+        try {
+            url = new URL("http://www.google.co.in/images/srpr/logo3w.png");
+            if (url != null) {
+                image = ImageIO.read(url);
+            }
+
+        } catch(Exception exception) {
+            exception.printStackTrace();
+        }
+        display(image, "Loading image from URL...");
+
+    }
+
+    /**
+     * Loading image from your local hard-drive with getResource().
+     * Make sure that your resource folder which contains the image
+     * is available in your class path.
+     */
+    public void loadFromLocalFile() {
+        image = null;
+        try {
+            url = classLoader.getResource("images.jpg");
+            if (url != null) {
+                image = ImageIO.read(url);
+            }
+
+        } catch(Exception exception) {
+            exception.printStackTrace();
+        }
+        display(image, "Loading image from Local File...");
+    }
+
+
+
+    private void display(Image image, String message) {
+        JFrame frame = new JFrame(message);
+        frame.setSize(300, 300);
+        JLabel label = new JLabel(new ImageIcon(image));
+        frame.add(label);
+        frame.setVisible(true);
+    }
+
+    public static void main(String[] args) {
+        ImageLoader imageLoader = new ImageLoader();
+        imageLoader.loadFromURL();
+        imageLoader.loadFromLocalFile();
+    }
+
+}
+  
+
+ Output 
+
+   
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6416396)
+ Put your HTML file in the assets folder. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27690796)
+ You draw the image back to itself (?) using a Graphics object derived from the Image itself. Instead store the image to a field, not a local variable, and draw that image within the JPanel's paintComponent method. Most important, have a look at the http://www.oracle.com/technetwork/java/painting-140037.html 
+
+  private BufferedImage img;
+
+public void load(String path) throws IOException {
+       img = ImageIO.read(new File(path));
+       this.repaint();
+}
+
+@Override
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    if (img != null) {
+        g.drawImage(img, 0, 0, null);
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3826743)
+ The section from the Swing tutorial on http://download.oracle.com/javase/tutorial/uiswing/components/icon.html shows many ways to load an image.  
+
+ Don't forget you can always use a fully qualified path like "c://java/images/some.gif". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29780497)
+ Set the  assets  directory as a resource directory and then load the image as a resource from the location "/drawIcon.png": 
+
+  URL url = getClass().getResource("/drawIcon.png");
+Image image = ImageIO.read(url);
+  
+
+ In case you want to create a javafx Image: 
+
+  Image image = new Image("/drawIcon.png");
+  
+
+ In this case, also, mark that folder as resource folder. 
+
+ More info here: https://docs.oracle.com/javafx/2/api/javafx/scene/image/Image.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22208738)
+ When your images are stored in the jar, you need to load them as a resource. Along these lines, but you should close the stream. 
+
+  BufferedImage image = ImageIO.read(MyClass.class.getResourceAsStream("something.png"));
+  
+
+ When you run in Eclipse, you have the images local in your directory, so you can see them with the usual File objects, but not when they are in the jar itself. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18455062)
+ Try putting your images in a separate folder outside of your src folder. Then, use ImageIO to load your images.  
+
+  frame.setIconImage(ImageIO.read(new File("res/icon.png")));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26476095)
+ A workaround for loading the resource using getDocumentBase() you can get the URL by using the getResource of class which gets the resources relative to the class. 
+
+  URL base = img.class.getResource("/data/winter.jpg");
+Image img = ImageIO.read(base);
+  
+
+ where data is a folder in the Exam3 folder in your case which contains this class file. 
+
+
+

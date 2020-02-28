@@ -1,0 +1,343 @@
+Query: Copy a Directory recursively
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/29801090)
+ my version: 
+
+  static private void copyFolder(File src, File dest) {
+    // checks
+    if(src==null || dest==null)
+        return;
+    if(!src.isDirectory())
+        return;
+    if(dest.exists()){
+        if(!dest.isDirectory()){
+            //System.out.println("destination not a folder " + dest);
+            return;
+        }
+    } else {
+        dest.mkdir();
+    }
+
+    if(src.listFiles()==null || src.listFiles().length==0)
+        return;
+
+    for(File file: src.listFiles()){
+        File fileDest = new File(dest, file.getName());
+        //System.out.println(fileDest.getAbsolutePath());
+        if(file.isDirectory()){
+            copyFolder(file, fileDest);
+        }else{
+            if(fileDest.exists())
+                continue;
+
+            try {
+                Files.copy(file.toPath(), fileDest.toPath());
+            } catch (IOException e) {
+                //e.printStackTrace();
+            }
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9338319)
+ Answering my own question... Please note I figured this out by trial and error so I could be wrong on some of the points: 
+
+ 
+  Archives are treated as directories.  Files.copy(archive, archive)  is essentially trying to copy one directory to another.  Files.copy(Path, Path)  is made for copying a single file, not for copying directories recursively.  
+  Now that we know archives are treated as directories we simply copy files from one directory into another:  
+ 
+
+
+
+  Files.walkFileTree(sourceFile, new SimpleFileVisitor<Path>()
+{
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+    {
+        Files.copy(file, targetFile.resolve(sourceFile.relativize(file)), 
+            StandardCopyOption.COPY_ATTRIBUTES);
+        return super.visitFile(file, attrs);
+    }
+});
+  
+
+ 3. Yes, you can use:  targetFile.getFileSystem().sync(FsSyncOptions.UMOUNT);  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32604758)
+ There is a https://docs.oracle.com/javase/tutorial/essential/io/copy.html with a recursive copy https://docs.oracle.com/javase/tutorial/displayCode.html?code=https://docs.oracle.com/javase/tutorial/essential/io/examples/Copy.java. It works with java se 7+. It uses Files.walkFileTree method, which https://bugs.openjdk.java.net/browse/JDK-8069345. To avoid using Files.walkFileTree, the possible solution can look like: 
+
+  public static void copyFileOrFolder(File source, File dest, CopyOption...  options) throws IOException {
+    if (source.isDirectory())
+        copyFolder(source, dest, options);
+    else {
+        ensureParentFolder(dest);
+        copyFile(source, dest, options);
+    }
+}
+
+private static void copyFolder(File source, File dest, CopyOption... options) throws IOException {
+    if (!dest.exists())
+        dest.mkdirs();
+    File[] contents = source.listFiles();
+    if (contents != null) {
+        for (File f : contents) {
+            File newFile = new File(dest.getAbsolutePath() + File.separator + f.getName());
+            if (f.isDirectory())
+                copyFolder(f, newFile, options);
+            else
+                copyFile(f, newFile, options);
+        }
+    }
+}
+
+private static void copyFile(File source, File dest, CopyOption... options) throws IOException {
+    Files.copy(source.toPath(), dest.toPath(), options);
+}
+
+private static void ensureParentFolder(File file) {
+    File parent = file.getParentFile();
+    if (parent != null && !parent.exists())
+        parent.mkdirs();
+} 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34254130)
+ How about the following code 
+
+  public void copyFolder(File src, File dest) throws IOException {
+        try (Stream<Path> stream = Files.walk(src.toPath())) {
+            stream.forEachOrdered(sourcePath -> {
+
+                try {
+                    Files.copy(
+                            /*Source Path*/
+                            sourcePath,
+                            /*Destination Path */
+                            src.toPath().resolve(dest.toPath().relativize(sourcePath)));
+                } catch (Exception e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            });
+        }
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35637942)
+ Inspired by Mohit's answer in https://stackoverflow.com/questions/6214703/copy-entire-directory-contents-to-another-directory. Applicable only for Java 8. 
+
+ The following can be used to copy everything recursively from one folder to another: 
+
+  public static void main(String[] args) throws IOException {
+    Path source = Paths.get("/path/to/source/dir");
+    Path destination = Paths.get("/path/to/dest/dir");
+
+    List<Path> sources = Files.walk(source).collect(toList());
+    List<Path> destinations = sources.stream()
+            .map(source::relativize)
+            .map(destination::resolve)
+            .collect(toList());
+
+    for (int i = 0; i < sources.size(); i++) {
+        Files.copy(sources.get(i), destinations.get(i));
+    }
+}
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29819001)
+  
+
+  static void copyFolder(File src, File dest){
+    // checks
+    if(src==null || dest==null)
+        return;
+    if(!src.isDirectory())
+        return;
+    if(dest.exists()){
+        if(!dest.isDirectory()){
+            //System.out.println("destination not a folder " + dest);
+            return;
+        }
+    } else {
+        dest.mkdir();
+    }
+
+    if(src.listFiles()==null || src.listFiles().length==0)
+        return;
+
+    String strAbsPathSrc = src.getAbsolutePath();
+    String strAbsPathDest = dest.getAbsolutePath();
+
+    try {
+        Files.walkFileTree(src.toPath(), new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file,
+                    BasicFileAttributes attrs) throws IOException {
+                File dstFile = new File(strAbsPathDest + file.toAbsolutePath().toString().substring(strAbsPathSrc.length()));
+                if(dstFile.exists())
+                    return FileVisitResult.CONTINUE;
+
+                if(!dstFile.getParentFile().exists())
+                    dstFile.getParentFile().mkdirs();
+
+                //System.out.println(file + " " + dstFile.getAbsolutePath());
+                Files.copy(file, dstFile.toPath());
+
+                return FileVisitResult.CONTINUE;
+            }
+        });
+
+    } catch (IOException e) {
+        //e.printStackTrace();
+        return;
+    }
+
+    return;
+}
+  
+
+ its code use java8 Files.walkFileTree function. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8147788)
+ https://stackoverflow.com/questions/1386809/copy-a-directory-from-a-jar-file/2993908#2993908 will copy jar file as well as content inside jar file.  
+
+  public void copyResourcesRecursively(URL originUrl, File destination) throws Exception {
+    URLConnection urlConnection = originUrl.openConnection();
+    if (urlConnection instanceof JarURLConnection) {
+        copyJarResourcesRecursively(destination, (JarURLConnection) urlConnection);
+    } else if (urlConnection instanceof FileURLConnection) {
+        FileUtils.copyFilesRecusively(new File(originUrl.getPath()), destination);
+    } else {
+        throw new Exception("URLConnection[" + urlConnection.getClass().getSimpleName() +
+                "] is not a recognized/implemented connection type.");
+    }
+}
+
+public void copyJarResourcesRecursively(File destination, JarURLConnection jarConnection ) throws IOException {
+    JarFile jarFile = jarConnection.getJarFile();
+    for (JarEntry entry : CollectionUtils.iterable(jarFile.entries())) {
+        if (entry.getName().startsWith(jarConnection.getEntryName())) {
+            String fileName = StringUtils.removeStart(entry.getName(), jarConnection.getEntryName());
+            if (!entry.isDirectory()) {
+                InputStream entryInputStream = null;
+                try {
+                    entryInputStream = jarFile.getInputStream(entry);
+                    FileUtils.copyStream(entryInputStream, new File(destination, fileName));
+                } finally {
+                    FileUtils.safeClose(entryInputStream);
+                }
+            } else {
+                FileUtils.ensureDirectoryExists(new File(destination, fileName));
+            }
+        }
+    }
+}
+  
+
+ https://stackoverflow.com/questions/1386809/copy-a-directory-from-a-jar-file/2993908#2993908 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46030326)
+ This version uses  Files.walk  and  Path  parameters as Java 8 suggests. 
+
+  public static void copyFolder(Path src, Path dest) {
+    try {
+        Files.walk( src ).forEach( s -> {
+            try {
+                Path d = dest.resolve( src.relativize(s) );
+                if( Files.isDirectory( s ) ) {
+                    if( !Files.exists( d ) )
+                        Files.createDirectory( d );
+                    return;
+                }
+                Files.copy( s, d );// use flag to override existing
+            } catch( Exception e ) {
+                e.printStackTrace();
+            }
+        });
+    } catch( Exception ex ) {
+        ex.printStackTrace();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50418060)
+ In this way the code looks a bit simpler 
+
+  public  void copyFolder(Path src, Path dest) throws IOException {
+    Files.walk(src)
+        .forEach(source -> copy(source, dest.resolve(src.relativize(source))));
+}
+
+private void copy(Path source, Path dest) {
+    try {
+        Files.copy(source, dest, REPLACE_EXISTING);
+    } catch (Exception e) {
+        throw new RuntimeException(e.getMessage(), e);
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39725832)
+ Putting all of your asset files into a zip file, as mentioned in the question to which Reddymails linked, is a pretty good way to do it. 
+
+ If you want to keep the asset files as individual entries in your ., the problem is that you will not have a directory to list: 
+
+ 
+ A directory entry in a . or zip file is just a name;  there is no way to “list” it. 
+  . file is not always obtainable, because http://docs.oracle.com/javase/8/docs/api/java/security/ProtectionDomain.html#getCodeSource--. 
+ re are complex ClassLoaders that read from sources other than directories or .. 
+ 
+
+ You can have your build process list the entries in a text file (since you know what they are, after all) before packaging them, and include that text file in your ..  n copying them at runtime is as easy as reading from that file: 
+
+  Path assetDir = /* ... */;
+
+try (BufferedReader listFile = new BufferedReader(
+        new InputStreamReader(
+            getClass().getResourceAsStream("assets-list.txt"),
+            StandardCharsets.UTF_8))) {
+
+    String assetResource;
+    while ((assetResource = listFile.readLine()) != null) {
+        Path assetFile = assetDir.resolve(assetResource);
+        Files.createDirectories(assetFile.getParent());
+        try (InputStream asset = getClass().getResourceAsStream(assetResource)) {
+            Files.copy(asset, assetFile);
+        }
+    }
+}
+  
+
+
+

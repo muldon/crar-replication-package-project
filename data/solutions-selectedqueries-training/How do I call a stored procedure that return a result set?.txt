@@ -1,0 +1,119 @@
+Query: How do I call a stored procedure that return a result set?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40339502)
+ Warning: this answer was written without access to a SQL Server instance, so it might not be correct, I hope it will help you. I'll try to update it later when I do have access to an SQL Server system. 
+
+ The problem seems to be is that you have  three  different ways of getting values from this stored procedure. You have a return value, an  OUTPUT  parameter and a result set. If the result set is produced depends on the logic of your stored procedure, so you must be prepared to handle its absence. 
+
+ First of all, to get the return value of the stored procedure, you must use: 
+
+  String query = "{?=call [system].[usp_UserLogin(?,?,?,?,?)}";
+  
+
+ Where the  ?=  is the return value. 
+
+ This also has an effect on the the index of the various parameters. It may also be necessary to explicitly register the first (return) parameter as an out parameter. 
+
+ Then you need to execute the stored procedure and be prepared to handle the absence of a result set: 
+
+  boolean firstResultIsResultSet = cs.execute();
+if (firstResultIsResultSet) {
+    ResultSet rs = cs.getResultSet();
+    // process result set
+}
+  
+
+ Note that if you would have multiple result sets and also update counts, this would get even more complicated. 
+
+ You should be able to get the return value using  cs.getInt(1) , although I'm not 100% sure if you can get it before checking and processing the result set. On this the Javadoc for  CallableStatement  says: 
+
+ 
+   For maximum portability, a call's  ResultSet  objects and update counts should be processed prior to getting the values of output parameters. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50023901)
+ In order to call stored procedures with callable statement you need to registerOutParameter for the expected results. Also you don't need to  executeQuery  after the  execute  becaues you don't have a query and you have already executed your statement 
+
+ Try to change your code to: 
+
+  boolean hasResults=statement.execute();
+
+while (hasResults) {
+    ResultSet rs = cStmt.getResultSet();
+    int tempId = rs.getInt("id");
+    String tempJudul = rs.getString("judul");
+    result.add(new Buku(tempId, tempJudul));
+    hasResults= cStmt.getMoreResults();        
+}
+  
+
+ But before that you should add the parameters you expect to the statement.  
+
+   statement.setString(1,parameter);
+ // Add out parameters here
+ statement.registerOutParameter(1, java.sql.Types.INTEGER);
+ ....
+  
+
+ I cannot be bothered to look at the procedure call right now ;) but I guess it works if you can execute it in management studio 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14853194)
+ 'Rules/limitations for using stored procedures' in hibernate documentation states that  
+
+  "The procedure must return a result set. Note that since these servers can return multiple result sets and update counts, Hibernate will iterate the results and take the first result that is a result set as its return value. Everything else will be discarded." 
+(reference : http://docs.jboss.org/hibernate/orm/3.3/reference/en/html/querysql.html#sp_query) 
+
+ As stated, the second resultset in your case is being ignored. 
+
+ You would need to use jdbc for getting both result sets. Either you can make separate classes for doing so, or alternatively, hibernate offers you methods for performing traditional jdbc operations via its session's 'doWork' and 'doReturningWork' methods... 
+
+ A simple example could be: 
+
+  List<Object> res = session.doReturningWork(new ReturningWork<List<Object> /*objectType returned*/>() {
+            @Override
+            /* or object type you need to return to process*/
+            public List<Object> execute(Connection conn) throws SQLException 
+            {
+                CallableStatement cstmt = conn.prepareCall("CALL YOUR_PROCEDURE");
+                //Result list that would return ALL rows of ALL result sets
+                List<Object> result = new ArrayList<Object>();
+                try
+                {
+                    cstmt.execute();                        
+
+                    ResultSet rs = cstmt.getResultSet(); // First resultset
+                    while (rs.next()) {//Read items/rows of first resultset
+                        // .
+                        // Process rows of first resultset
+
+                        result.add(obj); // add items of resultset 1 to the returning list object
+                    }
+
+                    cstmt.getMoreResults(); // Moves to this Statement object's next result, returns true if it is a ResultSet object
+
+                    rs = cstmt.getResultSet(); // Second resultset
+                    while (rs.next()) {
+                        // .
+                        // Process rows of second resultset
+
+                        result.add(obj); // add items of resultset 2 to the returning list object
+                    }
+                    rs.close();                           
+                }
+                finally
+                {cstmt.close();}
+
+                return result; // this should contain All rows or objects you need for further processing
+            }
+        });
+  
+
+
+

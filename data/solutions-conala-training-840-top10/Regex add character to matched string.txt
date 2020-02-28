@@ -1,0 +1,220 @@
+Query: Regex add character to matched string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36546524)
+ You may use the following regex: 
+
+  (\S)\(
+  
+
+ And replace with  r'\1 (' . The  (\S)  will capture into Group 1 any character that is not a whitespace. Since it is a consuming subpattern, no  (  at the string start will get matched (there must be a character before a  ( ). 
+
+ The backreferences are defined with a backslash in Python (or with  \g<n>  syntax to make them unambiguous). 
+
+ Note that to also match a  (  at the beginning of a string (to add a space before the first  (  in a string), use  r'(?<!\s)\('  regex (with a non-consuming subpattern - a negative lookbehind  (?<!\s)  that makes sure there is no whitespace character before a  ( ):  
+
+  re.sub(r"(?<!\s)\(", r' (', "(some text)") # => " (some text)"
+  
+
+ See the https://ideone.com/kuZ1AW: 
+
+  import re
+print(re.sub(r"(\S)\(", r'\1 (', "(some text)"))      # => (some text)
+print(re.sub(r"(\S)\(", r'\1 (', "Text(some text)"))  # => Text (some text)
+print(re.sub(r"(?<!\s)\(", r' (', "(some text)"))     # =>  (some text)
+  
+
+ Please note the use of raw string literals to declare both the regex and the regex replacement (this helps avoid many unexpected issues). See https://stackoverflow.com/questions/12871066/what-exactly-is-a-raw-string-regex-and-how-can-you-use-it 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42732018)
+ You may perhaps use the following  regex (with a http://www.regular-expressions.info/lookaround.html#lookbehind and http://www.regular-expressions.info/lookaround.html#lookahead assertion) : 
+
+  (?<=\.)(?!\s)
+  
+
+    
+
+  re.sub(r"(?<=\.)(?!\s)", " ", para)
+  
+
+ see  https://ideone.com/jp1juv  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42733276)
+ A slightly modified version of your  regex  will also work: 
+
+  print re.sub(r"([\.])([^\s])", r"\1 \2", para)
+
+# I saw this film about 20 years ago and remember it as being particularly nasty. I believe it is based on a true incident: a young man breaks into a nurses' home and rapes, tortures and kills various women. It is in black and white but saves the colour for one shocking shot. At the end the film seems to be trying to make some political statement but it just comes across as confused and obscene. Avoid.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42732081)
+ The  (?<=a)b  is a http://www.regular-expressions.info/lookaround.html. It matches  b  following  a . The  a  is not captured. So in your expression, I'm not sure what the value of  \1  represents in this case, but it's not what's inside of  (?<=...) . 
+
+ Your current approach has another flaw: it would add a space after a  .  even when one is already there. 
+
+ To add  missing  space after  . , I suggest a different strategy:
+replace   . -followed-by-non-space-non-dot  with  .  and a space: 
+
+  re.sub(r'\.(?=[^ .])', '. ', para)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42732067)
+ I think this is what you want to do. You can pass a function in to do the replacement.  
+
+  import re
+
+def my_replace(match):
+    return " " + match.group()
+
+my_string = "dhd.hd hd hs fjs.hello"
+print(re.sub(r'(?<=\.).', my_replace, my_string))
+  
+
+  
+
+  dhd. hd hd hs fjs. hello
+  
+
+ As @Seanny123 pointed out, this will add a space even if there was already a space after the period.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20735396)
+ Use  re.sub(  to provide replacements, using a backreference to re-use matched text: 
+
+  import re
+
+text = re.sub(r'(get', r'\1@', text
+  
+
+ The  (..  parenthesis mark a group, which  \1  refers to when specifying a replacement. So  get  is replaced by  get@ . 
+
+  
+
+  >>> import re
+>>> text = 'Do you get it yet?'
+>>> re.sub(r'(get', r'\1@', text
+'Do you get@ it yet?'
+  
+
+ The pattern will match  get  anywhere in the string; if you need to limit it to whole words, add  \b  anchors: 
+
+  text = re.sub(r'(\bget\b', r'\1@', text
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11582247)
+ Well  \w  is a predefined set of characters, you can't programatically modify the meaning of  \w . But you can setup a group that will match any character in  \w  plus any other characters you want using the  []  syntax. So you'd change your regex to 
+
+  [\w\&æ]+
+  
+
+  
+
+  [\W\&æ]+
+  
+
+ respectively 
+
+ This matches any character in the  \w    \W  set and adds & and æ. You can play around with these expressions on http://regexpal.com/?flags=g&regex=%5B%5Cw%5C&%C3%A6%5D%2b&input=KittyCat&%C3%A6. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24712266)
+ You can use a negative character class here. Start with  \W  (not a word); negated that means everything that  is  a word character, but you can then add all your exceptions: 
+
+  [^\W_0-9cikmov]
+  
+
+  [^...]  is a negative character class, everything in the class must  not  match. With  \W  that means anything that is  not  in the ranges a-z, A-Z, 0-9 or and underscore would match, the  ^  inverted that so we now match all letters, numbers and underscores. 
+
+ To that we added numbers and an underscore, so now it only matches letters again. Then add your exceptions, and it'll only match all letters except c, i, k, m, o or v. The uppercase versions are still matched, unless you make the regex case insensitive. 
+
+  
+
+  >>> import re
+>>> re.findall(r'[^\W_0-9cikmov]', "Don't match 1232 or cikmov")
+['D', 'n', 't', 'a', 't', 'h', 'r']
+  
+
+ All letters were matched, except for your exceptions. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53401467)
+ Some  regex  magic: 
+
+  import re
+
+s = 'aaawbbbccddddd'
+counts = re.sub(r'(.)\1*', lambda m: m.group(1) + str(len(m.group())), s)
+print(counts)
+  
+
+ The output: 
+
+  a3w1b3c2d5
+  
+
+ 
+
+  Details : 
+
+ regex pattern: 
+
+ 
+  (.)  - capturing a character  . (any char) into the 1st captured group 
+  \1*  - matches zero or more consecutive  \1  which is a reference to the 1st captured group value (matching a potentially sequence of the same character) 
+ 
+
+ replacement: 
+
+ 
+  m.group(1)  - contains the 1st matched group value 
+  str(len(m.group()))  - get length of the entire character sequence matched 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43697428)
+ You are looking for either a capturing group/backreference or a positive lookbehind solution: 
+
+  s = "a,s I walk, I hum."
+
+# Capturing group / backreference
+print(re.sub(r"([aeiou]),", r"\1", s))
+
+# Positive lookbehind
+print(re.sub(r"(?<=[aeiou]),", "", s))
+  
+
+ See the  http://ideone.com/Pmt4XM. 
+
+  First approach details  
+
+ The  ([aeiou])  is a capturing group that matches a vowel and stores it in a special memory buffer that you can refer to from the replacement pattern using backreferences. Here, the Group ID is 1, so you can access that value using  r"\1" . 
+
+  Second approach details  
+
+ The  (?<=[aeiou])  is a positive lookbehind that only checks (but  does not add the text to the match value) if there is a vowel immediately before the current position. So, only those commas are matched that are preceded with a vowel and it is enough to replace with an empty string to get rid of the comma since it is the only symbol kept in the match. 
+
+
+

@@ -1,0 +1,184 @@
+Query: python, subprocess: reading output from subprocess
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3806960)
+ The subprocess method http://docs.python.org/dev/library/subprocess.html#subprocess.check_output can be useful for this: 
+
+  output = subprocess.check_output('./script.py')  
+
+ And output will be the stdout from the process. If you need stderr, too: 
+
+  output = subprocess.check_output('./script.py', stderr=subprocess.STDOUT)  
+
+ Because you avoid managing pipes directly, it may circumvent your issue. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/21421683)
+ Try the following : 
+
+  for line in output.split(os.linesep):
+  
+
+  
+
+  for line in output:
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16266645)
+ The  os.popen()  has been deprecated since Python 2.6. You should now use the  subprocess  module instead: http://docs.python.org/2/library/subprocess.html#subprocess.Popen 
+
+  import subprocess
+
+command = "gcc -E myHeader.h"  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+
+#Launch the shell command:
+output = process.communicate()
+
+print output[0]
+  
+
+ In the Popen constructor, if  shell  is  True , you should pass the command as a string rather than as a sequence. Otherwise, just split the command into a list:  
+
+  command = ["gcc", "-E", "myHeader.h"]  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None)
+  
+
+ If you need to read also the standard error, into the Popen initialization, you can set  stderr  to  subprocess.PIPE  or to  subprocess.STDOUT : 
+
+  import subprocess
+
+command = "gcc -E myHeader.h"  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+#Launch the shell command:
+output, error = process.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10673224)
+ You probably want  subprocess.Popen .  To communicate with the process, you'd use the  communicate  method. 
+
+ e.g. 
+
+  process=subprocess.Popen(['command','--option','foo'],
+                         stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+inputdata="This is the string I will send to the process"
+stdoutdata,stderrdata=process.communicate(input=inputdata)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4814985)
+ It was introduced in 2.7 See the http://docs.python.org/library/subprocess.html#subprocess.check_output. 
+
+ Use http://docs.python.org/library/subprocess.html#subprocess.Popen if you want the output: 
+
+  >>> import subprocess
+>>> output = subprocess.Popen(['ls', '-l'], stdout=subprocess.PIPE).communicate()[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10251529)
+ You can use the  stdout=  and  stderr=  parameters to  subprocess.call()  to direct  stdout  or  stderr  to a file descriptor of your choice.   
+
+  import os
+
+devnull = open(os.devnull, 'w')
+subprocess.call(shlex.split(
+    '/usr/local/itms/bin/iTMSTransporter -m lookupMetadata '
+    '-apple_id %s -destination %s' % (self,apple_id, self.destination)),
+  stdout=devnull, stderr=devnull)
+  
+
+ Using  subprocess.PIPE , if you're not reading from the pipe, could cause your program to block if it generates a lot of output. 
+
+  Update  
+
+ As @yanlend mentions in a comment, newer (3.x) versions of Python include  subprocess.DEVNULL  to solve this problem in a more convenient and portable fashion.  In that case, the code would look like: 
+
+  subprocess.call(shlex.split(
+    '/usr/local/itms/bin/iTMSTransporter -m lookupMetadata '
+    '-apple_id %s -destination %s' % (self,apple_id, self.destination)),
+  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9401813)
+ From the documentation for http://docs.python.org/library/subprocess.html#subprocess.Popen.communicate: 
+
+ 
+   Send data to stdin. Read data from stdout and stderr, until end-of-file is reached. Wait for process to terminate. 
+ 
+
+ This means that you can only call  communicate()  once for your subprocess. 
+
+ Getting real time output can be kind of tricky, but in your example it shouldn't be too difficult since you are only attempting to read a single line.  The following should work: 
+
+  import subprocess
+
+proc = subprocess.Popen('./test', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+outdata = proc.stdout.readline()
+print outdata
+outdata, errdata = proc.communicate('output was ' + outdata)
+print outdata
+  
+
+ Note that I renamed some of your variables, since the output from your subprocess is not really stdin for your Python process. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24819005)
+ Without subprocess.PIPE the output of command would be printed on STDOUT and process.communicate() should return None.
+Which python version are you using? 
+
+ Can you paste the output? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7206565)
+ This works: 
+
+  import subprocess
+command = "ls"
+p = subprocess.Popen(command, shell=True, bufsize=0, stdout=subprocess.PIPE, universal_newlines=True)
+p.wait()
+output = p.stdout.read()
+p.stdout.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49127954)
+ You cannot "reconnect" the file descriptors of a subprocess you've already launched (except perhaps with very dirty and OS-specific tricks). The only file descriptor you have control over, is the one that's still in your process, and it's only useful for reading. So if you want things to go to stdout, then everything that comes into the read end would have to be copied to stdout somehow. 
+
+ Fortunately, you can always spawn another subprocess to do that. This is just the kind of thing that the handy Unix utility  cat  does well. 
+
+  subprocess.Popen(
+  ["/bin/cat"],
+  stdin=p.stdout,
+)
+  
+
+ This will basically create a pipeline, where you pipe the output of one process into another process. It can be very useful. In this case the other process ( cat ) just outputs to stdout. 
+
+
+

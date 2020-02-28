@@ -1,0 +1,201 @@
+Query: Redirect Servlet Call to Another URL
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25856765)
+ There are in fact 2 different problems in your question : 
+
+ 
+ you want to redirect to another page 
+ you want to continue processing after the redirection 
+ 
+
+ It is simple to redirect to another URL from a servlet, just call : 
+
+  response.sendRedirect("url?param=value");
+  
+
+ For the second part, it seems that it is possible to continue processing in servlet  after  sending the response to the client. From my test on a Tomcat 7 servlet container, you can do so if ContentLength is set to 0 (as body is empty) and the output stream is closed. I could never have a confirmation from servlet specs, but as I wrote above it works on Tomcat : 
+
+  response.sendRedirect("url?param=value");
+response.setContentLength(0);
+response.getOutputStream().close();
+// continue after connection with client is closed
+// generate and send email
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19079153)
+ To redirect a request from servlet you can use  sendRedirect  method : 
+
+      response.sendRedirect("http://localhost:8080/HelloWorld/test");
+  
+
+  
+
+  out.println("<a href=”http://localhost:8080/HelloWorld/test”> Hello World Servlet  ");
+  
+
+ will simply send the link in response body but will not redirect. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16244524)
+   .jsp  when performing the redirect. 
+
+  response.sendRedirect("CreerCommande.jsp?cat=" + cat+"&prix="+prix);
+  
+
+  
+
+  response.sendRedirect("CreerCommande?cat=" + cat+"&prix="+prix);
+  
+
+ Also add your contextpath to the url in the form. 
+
+  <form action="<%=request.getContextPath()%>/urlCommandeServ" method="post">
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11942406)
+ 
+ A solution for redirecting from Java/servlet: 
+ 
+
+ If it's on the same machine you can use  forward :  
+
+  request.getRequestDispatcher("pathToNewServletOrJsp").forward(request, response);
+  
+
+   (with the relative path) and the URL will not change, otherwise you have to use  sendRedirect :   
+
+  response.sendRedirect("pathToNewServletOrJsp");
+  
+
+ and in this case - the URL will change. 
+
+ 
+ Another solution will be creating rules for https://stackoverflow.com/questions/9322454/syntax-for-301-redirect-of-www-to-non-www-using-httpd-conf in your
+https://en.wikipedia.org/wiki/.htaccess file. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12639285)
+  response.sendRedirect(response.encodeRedirectURL(request.getContextPath() + "/"));
+  
+
+ The call to encodeRedirectURL is necessary if you want to support session tracking for browsers with cookie support disabled (i.e. using URL rewriting). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9800673)
+ If you have no use for the request parameters and your jsp/servlet has not written anything to the response, then I suppose it would be fine to use redirect instead of forward, since redirecting will discard the request along with the parameters. 
+
+ When you do redirect, you can create dynamically and set the querystring like so: 
+
+  response.sendRedirect("url?a=" + var1 +"&b=" + var2);
+  
+
+ Take note that this will be a GET method to the url. If url will be resolved to a servlet, you can implement the doGet method to just call the doPost. 
+
+  Please note that a redirect will be ignored if the jsp/servlet has written something already on the response...  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12014169)
+ First of all the  request.getHeader("referer")  returns a full URL but you have to strip off the  http://server[:port]/  because what you pass to request.getRequestDispatcher() is added to the application context like this: 
+
+  /NameOfApp/http:/localhost:8084/NameOfApp/test.jsp
+  
+
+ Which is not what you want because you just need to pass the following to the dispatcher method: 
+
+  test.jsp
+  
+
+ If we take things from the start the first request starts from this URL: 
+
+  http://localhost:8084/RequestDispatcher/test.jsp
+  
+
+ The forward works but the second time you are going make a request to your Servlet, the Servlet will forward to itself. So you will enter a loop with the Servlet calling itself. Why will this happen? Since you call the Servlet from the form, this means that the URL address in your browser address box will change to that of your Servlet after the first request. 
+
+  http://localhost:8084/RequestDispatcher/NewServlet
+  
+
+ The Servlet will forward the request back to the JSP page and the browser will display just that but the URL in the browser address box will still be the one containing the Servlet and not the JSP page: 
+
+  http://localhost:8084/RequestDispatcher/NewServlet
+  
+
+ So the next time you hit submit the Servlet will try to forward the request to itself. If I were you I would use a redirect. It seems more appropriate for your purpose: 
+
+  response.sendRedirect(request.getHeader("referer"));
+  
+
+ This will always change the URL in your browser address box and prevent your Servlet from looping. This will have an impact on the request parameters but you can always add them on the redirect URL(if it's not sensitive information) or store them in session until you retrieve them on the next first request which will be made by the redirect. 
+
+ A framework like JSF would save you from these issues. 
+
+ The easiest solution that would allow you to use forward, is a hidden parameter in the form keeping the JSP(viewid) that called the Servlet instead of using the request.getHeader("referer"). You will need to check for loops though, because someone could deliberately change the value to force your Servlet container to loop and eventually crash the VM. But you can just use a request attribute to keep record of the previous request in the chain and if it's the same you respond with an error. So in the servlet you would use the hidden field value in order to decide where to forward to: 
+
+  request.getRequestDispatcher(request.getParameter("viewid")).forward(request, response);
+  
+
+  
+
+  <input type="hidden" name="viewid" value="test.jsp">
+  
+
+ I think this would cover your requirements. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32897323)
+ Another way to do it is just to use the  sendRedirect  method: 
+
+  @RequestMapping(
+    value = "/",
+    method = RequestMethod.GET)
+public void redirectToTwitter(HttpServletResponse httpServletResponse) throws IOException {
+    httpServletResponse.sendRedirect("https://twitter.com");
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5539271)
+ You need to use http://download.oracle.com/javaee/6/api/javax/servlet/http/HttpServletResponse.html#sendRedirect%28java.lang.String%29 to send a redirect. Assuming that the servlet is mapped on an URL pattern of  /products : 
+
+  response.sendRedirect("/products");
+  
+
+ This way the webbrowser will be instructed to fire a new HTTP GET request on the given URL and thus the  doGet()  method of the servlet instance will be called where you can in turn load the products and forward to a JSP which displays them the usual way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26670028)
+ The most common requirement after a login page is a redirect to the appropriate page instead of a forward. With a forward, you ask a JSP (or any other servlet) to display itself  in same request  -> the URL in top browser line is still the login URL 
+
+ With a redirect, the servlet issue a special response to browser asking it to make a new request to another URL -> it costs an additional request but the displayed URL in browser is the correct one. 
+
+ In you servlet it is just : 
+
+  response.sendRedirect("/path/toPage?user=xyz");
+  
+
+ or any other URL you want 
+
+
+

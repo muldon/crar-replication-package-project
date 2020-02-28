@@ -1,0 +1,319 @@
+Query: matplotlib: Set markers for individual points on a line
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/46637880)
+ There is a picture show all markers' name and description, i hope it will help you. 
+
+  import matplotlib.pylab as plt
+markers=['.',',','o','v','^','<','>','1','2','3','4','8','s','p','P','*','h','H','+','x','X','D','d','|','_']
+descriptions=['point', 'pixel', 'circle', 'triangle_down', 'triangle_up','triangle_left', 'triangle_right', 'tri_down', 'tri_up', 'tri_left','tri_right', 'octagon', 'square', 'pentagon', 'plus (filled)','star', 'hexagon1', 'hexagon2', 'plus', 'x', 'x (filled)','diamond', 'thin_diamond', 'vline', 'hline']
+x=[]
+y=[]
+for i in range(5):
+    for j in range(5):
+        x.append(i)
+        y.append(j)
+plt.figure()
+for i,j,m,l in zip(x,y,markers,descriptions):
+    plt.scatter(i,j,marker=m)
+    plt.text(i-0.15,j+0.15,s=m+' : '+l)
+plt.axis([-0.1,4.8,-0.1,4.5])
+plt.tight_layout()
+plt.axis('off')
+plt.show()  
+  
+
+  
+https://i.stack.imgur.com/Zn9cn.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11925269)
+ For future reference - the  Line2D  artist returned by  plot()  also has a  set_markevery()  method which allows you to only set markers on certain points - see https://matplotlib.org/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.set_markevery 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8409110)
+ Specify the keyword args  linestyle  and/or  marker  in your call to  plot . 
+
+ For example, using a dashed line and blue circle markers:  
+
+  plt.plot(range(10), linestyle='--', marker='o', color='b')
+  
+
+  
+
+  plt.plot(range(10), '--bo')
+  
+
+   
+
+ Here is a list of the possible line and marker styles:  
+
+  ================    ===============================
+character           description
+================    ===============================
+   -                solid line style
+   --               dashed line style
+   -.               dash-dot line style
+   :                dotted line style
+   .                point marker
+   ,                pixel marker
+   o                circle marker
+   v                triangle_down marker
+   ^                triangle_up marker
+   <                triangle_left marker
+   >                triangle_right marker
+   1                tri_down marker
+   2                tri_up marker
+   3                tri_left marker
+   4                tri_right marker
+   s                square marker
+   p                pentagon marker
+   *                star marker
+   h                hexagon1 marker
+   H                hexagon2 marker
+   +                plus marker
+   x                x marker
+   D                diamond marker
+   d                thin_diamond marker
+   |                vline marker
+   _                hline marker
+================    ===============================
+  
+
+ 
+
+  edit:   with an example of marking an arbitrary subset of points, as requested in the comments: 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+xs = np.linspace(-np.pi, np.pi, 30)
+ys = np.sin(xs)
+markers_on = [12, 17, 18, 19]
+plt.plot(xs, ys, '-gD', markevery=markers_on)
+plt.show()
+  
+
+ https://i.stack.imgur.com/pE4Bh.png 
+
+ This last example using the  markevery  kwarg is possible in since 1.4+, due to the merge of https://github.com/matplotlib/matplotlib/pull/2662.  If you are stuck on an older version of matplotlib, you can still achieve the result by overlaying a scatterplot on the line plot.  See the https://stackoverflow.com/posts/8409110/revisions for more details.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20130384)
+ For red lines an points 
+
+  plt.plot(dates, values, '.r-') 
+  
+
+ or for x markers and blue lines 
+
+  plt.plot(dates, values, 'xb-')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27773103)
+ You can use  scatter : 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 2*np.pi, 10)
+y = np.sin(x)
+plt.scatter(x, y)
+plt.show()
+  
+
+   
+
+ Alternatively: 
+
+  plt.plot(x, y, 's')
+  
+
+   
+
+ EDIT: If you want error bars you can do: 
+
+  plt.errorbar(x, y, yerr=err, fmt='o')
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54829041)
+ Here you create 5000 individual scatter plots. That is for sure inefficient. You may use a solution I proposed in https://stackoverflow.com/a/52303895/4124317, namely to set the individual markers as paths to a  PathCollection . This would work similar to a scatter, with an additional argument  m  for the markers. 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.markers as mmarkers
+
+def mscatter(x,y,ax=None, m=None, **kw):
+    import matplotlib.markers as mmarkers
+    if not ax: ax=plt.gca()
+    sc = ax.scatter(x,y,**kw)
+    if (m is not None) and (len(m)==len(x)):
+        paths = []
+        for marker in m:
+            if isinstance(marker, mmarkers.MarkerStyle):
+                marker_obj = marker
+            else:
+                marker_obj = mmarkers.MarkerStyle(marker)
+            path = marker_obj.get_path().transformed(
+                        marker_obj.get_transform())
+            paths.append(path)
+        sc.set_paths(paths)
+    return sc
+
+
+np.random.seed(42)
+data = np.random.rand(5000,3)
+data[:,2] *= 360
+
+markers = []
+fig, ax = plt.subplots()
+for i in range(len(data)):
+    t = mmarkers.MarkerStyle(marker='|')
+    t._transform = t.get_transform().rotate_deg(data[i,2])
+    markers.append(t)
+mscatter(data[:,0], data[:,1], m=markers, s=50, c='0', linewidth=1)
+
+plt.show()
+  
+
+ If we time this we find that this takes ~250 ms to create the plot with 5000 points and 5000 different angles. The loop solution would in contrast take more than 12 seconds. 
+
+ So far for the general question on how to rotate many markers. For the special case here, it seems you want to use simple line markers. This could easily be done using a  quiver  plot. One may then turn the arrow heads off to have the arrows look like lines. 
+
+  fig, ax = plt.subplots()
+ax.quiver(data[:,0], data[:,1], 1,1, angles=data[:,2]+90, scale=1/10, scale_units="dots",
+          units="dots", color="k", pivot="mid",width=1, headwidth=1, headlength=0)
+  
+
+ https://i.stack.imgur.com/6FqgD.png 
+
+ The result is pretty much the same, with the benefit of this plot only taking ~80 ms, which is again three times faster than the  PathCollection .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19528822)
+ If you make a plot with markers,  matplotlib.rcParams['legend.numpoints']  adjust the number of points drawn on the legend lines. 
+
+ If you substitute your plot by these: 
+
+  axs.plot(range(10), '--k', label="line", marker='d')
+axs.plot(range(10), range(10)[::-1], ':k', label="scatter", marker='o')
+  
+
+ you get this image:  
+
+ I don't know what does  matplotlib.rcParams['legend.scatterpoints']  do, but I guess regulates the number of points in the legend of scatter plots. 
+
+ If you want to change the length of the lines in the legend give a try with  matplotlib.rcParams['legend.handlelength']  and/or  matplotlib.rcParams['legend.handleheight'] . More info about rc file can be found http://matplotlib.org/users/customizing.html 
+
+ As suggested by @tcaswell, you don't have to set rc parameters. All the  legend.*  parameters are available as keywords for the  legend  function. See http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37524427)
+ Need to know parameters of spiral, formula or set of points. 
+
+ However I post a code to plot a line with markers on a sphere for your start: 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_aspect('equal')
+
+u = np.linspace(0, 2 * np.pi, 100)
+v = np.linspace(0, np.pi, 100)
+x = 1 * np.outer(np.cos(u), np.sin(v))
+y = 1 * np.outer(np.sin(u), np.sin(v))
+z = 1 * np.outer(np.ones(np.size(u)), np.cos(v))
+elev = 10.
+rot = 80. / 180. * np.pi
+ax.plot_surface(x, y, z,  rstride=1, cstride=1, color='y', linewidth=0, alpha=0.5)
+
+# plot lines in spherical coordinates system
+a = np.array([-np.sin(elev / 180 * np.pi), 0, np.cos(elev / 180 * np.pi)])
+b = np.array([0, 1, 0])
+b = b * np.cos(rot) + np.cross(a, b) * np.sin(rot) + a * np.dot(a, b) * (1 - np.cos(rot))
+ax.plot(np.sin(u),np.cos(u),0,color='r', linestyle = '-', marker='o', linewidth=2.5)
+
+ax.view_init(elev = elev, azim = 0)
+plt.show()
+  
+
+ https://i.stack.imgur.com/JzVjP.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18163931)
+ 
+  You have to provide the http://matplotlib.org/api/axes_api.html?highlight=axes#matplotlib.axes.Axes.plot method  x-coordinate arguments. If given only one list-like object, matplotlib will use this list as the y-coordinates and use  x = np.arange(len(y))  (where  y  are the given y-coordinates).  
+  You should not call the http://matplotlib.org/api/axes_api.html?highlight=axes#matplotlib.axes.Axes.legend method several times for each  Axes ; include the  numpoints  kwarg in your original  legend  call.  
+ 
+
+ In other words, replace the lines 
+
+  lines_1=par1.plot(perform_1,linestyle='', marker='H', markerfacecolor ='k')
+lines_2=par1.plot(perform_2,linestyle='', marker='*',markerfacecolor ='m')
+ax.legend((rects1[0], rects2[0],lines_1[0],lines_2[0]), ('Current time period', 'Next time Period','Current Period Performance', 'Next Period Performance'),prop=dict(size=10) )
+  
+
+  
+
+  lines_1=par1.plot(ind + 0.5*width, perform_1,linestyle='', marker='H', markerfacecolor ='k')
+lines_2=par1.plot(ind + 1.5*width, perform_2,linestyle='', marker='*',markerfacecolor ='m')
+ax.legend((rects1[0], rects2[0],lines_1[0],lines_2[0]), ('Current time period', 'Next time Period','Current Period Performance', 'Next Period Performance'),prop=dict(size=10), numpoints=1 )
+  
+
+ This gives the desire output: 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31811013)
+  markers  describe the points that are plotted with  plt.plot . So, you can have, for example,  'o', 's', 'D', '^', 'v' '*', '.', ',' , etc. See http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.plot for a full list of available options. 
+
+  '-', '--', ':', '-.'  are not markers, but linestyles. 
+
+ So, it depends what you are trying to plot. If you want one  Axes  object with diamond markers, another with diamond markers and a line, and a final one with just a line, you could do: 
+
+  %matplotlib inline
+import matplotlib.pyplot as plt
+import numpy as np
+
+x=np.arange(0,10)
+y=x**2
+
+markers=['d','d','None']
+lines=['None','-','-']
+colors=['red', 'green', 'blue']
+
+for i in range(len(markers)):
+    # I've offset the second and third lines so you can see the differences
+    plt.plot(x, y + i*10, marker=markers[i], linestyle=lines[i], color=colors[i])
+  
+
+ https://i.stack.imgur.com/mmMjD.png 
+
+
+

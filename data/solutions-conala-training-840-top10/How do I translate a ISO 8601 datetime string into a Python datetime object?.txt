@@ -1,0 +1,194 @@
+Query: How do I translate a ISO 8601 datetime string into a Python datetime object?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26553001)
+ Both ways: 
+
+ Epoch to ISO time: 
+
+  isoTime = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(epochTime))
+  
+
+ ISO time to Epoch: 
+
+  epochTime = time.mktime(time.strptime(isoTime, '%Y-%m-%dT%H:%M:%SZ'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12184365)
+  import datetime, time
+def convert_enddate_to_seconds(self, ts):
+    """Takes ISO 8601 format(string) and converts into epoch time."""
+    dt = datetime.datetime.strptime(ts[:-7],'%Y-%m-%dT%H:%M:%S.%f')+\
+                datetime.timedelta(hours=int(ts[-5:-3]),
+                minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+    seconds = time.mktime(dt.timetuple()) + dt.microsecond/1000000.0
+    return seconds
+  
+
+ This also includes the milliseconds and time zone. 
+
+ If the time is '2012-09-30T15:31:50.262-08:00', this will convert into epoch time. 
+
+  >>> import datetime, time
+>>> ts = '2012-09-30T15:31:50.262-08:00'
+>>> dt = datetime.datetime.strptime(ts[:-7],'%Y-%m-%dT%H:%M:%S.%f')+ datetime.timedelta(hours=int(ts[-5:-3]), minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+>>> seconds = time.mktime(dt.timetuple()) + dt.microsecond/1000000.0
+>>> seconds
+1348990310.26
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3984461)
+ http://pypi.python.org/pypi/isodate seems to have the most complete support. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/969324)
+ With Python 3 and no external libraries: 
+
+  datetime.datetime.strptime('2019-01-04T16:41:24+0200', "%Y-%m-%dT%H:%M:%S%z")
+  
+
+ Python 2 doesn't support the  %z  format specifier, so it's best to explicitly use Zulu time everywhere if possible: 
+
+  datetime.datetime.strptime("2007-03-04T21:08:12Z", "%Y-%m-%dT%H:%M:%SZ")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2851673)
+ I haven't tried it yet, but https://bitbucket.org/micktwomey/pyiso8601 promises to support this. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21781263)
+ https://bitbucket.org/nielsenb/aniso8601 should handle this. It also understands timezones, Python 2 and Python 3, and it has a reasonable coverage of the rest of http://en.wikipedia.org/wiki/ISO_8601, should you ever need it. 
+
+  import aniso8601
+aniso8601.parse_datetime('2007-03-04T21:08:12')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18942106)
+ You should keep an eye on the timezone information, as you might get into trouble when comparing non-tz-aware datetimes with tz-aware ones. 
+
+ It's probably the best to always make them tz-aware (even if only as UTC), unless you really know why it wouldn't be of any use to do so. 
+
+  #-----------------------------------------------
+import datetime
+import pytz
+import dateutil.parser
+#-----------------------------------------------
+
+utc = pytz.utc
+BERLIN = pytz.timezone('Europe/Berlin')
+#-----------------------------------------------
+
+def to_iso8601(when=None, tz=BERLIN):
+  if not when:
+    when = datetime.datetime.now(tz)
+  if not when.tzinfo:
+    when = tz.localize(when)
+  _when = when.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+  return _when[:-8] + _when[-5:] # Remove microseconds
+#-----------------------------------------------
+
+def from_iso8601(when=None, tz=BERLIN):
+  _when = dateutil.parser.parse(when)
+  if not _when.tzinfo:
+    _when = tz.localize(_when)
+  return _when
+#-----------------------------------------------
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17327924)
+ https://github.com/crsmithdev/arrow looks promising for this: 
+
+  >>> import arrow
+>>> arrow.get('2014-11-13T14:53:18.694072+00:00').datetime
+datetime.datetime(2014, 11, 13, 14, 53, 18, 694072, tzinfo=tzoffset(None, 0))
+  
+
+ 
+   Arrow is a Python library that provides a sensible, intelligent way of creating, manipulating, formatting and converting dates and times. Arrow is simple, lightweight and heavily inspired by https://github.com/timrwood/moment and https://github.com/kennethreitz/requests. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9628279)
+  Python datetime to ISO-8601 String:  
+
+  >>> from datetime import datetime
+>>> now    = datetime.utcnow()
+>>> string = now.strftime("%Y-%m-%dT%H:%M:%S +0000")                # Manually specifying ' +0000' since we know we have UTC time.
+>>> 
+>>> string
+'2012-03-08T21:19:26 +0000'
+  
+
+  ISO-8601 String to Python datetime:  
+
+  >>> from datetime import datetime
+>>> string = "2012-03-08T21:19:26 +0000"
+>>> time   = datetime.strptime(string, "%Y-%m-%dT%H:%M:%S +0000")   # Only works for UTC time.
+>>> 
+>>> time
+datetime.datetime(2012, 3, 8, 21, 18, 31)
+  
+
+  NSDate to ISO-8601 NSString:  
+
+  NSDate          *now            = [NSDate date];
+NSDateFormatter *dateFormatter  = [[[NSDateFormatter alloc] init] autorelease];
+NSLocale        *locale         = [[[NSLocale alloc] initWithLocaleIdentifier:@"en_US"] autorelease];
+NSTimeZone      *timeZone       = [NSTimeZone timeZoneWithName:@"UTC"];
+[dateFormatter setLocale:locale];                                   // Using "en_US" for locale ?eliminates/reduces? issues with systems running different locales.
+[dateFormatter setTimeZone:timeZone];
+[dateFormatter setFormatterBehavior:NSDateFormatterBehavior10_4];   // Explicitly re-stating default behavior for 10.4+.
+[dateFormatter setDateFormat:@"yyyy-MM-dd'T'HH:mm:ss Z"];
+NSString        *iso8601String  = [dateFormatter stringFromDate:now];
+
+NSLog(@"%@", iso8601String);
+2012-03-09T02:44:37 +0000
+  
+
+  ISO-8601 NSString to NSDate:  
+
+  NSString        *iso8601String = @"2012-03-09T20:37:49 +0000";
+NSDateFormatter *dateFormatter  = [[[NSDateFormatter alloc] init] autorelease];
+NSLocale        *locale         = [[[NSLocale alloc] initWithLocaleIdentifier:@"en_US"] autorelease];
+[dateFormatter setLocale:locale];                                   // Using "en_US" for locale ?eliminates/reduces? issues with systems running different locales.
+[dateFormatter setFormatterBehavior:NSDateFormatterBehavior10_4];   // Explicitly re-stating default behavior for 10.4+.
+[dateFormatter setDateFormat:@"yyyy-MM-dd'T'HH:mm:ss Z"];
+NSDate *date = [dateFormatter dateFromString:iso8601String];
+
+NSLog(@"%@", date);
+2012-03-09 20:37:49 +0000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3908349)
+ I prefer using the https://pypi.python.org/pypi/python-dateutil/2.6.0 library for timezone handling and generally solid date parsing. If you were to get an ISO 8601 string like: 2010-05-08T23:41:54.000Z you'd have a fun time parsing that with strptime, especially if you didn't know up front whether or not the timezone was included. pyiso8601 has a couple of issues (check their tracker) that I ran into during my usage and it hasn't been updated in a few years. dateutil, by contrast, has been active and worked for me:  
+
+  import dateutil.parser
+yourdate = dateutil.parser.parse(datestring)
+  
+
+
+

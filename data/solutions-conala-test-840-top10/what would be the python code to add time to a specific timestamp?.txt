@@ -1,0 +1,264 @@
+Query: what would be the python code to add time to a specific timestamp?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4363108)
+ To add 10 seconds, you can use this: 
+
+  datetime.datetime.now() + datetime.timedelta(seconds=10)
+  
+
+ To parse the above, you can use  strptime : 
+
+  datetime.strptime("21/11/06 16:30", "%d/%m/%y %H:%M")
+  
+
+ Take a look here for more details: 
+
+ 
+ http://docs.python.org/library/datetime.html 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4363104)
+ To parse time, use strptime 
+
+  >>> x = '00:03:12,200 --> 00:03:14,316'
+>>> x1 = x.split('-->')
+>>> x1
+['00:03:12,200 ', ' 00:03:14,316']
+>>> t1 = datetime.datetime.strptime(x1[0], '%H:%M:%S,%f ')
+>>> t1
+datetime.datetime(1900, 1, 1, 0, 3, 12, 200000)
+  
+
+ use timedelta 
+
+  >>> t = datetime.timedelta(seconds=1)
+>>> t
+datetime.timedelta(0, 1)
+>>> 
+>>> t1 + t
+datetime.datetime(1900, 1, 1, 0, 3, 13, 200000)
+>>> k = t1 + t
+  
+
+  
+
+  >>> k.strftime('%H:%M:%S,%f ')
+'00:03:13,200000 '
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28418490)
+ I did something like this to add the timestamp to my file name.  
+
+  import time, os, fnmatch, shutil
+
+
+t = time.localtime()
+timestamp = time.strftime('%b-%d-%Y_%H%M', t)
+BACKUP_NAME = ("backup-" + timestamp)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38020582)
+ You can add a Series of Timedeltas to a Timestamp: 
+
+  df['date'] = pd.Timestamp('2010-1-1')+pd.to_timedelta(df['timestamp'], unit='s')
+  
+
+ 
+
+ For example, 
+
+  import pandas as pd
+
+df = pd.DataFrame({"timestamp":[201852000,201852060,201852120,201852180,201852240], 
+                   "B":[160863892,160864264,160864637,160865009,160865755]})
+
+df['date'] = pd.Timestamp('2010-1-1')+pd.to_timedelta(df['timestamp'], unit='s')
+print(df)
+  
+
+  
+
+             B  timestamp                date
+0  160863892  201852000 2016-05-25 06:00:00
+1  160864264  201852060 2016-05-25 06:01:00
+2  160864637  201852120 2016-05-25 06:02:00
+3  160865009  201852180 2016-05-25 06:03:00
+4  160865755  201852240 2016-05-25 06:04:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29298754)
+ You can get the unix time like this: 
+
+  import time
+from datetime import date
+
+d = date(2014, 10, 27)
+
+unixtime = time.mktime(d.timetuple())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29298798)
+ Unix time can be derived from a  datetime  object like this: 
+
+  d = date(2014, 10, 27)
+t = time(0, 0, 0)
+dt = datetime.combine(d, t) 
+
+unix = dt.strftime('%s')
+# returns 1414364400, which is 2014-10-27 00:00:00 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41615277)
+ I am not sure what  timestamp_received  is, but I think what you want is  utcfromtimestamp()  
+
+  import pytz
+from datetime import datetime
+
+def convert_timestamp_in_datetime_utc(timestamp_received):
+    dt_naive_utc = datetime.utcfromtimestamp(timestamp_received)
+    return dt_naive_utc.replace(tzinfo=pytz.utc)
+  
+
+ For completeness, here is another way to accomplish the same thing by referencing http://dateutil.readthedocs.io/en/stable/'s  tzlocal  time zone: 
+
+  from dateutil import tz
+from datetime import datetime
+def convert_timestamp_in_datetime_utc(timestamp_received):
+    dt_local = datetime.fromtimestamp(timestamp_received, tz.tzlocal())
+
+    if tz.datetime_ambiguous(dt_local):
+        raise AmbiguousTimeError
+
+    if tz.datetime_imaginary(dt_local):
+        raise ImaginaryTimeError
+
+    return dt_local.astimezone(tz.tzutc())
+
+
+class AmbiguousTimeError(ValueError):
+    pass
+
+class ImaginaryTimeError(ValueError):
+    pass
+  
+
+ (I added in the  AmbiguousTimeError  and  ImaginaryTimeError  conditions to mimic the  pytz  interface.) Note that I'm including this just in case you have a similar problem that needs to make reference to the local time zone for some reason - if you have something that will give you the right answer in UTC, it's best to use that and then use  astimezone  to get it into whatever local zone you want it in. 
+
+  How it works  
+
+ Since you expressed that you were still a bit confused about how this works in the comments, I thought I would clarify why this works. There are two functions that convert timestamps to  datetime.datetime  objects, https://docs.python.org/3/library/datetime.html#datetime.datetime.fromtimestamp and https://docs.python.org/3/library/datetime.html#datetime.datetime.utcfromtimestamp: 
+
+ 
+   utcfromtimestamp(timestamp)  will give you a  naive   datetime  that represents the time in UTC. You can then do  dt.replace(tzinfo=pytz.utc)  (or any other  utc  implementation -  datetime.timezone.utc ,  dateutil.tz.tzutc() , etc) to get an aware datetime and convert it to whatever time zone you want.  
+   fromtimestamp(timestamp, tz=None) , when  tz  is not  None , will give you an  aware   datetime  equivalent to  utcfromtimestamp(timestamp).replace(tzinfo=timezone.utc). . If  tz  is  None , instead of converting too the specified time zone, it converts to your local time (equivalent to  dateutil.tz.tzlocal() ), and then returns a  naive   datetime .  
+ 
+
+ Starting in Python 3.6, you can use https://docs.python.org/3/library/datetime.html#datetime.datetime.astimezone on  naive  datetimes, and the time zone will be assumed to be system local time. So if you're developing a Python >= 3.6 application or library, you can use  datetime.fromtimestamp(timestamp).astimezone(whatever_timezone)  or  datetime.utcfromtimestamp(timestamp).replace(tzinfo=timezone.utc).astimezone(whatever_timezone)  as equivalents. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41635888)
+ You need to parse your time format using https://docs.python.org/3/library/datetime.html#datetime.date.strftime. 
+
+  >>> import time
+>>> from datetime import datetime
+>>> ts, ms = '20.12.2016 09:38:42,76'.split(',')
+>>> ts
+'20.12.2016 09:38:42'
+>>> ms
+'76'
+>>> dt = datetime.strptime(ts, '%d.%m.%Y %H:%M:%S')
+>>> time.mktime(dt.timetuple())*1000 + int(ms)*10
+1482223122760.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38020610)
+  df = pd.DataFrame(range(201851000, 201852000, 100), columns=['seconds'])
+df['timedelta'] = df.seconds.apply(lambda x: pd.Timedelta(seconds=x))
+df['UpdatedTimestamp'] = df.timedelta + pd.Timestamp('2010-01-01')
+
+df
+  
+
+ https://i.stack.imgur.com/nZLzo.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45895796)
+  pd.to_timedelta  can convert strings in  HH:MM:SS  format to  timedelta64 s.
+Since your strings are in  MM:SS  format, you could use 
+
+  df_poi['time_offset'] = pd.to_timedelta('00:' + df_poi['time_offset'])
+  
+
+ to convert them to  timedelta64 s. (The  ('00:' + df_poi['time_offset'])  adds
+ 00:  to each string in  df_poi['time_offset']  to form a new string in
+ HH:MM:SS  format.) 
+
+ You can add  start  to  df_poi['time_offset'] : 
+
+  start = df.index[0]
+df_poi['Time'] = df_poi['time_offset'] + start
+  
+
+ Now you can merge the two DataFrames: 
+
+  result = pd.merge(df, df_poi, how='right', left_index=True, right_on='Time')
+  
+
+ 
+
+  import pandas as pd
+import numpy as np
+np.random.seed(2017)
+N, M = 1000, 5
+df = pd.DataFrame({'Time':pd.date_range('2017-8-24 13:33:46', periods=N, freq='S'),
+                   'Long':np.random.uniform(0, 360, size=N),
+                   'Lat':np.random.uniform(-90, 90, size=N),})
+df = df.set_index(['Time'])
+
+df_poi = pd.DataFrame({'time_offset':['00:25', '01:18', '01:30', '01:55', '02:16'],
+                       'value':np.random.randint(100, size=M)})
+
+df_poi['time_offset'] = pd.to_timedelta('00:' + df_poi['time_offset'])
+start = df.index[0]
+df_poi['Time'] = df_poi['time_offset'] + start
+result = pd.merge(df, df_poi, how='right', left_index=True, right_on='Time')
+  
+
+  
+
+           Lat        Long time_offset  value                Time
+0 -19.851775  276.063876    00:00:25     28 2017-08-24 13:34:11
+1  22.399545   61.956233    00:01:18     68 2017-08-24 13:35:04
+2  35.472442  275.165153    00:01:30     56 2017-08-24 13:35:16
+3 -60.588755   91.961901    00:01:55      2 2017-08-24 13:35:41
+4  34.339641    4.033255    00:02:16     75 2017-08-24 13:36:02
+  
+
+
+

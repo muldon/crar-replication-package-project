@@ -1,0 +1,258 @@
+Query: How do I modify the width of a TextCtrl in wxPython?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/21029395)
+ To prevent self.Fit() from re sizing the widgets on the width only 
+
+  self.SetMinSize((self.WIDTH, -1))
+  
+
+ By setting a min width value, but giving a height of -1 will fix the width but leave the height free to be set by self.Fit() 
+
+ If you want the width fixed to the current window width, use the following: 
+
+  width, _ = self.GetSize()
+self.SetMinSize((width, -1))
+  
+
+ To align the two TextCtrl use a flexgrid sizer and give the labels style wx.ALIGN_RIGHT 
+
+ To make the TextCtrl stretch give them the style wx.EXPAND and set there coloumn position to be able to grow with  
+
+  FlexGridSizer.AddGrowableCol(col)
+  
+
+ I also find that having a frame -> sizer -> panel -> sizer -> controls makes sizers work better. 
+
+ Here is some complete code 
+
+  #!/usr/bin/env python
+import wx
+
+
+class loginWindow(wx.Frame):
+    def __init__(self, parent, title):
+        super(loginWindow, self).__init__(parent, title=title,
+            style=wx.SYSTEM_MENU | wx.CAPTION | wx.CLOSE_BOX)
+        self.WIDTH = 400
+        self.InitUI()
+        self.Center()
+        self.Show()
+
+    def InitUI(self):
+
+        panel = wx.Panel(self)
+        self.user_name_lbl = wx.StaticText(panel, label="User name:")
+        self.user_name_txt = wx.TextCtrl(panel)
+        self.password_lbl = wx.StaticText(panel, label="Password:")
+        self.password_txt = wx.TextCtrl(panel)
+        self.login_button = wx.Button(panel, label="Login")
+
+        fg_sizer = wx.FlexGridSizer(cols=2, vgap=5, hgap=5)
+        fg_sizer.Add(self.user_name_lbl, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+        fg_sizer.Add(self.user_name_txt, 0, wx.EXPAND)
+        fg_sizer.Add(self.password_lbl, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+        fg_sizer.Add(self.password_txt, 0, wx.EXPAND)
+        fg_sizer.AddGrowableCol(1)
+
+        panel_sizer = wx.BoxSizer(wx.VERTICAL)
+        panel_sizer.Add(fg_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        panel_sizer.Add(self.login_button, 0, wx.EXPAND | wx.ALL, 5)
+        panel.SetSizer(panel_sizer)
+
+        frame_sizer = wx.BoxSizer(wx.VERTICAL)
+        frame_sizer.Add(panel, 1, wx.EXPAND)
+        self.SetSizer(frame_sizer)
+        self.SetMinSize((self.WIDTH, -1))
+        self.Fit()
+
+
+if __name__ == '__main__':
+    app = wx.App()
+    loginWindow(None, title="AppTitle")
+    app.MainLoop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14306869)
+ I just noticed that I can pass  (300, -1)  as the size of the text control: 
+
+  wx.TextCtrl(self, -1, size=(300, -1))
+  
+
+ Which results in the text control using the default height. This solves my problem but doesn't technically answer my question, so I'm holding out for a better answer. 
+
+ 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/21027357)
+ make the StaticTexts the same width ... in fact set all the widths, and that will solve all your problems 
+
+  label_width = 125
+text_ctrl_width= 265
+...
+self.user_name_lbl = wx.StaticText(self, label="User name:",size=(label_width,-1)
+self.user_name_txt = wx.TextCtrl(self,size=(text_ctrl_width,-1)
+...
+self.password_lbl = wx.StaticText(self, label="Password:",size=(label_width,-1))
+self.password_txt = wx.TextCtrl(self,size=(text_ctrl_width,-1)
+...
+  
+
+ of coarse self.fit is going to change the size of any widget that you use the EXPAND style on ... down to its minimal size ... so you need to set that width if you want it to be that width 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14307482)
+ You should let sizers control the size of your controls, not set them explicitly. 
+
+  import wx
+
+class Frm(wx.Frame):
+   def __init__(self, *args, **kwargs):
+      super(Frm, self).__init__(*args, **kwargs)
+      txt = wx.TextCtrl(self)
+      s = wx.BoxSizer(wx.HORIZONTAL)
+      s.Add(txt, 1)
+      self.SetSizer(s)
+      self.Layout()
+
+
+app = wx.PySimpleApp()
+frame = Frm(None)
+frame.Show()
+app.MainLoop()
+  
+
+ This lets controls lay themselves out relative to one another with general guidance from your code. So running the same code on Mac versus Windows, for example, should still result in a nice layout. 
+
+ I realize this doesn't directly answer your question, but wanted to nudge you to sizers in case you weren't aware of them. It takes a lot of the drudgery out of writing and maintaining your UI layout. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20420132)
+ I think that what is wrong is this line: 
+
+  self.GetSizer().Add(self.fileNameSizer)
+  
+
+ There should be some of  proportion=1  and/or  flag=wx.EXPAND  to make the nested sizer match its master size. 
+
+  
+
+  import wx
+
+class MainWindow(wx.Frame):
+    def __init__(self, *args, **kwargs):
+        wx.Frame.__init__(self, *args, **kwargs)
+
+        self.panel = wx.Panel(self)
+
+        self.label = wx.StaticText(self.panel, label="Label")
+        self.text = wx.TextCtrl(self.panel)
+        self.button = wx.Button(self.panel, label="Test")
+
+        self.button1 = wx.Button(self.panel, label="ABOVE")
+        self.button2 = wx.Button(self.panel, label="BELLOW")
+
+        self.horizontal = wx.BoxSizer()
+        self.horizontal.Add(self.label, flag=wx.CENTER)
+        self.horizontal.Add(self.text, proportion=1, flag=wx.CENTER)
+        self.horizontal.Add(self.button, flag=wx.CENTER)
+
+        self.vertical = wx.BoxSizer(wx.VERTICAL)
+        self.vertical.Add(self.button1, flag=wx.EXPAND)
+        self.vertical.Add(self.horizontal, proportion=1, flag=wx.EXPAND)
+        self.vertical.Add(self.button2, flag=wx.EXPAND)
+
+        self.panel.SetSizerAndFit(self.vertical)  
+        self.Show()
+
+
+app = wx.App(False)
+win = MainWindow(None)
+app.MainLoop()
+  
+
+ BTW: Please stop adding space before  (  in method calls. Also I would recommend object oriented approach so you do not loose access to your GUI objects. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5287389)
+ There's a method attached to a wxTextCtrl object called http://docs.wxwidgets.org/2.8/wx_wxtextctrl.html#wxtextctrlgetvalue, so in OnButton1Button(), you call 
+
+  var = self.text1.GetValue()
+  
+
+ And then do what you want with  var  afterwards. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/10568905)
+ I do something similiar in my code. I think you want to set the "wx.ALIGN_CENTER_HORIZONTAL" flag when you add the StaticText to the sizer. That will center the StaticText inside of it's cell. By setting wx.EXPAND on the TextCtrl, we're saying it should be the maximum width of the sizer, therefore the StaticText will be centered relative to the TextCtrl. 
+
+  import wx
+
+ID_SUBMIT = wx.NewId()
+
+...
+
+    sizer = wx.BoxSizer(wx.VERTICAL)
+    centeredLabel = wx.StaticText(self, -1, 'Centered Label')
+    sizer.Add(centeredLabel, flag=wx.ALIGN_CENTER_HORIZONTAL)
+
+    mlTextCtrl = wx.TextCtrl(self, style = wx.TE_MULTILINE)
+    sizer.Add(mlTextCtrl, flag=wx.EXPAND)
+
+    submitButton = wx.Button(self, ID_SUBMIT,'Submit')
+    sizer.Add(submitButton, flag=wx.ALIGN_RIGHT)
+
+...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/338287)
+ There doesn't seem to be a way. You can, however, use  wxWindow::GetTextExtent . This is C++ code, but can be easily adapted to wxPython: 
+
+  int x, y;
+textCtrl->GetTextExtent(wxT("T"), &x, &y);
+textCtrl->SetMinSize(wxSize(x * N + 10, -1));
+textCtrl->SetMaxSize(wxSize(x * N + 10, -1));
+
+/* re-layout the children*/
+this->Layout(); 
+
+/*  alternative to Layout, will resize the parent to fit around the new 
+ *  size of the text control. */
+this->GetSizer()->SetSizeHints(this);
+this->Fit();
+  
+
+ This is, you take the size of a reasonable width character (fonts may have variable width characters) and multiply it properly, adding some small value to account for native padding (say, 10px). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1265988)
+ For the width or height to be automatically determined based on context you use for it the value of -1, for example  (-1, 100)  for a height of 100 and automatic width. 
+
+ The default size for controls is usually  (-1, -1) . 
+
+ If a width or height is specified and the sizer item for the control doesn't have  wx.EXPAND  flag set (note that even if this flag is set some sizers won't expand in both directions by default) you might call it "locked" as it won't chage that dimension. 
+
+ Make sure to study the workings of sizers in depth as it is one of the most important things in GUI design. 
+
+
+

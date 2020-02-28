@@ -1,0 +1,230 @@
+Query: Transform unicode string in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32009148)
+ In Python 2,  getpass()  returns a normal Python 2 string, i.e. a byte string. It uses the terminal's encoding, so if the terminal is set to use UTF-8 you don't need to do anything - the string it returns will already be a UTF-8 encoded byte string.  
+
+  import sys
+from getpass import getpass
+
+p = getpass()
+if isinstance(p, bytes):
+    p = p.decode(sys.stdin.encoding)
+p = p.encode('utf-8') # :D
+  
+
+ We use  if isinstance(p, bytes):  to stop Python 3 from touching the string returned by  getpass() , and then we encode the Unicode to UTF-8 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6574805)
+   string-escape  and  unicode-escape  encodings  
+
+ Lets say you have a string from outer source, that contains  \n ,  \t  and so on. How to transform them into new-line or tab? Just decode string using  string-escape  encoding!  
+
+  >>> print s
+Hello\nStack\toverflow
+>>> print s.decode('string-escape')
+Hello
+Stack   overflow
+  
+
+ . You have normal string with unicode literals like  \u01245 .  Just decode string using  unicode-escape  encoding! 
+
+  >>> s = '\u041f\u0440\u0438\u0432\u0456\u0442, \u0441\u0432\u0456\u0442!'
+>>> print s
+\u041f\u0440\u0438\u0432\u0456\u0442, \u0441\u0432\u0456\u0442!
+>>> print unicode(s)
+\u041f\u0440\u0438\u0432\u0456\u0442, \u0441\u0432\u0456\u0442!
+>>> print unicode(s, 'unicode-escape')
+Привіт, світ!
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42548590)
+ Yep, there is! 
+
+ For python 2: 
+
+  print r'your string'.decode('string_escape')
+  
+
+ For python 3, you need to transform it as bytes, and then use  decode : 
+
+  print(rb'your string'.decode('unicode_escape'))
+  
+
+ Note that this doesn't work in your case, since your symbols aren't escaped properly (even if you print them using the "normal" way, it doesn't work). 
+
+ 
+
+ Your string should be like this: 
+
+  rb'3\u00B0 \u00b1 0.2\u00B0 2\u03B8'
+  
+
+ Note that if you need to transform a  string  to  bytes  in python, you can use the  bytes  function. 
+
+  my_str = r'3\u00B0 \u00b1 0.2\u00B0 2\u03B8'
+my_bytes = bytes(my_str, 'utf-8')
+print my_bytes.decode('string_escape') # python 2
+print(my_bytes.decode('unicode_escape')) # python 3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38782128)
+ First, as a strategy, I would take a small part of your program and try to port it.  The number of  unicode  calls you are describing suggest to me that your application cares about string representations more than most and each use-case is often different. 
+
+ The important consideration is that  all strings are unicode in Python 3 .  If you are using the  str  type to store "bytes" (for example, if they are read from a file), then you should be aware that those will not be bytes in Python3 but will be unicode characters to begin with. 
+
+ Let's look at a few cases. 
+
+ First, if you do not have any non-ASCII characters at all and really are not using the Unicode character set, it is easy.  Chances are you can simply change the  unicode()  function to  str() .  That will assure that any object passed as an argument is properly converted.   However, it is wishful thinking to assume it's that easy. 
+
+ Most likely, you'll need to look at the argument to  unicode()  to see what it is, and determine how to treat it. 
+
+ For example, if you are reading UTF-8 characters from a file in Python 2 and converting them to Unicode your code would look like this: 
+
+  data = open('somefile', 'r').read()
+udata = unicode(data)
+  
+
+ However, in Python3,  read()  returns Unicode data to begin with, and the unicode decoding must be specified when opening the file: 
+
+  udata = open('somefile', 'r', encoding='UTF-8').read()
+  
+
+ As you can see, transforming  unicode()  simply when porting may depend heavily on how and why the application is doing Unicode conversions, where the data has come from, and where it is going to. 
+
+ Python3 brings greater clarity to string representations, which is welcome, but can make porting daunting.  For example, Python3 has a proper  bytes  type, and you convert byte-data to unicode like this: 
+
+  udata = bytedata.decode('UTF-8')
+  
+
+ or convert Unicode data to character form using the opposite transform. 
+
+  bytedata = udata.encode('UTF-8')
+  
+
+ I hope this at least helps determine a strategy. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1700466)
+ if you mean to decode a string from utf-8, you can first transform the string to unicode and then to any other encoding you would like (or leave it in unicode), like this 
+
+  unicodethestring = unicode(thestring, 'utf-8')
+latin1thestring = unicodethestring.encode('latin-1','ignore')
+  
+
+ 'ignore' meaning that if you encounter a character that is not in the latin-1 character set you ignore this character. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9572394)
+ You have a  unicode  string which you want to base64 encode. The problem is that  b64encode()  only works on  bytes , not  characters . So, you need to transform your  unicode  string (which is a sequence of abstract Unicode codepoints) into a byte string. 
+
+ The mapping of abstract Unicode strings into a concrete series of bytes is called  encoding . Python supports several encodings; I suggest the widely-used UTF-8 encoding: 
+
+  byte_string = response_dict['content'].encode('utf-8')
+  
+
+ Note that whoever is decoding the bytes will also need to know which encoding was used to get back a  unicode  string via the complementary  decode()  function: 
+
+  # Decode
+decoded = byte_string.decode('utf-8')
+  
+
+ A good starting point for learning more about Unicode and encodings is the http://docs.python.org/howto/unicode.html, and http://www.joelonsoftware.com/articles/Unicode.html by Joel Spolsky. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32009744)
+ I would follow the https://docs.python.org/2/glossary.html#term-eafp policy in this case. Try to decode() and encode() the string assuming its a python 2 environment, and expect  TypeError  , and if you get the TypeError , just do  encode()  . Example - 
+
+  import sys
+import getpass
+
+s = getpass.getpass()
+
+try:
+    u = s.decode(sys.stdin.encoding).encode('UTF-8')
+except TypeError:
+    u = s.encode('UTF-8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5216938)
+ You can certainly come up with a custom encoding which uses more than one byte to represent a single character. One example of this is UTF-8. 
+
+ The Python  str  type stores bytes and has no knowledge of the encoding scheme used to produce those bytes. For example, UTF-8 uses 2 bytes to represent the unicode character  '\u00f1' : 
+
+  >>> s1 = u'\u00f1'.encode('utf-8')
+>>> s1
+'\xc3\xb1'
+  
+
+ And the  str  operations have no knowledge that the bytes  '\xc3\xb1'  represents a single character: 
+
+  >>> '\xc3' in s1
+True
+>>> s1.__contains__('\xc3')
+True
+  
+
+ Some questions you might consider when designing your encoding:  How many distinct symbols do you need to encode? Do you have more escape characters than just  '%' ? Are you only dealing with 1- and 2-byte sequences? 
+
+ Without knowing more about your encoding I can give you an example of how it might be done. You could transform your  str  representation to  unicode  and use its efficient methods to compare, split, and concatenate your values: 
+
+  >>> s1 = '.'.decode('aencoding')
+>>> s1
+u'\u002e'
+>>> s2 = 'x.y%.z'.decode('aencoding')
+>>> s2
+u'\u0078\u002e\u0079\u252e\u007a'
+>>> s2.split(s1)
+[u'x', u'y\u252ez'
+>>> u'y\u252ez'.encode('aencoding')
+'y%.z'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/13838041)
+ In strings (or Unicode objects in Python 2),  \u  has a special meaning, namely saying, "here comes a Unicode character specified by it's Unicode ID". Hence  u"\u0432"  will result in the character в. 
+
+ The  b''  prefix tells you this is a sequence of 8-bit bytes, and bytes object has no Unicode characters, so the  \u  code has no special meaning. Hence,  b"\u0432"  is just the sequence of the bytes  \ , u , 0 , 4 , 3  and  2 . 
+
+ Essentially you have an 8-bit string containing not a Unicode character, but the specification of a Unicode character. 
+
+ You can convert this specification using the unicode escape encoder. 
+
+  >>> c.decode('unicode_escape')
+'в'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10264685)
+ . If by 'plaintext' you mean remove accentuation, try this: 
+
+  >>> s = u'Ciri\xe8'
+>>> from unicodedata import normalize
+>>> normalize('NFKD', s).encode('ASCII', 'ignore')
+'Cirie'
+  
+
+
+

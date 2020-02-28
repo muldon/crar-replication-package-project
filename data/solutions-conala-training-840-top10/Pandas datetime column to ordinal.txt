@@ -1,0 +1,364 @@
+Query: Pandas datetime column to ordinal
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20576734)
+ Use apply: 
+
+  df['date'].apply(lambda x: x.toordinal())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20578250)
+ you can also use  map : 
+
+  import datetime as dt
+df['date'].map(dt.datetime.toordinal)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48180826)
+ Referencing https://stackoverflow.com/questions/29387137/how-to-convert-a-given-ordinal-number-from-excel-to-a-date, convert the ordinal values to datetime using  from_excel_ordinal  - 
+
+  m = df['Plan Start Date'].str.isdigit()
+  
+
+ Or, if you have a column of objects -  
+
+  df['Plan Start Date'].astype(str).str.isdigit()
+  
+
+ Next, apply the function on a subset of the rows using  apply  - 
+ 
+
+  df.loc[m, 'Plan Start Date'] = \
+df.loc[m, 'Plan Start Date']\
+  .astype(int)\
+  .apply(from_excel_ordinal)
+  
+
+ Finally, convert the entire column to datetime using  pd.to_datetime , giving a uniform result -  
+
+  df['Plan Start Date'] = pd.to_datetime(df['Plan Start Date'], errors='coerce')
+  
+
+  
+
+  df
+
+   Plan Start Date
+0       2017-08-16
+1       2017-05-31
+2       2017-05-31
+3       2017-05-31
+4       2017-05-31
+5       2016-04-21
+6       2016-02-25
+7       2016-12-15
+8       2016-12-15
+9       2016-12-15
+10      2016-01-04
+11      2016-01-04
+12      2015-12-29
+13      2015-12-29
+14      2015-12-29
+15      2015-12-29
+16      2016-03-31
+17      2016-03-31
+18      2016-03-31
+19      2016-03-31
+20      2016-03-31
+21      2017-01-24
+22      2015-11-25
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6706482)
+ So, with a little math: 
+
+ If 43111 is 11 January 2018, then 0 is 30th December 1899.
+Python has http://docs.python.org/library/datetime.html#datetime.date.fromordinal 
+
+ 
+   Return the date corresponding to the proleptic Gregorian ordinal,
+  where January 1 of year 1 has ordinal 1. ValueError is raised unless 1
+  <= ordinal <= date.max.toordinal(). For any date d,
+  date.fromordinal(d.toordinal()) == d. 
+ 
+
+ If you use that with an offset, you have: 
+
+  >>> dateoffset = 693594
+>>> datetime.date.fromordinal(dateoffset + 43111)
+datetime.date(2018, 1, 11)
+  
+
+ Hope that helps, even if it does not work for floats. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39847069)
+ You need to firstly convert the time string to  datetime  object using https://docs.python.org/2/library/datetime.html#datetime.datetime.strptime.   .toordinal()  on the  datetime  object 
+
+  >>> from datetime import datetime
+>>> date = datetime.strptime('2010-03-01', '%Y-%M-%d')
+>>> date.toordinal()
+733773
+  
+
+ It is even better to create a function to achieve this as: 
+
+  def convert_date_to_ordinal(date):
+    return datetime.strptime(date, '%Y-%M-%d').toordinal()
+
+convert_date_to_ordinal('2010-03-01')
+#returns: 733773
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30405634)
+ If you're running a recent-ish version of pandas then you can use the datetime attribute http://pandas.pydata.org/pandas-docs/stable/api.html#datetimelike-properties to access the datetime components: 
+
+  In [6]:
+
+df['date'] = pd.to_datetime(df['date'])
+df['year'], df['month'] = df['date'].dt.year, df['date'].dt.month
+df
+Out[6]:
+        date  Count  year  month
+0 2010-06-30    525  2010      6
+1 2010-07-30    136  2010      7
+2 2010-08-31    125  2010      8
+3 2010-09-30     84  2010      9
+4 2010-10-29   4469  2010     10
+  
+
+  EDIT  
+
+ It looks like you're running an older version of pandas in which case the following would work: 
+
+  In [18]:
+
+df['date'] = pd.to_datetime(df['date'])
+df['year'], df['month'] = df['date'].apply(lambda x: x.year), df['date'].apply(lambda x: x.month)
+df
+Out[18]:
+        date  Count  year  month
+0 2010-06-30    525  2010      6
+1 2010-07-30    136  2010      7
+2 2010-08-31    125  2010      8
+3 2010-09-30     84  2010      9
+4 2010-10-29   4469  2010     10
+  
+
+ Regarding why it didn't parse this into a datetime in  read_csv  you need to pass the ordinal position of your column ( [0] ) because when  True  it tries to parse columns  [1,2,3]  see the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html#pandas.read_csv 
+
+  In [20]:
+
+t="""date   Count
+6/30/2010   525
+7/30/2010   136
+8/31/2010   125
+9/30/2010   84
+10/29/2010  4469"""
+df = pd.read_csv(io.StringIO(t), sep='\s+', parse_dates=[0])
+df.info()
+<class 'pandas.core.frame.DataFrame'>
+Int64Index: 5 entries, 0 to 4
+Data columns (total 2 columns):
+date     5 non-null datetime64[ns]
+Count    5 non-null int64
+dtypes: datetime64[ns](1), int64(1)
+memory usage: 120.0 bytes
+  
+
+ So if you pass param  parse_dates=[0]  to  read_csv  there shouldn't be any need to call  to_datetime  on the 'date' column after loading. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40369176)
+  
+
+  df.ix[:, 0].astype(int).map(dt.datetime.fromordinal)
+  
+
+ It takes the first column by position. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37723579)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_loc.html on the  columns   Index  object to return the ordinal index value: 
+
+  In [283]:
+df = pd.DataFrame(columns=list('abcd'))
+df
+
+Out[283]:
+Empty DataFrame
+Columns: [a, b, c, d]
+Index: []
+
+In [288]:
+df.columns.get_loc('b')
+
+Out[288]:
+1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48904224)
+ You have an unnamed column so pass the ordinal position 
+
+  df = read_csv('aal_21_02_2018', index_col=0)
+  
+
+ Example: 
+
+  In[4]:
+df = pd.read_csv(io.StringIO(t), index_col=0)
+df
+
+Out[4]: 
+                       Open    High     Low   Close  Volume
+2018-02-21 08:01:00  1744.2  1746.0  1738.6  1738.6   34727
+2018-02-21 08:02:00  1738.8  1743.0  1738.8  1740.0    6483
+2018-02-21 08:03:00  1739.6  1739.6  1737.8  1738.2    6622
+  
+
+ If you require a datetimeIndex then you can pass  parse_dates=[0] : 
+
+  In[7]:
+df = pd.read_csv(io.StringIO(t), index_col=0, parse_dates=[0])
+df
+
+Out[7]: 
+                       Open    High     Low   Close  Volume
+2018-02-21 08:01:00  1744.2  1746.0  1738.6  1738.6   34727
+2018-02-21 08:02:00  1738.8  1743.0  1738.8  1740.0    6483
+2018-02-21 08:03:00  1739.6  1739.6  1737.8  1738.2    6622
+  
+
+ We can see the index is now a datetimeIndex: 
+
+  In[8]:
+df.index
+
+Out[8]: 
+DatetimeIndex(['2018-02-21 08:01:00', '2018-02-21 08:02:00',
+               '2018-02-21 08:03:00'],
+              dtype='datetime64[ns]', freq=None)
+  
+
+ Regarding how this happened, the default  to_csv  behaviour is to output the index as an unnamed column, if you pass  index_label='datetime'  then this will write out a named index: 
+
+  In[10]:
+df.to_csv(index_label='datetime')
+
+Out[10]: 'datetime,Open,High,Low,Close,Volume
+2018-02-21 08:01:00,1744.2,1746.0,1738.6,1738.6,34727
+2018-02-21 08:02:00,1738.8,1743.0,1738.8,1740.0,6483
+2018-02-21 08:03:00,1739.6,1739.6,1737.8,1738.2,6622'
+  
+
+ Then your original code would've worked: 
+
+  In[12]:
+pd.read_csv(io.StringIO(df.to_csv(index_label='datetime')), index_col='datetime')
+
+Out[12]: 
+                       Open    High     Low   Close  Volume
+datetime                                                   
+2018-02-21 08:01:00  1744.2  1746.0  1738.6  1738.6   34727
+2018-02-21 08:02:00  1738.8  1743.0  1738.8  1740.0    6483
+2018-02-21 08:03:00  1739.6  1739.6  1737.8  1738.2    6622
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33488026)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_loc.html#pandas.Index.get_loc to get the integer position of a label value in the index: 
+
+  In [51]:
+df = pd.DataFrame(index=pd.date_range(start=dt.datetime(2015,1,1), end=dt.datetime(2015,2,1)), data={'a':np.arange(32)})
+df
+
+Out[51]:
+             a
+2015-01-01   0
+2015-01-02   1
+2015-01-03   2
+2015-01-04   3
+2015-01-05   4
+2015-01-06   5
+2015-01-07   6
+2015-01-08   7
+2015-01-09   8
+2015-01-10   9
+2015-01-11  10
+2015-01-12  11
+2015-01-13  12
+2015-01-14  13
+2015-01-15  14
+2015-01-16  15
+2015-01-17  16
+2015-01-18  17
+2015-01-19  18
+2015-01-20  19
+2015-01-21  20
+2015-01-22  21
+2015-01-23  22
+2015-01-24  23
+2015-01-25  24
+2015-01-26  25
+2015-01-27  26
+2015-01-28  27
+2015-01-29  28
+2015-01-30  29
+2015-01-31  30
+2015-02-01  31
+  
+
+ Here using  .get_loc  on the index will return the ordinal position: 
+
+  In [52]:    
+df.index.get_loc('2015-01-10')
+
+Out[52]:
+9
+  
+
+ pass this value using  .iloc  to get a row value by ordinal position: 
+
+  In [53]:    
+df.iloc[df.index.get_loc('2015-01-10')]
+
+Out[53]:
+a    9
+Name: 2015-01-10 00:00:00, dtype: int32
+  
+
+ You can then subtract  1  from this to get the previous row: 
+
+  In [54]:     
+df.iloc[df.index.get_loc('2015-01-10') - 1]
+
+Out[54]:
+a    8
+Name: 2015-01-09 00:00:00, dtype: int32
+  
+
+
+

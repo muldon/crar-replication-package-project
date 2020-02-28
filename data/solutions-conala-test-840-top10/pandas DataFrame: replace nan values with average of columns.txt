@@ -1,0 +1,220 @@
+Query: pandas DataFrame: replace nan values with average of columns
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18689956)
+  In [16]: df = DataFrame(np.random.randn(10,3))
+
+In [17]: df.iloc[3:5,0] = np.nan
+
+In [18]: df.iloc[4:6,1] = np.nan
+
+In [19]: df.iloc[5:8,2] = np.nan
+
+In [20]: df
+Out[20]: 
+          0         1         2
+0  1.148272  0.227366 -2.368136
+1 -0.820823  1.071471 -0.784713
+2  0.157913  0.602857  0.665034
+3       NaN -0.985188 -0.324136
+4       NaN       NaN  0.238512
+5  0.769657       NaN       NaN
+6  0.141951  0.326064       NaN
+7 -1.694475 -0.523440       NaN
+8  0.352556 -0.551487 -1.639298
+9 -2.067324 -0.492617 -1.675794
+
+In [22]: df.mean()
+Out[22]: 
+0   -0.251534
+1   -0.040622
+2   -0.841219
+dtype: float64
+  
+
+ Apply per-column the mean of that columns and fill 
+
+  In [23]: df.apply(lambda x: x.fillna(x.mean()),axis=0)
+Out[23]: 
+          0         1         2
+0  1.148272  0.227366 -2.368136
+1 -0.820823  1.071471 -0.784713
+2  0.157913  0.602857  0.665034
+3 -0.251534 -0.985188 -0.324136
+4 -0.251534 -0.040622  0.238512
+5  0.769657 -0.040622 -0.841219
+6  0.141951  0.326064 -0.841219
+7 -1.694475 -0.523440 -0.841219
+8  0.352556 -0.551487 -1.639298
+9 -2.067324 -0.492617 -1.675794
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42464349)
+ If you want to impute missing values with mean and you want to go column by column, then this will only impute with the mean of that column. This might be a little more readable. 
+
+  sub2['income'] = sub2['income'].fillna((sub2['income'].mean()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53338957)
+ You can use  groupby + transform + fillna : 
+
+  >>> df['B'] = df.B.fillna(df.groupby('A')['B'].transform('mean'))                                                                                                                                                          
+>>> df                                                                                                                                                                                                                        
+
+        A         B
+0 model 2  0.979728
+1 model 1  0.912674
+2 model 2  0.540679
+3 model 1  2.027325
+4 model 2  0.241510
+5 model 1  1.249709
+6 model 3 -0.612343
+7 model 1  1.033826
+8 model 1  1.025011
+9 model 2 -0.795876
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48989742)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.add.html between forward filling and backfilling values, then divide by  2  and last replace last and first  NaN s: 
+
+  df = df.bfill().add(df.ffill()).div(2).ffill().bfill()
+print (df)
+     A    B
+0  1.0  1.0
+1  1.0  1.5
+2  1.0  2.0
+3  2.0  3.0
+4  2.5  3.5
+5  2.5  3.5
+6  3.0  4.0
+7  4.0  5.0
+8  4.0  5.0
+9  4.0  5.0
+  
+
+  Detail : 
+
+  print (df.bfill().add(df.ffill()))
+
+     A     B
+0  NaN   2.0
+1  NaN   3.0
+2  2.0   4.0
+3  4.0   6.0
+4  5.0   7.0
+5  5.0   7.0
+6  6.0   8.0
+7  8.0  10.0
+8  NaN   NaN
+9  NaN   NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40618322)
+ Another option besides those above is: 
+
+  df = df.groupby(df.columns, axis = 1).transform(lambda x: x.fillna(x.mean()))
+  
+
+ It's less elegant than previous responses for mean, but it could be shorter if you desire to replace nulls by some other column function. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34481969)
+ Pandas takes care of the  NaN  for you: 
+
+  >>> df
+value1  value2  value3
+0       1       9       5
+1       5     NaN       4
+2       9      55     NaN
+3     NaN       4       9
+
+>>> df.mean(axis=1)
+0     5.0
+1     4.5
+2    32.0
+3     6.5
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18691949)
+ You can simply use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.fillna.html#pandas.DataFrame.fillna to fill the  nan 's directly: 
+
+  In [27]: df 
+Out[27]: 
+          A         B         C
+0 -0.166919  0.979728 -0.632955
+1 -0.297953 -0.912674 -1.365463
+2 -0.120211 -0.540679 -0.680481
+3       NaN -2.027325  1.533582
+4       NaN       NaN  0.461821
+5 -0.788073       NaN       NaN
+6 -0.916080 -0.612343       NaN
+7 -0.887858  1.033826       NaN
+8  1.948430  1.025011 -2.982224
+9  0.019698 -0.795876 -0.046431
+
+In [28]: df.mean()
+Out[28]: 
+A   -0.151121
+B   -0.231291
+C   -0.530307
+dtype: float64
+
+In [29]: df.fillna(df.mean())
+Out[29]: 
+          A         B         C
+0 -0.166919  0.979728 -0.632955
+1 -0.297953 -0.912674 -1.365463
+2 -0.120211 -0.540679 -0.680481
+3 -0.151121 -2.027325  1.533582
+4 -0.151121 -0.231291  0.461821
+5 -0.788073 -0.231291 -0.530307
+6 -0.916080 -0.612343 -0.530307
+7 -0.887858  1.033826 -0.530307
+8  1.948430  1.025011 -2.982224
+9  0.019698 -0.795876 -0.046431
+  
+
+ The docstring of  fillna  says that  value  should be a scalar or a dict, however, it seems to work with a  Series  as well. If you want to pass a dict, you could use  df.mean().to_dict() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51072198)
+ Directly use  df.fillna(df.mean())  to fill all the null value with mean 
+
+ If you want to fill null value with mean of that column then you can use this 
+
+ suppose  x=df['Item_Weight']  here  Item_Weight  is column name 
+
+ here we are assigning (fill null values of x with mean of x into x) 
+
+  df['Item_Weight'] = df['Item_Weight'].fillna((df['Item_Weight'].mean()))
+  
+
+ If you want to fill null value with some string then use  
+
+ here  Outlet_size  is column name  
+
+  df.Outlet_Size = df.Outlet_Size.fillna('Missing')
+  
+
+
+

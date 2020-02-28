@@ -1,0 +1,312 @@
+Query: Create variable key/value pairs with argparse (python)
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33501230)
+ Define a custom type: 
+
+  def pair(arg):
+    # For simplity, assume arg is a pair of integers
+    # separated by a comma. If you want to do more
+    # validation, raise argparse.ArgumentError if you
+    # encounter a problem.
+    return [int(x) for x in arg.split(',')]
+  
+
+ then use this as the type for a regular argument: 
+
+  p.add_argument('--sizes', type=pair, nargs='+')
+  
+
+  
+
+  >>> p.parse_args('--sizes 1,3 4,6'.split())
+Namespace(sizes=[[1, 3], [4, 6]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29988661)
+ I would use something like this: 
+
+  p = argparse.ArgumentParser()
+p.add_argument("--keyvalue", action='append',
+               type=lambda kv: kv.split("="), dest='keyvalues')
+
+args = p.parse_args("--keyvalue foo=6 --keyvalue bar=baz".split())
+d = dict(args.keyvalues)
+  
+
+ You could create a custom action which would "append" a parsed key-value pair directly into a dictionary, rather than simply accumulating a list of  (key, value)  tuples. (Which I see is what skyline75489 did; my answer differs in using a single  --keyvalue  option with a custom type instead of separate  --key  and  --value  options to specify pairs.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33499426)
+ Argparse doesn't try to cover all possible formats of input data. You can always get  sizes  as string and parse them with few lines of code: 
+
+  import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--sizes', nargs='+')
+
+args = parser.parse_args()
+
+try:
+    sizes = [tuple(map(int, s.split(',', maxsplit=1))) for s in args.sizes]
+except Exception:
+    print('sizes cannot be parsed')
+
+print(sizes)
+  
+
+ "Special cases aren't special enough to break the rules." 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42355279)
+ Here's another solution using a  custom action , if you want to specify dict key pairs together comma-separated -- 
+
+  import argparse
+import sys
+parser = argparse.ArgumentParser(description='parse key pairs into a dictionary')
+
+class StoreDictKeyPair(argparse.Action):
+     def __call__(self, parser, namespace, values, option_string=None):
+         my_dict = {}
+         for kv in values.split(","):
+             k,v = kv.split("=")
+             my_dict[k] = v
+         setattr(namespace, self.dest, my_dict)
+
+parser.add_argument("--key_pairs", dest="my_dict", action=StoreDictKeyPair, metavar="KEY1=VAL1,KEY2=VAL2...")
+
+args = parser.parse_args(sys.argv[1:])
+print args
+  
+
+  
+
+  python parse_kv.py --key_pairs 1=2,a=bbb,c=4 --key_pairs test=7,foo=bar
+  
+
+ Output: 
+
+  Namespace(my_dict={'1': '2', 'a': 'bbb', 'c': '4', 'test': '7', 'foo': 'bar'})
+  
+
+ If you want to use  nargs  instead of comma-separated: 
+
+  class StoreDictKeyPair(argparse.Action):
+     def __init__(self, option_strings, dest, nargs=None, **kwargs):
+         self._nargs = nargs
+         super(StoreDictKeyPair, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
+     def __call__(self, parser, namespace, values, option_string=None):
+         my_dict = {}
+         print "values: {}".format(values)
+         for kv in values:
+             k,v = kv.split("=")
+             my_dict[k] = v
+         setattr(namespace, self.dest, my_dict)
+
+parser.add_argument("--key_pairs", dest="my_dict", action=StoreDictKeyPair, nargs="+", metavar="KEY=VAL)
+
+args = parser.parse_args(sys.argv[1:])
+print args
+  
+
+  
+
+  python arg_test4.py --key_pairs 1=2 a=bbb c=4 test=7 foo=bar
+  
+
+ Outputs: 
+
+  values: ['1=2', 'a=bbb', 'c=4', 'test=7', 'foo=bar']
+Namespace(my_dict={'1': '2', 'a': 'bbb', 'c': '4', 'test': '7', 'foo': 'bar'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29986482)
+ Python receives arguments in the form of an array  argv . You can use this to create the dictionary in the program itself. 
+
+  import sys
+my_dict = {}
+for arg in sys.argv[1:]:
+    key, val=arg.split(':')[0], arg.split(':')[1]
+    my_dict[key]=val
+
+print my_dict
+  
+
+  
+
+  python program.py key1:val1 key2:val2 key3:val3
+  
+
+ Output: 
+
+  my_dict = {'key3': 'val3', 'key2': 'val2', 'key1': 'val1'}
+  
+
+ 
+   Note: args will be in string, so you will have to convert them to store numeric values. 
+ 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27159113)
+ The first thing I'd try is use  parse_known_args  to handle other arguments, and handle the list of  extras  with my on routine. Adding the '--conf-' handling to  argparse  would be more work. 
+
+  argv = '--conf-key-1 value1 --conf-key-2 value2'.split()
+p = argparse.ArgumentParser()
+args, extras = p.parse_known_args(argv)
+
+def foo(astr):
+    if astr.startswith('--conf-'):
+        astr = astr[7:]
+    astr = astr.replace('-','_')
+    return astr
+
+d = {foo(k):v for k,v in zip(extras[::2],extras[1::2])}
+# {'key_1': 'value1', 'key_2': 'value2'}
+  
+
+ The  extras  parsing could be more robust - making sure that there are proper pairs, rejecting badly formed keys, handling  = .   
+
+ Another approach would be to scan  sys.argv  for  --conf-  strings, and use those to construct  add_argument  statements. 
+
+  keys = [k for k in argv if k.startswith('--conf-')]
+p = argparse.ArgumentParser()
+for k in keys:
+    p.add_argument(k, dest=foo(k))
+print vars(p.parse_args(argv))
+  
+
+ 
+
+ If you would accept '--conf key1 value1 --conf key2 value2 ...' as the input, you could define 
+
+  parser.add_argument('--conf', nargs=2, action='append')
+  
+
+  
+
+  namespace('conf': [['key1','value1'],['key2','value2']])
+  
+
+ which could easily be turned into a dictionary.  Or a custom  Action  could use  setattr(namespace, values[0], values[1])  to enter the key/value pairs directly into the namespace. 
+
+ I believe there have been SO question(s) about accepting '"key1:value" "key2:value2"' inputs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11762020)
+ You need a custom action 
+
+  class StoreNameValuePair(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        n, v = values.split('=')
+        setattr(namespace, n, v)
+
+args = parser.add_argument("conf_dir", action=StoreNameValuePair)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5154863)
+ The usual way to put name value pairs on the command line is with options. I.e. you would use  
+
+  python script.py --confdir=/tmp/good_conf
+  
+
+ argparse can certainly handle that case. See the docs at: 
+
+ http://docs.python.org/library/argparse.html#option-value-syntax 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34930706)
+ You can use  nargs=4  with an  'append'  action: 
+
+  import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--group', nargs=4, action='append')
+
+print parser.parse_args()
+  
+
+  
+
+  $ python ~/sandbox/test.py --group 1 2 3 4 --group 1 2 3 4
+Namespace(group=[['1', '2', '3', '4'], ['1', '2', '3', '4']])
+  
+
+ From here, you can parse the key-value pairs if you'd like. 
+
+ 
+
+ Another option is to use a custom action to do the parsing -- Here's a simple one which accepts arguments of the form  --group key:value key2:value2 ... --group ...  
+
+  import argparse
+
+class DictAction(argparse.Action):
+    def (self, *args, **kwargs):
+        super(DictAction, self).(*args, **kwargs)
+        self.nargs = '*'
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        # The default value is often set to `None` rather than an empty list.
+        current_arg_vals = getattr(namespace, self.dest, []) or []
+        setattr(namespace, self.dest, current_arg_vals)
+        arg_vals = getattr(namespace, self.dest)
+        arg_vals.append(dict(v.split(':') for v in values))
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--group', action=DictAction)
+
+print parser.parse_args()
+  
+
+ This has no checking (so the user could get funny  TypeError s if the  key:value  are not formatted properly) and if you want to restrict it to specified keys, you'll need to build that in as well... but those details should be easy enough to add.  You could also require that they provide 4 values using  self.nargs = 4  in  DictAction. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26768579)
+ You can use a custom  argparse.Action  class. 
+
+ https://docs.python.org/3/library/argparse.html#argparse.Action 
+
+  import argparse
+
+class Pairs(argparse.Action):
+    def __call__(self, parser, namespace, values, opts, **kwargs):
+        lst = getattr(namespace, self.dest)
+        if lst is None:
+            lst = []
+            setattr(namespace, self.dest, lst)
+        lst.append(tuple(values))
+
+parser = argparse.ArgumentParser()   
+parser.add_argument('-R', nargs='+', dest='libnames', action=Pairs)
+print parser.parse_args("-R a b -R c d -R e f".split())
+  
+
+ output: 
+
+  Namespace(libnames=[('a', 'b'), ('c', 'd'), ('e', 'f')])
+  
+
+
+

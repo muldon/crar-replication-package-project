@@ -1,0 +1,279 @@
+Query: How do I create and delete a file in JDK 7?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/29230012)
+ My basic recursive version, working with older versions of JDK: 
+
+  public static void deleteFile(File element) {
+    if (element.isDirectory()) {
+        for (File sub : element.listFiles()) {
+            deleteFile(sub);
+        }
+    }
+    element.delete();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22562676)
+ If you have subfolders, you will find troubles with the Cemron answers. so you should create a method that works like this: 
+
+  private void deleteTempFile(File tempFile) {
+        try
+        {
+            if(tempFile.isDirectory()){
+               File[] entries = tempFile.listFiles();
+               for(File currentFile: entries){
+                   deleteTempFile(currentFile);
+               }
+               tempFile.delete();
+            }else{
+               tempFile.delete();
+            }
+        getLogger().info("DELETED Temporal File: " + tempFile.getPath());
+        }
+        catch(Throwable t)
+        {
+            getLogger().error("Could not DELETE file: " + tempFile.getPath(), t);
+        }
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/617438)
+ If you are using JDK 7 use the new http://docs.oracle.com/javase/7/docs/api/java/nio/file/Files.html#createTempDirectory%28java.nio.file.Path,%20java.lang.String,%20java.nio.file.attribute.FileAttribute...%29 class to create the temporary directory. 
+
+  Path tempDirWithPrefix = Files.createTempDirectory(prefix);
+  
+
+ Before JDK 7 this should do it: 
+
+  public static File createTempDirectory()
+    throws IOException
+{
+    final File temp;
+
+    temp = File.createTempFile("temp", Long.toString(System.nanoTime()));
+
+    if(!(temp.delete()))
+    {
+        throw new IOException("Could not delete temp file: " + temp.getAbsolutePath());
+    }
+
+    if(!(temp.mkdir()))
+    {
+        throw new IOException("Could not create temp directory: " + temp.getAbsolutePath());
+    }
+
+    return (temp);
+}
+  
+
+ You could make better exceptions (subclass IOException) if you want. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20281994)
+ In JDK 7 you could use  Files.walkFileTree()  and  Files.deleteIfExists()  to delete a tree of files. 
+
+ In JDK 6 one possible way is to use http://commons.apache.org/proper/commons-io/apidocs/org/apache/commons/io/FileUtils.html#deleteQuietly%28java.io.File%29 from Apache Commons which will remove a file, a directory, or a directory with files and sub-directories. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37256624)
+ In legacy projects, I need to create native Java code. I create this code similar to Paulitex code.  
+
+  public class FileHelper {
+
+   public static boolean delete(File fileOrFolder) {
+      boolean result = true;
+      if(fileOrFolder.isDirectory()) {
+         for (File file : fileOrFolder.listFiles()) {
+            result = result && delete(file);
+         }
+      }
+      result = result && fileOrFolder.delete();
+      return result;
+   } 
+}
+  
+
+ And the unit test: 
+
+  public class FileHelperTest {
+
+    @Before
+    public void setup() throws IOException {
+       new File("FOLDER_TO_DELETE/SUBFOLDER").mkdirs();
+       new File("FOLDER_TO_DELETE/SUBFOLDER_TWO").mkdirs();
+       new File("FOLDER_TO_DELETE/SUBFOLDER_TWO/TEST_FILE.txt").createNewFile();
+    }
+
+    @Test
+    public void deleteFolderWithFiles() {
+       File folderToDelete = new File("FOLDER_TO_DELETE");
+       Assert.assertTrue(FileHelper.delete(folderToDelete));
+       Assert.assertFalse(new File("FOLDER_TO_DELETE").exists());
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31512652)
+ Here is how you solve this problem : 
+
+ 
+ Delete the original symlinks. All the three of them, I think there
+are three.  
+ Do not create a shortcut. Shortcut and Symlinks are not same. 
+ Open a command prompt in the same directory and create new Symlinks using the "mklink" command and point it to your JDK install. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20281925)
+    
+
+  index.delete();
+
+            if (!index.exists())
+               {
+                   index.mkdir();
+               }
+  
+
+  
+
+   if (!index.exists())
+                   {
+                       index.mkdir();
+                   }
+  
+
+  
+
+  index.delete();
+  
+
+ This means that you are creating the file again  deleting
+http://docs.oracle.com/javase/6/docs/api/java/io/File.html#delete%28%29 returns a boolean value.So if you want to check then do  System.out.println(index.delete());  if you get  true  then this means that file is deleted 
+
+  File index = new File("/home/Work/Indexer1");
+    if (!index.exists())
+       {
+             index.mkdir();
+       }
+    else{
+            System.out.println(index.delete());//If you get true then file is deleted
+
+
+
+
+            if (!index.exists())
+               {
+                   index.mkdir();// here you are creating again  deleting the file
+               }
+
+
+
+
+        }
+  
+
+ from the https://stackoverflow.com/questions/20281835/how-to-delete-a-folder-with-files-using-java/20281925?noredirect=1#comment30258407_20281925 given below,the updated answer is like this 
+
+  File f=new File("full_path");//full path like c:/home/ri
+    if(f.exists())
+    {
+        f.delete();
+    }
+    else
+    {
+        try {
+            //f.createNewFile();//this will create a file
+            f.mkdir();//this create a folder
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54026613)
+ You can use  FileUtils.deleteDirectory . JAVA can't delete the non-empty foldres with  File.delete() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33084657)
+ Working with file system from EJB is bad practice, because file system is not transactional. 
+
+ Yes, it is possible to delete file asynchronously: do it in separate thread. You can create separate thread by your own, something like this: 
+
+  public static void deleteFile(final File file) {
+    if (file != null) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                file.delete();
+            }
+        }).start();
+    }
+}
+  
+
+ But if you will invoke this function from loop, you will create a lot of  uncontrollable threads which will waste you memory. You can avoid this using  Executors . Using this utility classes you can create thread pool with single thread, which will serve all your file deletion tasks: 
+
+  private static final ExecutorService DELETE_SERVICE = Executors.newSingleThreadExecutor();
+
+public static void deleteFile(final File file) {
+    if (file != null) {
+        DELETE_SERVICE.submit(new Runnable() {
+            @Override
+            public void run() {
+                file.delete();
+            }
+        });
+    }
+}
+  
+
+ Here you will have one thread, which will delete files asynchronously. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16691530)
+ from: http://www.mkyong.com/java/how-to-delete-temporary-file-in-java/ 
+
+ 
+   Temporary file is used to store the less important and temporary data,
+   which should always be deleted when your system is terminated . The
+  best practice is use the File.deleteOnExit() to do it. 
+ 
+
+ For example, 
+
+  File temp = File.createTempFile("abc", ".tmp"); 
+temp.deleteOnExit();
+  
+
+ The above example will create a temporary file named “abc.tmp” and  delete it when the program is terminated or exited . 
+
+ If you want  to delete the temporary file manually , you can still use the File.delete(). 
+
+
+

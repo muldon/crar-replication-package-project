@@ -1,0 +1,176 @@
+Query: how to call multiple bash functions using | in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9609962)
+ Don't use shell=True, it has many security holes. Instead do something like this 
+
+  cmd1 = ['vasp']
+cmd2 = ['tee', 'tee_output']
+
+runcmd = subprocess.Popen(cmd1, stdout=subprocess.PIPE)
+runcmd2 = subprocess.Popen(cmd2, stdin=runcmd.stdout, stdout=subprocess.PIPE)
+
+runcmd2.communicate()
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9609402)
+ . It executes the command (passed as a string) via a shell, instead of executing the command directly. (It's the equivalent of calling the shell itself with the  -c  flag, i.e.  Popen(['/bin/sh', '-c', args[0], args[1], ...]) ): 
+
+  subprocess.check_call('vasp | tee tee_output', shell=True)
+  
+
+ But attend to the warning in the http://docs.python.org/library/subprocess.html#frequently-used-arguments about this method. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9609784)
+  
+
+  vasp = subprocess.Popen('vasp', stdout=subprocess.PIPE)
+subprocess.check_call(('tee', 'tee_output'), stdin=vasp.stdout)
+  
+
+ This is generally safer than using  shell=True , especially if you can't trust the input. 
+
+ Note that  check_call  will check the return code of  tee , rather than  vasp , to see whether it should raise a  CalledProcessError . (The  shell=True  method will do the same, as this matches the behavior of the shell pipe.) If you want, you can check the return code of  vasp  yourself by calling  vasp.poll() . (The other method won't let you do this.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17243334)
+ Pass arguments as a list, see http://docs.python.org/2/library/subprocess.html#using-the-subprocess-module: 
+
+  import subprocess
+
+subprocess.check_call(['/my/file/path/programname.sh', 'arg1', 'arg2', arg3])
+  
+
+ If  arg3  is not a string; convert it to string before passing to  check_call() :  arg3 = str(arg3) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5826451)
+ No, the function is only available within that bash script. 
+
+ What you could do is adapt the bash script by checking for an argument and execute functions if a specific argument is given. 
+
+ For example 
+
+  # $1 is the first argument
+
+case $1 in
+ "go" )
+       go
+       ;;
+ "otherfunc" )
+       otherfunc
+       ;;
+ * )
+       echo "Unknown function"
+       ;;
+esac 
+  
+
+ Then you can call the function like this: 
+
+  subprocess.call("test.sh otherfunc")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40199383)
+ Hi I know that this is solution is quite late, but could help someone. 
+
+ example: 
+
+  import subprocess
+pass_arg=[]
+pass_arg[0]="/home/test.sh"
+pass_arg[1]="arg1"
+pass_arg[2]="arg2"
+
+subprocess.check_call(pass_arg)
+  
+
+ The above example provides arg1 and arg2 as parameters to the shell script test.sh 
+
+ Essentially, subprocess expects an array. So you could populate an array and provide it as a parameter. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/16047082)
+ Yes, in a similar way to how you would call it from another bash script: 
+
+  import subprocess
+subprocess.check_output(['bash', '-c', 'source unix_shell.sh && foo'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/25099813)
+ .bashrc, then it won't get run for a few reasons: 
+
+ 1) You must give the 'shell' keyword arg: 
+
+  subprocess.call('command', shell=True)
+  
+
+ Otherwise your given command is used to find an executable file, rather than passed to a shell, and it is the shell which expands things like aliases and functions. 
+
+ 2) By default, subprocess.call and friends use the '/bin/sh' shell. If this is a Bash alias you want to invoke, you'll need to tell subprocess to use bash instead of sh, using the 'executable' keyword arg: 
+
+  subprocess.call('command', shell=True, executable='/bin/bash')
+  
+
+ 3) However, /bin/bash will not source ~/.bashrc unless started as an 'interactive' shell (with '-i'.) Unfortunately, you can't pass executable='/bin/bash -i', as it thinks the whole value is the name of an executable. So if your alias is defined in the user's normal interactive startup, e.g. in .bashrc, then you'll have to invoke the command using this alternative form: 
+
+  subprocess.call(['/bin/bash', '-i', '-c', command])
+# i.e. shell=False (the default)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24980728)
+ The issue might be that emacs, as many other programs you run, reads your login shell rc files, such as  ~/.bash_login  or  ~/.profile , but not  ~/. , where as your terminal also reads you user shell rc file:  ~/. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/53942613)
+ In case the script is having multiple arguments 
+
+  #!/usr/bin/python
+
+import subprocess
+output = subprocess.call(["./test.sh","xyz","1234"])
+print output
+  
+
+ Output will give the status code. If script runs successfully it will give 0 otherwise non-zero integer. 
+
+  podname=xyz  serial=1234
+0
+  
+
+ Below is the test.sh shell script. 
+
+  #!/bin/bash
+
+podname=$1
+serial=$2
+echo "podname=$podname  serial=$serial"
+  
+
+
+

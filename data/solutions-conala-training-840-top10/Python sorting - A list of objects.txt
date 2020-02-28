@@ -1,0 +1,237 @@
+Query: Python sorting - A list of objects
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2040062)
+ You can use  month  and  day  to create a value that can be used for sorting: 
+
+  birthdays.sort(key = lambda d: (d.month, d.day))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17038658)
+  your_list.sort(key = lambda x : x.anniversary_score)
+  
+
+ or if the attribute name is a string then you can use : 
+
+  import operator
+your_list.sort(key=operator.attrgetter('anniversary_score'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54791013)
+ One could think Python 2 compares names alphabetically: 
+
+  print(list>int)  # True
+print(set>list)  # True
+print(float<int) # True
+  
+
+  
+
+  print(dict<list) # False 
+  
+
+ Then you need to read the documentation: https://docs.python.org/2/library/stdtypes.html#comparisons 
+
+ 
+   Objects of different types, except different numeric types and different string types, never compare equal; such objects   are ordered consistently but arbitrarily   (so that sorting a heterogeneous array yields a consistent result). Furthermore, some types (for example, file objects) support only a degenerate notion of comparison where any two objects of that type are unequal.  
+  
+   Again, such objects are  ordered arbitrarily but consistently . The  < ,  <= ,  >  and  >=  operators will raise a  TypeError  exception when any operand is a complex number. 
+ 
+
+ (emphasis mine) 
+
+ This allows your to do: 
+
+  k = [ 1, "a", 'c', 2.4, {1:3}, "hallo", [1,2,3], [], 4.92, {}]  # wild mix of types
+k.sort()  # [1, 2.4, 4.92, {}, {1: 3}, [], [1, 2, 3], 'a', 'c', 'hallo'] type-sorted
+  
+
+ In python 3 you get  
+
+ 
+   TypeError: '>' not supported between instances of ... and ... 
+ 
+
+ 
+
+ 
+ http://pythonclock.org  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2338540)
+  somelist.sort(key = lambda x: x.resultType)
+  
+
+ Here's another way to do the same thing that you will often see used: 
+
+  import operator
+s.sort(key = operator.attrgetter('resultType'))
+  
+
+ You might also want to look at http://docs.python.org/library/functions.html#sorted if you haven't seen it already. It doesn't modify the original list - it returns a new sorted list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1549085)
+  sort_me.sort(key=attr_or_itemgetter('name'))
+  
+
+ Where  attr_or_itemgetter() : 
+
+  class attr_or_itemgetter(object):
+    def __init__(self, name):
+        self.name = name
+    def __call__(self, obj):
+        try: return getattr(obj, name)
+        except AttributeError:
+            return obj[name]
+  
+
+ NOTE: It intentionally doesn't check for dictionary type, therefore  attr_or_itemgetter('items')  applied to a dictionary will return  dict.items  method. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34757114)
+ The cleanest way to do this is to use as the sorting key an object that contains the desired sorting behavior in its comparison methods. The only comparison method needed by Python sorting is  __lt__() , so this is reasonably straightforward.  
+
+ For example, here is a class that implements, roughly, the Python 2 sorting heuristic (sort in value within groups of objects that are comparable). You could of course implement any other rule you like. Since sorting will create one of these objects for every item in your list I kept the size of each object as low as possible by using  __slots__  and by interning all the type strings. 
+
+  from sys import intern
+
+class Py2Key:
+
+    __slots__ = ("value", "typestr")
+
+    def __init__(self, value):
+        self.value   = value
+        self.typestr = intern(type(value).__name__)
+
+    def __lt__(self, other):
+        try:
+            return self.value < other.value
+        except TypeError:
+            return self.typestr < other.typestr
+  
+
+  
+
+  seq = ["Z", 3, "Y", 1, "X", 2.5, False]
+sorted(seq, key=Py2Key)
+>>> [False, 1, 2.5, 3, 'X', 'Y', 'Z']
+  
+
+ Unfortunately, implementing Python 2's sorting behavior in Python 3 is going to be slower and more memory-intensive than Python 2 was, especially since we're taking advantage of exception handling. Whether this is acceptable in your application is up to you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17618423)
+ Call the object list  objects  and the other list  sort_keys . If you can compute  sort_keys[i]  from just the value of  objects[i] , you don't even need to build  sort_keys .  
+
+  objects.sort(key=compute_sort_key_for_object)
+  
+
+ where  compute_sort_key_for_object  is the function you would use to compute  sort_keys[i]  from  objects[i] . . 
+
+ If the processing to compute  sort_keys  is more complex, you'll want Rohit's answer: 
+
+  import operator
+[k for k, v in sorted(zip(objects, sort_keys), key=operator.itemgetter(1))]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/8650541)
+ I tried your example on my own machine (python 2.7): 
+
+  >>> sorted(l)
+[(<__main__.S instance at 0x107142a70>, 'a'), (<__main__.S instance at 0x107142ab8>, 'b'), (<__main__.S instance at 0x107142b00>, 'c')]
+  
+
+ Note that the sorted list is in order of the  id() : 
+
+  >>> id(a)
+4413729392
+>>> id(b)
+4413729464
+>>> id(c)
+4413729536
+  
+
+ If I generate the hashes I get: 
+
+  >>> hash(a)
+275858087
+>>> hash(b)
+-9223372036578917717
+>>> hash(c)
+275858096
+  
+
+ Which suggests that the sorting is  not  based on the hash. 
+
+ See derekerdmann's answer for information on how to make python sort your class the way you want. 
+
+  Edit:  By the way, if you put the items in the list in reverse and then sort it, you get: 
+
+  >>> l = [(c,'c'), (b, 'b'), (a, 'a')]
+>>> sorted(l)
+[(<__main__.S instance at 0x107142a70>, 'a'), (<__main__.S instance at 0x107142ab8>, 'b'), (<__main__.S instance at 0x107142b00>, 'c')]
+  
+
+ Once again, its sorted in order of the  id() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8650531)
+ Python 3's built-in sorting makes use of the  __lt__  method in your class. 
+
+ The rich comparison methods are special in Python, since they can return a special  NotImplemented  type if there is not  __lt__  defined - take a look at the docs on this page: http://docs.python.org/reference/datamodel.html#the-standard-type-hierarchy 
+
+ Since the truth value of  NotImplemented  is  True , any boolean comparison that gets  NotImplemented  will continue as if the first element actually is less than the second, which will cause the sort to leave the list in the same order as it was. 
+
+ Take a look at the interactive shell. You can see how the truth values would be used in a sort, and that Python thinks that both objects are less than each other: 
+
+  >>> class S():
+...     pass
+...
+>>> a = S()
+>>> b = S()
+>>> a.__lt__( b )
+NotImplemented
+>>> if a.__lt__( b ):
+...     print( "derp!" )
+...
+derp
+>>> if b.__lt__(a):
+...     print( "derp" )
+...
+derp
+  
+
+ Here are some more references: 
+
+ 
+ http://pyref.infogami.com/__lt__ 
+ http://wiki.python.org/moin/HowTo/Sorting/ 
+ http://docs.python.org/library/constants.html 
+ 
+
+  EDIT: 
+After taking a look at Python 2.7, it looks like the ID of the objects is used for sorting, and the  __lt__  method is undefined on a simple class like your example.  . 
+
+
+

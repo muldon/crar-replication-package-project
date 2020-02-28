@@ -1,0 +1,227 @@
+Query: How to dynamically assign values to class properties in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19153417)
+ Refer to attribute  names  instead, and use the http://docs.python.org/2/library/functions.html#setattr to store a new value on  self : 
+
+  def ParseSymbol(self, regex):
+    attributes = ['Section', 'Class', 'Subclass', 'Group', 'Subgroup']
+
+    Pattern_groups = re.search(regex, self.Symbol)
+
+    for group, attr in zip(Pattern_groups.groups(), attributes):
+        setattr(self, attr, group)
+  
+
+  setattr()  lets you set attributes based on a variable, here taking from  attributes ; there is also a companion http://docs.python.org/2/library/functions.html#getattr to retrieve attributes dynamically. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12801623)
+ If you know the objects properties before hand you should probably be using the first method.  Just assign property values directly. 
+
+ The second can be useful when you need to dynamically assign a value to a property. Perhaps a user has the ability to change the values of a number of different attributes and you don't know which one will have a value before hand, you can dynamically add values 
+
+  possible_fields = ['title', 'looser_ticket']
+ticket = Ticket.objects.get(pk=1)
+for field in possible_fields:
+  if request.GET.get(field):
+     setattr(ticket, field, request.GET[field])
+  
+
+ The "not working" is probably not dependent on the way you are setting values, are you sure that you saved your changes afterwards?? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28928411)
+ After reading rejected https://www.python.org/dev/peps/pep-0363/ I'm using a mixin class providing dictionary-style access to an object's attributes :
+ 
+
+  class MyClass:
+    def __init__(self):
+        self.name = None
+        self.text = None
+    def __getitem__(self, name):
+        return getattr(self, name)
+    def __setitem__(self, name, value):
+        return setattr(self, name, value)
+    def __delitem__(self, name):
+        return delattr(self, name)
+    def __contains__(self, name):
+        return hasattr(self, name)
+  
+
+ While still being able to set attributes directly:
+ 
+
+  myclass = MyClass()
+myclass.name = "foo"
+myclass.text = "bar"
+  
+
+ it's then possible to set them dynamically :
+ 
+
+  for attr in ('name', 'text'):
+    myclass[attr] = confirm(attr, default=myclass[attr])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39084456)
+  f = open(textfile, 'r')
+for line in f:
+    student_id, user_id, first_name, last_name, nick_name = line.split(' ')
+StudentId.append(student_id)
+UserId.append(user_id)
+....
+f.close()
+  
+
+ That is very weird way to write anything though. Much better way is to create class Student that will know the properties of student and how to read from line 
+
+  class Student:
+    def __init__(self, student_id=0, user_id=0, first_name='', last_name='', nickname=''):
+        self._student_id = student_id
+        self._user_id = user_id
+        ...
+
+    def from_line(self, line):
+        values = line.split(' ')
+        self._student_id = int(values[0])
+        self._user_id = int(values[1])
+        ...
+
+f = open(textfile, 'r')
+students = []
+for line in f:
+    students.append(Student())
+    students[-1].from_line(line)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20233973)
+ First create entity dynamically : 
+
+   kindOfEntity = "MyTable"
+class DynamicEntity(ndb.Expando):
+     @classmethod
+     def _get_kind(cls):
+        return kindOfEntity
+  
+
+ then after to assign Text Properties run time/dynamically as shown below  
+
+  dbObject = DynamicEntity()
+key = "studentName"
+value = "Vijay Kumbhani"
+textProperties = ndb.TextProperty(key)
+dbObject._properties[key] = {}
+dbObject._values[key] = {}
+dbObject._properties[key] = textProperties 
+dbObject._values[key] = value
+dbObject.put()
+  
+
+ then after key properties assign with Text properties 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7118013)
+ It is possible to dynamically add properties to a class after it's already created: 
+
+  class Bar(object):
+    def x(self):
+        return 0
+
+setattr(Bar, 'x', property(Bar.x))
+
+print Bar.x
+# <property object at 0x04D37270>
+print Bar().x
+# 0
+  
+
+ However, you can't set a property on an instance, only on a class. You can use an instance to do it: 
+
+  class Bar(object):
+    def x(self):
+        return 0
+
+bar = Bar()
+
+setattr(bar.__class__, 'x', property(bar.__class__.x))
+
+print Bar.x
+# <property object at 0x04D306F0>
+print bar.x
+# 0
+  
+
+ See https://stackoverflow.com/questions/1325673/python-how-to-add-property-to-a-class-dynamically for more information. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19153782)
+ http://docs.python.org/2/library/functions.html#setattr will set the attributes of an object based on a string name.  You can rewrite  ParseSymbol  above: 
+
+      def ParseSymbol(self,regex):
+
+        Properties_Pointers = ['Section','Class','Subclass','Group','Subgroup']
+
+        Pattern_groups = re.search(regex, self.Symbol)
+
+        i = 0
+        for group in Pattern_groups.groups():
+            setattr(self, Properties_Pointers[i], group)
+            i += 1
+  
+
+ As a side note, you can iterate over both  Pattern_groups.groups()  and  Pattern_Pointers  simultaneously by using http://docs.python.org/2/library/functions.html#zip.  This cleans up the code by removing the index variable  i  and its incrementation: 
+
+          for pointer, group in zip(Properties_Pointers, Pattern_groups.groups()):
+            setattr(self, pointer, group)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18064936)
+ Unless you need set attributes dynamically and bypass http://docs.python.org/2/howto/descriptor.html or the http://docs.python.org/2/reference/datamodel.html#object.__setattr__, do not assign attributes directly to  . . 
+
+ Not all instances  have  a  .  attribute even, not if the class defined a http://docs.python.org/2/reference/datamodel.html#slots to save memory. 
+
+ If you do need to set attributes dynamically but don't need to bypass a descriptor or a  .__setattr__()  hook, you'd use the http://docs.python.org/2/library/functions.html#setattr normally. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7118069)
+ Properties use http://docs.python.org/reference/datamodel.html?highlight=descriptor#descriptors which only work on classes and thus
+for all instances.  But you could use a combination of a descriptor on
+a class that would consult a per-instance function. 
+
+  >>> class Foo(object):
+...     @property
+...     def x(self):
+...         if 'x' in self.__dict__:
+...             return self.__dict__['x'](self)
+... 
+>>> a = Foo()
+>>> def k(self):
+...     return 0
+... 
+>>> a.__dict__['x'] = k
+>>> a.x
+0
+  
+
+
+

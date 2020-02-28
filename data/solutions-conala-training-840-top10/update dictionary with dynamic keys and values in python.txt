@@ -1,0 +1,275 @@
+Query: update dictionary with dynamic keys and values in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41566035)
+ There is actually a slightly cleaner way to make it, using https://www.postgresql.org/docs/9.5/static/sql-update.html: 
+
+  sql_template = "UPDATE foo SET ({}) = %s WHERE id = {}"
+sql = sql_template.format(', '.join(updates.keys()), 10)
+params = (tuple(addr_dict.values()),)
+print cur.mogrify(sql, params)
+cur.execute(sql, params)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35471970)
+ You could use  len()  to insert the value: 
+
+  #!/usr/bin/python
+
+queue = {}
+
+queue[len(queue)] = {'name_first': 'Jon', 'name_last': 'Doe'}
+queue[len(queue)] = {'name_first': 'Jane', 'name_last': 'Doe'}
+queue[len(queue)] = {'name_first': 'J', 'name_last': 'Doe'}
+
+print queue
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13860049)
+ Remove the following line: 
+
+      mydic = {i : o["name"]}
+  
+
+ and add the following before your loop: 
+
+  mydic = {}
+  
+
+ Otherwise you're creating a brand new one-element dictionary on every iteration. 
+
+ Also, the following: 
+
+  mydic.update({i : o["name"]})
+  
+
+  
+
+  mydic[i] = o["name"]
+  
+
+ Finally, note that the entire loop can be rewritten as a dictionary comprehension: 
+
+  mydic = {i+1:o["name"] for i,o in enumerate(iterload(f))}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35379183)
+ Looks like a good case to use https://docs.python.org/2/library/collections.html#collections.Counter from https://docs.python.org/2/library/collections.html: 
+
+  >>> from collections import Counter
+>>> d1 = Counter({'a':1,'b':1})
+>>> d2 = Counter({'a':2,'c':3})
+>>> d1.update(d2)
+>>> d1
+Counter({'a': 3, 'c': 3, 'b': 1})
+  
+
+ You also can create new collection: 
+
+  >>> d1 + d2
+Counter({'a': 3, 'c': 3, 'b': 1})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54424462)
+ Try sorted(mydict.items()) without the dict() function. This worked for me: 
+
+  mydict ={"item_0": "apples"}
+print(mydict)
+mydict.update(item_1 = "banana")
+print(mydict)
+mydict.update(item_2 = "oranges")
+print(mydict)
+mydict.update(item_3 = "peaches")
+print(mydict)
+mydict.update(item_4 = "tangerines")
+print(sorted(mydict.items()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13860293)
+ https://stackoverflow.com/a/13860049/4279 in your code (redefining the dict on each iteration).  
+
+ Here's one more way to generate the dict (Python 3 code): 
+
+  from operator import itemgetter
+
+mydict = dict(enumerate(map(itemgetter("name"), iterload(f)), start=1))
+  
+
+ 
+
+ About the  KeyError: '1' :  input()  returns a string in Python 3 but the dictionary  mydict  expects an integer. To convert the string to integer, call  int : 
+
+  nb_name = int(input("\nChoose the number of the name :"))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3617008)
+  I'm not sure if this is quite an answer to your questions but hopefully it explains a bit about the difference between Python 2 and 3 in this rard.  
+
+ In Python 2,  iter(d.keys())  and  d.iterkeys()  are not quite equivalent, although they will behave the same. In the first,  keys()  will return a copy of the dictionary's list of keys and  iter  will then return an iterator object over this list, with the second a copy of the full list of keys is never built. 
+
+ The view objects returned by  d.keys()  in Python 3 are  iterable  (i.e. an iterator can be made from them) so when you say  for k in d.keys()  Python will create the iterator for you. Therefore your two examples will behave the same. 
+
+ The significance in the change of the return type for  keys()  is that the Python 3 view object is dynamic. i.e. if we say  ks = d.keys()  and later add to  d  then  ks  will reflect this. In Python 2,  keys()  returns a list of all the keys currently in the dict. Compare: 
+
+  Python 3  
+
+  >>> d = { "first" : 1, "second" : 2 }
+>>> ks = d.keys()
+>>> ks
+dict_keys(['second', 'first'])
+>>> d["third"] = 3
+>>> ks
+dict_keys(['second', 'third', 'first'])
+  
+
+  Python 2.x  
+
+  >>> d = { "first" : 1, "second" : 2 }
+>>> ks = d.keys()
+>>> ks
+['second', 'first']
+>>> d["third"] = 3
+>>> ks
+['second', 'first']
+  
+
+ As Python 3's  keys()  returns the dynamic object Python 3 doesn't have (and has no need for) a separate  iterkeys  method. 
+
+  Further clarification  
+
+ In Python 3,  keys()  returns a  dict_keys  object but if we use it in a  for  loop context  for k in d.keys()  then an iterator is implicitly created. So the difference between  for k in d.keys()  and  for k in iter(d.keys())  is one of implicit vs. explicit creation of the iterator. 
+
+ In terms of another difference, whilst they are both dynamic, remember if we create an explicit iterator then it can only be used once whereas the view can be reused as required. e.g. 
+
+  >>> ks = d.keys()
+>>> 'first' in ks
+True
+>>> 'second' in ks
+True
+>>> i = iter(d.keys())
+>>> 'first' in i
+True
+>>> 'second' in i
+False             # because we've already reached the end of the iterator
+  
+
+ Also, notice that if we create an explicit iterator and then modify the dict then the iterator is invalidated: 
+
+  >>> i2 = iter(d.keys())
+>>> d['fourth'] = 4
+>>> for k in i2: print(k)
+...
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+RuntimeError: dictionary changed size during iteration
+  
+
+ In Python 2, given the existing behaviour of  keys  a separate method was needed to provide a way to iterate without copying the list of keys whilst still maintaining backwards compatibility. Hence  iterkeys()  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54424356)
+ You can use  sorted  function something like this: 
+
+  dict(sorted(mydict.items()))
+  
+
+ Sample output: 
+
+  >>> mydict={'item_2': 'apples', 'item_3': 'banana', 'item_0': 'oranges', 'item_1': 'peaches', 'item_4': 'tangerines'}
+>>> mydict
+{'item_2': 'apples', 'item_3': 'banana', 'item_0': 'oranges', 'item_1': 'peaches', 'item_4': 'tangerines'}
+>>> dict(sorted(mydict.items()))
+{'item_0': 'oranges', 'item_1': 'peaches', 'item_2': 'apples', 'item_3': 'banana', 'item_4': 'tangerines'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43806429)
+ In Python 3, you'd need to convert the  dict.values()  to a list first. 
+
+ 
+   The objects returned by dict.keys(), dict.values() and dict.items()
+  are view objects. They provide a dynamic view on the dictionary’s
+  entries, which means that when the dictionary changes, the view
+  reflects these changes.
+  (https://docs.python.org/3/library/stdtypes.html#typesmapping) 
+ 
+
+  import numpy as np
+data = {'some_key_1':np.array([1,2,3,4]), 'some_key_2':np.array([2,3,4,5])}
+print(np.array(list(data.values())))
+# [[1 2 3 4]
+# [2 3 4 5]]
+  
+
+ You get a 2-D array, with rows in a random order (Python  dict s are unordered). 
+
+ To get a 1-D array, you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.concatenate.html: 
+
+  print(np.concatenate(list(data.values())))
+# [1 2 3 4 2 3 4 5]
+  
+
+ If the order is important, you could use a list of tuple or an https://docs.python.org/3/library/collections.html#collections.OrderedDict instead of a  dict . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/37733587)
+ You can have a default dictionary, that will create a new value for a key whenever you want it. Then you should use values from that dictionary - not as stand alone variables. Variable names are supposed to be hard coded in your program - if names or quantity are varying, you should be using a dictionary and accessing your values through keys, which are meant to be dynamic anyway: 
+
+  >>> from collections import defaultdict
+>>> data = defaultdict(lambda: None)
+>>> data["foo"], data["bar"]
+>>> data.keys()
+dict_keys(['foo', 'bar'])
+
+>>>[data[key]  for key in "foo bar baz fnord blip blargh".split()]
+>>> data.keys()
+dict_keys(['fnord', 'bar', 'foo', 'blargh', 'baz', 'blip'])
+  
+
+ I you really need to update variables, you can get global variables as easy as in:  
+
+  >>> globals().update(data)
+>>> bar
+>>> fnord is None
+True
+  
+
+ This does not work for local variables  - to update those you have to pip install   extradict  from PIP and use it's MapGetter context manager. (https://github.com/jsbueno/extradict) . 
+
+  $ pip install extradict
+$ python
+...
+>>> from extradict import MapGetter
+>>> with MapGetter(default="1Value4All") as tmp:
+...    from tmp import foo, bar, baz, qaxx, spat
+...
+>>> foo
+'1Value4All'
+  
+
+
+

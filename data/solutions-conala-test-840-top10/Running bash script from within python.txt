@@ -1,0 +1,267 @@
+Query: Running bash script from within python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/29896686)
+ try adding the line before executing python script 
+
+  cd "$(dirname "$0")"
+  
+
+ in your bash file? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16013681)
+ 
+   The command is perfectly fine when run from bash directly. However, inside the script, I get: 
+ 
+
+  sh: -c: line0: syntax error near unexpected token `('
+  
+
+ That's because inside the script, you're running the command with  sh  rather than  bash . Both this command, and the simpler one, use  bash -specific features. Try running an  sh  shell and typing the same lines, and you'll get the same error. 
+
+ The http://docs.python.org/2/library/os.html#os.system call doesn't document what shell it uses, because it's: 
+
+ 
+   implemented by calling the Standard C function  system()  
+ 
+
+ On most Unix-like systems, this calls  sh . You probably shouldn't rely on that… but you  definitely  shouldn't rely on it calling  bash ! 
+
+ If you want to run  bash  commands, use the http://docs.python.org/2/library/subprocess.html#subprocess.call module, and run  bash  explicitly: 
+
+  subprocess.call(['bash', '-c', 'paste <(cat file1) > output_file'])
+  
+
+ You could, I suppose, try to get the quoting right to run  bash  as a subshell within the shell  system  uses… but why bother? 
+
+ This is one of the many reasons that the documentation repeatedly tells you that you should consider using  subprocess  instead of  os.system . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13745701)
+ Make sure that  sleep.sh  has execution permissions, and run it with  shell=True : 
+
+  #!/usr/bin/python
+
+import subprocess
+print "start"
+subprocess.call("./sleep.sh", shell=True)
+print "end"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33052761)
+ You do not need to use sed to parse the output of the python script. 
+
+ In python script before printing the output, convert the list into space separated string (hope you do not have any item in list with space in it)  
+
+  print " ".join(lst)
+  
+
+ This output can be easily looped through in shell.
+For me the following code gives the below output. 
+
+  #! /bin/bash
+lst=$(python parsing.py)
+for i in $lst
+do
+    echo $i
+done
+  
+
+ params.conf is same as yours... 
+
+  output  
+
+  a
+b
+c
+d
+e
+  
+
+ Hope this helps in solving some of your problem.. 
+
+ Also calling a specific function in python from shell script can be achieved like below... 
+
+ python file with multiple function 
+
+  import sys
+
+def foo():
+    print 'i am foo'
+
+def func():
+    print 'i am func'
+
+def bye():
+    print 'i am bye'
+
+if __name__ == "__main__":
+    if len(sys.argv)==2:
+        x = getattr(sys.modules[__name__], sys.argv[1])
+        x()
+  
+
+ and shell script (i am using command line args to name what is the python function) 
+
+  #! /bin/bash
+echo $(python params.py $1)
+  
+
+ output... 
+
+  # ./demo.sh foo
+i am foo
+# ./demo.sh func
+i am func
+# ./demo.sh bye
+i am bye
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29896704)
+ You can modify the shell script like this: 
+
+  #!/bin/bash
+BASEDIR=`dirname "${0}"`
+cd "$BASEDIR"
+python name.py
+  
+
+ to always be run on the directory containing the script. Or if the  name.py  is in another directory, then change the  cd  command accordingly. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49686090)
+ If chmod not working then you also try 
+
+  import os
+os.system('sh script.sh')
+#you can also use bash instead of sh
+  
+
+     
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22416147)
+ If  sleep.sh  has the shebang  #!/bin/sh  and it has appropriate file permissions  -- run  chmod u+rx sleep.sh  to make sure and it is in  $PATH  then your code should work as is: 
+
+  import subprocess
+
+rc = subprocess.call("sleep.sh")
+  
+
+ If the script is not in the PATH then specify the full path to it e.g., if it is in the current working directory: 
+
+  from subprocess import call
+
+rc = call("./sleep.sh")
+  
+
+ If the script has no shebang then you need to specify  shell=True : 
+
+  rc = call("./sleep.sh", shell=True)
+  
+
+ If the script has no executable permissions and you can't change it e.g., by running  os.chmod('sleep.sh', 0o755)  then you could read the script as a text file and pass the string to  subprocess  module instead: 
+
+  with open('sleep.sh', 'rb') as file:
+    script = file.read()
+rc = call(script, shell=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16310470)
+ Yes, the same technique (here-docs) can be used f Perl. 
+
+ Perl in Bash: 
+
+  perl <<'END' # note single quotes to avoid $variable interpolation
+use 5.010;
+say "hello wld";
+END
+  
+
+  
+
+  perl -E'say "hello from perl"'
+  
+
+ Bash in Perl: 
+
+  use autodie; # less err handling
+open my $bash, "|-", "bash";
+print $bash <<'END'; # single quotes again
+echo hello from bash
+END
+  
+
+ Perl in Bash in Perl: 
+
+  use autodie; # less err handling
+open my $bash, "|-", "bash";
+print $bash <<'END'; # single quotes again
+perl <<'INNER_END'
+ use 5.010;
+ say "hello inception";
+INNER_END
+END
+  
+
+ (which I ironically tested on the commandline, in another heredoc) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11395879)
+ Because the python command is enclosed in single quotes,  $SCRIPT_DIR  is not expanded.  
+
+  python_cmd='import sys;
+            sys.path.append("'$SCRIPT_DIR'");
+            import settings as st; 
+            print " ".join(st.foo())'
+  
+
+ That said, I would go with the answer that modifies  PYTHONPATH . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/19674648)
+ Python variables can be accessed in the first line of a  %%bash  or  %%script  cell, and so can be passed as command line parameters to the script. For example, with bash you can do this: 
+
+  %%bash -s "$myPythonVar" "$myOtherVar"
+echo "This bash script knows about $1 and $2"
+  
+
+ The  -s  command line option allows you to pass positional parameters to bash, accessed through  $n  for the n-th positional parameter. Note that what's actually assigned to the bash positional variable is the result of  str(myPythonVariable) . If you're passing strings containing quote characters (or other bash-sensitive characters), you'll need to escape them with a backslash (eg:  \" ). 
+
+ The quotes are important - without them the python variables (string representations) are split on spaces, so if  myPythonVar  was a  datetime.datetime  with  str(myPythonVar)  as  "2013-10-30 05:04:09.797507" , the above bash script would receive 3 positional variables, the first two with values  2013-10-30  and  05:04:09.797507 . It's output would be: 
+
+  This bash script knows about 2013-10-30 and 05:04:09.797507
+  
+
+ If you want to name the variables and you're running linux, here's an approach: 
+
+  %%script env my_bash_variable="$myPythonVariable" bash
+echo myPythonVariable\'s value is $my_bash_variable
+  
+
+ You can specify multiple variable assignments. Again beware of quotes and other such things (here bash will complain bitterly!). To grok why this works, see the  env  man page. 
+
+
+

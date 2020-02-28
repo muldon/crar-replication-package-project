@@ -1,0 +1,246 @@
+Query: pandas: how to do multiple groupby-apply operations
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50859241)
+ Use http://pandas.pydata.org/pandas-docs/version/0.23/generated/pandas.core.groupby.DataFrameGroupBy.agg.html to compute multiple values from a single  groupby() : 
+
+  df.groupby(['a', 'b']).agg([
+    ('1': lambda x: f(x, 1)),
+    ('2': lambda x: f(x, 2)),
+    ('3': lambda x: f(x, 3)),
+    ('4': lambda x: f(x, 4)),
+])
+  
+
+  
+
+  df.groupby(['a', 'b']).agg([(str(i), lambda x: f(x, i)) for i in range(1, 5)])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47228752)
+ Let's use  group_keys=False  in the groupby 
+
+  df.assign(D=df.groupby('B', group_keys=False).apply(lambda x: x.A - x.C.mean()))
+  
+
+ Output: 
+
+     A  B  C    D
+0  1  A  0  0.5
+1  2  B  0  1.5
+2  3  A  1  2.5
+3  4  B  1  3.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51370032)
+ First I think you need more  apply  than  agg  to access different columns at once. Here is an idea how to change a bit what you want to do. Let's first create a function regrouping the operation you want to do and return them as a list of results: 
+
+  def operations_to_perfom (df_g):
+
+    df_g_sum = df_g.sum() #can do the same with mean, min, max ...
+
+    # return all the operation you want 
+    return  [ df_g_sum['A'] + df_g_sum['B'], 
+              (df_g_sum['A'] + df_g_sum['B'])/df_g_sum['C'], 
+              df_g_sum['A'], 
+              float(df_g_sum['D'])/(df_g_sum['E']+df_g_sum['F']),
+              (df_g['E']*df_g['F']).sum() ]
+
+#use apply to create a serie with id as index and a list of agg
+df_values = df.groupby('id').apply(operations_to_perfom)
+
+# now create the result dataframe from df_values with tolist() and index
+df_agg = pd.DataFrame( df_values.tolist(), index=df_values.index, 
+         columns=pd.MultiIndex.from_arrays([['A']*3+['D']+['E'], 
+                 ['agg_sum_a_b', 'agg_sum_a_b_div_c' ,'sum', 'agg_sum_d_div_sum_e_f', 'e_mult_f']]))
+  
+
+ and  df_agg  looks like: 
+
+               A                                           D        E
+   agg_sum_a_b agg_sum_a_b_div_c sum agg_sum_d_div_sum_e_f e_mult_f
+id                                                                 
+1            6                 2   3                   0.5        5
+2           14                 2   7                   0.5       25
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47227378)
+ For this case I do not think include the column A in apply is necessary, we can use  transform  
+
+  df.A-df.groupby('B').C.transform('mean')
+Out[272]: 
+0    0.5
+1    1.5
+2    2.5
+3    3.5
+dtype: float64
+  
+
+  
+
+  df['diff']= df.A-df.groupby('B').C.transform('mean')
+df
+Out[274]: 
+   A  B  C  diff
+0  1  A  0   0.5
+1  2  B  0   1.5
+2  3  A  1   2.5
+3  4  B  1   3.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13052373)
+ You could use groupby: 
+
+  def f(group):
+    row = group.irow(0)
+    return DataFrame({'class': [row['class']] * row['count']})
+df.groupby('class', group_keys=False).apply(f)
+  
+
+  
+
+  In [25]: df.groupby('class', group_keys=False).apply(f)
+Out[25]: 
+  class
+0     A
+0     C
+1     C
+  
+
+ You can fix the index of the result however you like 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50859131)
+  
+
+  pandas.DataFrame([df.groupby(['a','b']).apply(lambda x : f(x,i)) for i in range(1,5)])
+  
+
+ Then transpose the new DataFrame if you want to have same column names as the initial dataframe. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44864946)
+ There are two versions of agg (short for aggregate) and apply: The first is defined on groupby objects and the second one is defined on DataFrames.  
+
+ If you consider  groupby.agg   and  groupby.apply , the main difference would be that the apply is flexible (http://pandas.pydata.org/pandas-docs/stable/groupby.html#flexible-apply): 
+
+ 
+   Some operations on the grouped data might not fit into either the
+  aggregate or transform categories. Or, you may simply want GroupBy to
+  infer how to combine the results. For these, use the apply function,
+  which can be substituted for both aggregate and transform in many
+  standard use cases. 
+  
+   Note: apply can act as a reducer, transformer, or filter function,
+  depending on exactly what is passed to apply. So depending on the path
+  taken, and exactly what you are grouping. Thus the grouped columns(s)
+  may be included in the output as well as set the indices. 
+ 
+
+ See https://stackoverflow.com/questions/38902042/python-pandas-how-to-return-grouped-lists-in-a-column-as-a-dict for example for an illustration of how the returning type is automatically changed. 
+
+  groupby.agg , on the other hand, is very good for applying cython optimized functions (i.e. being able to calculate  'sum' ,  'mean' ,  'std'  etc. very fast). It also allows calculating multiple (different) functions on different columns. For example, 
+
+  df.groupby('some_column').agg({'first_column': ['mean', 'std'],
+                               'second_column': ['sum', 'sem']}
+  
+
+ calculates the mean and the standard deviation on the first column and sum and standard error of the mean on the second column. See https://stackoverflow.com/questions/38935541/dplyr-summarize-equivalent-in-pandas/38935669 for more examples.  
+
+ These differences are also summarized in https://stackoverflow.com/questions/21828398/what-is-the-difference-between-pandas-agg-and-apply-function But that one focuses on the differences between  groupby.agg  and  groupby.apply .  
+
+  DataFrame.agg  is new in version 0.20. Earlier, we weren't able to apply multiple different functions to different columns because it was only possible with groupby objects. Now, you can summarize a DataFrame by calculating multiple different functions on its columns. Example from https://stackoverflow.com/questions/37209908/is-there-a-pandas-equivalent-of-dplyrsummarise: 
+
+  iris.agg({'sepal_width': 'min', 'petal_width': 'max'})
+
+petal_width    2.5
+sepal_width    2.0
+dtype: float64
+
+iris.agg({'sepal_width': ['min', 'median'], 'sepal_length': ['min', 'mean']})
+
+        sepal_length  sepal_width
+mean        5.843333          NaN
+median           NaN          3.0
+min         4.300000          2.0
+  
+
+ This is not possible with  DataFrame.apply . It either goes column by column or row by row and executes the same function on that column/row. For a single function like  lambda x: x**2  they produce the same results but their intended usage is very different. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/47184929)
+ Your error is because you can not do multiple series/column operations using  agg .  Agg takes one series/column as a time.  Let's use  apply  and  pd.concat . 
+
+  g = df.groupby(['STAND_ID','Species'])
+newdf = pd.concat([g.apply(lambda x: np.average(x['Height'],weights=x['Volume'])), 
+                   g.apply(lambda x: np.average(x['Stems'],weights=x['Volume']))], 
+                   axis=1, keys=['Height','Stems']).unstack()
+  
+
+ Edit a better solution:</h3>
+
+  g = df.groupby(['STAND_ID','Species'])
+newdf = g.apply(lambda x: pd.Series([np.average(x['Height'], weights=x['Volume']), 
+                             np.average(x['Stems'],weights=x['Volume'])], 
+                                    index=['Height','Stems'])).unstack()
+  
+
+ Output: 
+
+                Height                  Stems             
+Species  Broadleaves    Conifer Broadleaves      Conifer
+STAND_ID                                                
+1               19.0  20.000000      2000.0  1500.000000
+2                NaN  13.000000         NaN  1000.000000
+3               24.0  24.363636      1200.0  1636.363636
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43173207)
+  df.groupby('Category').agg({'Item':'size','shop1':['sum','mean','std'],'shop2':['sum','mean','std'],'shop3':['sum','mean','std']})
+  
+
+ Or if you want it across all shops then: 
+
+  df1 = df.set_index(['Item','Category']).stack().reset_index().rename(columns={'level_2':'Shops',0:'costs'})
+df1.groupby('Category').agg({'Item':'size','costs':['sum','mean','std']})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44895498)
+ You can use groupby and aggregate 
+
+  df.groupby(df.index//3).agg({'date': 'max', 'open': 'min', 'high': 'max', 'low': 'min','close': 'last'})
+  
+
+  
+
+      date        open        high        low         close
+0   1498908300  0.00010010  0.00010020  0.00009957  0.00009957
+1   1498909200  0.00009957  0.00010009  0.00009949  0.00009956
+  
+
+
+

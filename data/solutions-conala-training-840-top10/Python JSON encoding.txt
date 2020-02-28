@@ -1,0 +1,224 @@
+Query: Python JSON encoding
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34346889)
+ By default  json.dump()  uses UTF8 encoding, however, the value for the  name  key in your dictionary is not UTF8. It looks like one of the ISO-8859-X encodings. You can specify the encoding with the  encoding  parameter: 
+
+  import json
+d = {'status': 'rd', 'name': 'Detecci\xf3nInt/.unclassified.ez', 'st': 0}
+s = json.dumps(d, encoding='ISO-8859-1')
+print(s)
+  
+
+  Output  
+
+ 
+{"status": "rd", "name": "Detecci\u00f3nInt/.unclassified.ez", "st": 0}
+ 
+
+ I had a bit of a guess as to which encoding to use, so you might want to check which is the correct encoding for your data. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4141021)
+ You need to find out what character encoding is used in your database. Then you need to tell JSON encoder to use that encoding to properly interpret strings. 
+
+  final_data_to_write = json.dumps(myDict, encoding="XXX")
+  
+
+ Default encoding assumed by json module is UTF-8. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50541441)
+ Your text is already encoded and you need to tell this to Python by using a  b  prefix in your string but since you're using json and the input needs to be string you have to decode your encoded text manually. Since your input is not byte you can use  'raw_unicode_escape'  encoding to convert the string to byte without encoding and prevent the  open  method to use its own default encoding. Then you can simply use aforementioned approach to get the desired result. 
+
+ Note that since you need to do the encoding and decoding your have to read file content and perform the encoding on loaded string, then you should use https://docs.python.org/3/library/json.html#json.loads instead of https://docs.python.org/3/library/json.html#json.load. 
+
+  In [168]: with open('test.json', encoding='raw_unicode_escape') as f:
+     ...:     d = json.loads(f.read().encode('raw_unicode_escape').decode())
+     ...:     
+
+In [169]: d
+Out[169]: {'sender_name': 'Horníková'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36316351)
+ The default UTF-8 encoding of Python 3 only extends to byte->str conversions.  open()  instead uses your environment to choose an appropriate encoding: 
+
+ From the Python 3 https://docs.python.org/3.7/library/functions.html#open for  open() :  
+
+ 
+    encoding  is the name of the encoding used to decode or encode the file. This should only be used in text mode. The default encoding is platform dependent (whatever locale.getpreferredencoding() returns), but any text encoding supported by Python can be used. See the codecs module for the list of supported encodings. 
+ 
+
+ In your case, as you're on Windows with a Western Europe/North America, you will be given the 8bit Windows-1252 character set. Setting  encoding  to  utf-8  overrides this. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7146199)
+ Simple, just don't use utf-8 encoding if your data is not in utf-8 
+
+  >>> json.loads('["\x96"]')
+....
+UnicodeDecodeError: 'utf8' codec can't decode byte 0x96 in position 0: invalid start byte
+
+>>> json.loads('["\x96"]', encoding="latin-1")
+[u'\x96']
+  
+
+ 
+    json.loads  
+  
+   If  s  is a  str  instance and is encoded with an ASCII based
+  encoding other than utf-8 (e.g. latin-1) then an appropriate
+   encoding  name must be specified. Encodings that are not ASCII
+  based (such as UCS-2) are not allowed and should be decoded to
+   unicode  first. 
+ 
+
+  Edit : To get proper unicode value of "\x96" use "cp1252" as Eli Collins mentioned 
+
+  >>> json.loads('["\x96"]', encoding="cp1252")
+[u'\u2013']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40777484)
+ There is a workaround: pass the  utf8  encoding (not  utf-8 !) . In this case it'll force all strings to be decoded to  unicode  first, and you can use a mix of unicode strings and strings already encoded as UTF-8.  Because there is such a thing in the source code of  JSONEncoder : 
+
+  if self.encoding != 'utf-8':
+     def _encoder(o, _orig_encoder=_encoder, _encoding=self.encoding):
+         if isinstance(o, str):
+             o = o.decode(_encoding)
+         return _orig_encoder(o)
+  
+
+ That's what we need, and it'll not work out of the box. But when we change the encoding to  utf8  (that's absolutely the same UTF-8 as  utf-8 ), we force this  _encoder  to be defined and everything works just fine :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35390109)
+ First you are printing the representation of a dictionary, and python only uses ascii characters and escapes any other character with  \uxxxx . 
+
+ The same is with  json.dump  trying to only use ascii characters. You can force  json.dump  to use unicode with: 
+
+  json_data = json.dumps(data, ensure_ascii=False)
+with open('decoded_data.json', 'w') as outfile:
+    outfile.write(json_data.encode('utf8'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33119094)
+ It doesn't work because it doesn't know what kind of output string to produce. 
+
+ In my Python 2.7: 
+
+  >>> json.dumps([u'Ä'], ensure_ascii=False)
+u'["\xc4"]'
+  
+
+ (a Unicode string) 
+
+ and 
+
+  >>> json.dumps([u'Ä'.encode("utf-8")], ensure_ascii=False)
+'["\xc3\x84"]'
+  
+
+ (a UTF8-encoded byte string) 
+
+ So if you give it UTF8-encoded byte strings, it produces a UTF8-encoded byte string JSON, and if you give it Unicode strings, it produces a Unicode JSON. 
+
+ . 
+
+ To fix this, you can give an explicit encoding argument (even though the default is correct) and it seems that it makes the result a unicode string always then: 
+
+  >>> import json; json.dumps([u'Ä', u'Ä'.encode("utf-8")], ensure_ascii=False, encoding="UTF8")
+u'["\xc4", "\xc4"]'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9041375)
+ json strings always use  " , not  '  so  '\u05d9\u05d7\u05e4\u05d9\u05dd'  is not a json string. 
+
+ If you load a valid json text then all Python strings in it are Unicode so you don't need to decode anything. To display them you might need to encode them using a character encoding suitable for your terminal. 
+
+ http://ideone.com/IDObs</h3>
+
+  #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import json
+
+d = json.loads(u'''{"title": "\u05d9\u05d7\u05e4\u05d9\u05dd"}''')
+print d['title'].encode('utf-8') # -> יחפים
+  
+
+ Note: it is a coincidence that the source encoding (specified in the first line) is equal to the output encoding (the last line) they are unrelated and can be different. 
+
+ If you'd like to see less  \uxxxx  sequences in a  json text  then you could use  ensure_ascii=False : 
+
+ <a href="http://ideone.com/6bRSz" </h3>
+
+  #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import json
+
+L = ['יחפים']
+json_text = json.dumps(L) # default encoding for input bytes is utf-8
+print json_text # all non-ASCII characters are escaped
+json_text = json.dumps(L, ensure_ascii=False)
+print json_text # output as-is
+  
+
+ Output</h3>
+
+  ["\u05d9\u05d7\u05e4\u05d9\u05dd"]
+["יחפים"]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36008545)
+ The JSON module handles encoding and decoding for you, so you can simply open the input and output files in binary mode. The JSON module assumes UTF-8 encoding, but can be changed using  encoding  attribute on the  load()  and  dump()  methods. 
+
+  with open('multiIdName.json', 'rb') as json_data:
+    cards = json.load(json_data)
+  
+
+ then:
+<strike> 
+
+  with open("testJson.json", 'wb') as outfile:
+    json.dump(cards, outfile, ensure_ascii=False)
+  
+
+ </strike>
+Thanks to @Antti Haapala, Python 2.x JSON module gives either Unicode or str depending on the contents of the object. 
+
+ You will have to add a sense check to ensure the result is a Unicode before writing through  io : 
+
+  with io.open("testJson.json", 'w', encoding="utf-8") as outfile:
+    my_json_str = json.dumps(my_obj, ensure_ascii=False)
+    if isinstance(my_json_str, str):
+        my_json_str = my_json_str.decode("utf-8")
+
+    outfile.write(my_json_str)
+  
+
+
+

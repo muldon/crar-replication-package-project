@@ -1,0 +1,398 @@
+Query: How to select only specific columns from a DataFrame with MultiIndex columns?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/54130409)
+ You can select by tuple: 
+
+  s = df[('START_NODE', 4.0)].shift(1)
+  
+
+ EDIT: 
+
+ For multiple  Multiindex  columns use http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing with  loc  for select columns by mask: 
+
+  mux = pd.MultiIndex.from_product([['START_NODE','END_NODE'], range(1, 5)])
+df = pd.DataFrame([[1] * 8], columns=mux)
+print (df)
+  START_NODE          END_NODE         
+           1  2  3  4        1  2  3  4
+0          1  1  1  1        1  1  1  1
+
+v = [('START_NODE', 4.0), ('END_NODE', 3.0)]
+df1 = df.loc[:,  df.columns.isin(v)]
+print (df1)
+  START_NODE END_NODE
+           4        3
+0          1        1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40044994)
+ For multi-index slicing as you desire the columns needs to be sorted first using  sort_index(axis=1) , you can then select the cols of interest without error: 
+
+  In [12]:
+df = df.sort_index(axis=1)
+df['a','h','hot']
+
+Out[12]:
+0
+2009-01-01 01:00:00    0.9
+2009-01-01 02:00:00    0.8
+2009-01-01 03:00:00    0.7
+2009-01-01 04:00:00    0.9
+2009-01-01 05:00:00    0.9
+Name: (a, h, hot), dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54423532)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html: 
+
+  df = pd.concat([da, db], axis=1).xs('CAR', level=0, axis=1, drop_level=False)
+  
+
+ Or use http://pandas.pydata.org/pandas-docs/stable/user_guide/advanced.html#using-slicers: 
+
+  df = pd.concat([da, db], axis=1).loc[:, pd.IndexSlice['CAR', :]]
+  
+
+ 
+
+  print (df)
+    CAR                
+  ALPHA BETA ALPHA BETA
+1   A11  B11   NaN  NaN
+2   A12  B12   A22  B22
+3   A13  B13   A23  B23
+4   A14  B14   A24  B24
+5   NaN  NaN   A25  B25
+  
+
+ EDIT: 
+
+ There is 4 levels DataFrame, so need: 
+
+  idx = pd.Index([('V', 'C', 'I', 'P'),
+       ('V', 'G', 'T', '-'),
+       ('P', 'G', 'T', '-')], dtype='object')
+df = pd.DataFrame(0, columns=idx, index=[1,2])
+print (df)
+   V     P
+   C  G  G
+   I  T  T
+   P  -  -
+1  0  0  0
+2  0  0  0
+
+
+df1 = df.xs('V', level=0, axis=1, drop_level=False)
+print (df1)
+   V   
+   C  G
+   I  T
+   P  -
+1  0  0
+2  0  0
+  
+
+ Add  :  for each level for select all values of second, third ans forth levels: 
+
+  df1 = df.loc[:, pd.IndexSlice['V', :, :, :]]
+print (df1)
+   V   
+   C  G
+   I  T
+   P  -
+1  0  0
+2  0  0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53902554)
+ Generally for select  Multiindex  use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html: 
+
+  #default first level should be omit
+print (df.xs('2016_32'))
+#select by second level
+#print (df.xs('2016-09-07', level=1))
+                 foo  bar
+2016-08-07  0.142857  NaN
+2016-08-08  0.142857  NaN
+2016-08-09  0.142857  NaN
+2016-08-10  0.142857  NaN
+2016-08-11  0.142857  NaN
+2016-08-12  0.142857  NaN
+2016-08-13  0.142857  NaN
+  
+
+ Or  loc : 
+
+  #no parameter if select first level
+print (df.loc['2016_32'])
+#if want select second level axis=0 and : for select all values of first level
+print (df.loc(axis=0)[:, '2016-09-07'])
+  
+
+ Difference in select in MultiIndex in columns and in rows: 
+
+  np.random.seed(235)
+a = [np.array(['bar', 'bar', 'baz', 'baz', 'foo', 'foo', 'qux', 'qux']),
+          np.array(['one', 'two', 'one', 'two', 'one', 'two', 'one', 'two'])]
+a1 = pd.MultiIndex.from_product([['A', 'B', 'C'], ['E','F']])
+df = pd.DataFrame(np.random.randint(10, size=(6, 8)), index=a1, columns=a)
+print (df)
+    bar     baz     foo     qux    
+    one two one two one two one two
+A E   8   1   5   8   3   5   3   3
+  F   3   1   3   6   6   1   0   2
+B E   0   3   1   7   0   0   8   2
+  F   6   7   7   4   2   7   7   5
+C E   7   3   1   7   3   9   7   3
+  F   8   2   0   8   5   2   2   0
+  
+
+ 
+
+  #select by column bar level  
+print (df['bar'])
+     one  two
+A E    8    1
+  F    3    1
+B E    0    3
+  F    6    7
+C E    7    3
+  F    8    2
+
+#select by column bar and then by `one`
+print (df['bar']['one'])
+A  E    8
+   F    3
+B  E    0
+   F    6
+C  E    7
+   F    8
+Name: one, dtype: int32
+
+#select by tuples for columns select
+print (df[('bar', 'one')])
+A  E    8
+   F    3
+B  E    0
+   F    6
+C  E    7
+   F    8
+Name: (bar, one), dtype: int32
+  
+
+ For select by rows (MultiIndex in index) use  loc : 
+
+  print (df.loc['A'])
+  bar     baz     foo     qux    
+  one two one two one two one two
+E   8   1   5   8   3   5   3   3
+F   3   1   3   6   6   1   0   2
+
+print (df.loc['A'].loc['F'])
+bar  one    3
+     two    1
+baz  one    3
+     two    6
+foo  one    6
+     two    1
+qux  one    0
+     two    2
+Name: F, dtype: int32
+
+print (df.loc[('A', 'F')])
+bar  one    3
+     two    1
+baz  one    3
+     two    6
+foo  one    6
+     two    1
+qux  one    0
+     two    2
+Name: (A, F), dtype: int32
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46577970)
+ If you want add list to  columns  for  MultiIndex : 
+
+  df.columns = [df.columns, l]
+print (df)
+   d  e  f
+   a  b  c
+0  4  7  1
+1  5  8  3
+2  4  9  5
+3  5  4  7
+4  5  2  1
+5  4  3  0
+
+print (df.columns)
+MultiIndex(levels=[['d', 'e', 'f'], ['a', 'b', 'c']],
+           labels=[[0, 1, 2], [0, 1, 2]])
+  
+
+ If you want add list to specific position  pos : 
+
+  pos = 0
+df1 = pd.DataFrame([l], columns=df.columns)
+print (df1)
+   d  e  f
+0  a  b  c
+
+df = pd.concat([df.iloc[:pos], df1, df.iloc[pos:]], ignore_index=True)
+print (df)
+   d  e  f
+0  a  b  c
+1  4  7  1
+2  5  8  3
+3  4  9  5
+4  5  4  7
+5  5  2  1
+6  4  3  0
+  
+
+ But if append this list to numeric dataframe, get mixed types - numeric with strings, so some pandas functions should failed.  
+
+  
+
+  df = pd.DataFrame({'d':[4,5,4,5,5,4],
+                   'e':[7,8,9,4,2,3],
+                   'f':[1,3,5,7,1,0]})
+
+print (df)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45736392)
+ There is problem with tuples select  Multiindex : 
+
+  np.random.seed(345)
+mux = pd.MultiIndex.from_arrays([list('abcde'), list('cdefg')])
+
+df = pd.DataFrame(np.random.randint(10, size=(4,5)), columns=mux)
+print (df)
+   a  b  c  d  e
+   c  d  e  f  g
+0  8  0  3  9  8
+1  4  3  4  1  7
+2  4  0  9  6  3
+3  8  0  3  1  5
+
+df = df.drop(('a', 'c'), axis=1)
+print (df)
+   b  c  d  e
+   d  e  f  g
+0  0  3  9  8
+1  3  4  1  7
+2  0  9  6  3
+3  0  3  1  5
+  
+
+  
+
+  df = df[('a', 'c')]
+print (df)
+0    8
+1    4
+2    4
+3    8
+Name: (a, c), dtype: int32
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54651561)
+ I think the best is create index or Multiindex with not columns possible split (with no splitter) and then create  MultiIndex  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.split.html with  expand=True : 
+
+  np.random.seed(2019)
+df = pd.DataFrame(
+    np.random.random(size=(3, 6)),
+    columns=['ID',
+             'Charge:pH2', 'Charge:pH4', 'Charge:pH6',
+             'Extinction:Wavelength200nm', 'Extinction:Wavelength500nm'])
+
+df = df.set_index('ID')
+df.columns = df.columns.str.split(':', expand=True)
+print (df)
+            Charge                          Extinction                
+               pH2       pH4       pH6 Wavelength200nm Wavelength500nm
+ID                                                                    
+0.903482  0.393081  0.623970  0.637877        0.880499        0.299172
+0.702198  0.903206  0.881382  0.405750        0.452447        0.267070
+0.162865  0.889215  0.148476  0.984723        0.032361        0.515351
+  
+
+ Solution with not set  ID  in index is possible, but get  NaN  for second level for not splitted columns names: 
+
+  df.columns = df.columns.str.split(':', expand=True)
+print (df)
+         ID    Charge                          Extinction                
+        NaN       pH2       pH4       pH6 Wavelength200nm Wavelength500nm
+0  0.903482  0.393081  0.623970  0.637877        0.880499        0.299172
+1  0.702198  0.903206  0.881382  0.405750        0.452447        0.267070
+2  0.162865  0.889215  0.148476  0.984723        0.032361        0.515351
+  
+
+ Last select by columns names, also is possible use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html if want select by second level: 
+
+  print (df['Charge'])
+               pH2       pH4       pH6
+ID                                    
+0.903482  0.393081  0.623970  0.637877
+0.702198  0.903206  0.881382  0.405750
+0.162865  0.889215  0.148476  0.984723
+
+print (df.xs('Charge', axis=1, level=0))
+               pH2       pH4       pH6
+ID                                    
+0.903482  0.393081  0.623970  0.637877
+0.702198  0.903206  0.881382  0.405750
+0.162865  0.889215  0.148476  0.984723
+
+print (df.xs('pH4', axis=1, level=1))
+            Charge
+ID                
+0.903482  0.623970
+0.702198  0.881382
+0.162865  0.148476
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42776791)
+ If you convert the second  DataFrame  to a  MultiIndex , you can just select the first  DataFrame  using  .  
+
+  In [2]: idx = df2.set_index(['numbers', 'letters']).index
+
+In [3]: print df.[idx]
+                      dates         0
+numbers letters
+0       b        2013-01-01 -1.515866
+        b        2013-01-02  0.351942
+        b        2013-01-03 -0.245463
+1       c        2013-01-01 -0.419775
+        c        2013-01-02  1.511700
+        c        2013-01-03  0.994332
+0       b        2013-01-01 -1.515866
+        b        2013-01-02  0.351942
+        b        2013-01-03 -0.245463
+  
+
+
+

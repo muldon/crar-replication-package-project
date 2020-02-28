@@ -1,0 +1,172 @@
+Query: How to pull a random record using Django's ORM?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51161154)
+ For example when you want to get 10 random items from a model. You can use random module 
+
+  import random
+random_items = random.sample(list(model.objects.all()), k=10)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30741675)
+ Just a simple idea how I do it: 
+
+  def _get_random_service(self, professional):
+    services = Service.objects.filter(professional=professional)
+    i = randint(0, services.count()-1)
+    return services[i]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43756299)
+ Here's a simple solution: 
+
+  from random import randint
+
+count = Model.objects.count()
+random_object = Model.objects.all()[randint(0, count - 1)] #single random object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/962672)
+ Simply use: 
+
+  MyModel.objects.order_by('?').first()
+  
+
+ It is documented in https://docs.djangoproject.com/en/dev/ref/models/querysets/#django.db.models.query.QuerySet.order_by. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40332426)
+ One much easier approach to this involves simply filtering down to the recordset of interest and using  random.sample  to select as many as you want: 
+
+  from myapp.models import MyModel
+import random
+
+my_queryset = MyModel.objects.filter(criteria=True)  # Returns a QuerySet
+my_object = random.sample(my_queryset, 1)  # get a single random element from my_queryset
+my_objects = random.sample(my_queryset, 5)  # get five random elements from my_queryset
+  
+
+ Note that you should have some code in place to verify that  my_queryset  is not empty;  random.sample  returns  ValueError: sample larger than population  if the first argument contains too few elements. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1731373)
+ If you specify the random operator in the ORM I'm pretty sure it will give you two distinct random results won't it? 
+
+  MyModel.objects.order_by('?')[:2] # 2 random results.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2118712)
+ Using  order_by('?')  will kill the db server on the second day in production. A better way is something like what is described in http://web.archive.org/web/20110802060451/http://bolddream.com/2010/01/22/getting-a-random-row-from-a-relational-database/. 
+
+  from django.db.models.aggregates import Count
+from random import randint
+
+class PaintingManager(models.Manager):
+    def random(self):
+        count = self.aggregate(count=Count('id'))['count']
+        random_index = randint(0, count - 1)
+        return self.all()[random_index]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/971671)
+ [:N] are extremely slow even for medium-sized tables if you use MySQL (don't know about other databases). 
+
+  [:N]  will be translated to  SELECT ... FROM ... WHERE ... ORDER BY RAND() LIMIT N  query. 
+
+ It means that for every row in table the RAND() function will be executed, then the whole table will be sorted according to value of this function and then first N records will be returned. If your tables are small, this is fine. But in most cases this is a very slow query. 
+
+ I wrote simple function that works even if id's have holes (some rows where deleted): 
+
+  def get_random_item(model, max_id=None):
+    if max_id is None:
+        max_id = model.objects.aggregate(Max('id')).values()[0]
+    min_id = math.ceil(max_id*random.random())
+    return model.objects.filter(id__gte=min_id)[0]
+  
+
+ It is faster than  .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34099143)
+ You may want to use the https://stackoverflow.com/a/12583436/623735 that you'd use to sample any iterator, especially if you plan to sample multiple items to create a  sample set . @MatijnPieters and @DzinX put a lot of thought into this: 
+
+  def random_sampling(qs, N=1):
+    """Sample any iterable (like a Django QuerySet) to retrieve N random elements
+
+    Arguments:
+      qs (iterable): Any iterable (like a Django QuerySet)
+      N (int): Number of samples to retrieve at random from the iterable
+
+    References:
+      @DZinX:  https://stackoverflow.com/a/12583436/623735
+      @MartinPieters: https://stackoverflow.com/a/12581484/623735
+    """
+    samples = []
+    iterator = iter(qs)
+    # Get the first `N` elements and put them in your results list to preallocate memory
+    try:
+        for _ in xrange(N):
+            samples.append(iterator.next())
+    except StopIteration:
+        raise ValueError("N, the number of reuested samples, is larger than the length of the iterable.")
+    random.shuffle(samples)  # Randomize your list of N objects
+    # Now replace each element by a truly random sample
+    for i, v in enumerate(qs, N):
+        r = random.randint(0, i)
+        if r < N:
+            samples[r] = v  # at a decreasing rate, replace random items
+    return samples
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/962662)
+ You could create a http://docs.djangoproject.com/en/dev/topics/db/managers/ on your model to do this sort of thing.  To first understand what a manager is, the  Painting.objects   is a manager that contains  all() ,  filter() ,  get() , etc.  Creating your own manager allows you to pre-filter results and have all these same s, as well as your own custom s, work on the results. 
+
+  EDIT : I modified my code to reflect the  order_by['?']  .  Note that the manager returns an unlimited number of random models.  Because of this I've included a bit of usage code to show how to get just a single model. 
+
+  from django.db import models
+
+class RandomManager(models.Manager):
+    def get_query_set(self):
+        return super(RandomManager, self).get_query_set().order_by('?')
+
+class Painting(models.Model):
+    title = models.CharField(max_length=100)
+    author = models.CharField(max_length=50)
+
+    objects = models.Manager() # The default manager.
+    randoms = RandomManager() # The random-specific manager.
+  
+
+    
+
+  random_painting = Painting.randoms.all()[0]
+  
+
+ Lastly, you can have many managers on your models, so feel free to create a  LeastViewsManager()  or  MostPopularManager() . 
+
+
+

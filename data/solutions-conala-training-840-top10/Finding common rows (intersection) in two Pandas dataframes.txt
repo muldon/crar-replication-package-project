@@ -1,0 +1,175 @@
+Query: Finding common rows (intersection) in two Pandas dataframes
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/54619342)
+ There is magic from  merge  using  indicator  
+
+  s=df1.merge(df2,left_index=True,right_index=True,indicator=True,how='outer')
+df1_1=s.loc[s['_merge']=='left_only',['values1']]
+df2_2=s.loc[s['_merge']=='right_only',['values2']]
+df1_1
+             values1
+01/12/2000  0.012749
+04/12/2000  0.113892
+df2_2
+             values2
+24/11/2000 -0.004808
+27/11/2000 -0.001812
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/54619132)
+ Without reindexing, I would get the unique dates from each df and then mask the other using those dates.  
+
+  df1 = df1[~df1['date'].isin(df2['date'].unique())]
+df2 = df2[~df2['date'].isin(df1['date'].unique())]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40075325)
+ Could use merge operator like follows 
+
+  pd.merge(df1, df2, how='inner')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54619124)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.difference.html: 
+
+  df11 = df1.loc[df1.index.difference(df2.index)]
+print (df11)
+            values 1
+01/12/2000  0.012749
+04/12/2000  0.113892
+
+df22 = df2.loc[df2.index.difference(df1.index)]
+print (df22)
+            values 2
+24/11/2000 -0.004808
+27/11/2000 -0.001812
+  
+
+ Numpy solution with https://docs.scipy.org/doc/numpy/reference/generated/numpy.setdiff1d.html: 
+
+  df11 = df1.loc[np.setdiff1d(df1.index, df2.index)]
+df22 = df2.loc[np.setdiff1d(df2.index, df1.index)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19619270)
+ In SQL, this problem could be solved by several methods: 
+
+  select * from df1 where exists (select * from df2 where df2.user_id = df1.user_id)
+union all
+select * from df2 where exists (select * from df1 where df1.user_id = df2.user_id)
+  
+
+ or join and then unpivot (possible in SQL server) 
+
+  select
+    df1.user_id,
+    c.rating
+from df1
+    inner join df2 on df2.user_i = df1.user_id
+    outer apply (
+        select df1.rating union all
+        select df2.rating
+    ) as c
+  
+
+ Second one could be written in pandas with something like: 
+
+  >>> df1 = pd.DataFrame({"user_id":[1,2,3], "rating":[10, 15, 20]})
+>>> df2 = pd.DataFrame({"user_id":[3,4,5], "rating":[30, 35, 40]})
+>>>
+>>> df4 = df[['user_id', 'rating_1']].rename(columns={'rating_1':'rating'})
+>>> df = pd.merge(df1, df2, on='user_id', suffixes=['_1', '_2'])
+>>> df3 = df[['user_id', 'rating_1']].rename(columns={'rating_1':'rating'})
+>>> df4 = df[['user_id', 'rating_2']].rename(columns={'rating_2':'rating'})
+>>> pd.concat([df3, df4], axis=0)
+   user_id  rating
+0        3      20
+0        3      30
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32214034)
+  
+
+  s1 = pd.Series([4,5,6,20,42])
+s2 = pd.Series([1,2,3,5,42])
+
+s1[s1.isin(s2)]
+  
+
+  
+
+  s1  <- c(4,5,6,20,42)
+s2 <- c(1,2,3,5,42)
+
+s1[s1 %in% s2]
+  
+
+  Edit:  Doesn't handle dupes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30535957)
+ My understanding is that this question is better answered over in https://stackoverflow.com/questions/26921943/pandas-intersection-of-two-data-frames-based-on-column-entries. 
+
+ But briefly, the answer to the OP with this method is simply: 
+
+  s1 = pd.merge(df1, df2, how='inner', on=['user_id'])
+  
+
+ Which gives s1 with 5 columns: user_id and the other two columns from each of df1 and df2. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48171118)
+ And, using  isin .  intersection  might be faster though. 
+
+  In [286]: df1.loc[df1.index.isin(df2.index)]
+Out[286]:
+             values1
+0
+28/11/2000 -0.055276
+29/11/2000  0.027427
+30/11/2000  0.066009
+
+In [287]: df2.loc[df2.index.isin(df1.index)]
+Out[287]:
+             values2
+0
+28/11/2000 -0.026316
+29/11/2000  0.015222
+30/11/2000 -0.024480
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18080142)
+ If you are using Pandas, I assume you are also using NumPy. Numpy has a function  intersect1d  that will work with a Pandas series.  
+
+ Example: 
+
+  pd.Series(np.intersect1d(pd.Series([1,2,3,5,42]), pd.Series([4,5,6,20,42])))
+  
+
+ will return a Series with the values 5 and 42. 
+
+
+

@@ -1,0 +1,214 @@
+Query: Python regex to match multiple times
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8651730)
+ Is this what you want ?  
+
+  import re
+
+regx = re.compile('(?(?<= )|(?<=\A)|(?<=\r)|(?<=\n))'
+                  '(\d\d)(\d\d)?(\d\d)?'
+                  '(?= |\Z|\r|\n)')
+
+for s in ('   112233  58975  6677  981  897899\r',
+          '\n123456 4433 789101 41586 56 21365899 362547\n',
+          '0101 456899 1 7895')
+    print repr(s),'\n',regx.findall(s),'\n'
+  
+
+  
+
+  '   112233  58975  6677  981  897899\r' 
+[('11', '22', '33'), ('66', '77', ''), ('89', '78', '99')] 
+
+'\n123456 4433 789101 41586 56 21365899 362547\n' 
+[('12', '34', '56'), ('44', '33', ''), ('78', '91', '01'), ('56', '', ''), ('36', '25', '47')] 
+
+'0101 456899 1 7895' 
+[('01', '01', ''), ('45', '68', '99'), ('78', '95', '')] 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8651384)
+ You cannot do that using just a single regular expression.  It is a special case of counting, which you cannot do with just a regex pattern. \d\d will get you: 
+
+ Group1: 12
+Group2: 23
+Group3: 34
+...  
+
+ regex library in python comes with a non-overlapping routine namely re.findall() that does the trick.  
+
+       re.findall('\d\d', '123456')
+  
+
+ will return  ['12', '34', '56']  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8651354)
+  (\d{2})+(\d)?
+  
+
+ I'm not sure how python handles its matching, but this is how i would do it 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29854217)
+ first of all Your regex will work as you expect : 
+
+  >>> s="aa2.jhf.jev.d23.llo."
+>>> import re
+>>> re.search(r'([ a-zA-Z0-9]{1,3}\.){2,4}',s).group(0)
+'aa2.jhf.jev.d23.'
+  
+
+ But if you want to match some sub strings like  U.S. , c.v.a.b. , a. v. p.  you need to put the whole of regex in a capture group : 
+
+  >>> s= 'a. v. b. split them a.b. split somethinf words. THen we say' some more 
+>>> re.findall(r'(([ a-zA-Z0-9]{1,3}\.){2,4})',s)
+[('a. v. b.', ' b.'), ('m a.b.', 'b.')]
+  
+
+ then use a list comprehension to get the first matches : 
+
+  >>> [i[0] for i in re.findall(r'(([ a-zA-Z0-9]{1,3}\.){2,4})',s)]
+['a. v. b.', 'm a.b.']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25333799)
+ To count the chars in the string, you can use https://docs.python.org/dev/library/collections.html#collections.Counter: 
+
+  >>> from collections import Counter
+>>> counter = Counter("abceeedtyooo")
+>>> print(counter)
+Counter({'e': 3, 'o': 3, 'a': 1, 'd': 1, 'y': 1, 'c': 1, 'b': 1, 't': 1})
+  
+
+ Then you can filter the result as follows: 
+
+  >>> result = [char for char in counter if counter[char] == 3]
+>>> print(result)
+['e', 'o']
+  
+
+ If you want to match  consecutive  characters only, you can use regex (cf. https://docs.python.org/dev/library/re.html): 
+
+  >>> import re
+>>> result = re.findall(r"(.)\1\1", "abceeedtyooo")
+>>> print(result)
+['e', 'o']
+>>> result = re.findall(r"(.)\1\1", "abcaaa")
+>>> print(result)
+['a']
+  
+
+ This will also match if the same character appears three consecutive times multiple times (e.g. on  "aaabcaaa" , it will match  'a'  twice). Matches are non-overlapping, so on  "aaaa"  it will only match once, but on  "aaaaaa"  it will match twice. Should you not want multiple matches on consecutive strings, modify the regex to  r"(.)\1\1(?!\1)" . To avoid matching  any  chars that appear  more  than 3 consecutive times, https://stackoverflow.com/questions/10319696/match-exactly-n-repetitions-of-the-same-character. This works around a problem with Python's regex module that cannot handle  (?<!\1) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17407925)
+ Use this. You need to place 'review' outside the capturing group to achieve the desired result. 
+
+  pattern = re.compile(r'(?:review: )?(http://url.com/(\d+))\s?', re.IGNORECASE)
+  
+
+ This gives output 
+
+  >>> match = pattern.findall('this is the message. review: http://url.com/123 http://url.com/456')
+>>> match
+[('http://url.com/123', '123'), ('http://url.com/456', '456')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49412659)
+ You could match between word boundaries and use a positive lookahead to assert and uppercase character and a digit: 
+
+ https://regex101.com/r/bzDcJi/1 
+
+ That would match: 
+
+ 
+  \b  Word boundary 
+  (?=  Positive lookahead that asserts what is on the right
+
+ 
+  [A-Z0-9] * Match zero or more times an uppercase character 
+  [A-Z]  Match an uppercase character 
+  
+  )  Close positive lookahead 
+  (?=  Positive lookahead that asserts what is on the right
+
+ 
+  [A-Z0-9]*  Match zero or more times an uppercase character 
+  [0-9]  Match a digit 
+  
+  )  Close positive lookahead 
+  [A-Z0-9]+  Match one or more times an uppercase character or a digit 
+  \b  Word boundary 
+ 
+
+ So, in Python, that would be: 
+
+  import re
+s = "some blah blah blah with id X12354, id 1234Z and id 12P555. All are 50 years old."
+re.findall(r'\b(?=[A-Z-0-9]*[A-Z])(?=[A-Z-0-9]*[0-9])[A-Z0-9]+\b', s)
+  
+
+  
+
+  ['X12354', '1234Z', '12P555']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54891244)
+  .* at the beginning of the regexp causes the first match to include the entire beginning of the input string, up to the first [ .  .*` at the end of the regexp causes the first match to include the rest of the input string. 
+
+ So both of these prevent the regexp from matching multiple times. You shouldn't use them when you're using  re.findall() . 
+
+ Then you need to use non-greedy quantifiers, so that  .*  won't match across multiple sets of brackets. Or you could use  \[[^]]*\]  instead of  .* , so it won't match the close bracket. 
+
+  there's no need for the non-capturing group around the parts you want to capture. 
+
+ Just use: 
+
+  re.findall(r'(\[.*?\]) (\d+)', stat_log, re.DOTALL)
+  
+
+ https://regex101.com/r/6y9Knh/1 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17407789)
+ You've got extra /'s in the regex.  In python the pattern should just be a string. e.g. instead of this: 
+
+  pattern = re.compile('/review: (http://url.com/(\d+)\s?)+/', re.IGNORECASE)
+  
+
+  
+
+  pattern = re.compile('review: (http://url.com/(\d+)\s?)+', re.IGNORECASE)
+  
+
+ Also typically in python you'd actually use a "raw" string like this: 
+
+  pattern = re.compile(r'review: (http://url.com/(\d+)\s?)+', re.IGNORECASE)
+  
+
+ The extra r on the front of the string saves you from having to do lots of backslash escaping etc. 
+
+
+

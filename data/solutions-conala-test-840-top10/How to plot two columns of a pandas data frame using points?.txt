@@ -1,0 +1,209 @@
+Query: How to plot two columns of a pandas data frame using points?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40229458)
+ One approach is to plot twice on the same axes. First we plot only the "good" points, then we plot only the "bad". The trick is to use the  ax  keyword to the  scatter  method, as such: 
+
+  ax = df[df.result == 'Good'].plot.scatter('x', 'y', color='green')
+df[df.result == 'Bad'].plot.scatter('x', 'y', ax=ax, color='red')
+  
+
+ https://i.stack.imgur.com/xsOaC.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17813222)
+ You can specify the  style  of the plotted line when calling http://pandas.pydata.org/pandas-docs/version/0.15.0/generated/pandas.DataFrame.plot.html?highlight=plot#pandas-dataframe-plot: 
+
+  df.plot(x='col_name_1', y='col_name_2', style='o')
+  
+
+ The  style  argument can also be a  dict  or  list , e.g.: 
+
+  import numpy as np
+import pandas as pd
+
+d = {'one' : np.random.rand(10),
+     'two' : np.random.rand(10)}
+
+df = pd.DataFrame(d)
+
+df.plot(style=['o','rx'])
+  
+
+ All the accepted style formats are listed in the documentation of http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.plot. 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31163479)
+ It's hard to know exactly what you are trying to do w/o an example.  Here are some plots I use when looked at "grouped by" data: 
+
+  # imports
+import matplotlib.pyplot as plt
+  
+
+ Bar plot of average of column_c by column_a 
+
+  df.groupby('column_a').column_c.mean().plot(kind='bar')
+plt.ylabel('Average of Column C Per Column A')
+  
+
+ Bar plot of total of column_c by column_a 
+
+  df.groupby('column_a').column_c.sum().plot(kind='bar')
+plt.ylabel('Total of Column C Per Column A')
+  
+
+ Grouped histograms (shows the distribution for each group) 
+
+  df.column_c.hist(by=df.column_a)
+df.column_c.hist(by=df.column_a, sharex=True)  # common X axis
+df.column_c.hist(by=df.column_a, sharex=True, sharey=True)  # common X and Y axis
+  
+
+  
+
+  df.boxplot(column='column_c', by='column_a')
+  
+
+ Scatterplot matrix of all numerical columns 
+
+  pd.scatter_matrix(df)
+  
+
+ Scatterplot matrix of specific numerical columns 
+
+  pd.scatter_matrix(df[['column_1', 'column_2', 'column_3']])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17813277)
+ For this (and most plotting) I would not rely on the Pandas wrappers to matplotlib. Instead, just use matplotlib directly: 
+
+  import matplotlib.pyplot as plt
+plt.scatter(df['col_name_1'], df['col_name_2'])
+plt.show() # Depending on whether you use IPython or interactive mode, etc.
+  
+
+ and remember that you can access a NumPy array of the column's values with  df.col_name_1.values  for example. 
+
+ I ran into trouble using this with Pandas default plotting in the case of a column of Timestamp values with millisecond precision. In trying to convert the objects to  datetime64  type, I also discovered a nasty issue: < https://stackoverflow.com/questions/26350364/pandas-gives-incorrect-result-when-asking-if-timestamp-column-values-have-attr-a >. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40066747)
+  import pandas
+from matplotlib import pyplot as plt
+df = pandas.DataFrame({'fnctn':['a','a','a','b','b','b'],'x':[1,2,3,1,2,3],'y1':[2,3,4,3,2,2],'y2':[3,2,3,4,3,2]})
+
+In [19]: df
+Out[19]: 
+  fnctn  x  y1  y2
+0     a  1   2   3
+1     a  2   3   2
+2     a  3   4   3
+3     b  1   3   4
+4     b  2   2   3
+5     b  3   2   2
+
+for f in set(df['fnctn']): 
+     df[df['fnctn']==f].plot(x='x')
+  
+
+ https://i.stack.imgur.com/Rpkgo.png
+<a href="https://i.stack.imgur.com/dAqiC.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40168141)
+  df = pd.DataFrame(dict(A=[1, 2, 3, 4],
+                       B=[7.5, 7, 5, 4.5],
+                       C=[0, 1, 1, 0]))
+
+colors = {0: 'red', 1: 'aqua'}
+
+plt.scatter(df.A, df.B, c=df.C.map(colors))
+  
+
+ https://i.stack.imgur.com/gbYHk.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35762544)
+ Seaborn has a nice https://stanford.edu/~mwaskom/software/seaborn/generated/seaborn.FacetGrid.html function.You can merge your two dataframes wrap the seaborn facetgrid around a normal matplotlib.pyplot.scatter() 
+
+  import pandas as pd
+import random
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+#make a test dataframe
+features = {}
+for i in range(7):
+    features['feature%s'%i] = [random.random() for j in range(10)]
+f = pd.DataFrame(features)
+labels = pd.DataFrame({'label':[random.random() for j in range(10)]})
+
+#unstack it so feature labels are now in a single column
+unstacked = pd.DataFrame(f.unstack()).reset_index()
+unstacked.columns = ['feature', 'feature_index', 'feature_value']
+#merge them together to get the label value for each feature value
+plot_data = pd.merge(unstacked, labels, left_on = 'feature_index', right_index = True)
+#wrap a seaborn facetgrid
+kws = dict(s=50, linewidth=.5, edgecolor="w")
+g = sns.FacetGrid(plot_data, col="feature")
+g = (g.map(plt.scatter, "feature_value", "label", **kws))
+  
+
+ https://i.stack.imgur.com/vWUdN.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26243046)
+ . The key was unstacking the data first: 
+
+  import matplotlib.pyplot as plt
+
+t=df2.unstack(level=0)
+plt.plot(t[[0]], color='red')
+plt.plot(t[[1]], color='blue')
+plt.xticks(range(2), ['one','two'], size='small')
+
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33439427)
+ With the help of @mwaskom and https://stackoverflow.com/questions/15465645/plotting-results-of-pandas-groupby, I've managed to find a solution to my posted question: 
+
+  #Assuming df is a pandas data frame with columns 'x', 'y', and 'label'
+for key,grp in df.groupby('label'):
+    plt.plot(grp.x,grp.y,'o-',label = key)
+plt.legend(loc = 'best')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45556724)
+ You can slice the  p1  and  p2  columns from the data frame and then drop duplicates before plotting. 
+
+  sub_df = df[['p1','p2']].drop_duplicates()
+fig, ax = plt.subplots(1,1)
+ax.plot(sub_df['p1'],sub_df['p2'])
+  
+
+
+

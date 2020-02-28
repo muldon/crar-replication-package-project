@@ -1,0 +1,211 @@
+Query: How can I start a Python thread FROM C++?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23303484)
+ Spawn threads 
+
+ You can  not  spawn  multiple  threads like this: 
+
+  while True:
+   my_thread.start()     # will start one thread, no matter how many times you call it
+  
+
+ Use instead: 
+
+  while True:
+   ThreadClass( threading.Thread ).start() # will create a new thread each iteration
+   threading.Thread( target=function, args=( "parameter1", "parameter2" ))
+
+def function( string1, string2 ):
+  pass # Just to illustrate the threading factory. You may pass variables here.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52135940)
+ Please read https://github.com/python/cpython/blob/master/Lib/threading.py#L854.  start()  must be called at most once per thread object. It arranges for the object’s  run()  method to be invoked in a separate thread of control.  run()  will be called by  start()  in the context as follow: 
+
+      def start(self):
+        ....
+        _start_new_thread(self._bootstrap, ())
+        ....
+
+    def _bootstrap(self):
+        ....
+        self._bootstrap_inner()
+        ....
+
+    def _bootstrap_inner(self):
+        ...
+        self.run()
+        ...
+  
+
+ Let's a demo for start() and run(). 
+
+  class MyThread(threading.Thread):
+
+    def __init__(self, *args, **kwargs):
+        super(MyThread, self).__init__(*args, **kwargs)
+
+    def run(self):
+        print("called by threading.Thread.start()")
+
+
+if __name__ == '__main__':
+    mythread = MyThread()
+    mythread.start()
+    mythread.join()
+  
+
+ 
+
+  $ python3 threading.Thread.py
+called by threading.Thread.start()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5882399)
+ See the http://docs.python.org/library/threading.html#threading.Thread.daemon flag - basically whenever no non-daemon threads are running, the interpreter terminates. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4004028)
+ This behavior is due to the fact that  thread.start_new_thread  creates thread in  daemon  mode while  threading.Thread  creates thread in  non-daemon  mode. 
+To start  threading.Thread  in daemon mode, you need to use  .setDaemon  method: 
+
+  my_thread = threading.Thread(target=main_func, args=args, kwargs=kwargs)
+my_thread.setDaemon(True)
+my_thread.start()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19558570)
+ Is there a reason you're using  thread  instead of the recommended http://docs.python.org/2/library/threading.html module? If not, you should rather use the  threading.Thread  objects which have a join method: 
+
+  from threading import Thread
+
+
+def check_url(url):
+    # some code
+
+threads = []
+for url in url_ip_hash.keys():
+    t = Thread(target=check_url, args=(url, ))
+    t.start()
+    threads.append(t)
+
+# join all threads
+for t in threads:
+    t.join()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31844060)
+ You can start in a new thread. You should set the daemon flag so that Ctrl+C can end the script. 
+
+  class ServerThread(threading.Thread):
+
+  def __init__(self):
+    threading.Thread.__init__(self)
+
+  def run(self):
+    app.run(
+      port=7777,
+      host='localhost'
+    )
+
+if '__main__'==__name__:
+  logging.getLogger().addHandler(logging.StreamHandler())
+
+  thread = ServerThread()
+  thread.daemon = True
+  thread.start()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/15064436)
+ The key is to start the thread using threading, not thread: 
+
+  t1 = threading.Thread(target=my_function, args=())
+t1.start()
+  
+
+ Then use 
+
+  z = t1.isAlive()
+  
+
+  
+
+  l = threading.enumerate()
+  
+
+ You can also use join(): 
+
+  t1 = threading.Thread(target=my_function, args=())
+t1.start()
+t1.join()
+# Will only get to here once t1 has returned.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18422169)
+ Use the  target  attribute to the  Thread  constructor instead: 
+
+  class twothreads:
+    def t1(self):
+        print "Hi"
+
+    def t2(self):
+        print "Bye"
+
+t = twothreads()
+threading.Thread(target=t.t1).start()
+threading.Thread(target=t.t2).start()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6319283)
+  threading.Thread(target=some_callable_function).start()
+  
+
+ or if you wish to pass arguments, 
+
+  threading.Thread(target=some_callable_function,
+        args=(tuple, of, args),
+        kwargs={'dict': 'of', 'keyword': 'args'},
+    ).start()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23224816)
+ You are correct in that  run()  does not spawn a separate thread. It runs the thread function  in the context of the current thread . 
+
+ It is not clear to me what you are trying to achieve by calling  start()  in a loop. 
+
+ 
+ If you want your thread to repeatedly do something, then move the loop into the thread function. 
+ If you want multiple threads, then create multiple  Thread  objects (and call  start()  once on each of them). 
+ 
+
+ Finally, to pass arguments to a thread, pass  args  and  kwargs  to the https://docs.python.org/2/library/threading.html#threading.Thread. 
+
+
+

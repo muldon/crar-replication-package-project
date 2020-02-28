@@ -1,0 +1,181 @@
+Query: How to create an XML file of a POJO using JAXB?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25321858)
+ JAXB is the way to go.  
+
+ Note:
+It is included in JAVA 1.6 and later versions 
+
+ Add XML tags to your POJO  (XmlRootElement is enough for simple objects, XmlElement can also be added to variables) 
+
+  import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement(name = "Person")
+public class Person {
+
+    private String firstName;
+
+    private String lastName;
+
+    private String address;
+
+    public final String getFirstName() {
+        return firstName;
+    }
+
+    public final void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public final String getLastName() {
+        return lastName;
+    }
+
+    public final void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public final String getAddress() {
+        return address;
+    }
+
+    public final void setAddress(String address) {
+        this.address = address;
+    }
+
+    @Override
+    public String toString() {
+        return "FirstName: " + firstName + " LastName: " + lastName + " Address: " + address;
+    }
+
+}
+  
+
+ Use Unmarshaller to create the POJO from the xml file. 
+
+      File file = new File("<Path to Xml file>");
+    JAXBContext context = JAXBContext.newInstance(Person.class);
+    Unmarshaller unmarsheller = context.createUnmarshaller();
+    Person person = (Person) unmarsheller.unmarshal(file);
+    System.out.println(person);
+  
+
+ You can use Marshaller to create the XML from the POJO also. 
+
+ There are more examples available https://jaxb.java.net/tutorial/ to create complex objects, add lists, arrays. 
+
+ Note: It is not available in Android Platform, If you want to use it on android you can use http://simple.sourceforge.net/ with almost  same implementation  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25656014)
+ You could do the following with JAXB and StAX: 
+
+  import javax.xml.bind.*;
+import javax.xml.stream.*;
+import javax.xml.stream.events.XMLEvent;
+import java.io.*;
+
+public class Demo {
+
+    public static void main(String[] args) throws Exception {
+        XMLInputFactory xif = XMLInputFactory.newFactory();
+        XMLOutputFactory xof = XMLOutputFactory.newFactory();
+
+        try(
+           FileInputStream in = new FileInputStream("in.xml");
+           FileOutputStream out = new FileOutputStream("out.xml");
+        ) {
+            XMLEventReader xer = xif.createXMLEventReader(in);
+            XMLEventWriter xew = xof.createXMLEventWriter(out);
+
+            JAXBContext jc = JAXBContext.newInstance(File.class);
+            Unmarshaller unmarshaller = jc.createUnmarshaller();
+            Marshaller marshaller = jc.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FRAGMENT, true);
+
+            while(xer.hasNext()) {
+                if(xer.peek().isStartElement() && xer.peek().asStartElement().getName().getLocalPart().equals("file")) {
+                    // Unmarshal the File object from the XMLEventReader
+                    File file = (File) unmarshaller.unmarshal(xer);
+
+                    // Modify the File object
+                    file.description = "NEW DESCRIPTION";
+
+                    // Marshal the File object to the XMLEventWriter
+                    marshaller.marshal(file, xew);
+                } else {
+                    // Copy node from reader to writer
+                    xew.add(xer.nextEvent());
+                }
+            }
+        }
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48152543)
+ In The pom.xml include the following dependency -  
+
+  <dependency>
+        <groupId>org.apache.camel</groupId>
+        <artifactId>camel-jaxb</artifactId>
+        <version>2.13.0</version>
+    </dependency>
+  
+
+ Next annotate the pojo class with  @XmlRootElement(name = "employee")  
+
+  package com.javainuse.model;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement(name = "employee")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Employee {
+
+    private String empName;
+    private int empId;
+
+    public String getEmpName() {
+        return empName;
+    }
+
+    public void setEmpName(String empName) {
+        this.empName = empName;
+    }
+
+    public int getEmpId() {
+        return empId;
+    }
+
+    public void setEmpId(int empId) {
+        this.empId = empId;
+    }
+}
+  
+
+ Finally in the RouteBuilder class define the jaxb dataformat and use it in the route. 
+
+  // XML Data Format
+        JaxbDataFormat xmlDataFormat = new JaxbDataFormat();
+        JAXBContext con = JAXBContext.newInstance(Employee.class);
+        xmlDataFormat.setContext(con);
+
+from("file:C:/inputFolder").doTry().unmarshal(xmlDataFormat).
+        process(new MyProcessor()).marshal(jsonDataFormat).
+        to("jms:queue:javainuse")
+  
+
+ Source Code and more details - http://www.javainuse.com/camel/camel-marshal-unmarshal-example  
+
+
+

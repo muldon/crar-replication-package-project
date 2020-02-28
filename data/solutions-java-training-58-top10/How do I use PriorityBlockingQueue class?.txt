@@ -1,0 +1,1026 @@
+Query: How do I use PriorityBlockingQueue class?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5485769)
+  public class ExecutorPriority {
+
+public static void main(String[] args) {
+
+    PriorityBlockingQueue<Runnable> pq = new PriorityBlockingQueue<Runnable>(20, new ComparePriority());
+
+    Executor exe = new ThreadPoolExecutor(1, 2, 10, TimeUnit.SECONDS, pq);
+    exe.execute(new RunWithPriority(2) {
+
+        @Override
+        public void run() {
+
+            System.out.println(this.getPriority() + " started");
+            try {
+                Thread.sleep(3000);
+             catch (InterruptedException ex) {
+                Logger.getLogger(ExecutorPriority.class.getName()).log(Level.SEVERE, null, ex);
+            
+            System.out.println(this.getPriority() + " finished");
+        
+    );
+    exe.execute(new RunWithPriority(10) {
+
+        @Override
+        public void run() {
+            System.out.println(this.getPriority() + " started");
+            try {
+                Thread.sleep(3000);
+             catch (InterruptedException ex) {
+                Logger.getLogger(ExecutorPriority.class.getName()).log(Level.SEVERE, null, ex);
+            
+            System.out.println(this.getPriority() + " finished");
+        
+    );
+
+
+
+private static class ComparePriority<T extends RunWithPriority> implements Comparator<T> {
+
+    @Override
+    public int compare(T o1, T o2) {
+        return o1.getPriority().compareTo(o2.getPriority());
+    
+
+  
+
+  
+
+ as you can guess RunWithPriority is an abstract class that is Runnable and has a Integer priority field 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8471474)
+ My solution: 
+
+  public class XThreadPoolExecutor extends ThreadPoolExecutor
+{
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
+    }
+
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue,
+        RejectedExecutionHandler handler)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
+    }
+
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue,
+        ThreadFactory threadFactory)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
+    }
+
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue,
+        ThreadFactory threadFactory, RejectedExecutionHandler handler)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+    }
+
+    protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value)
+    {
+        return new ComparableFutureTask<>(runnable, value);
+    }
+
+    protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable)
+    {
+        return new ComparableFutureTask<>(callable);
+    }
+
+    protected class ComparableFutureTask<V>
+        extends FutureTask<V> implements Comparable<ComparableFutureTask<V>>
+    {
+        private Object object;
+        public ComparableFutureTask(Callable<V> callable)
+        {
+            super(callable);
+            object = callable;
+        }
+
+        public ComparableFutureTask(Runnable runnable, V result)
+        {
+            super(runnable, result);
+            object = runnable;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public int compareTo(ComparableFutureTask<V> o)
+        {
+            if (this == o)
+            {
+                return 0;
+            }
+            if (o == null)
+            {
+                return -1; // high priority
+            }
+            if (object != null && o.object != null)
+            {
+                if (object.getClass().equals(o.object.getClass()))
+                {
+                    if (object instanceof Comparable)
+                    {
+                        return ((Comparable) object).compareTo(o.object);
+                    }
+                }
+            }
+            return 0;
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16577733)
+ You can use these helper classes:   
+
+  public class PriorityFuture<T> implements RunnableFuture<T> {
+
+    private RunnableFuture<T> src;
+    private int priority;
+
+    public PriorityFuture(RunnableFuture<T> other, int priority) {
+        this.src = other;
+        this.priority = priority;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        return src.cancel(mayInterruptIfRunning);
+    }
+
+    public boolean isCancelled() {
+        return src.isCancelled();
+    }
+
+    public boolean isDone() {
+        return src.isDone();
+    }
+
+    public T get() throws InterruptedException, ExecutionException {
+        return src.get();
+    }
+
+    public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        return src.get();
+    }
+
+    public void run() {
+        src.run();
+    }
+
+    public static Comparator<Runnable> COMP = new Comparator<Runnable>() {
+        public int compare(Runnable o1, Runnable o2) {
+            if (o1 == null && o2 == null)
+                return 0;
+            else if (o1 == null)
+                return -1;
+            else if (o2 == null)
+                return 1;
+            else {
+                int p1 = ((PriorityFuture<?>) o1).getPriority();
+                int p2 = ((PriorityFuture<?>) o2).getPriority();
+
+                return p1 > p2 ? 1 : (p1 == p2 ? 0 : -1);
+            }
+        }
+    };
+}
+  
+
+    
+
+  public interface PriorityCallable<T> extends Callable<T> {
+
+    int getPriority();
+
+}
+  
+
+    this helper method:   
+
+  public static ThreadPoolExecutor getPriorityExecutor(int nThreads) {
+    return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS,
+            new PriorityBlockingQueue<Runnable>(10, PriorityFuture.COMP)) {
+
+        protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
+            RunnableFuture<T> newTaskFor = super.newTaskFor(callable);
+            return new PriorityFuture<T>(newTaskFor, ((PriorityCallable<T>) callable).getPriority());
+        }
+    };
+}
+  
+
+    then use it like this:   
+
+  class LenthyJob implements PriorityCallable<Long> {
+    private int priority;
+
+    public LenthyJob(int priority) {
+        this.priority = priority;
+    }
+
+    public Long call() throws Exception {
+        System.out.println("Executing: " + priority);
+        long num = 1000000;
+        for (int i = 0; i < 1000000; i++) {
+            num *= Math.random() * 1000;
+            num /= Math.random() * 1000;
+            if (num == 0)
+                num = 1000000;
+        }
+        return num;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+}
+
+public class TestPQ {
+
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
+        ThreadPoolExecutor exec = getPriorityExecutor(2);
+
+        for (int i = 0; i < 20; i++) {
+            int priority = (int) (Math.random() * 100);
+            System.out.println("Scheduling: " + priority);
+            LenthyJob job = new LenthyJob(priority);
+            exec.submit(job);
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34974351)
+ I will try to explain this problem with a fully functional code. But before diving into the code I would like to explain about PriorityBlockingQueue 
+
+  PriorityBlockingQueue  : PriorityBlockingQueue is an implementation of BlockingQueue. It accepts the tasks along with their priority and submits the task with the highest priority for execution first. If any two tasks have same priority, then we need to provide some custom logic to decide which task goes first. 
+
+ Now lets get into the code straightaway. 
+
+  Driver class  : This class creates an executor which accepts tasks and later submits them for execution. Here we create two tasks one with LOW priority and the other with HIGH priority. Here we tell the executor to run a MAX  of 1 threads and use the PriorityBlockingQueue.  
+
+       public static void main(String[] args) {
+
+       /*
+       Minimum number of threads that must be running : 0
+       Maximium number of threads that can be created : 1
+       If a thread is idle, then the minimum time to keep it alive : 1000
+       Which queue to use : PriorityBlockingQueue
+       */
+    PriorityBlockingQueue queue = new PriorityBlockingQueue();
+    ThreadPoolExecutor executor = new ThreadPoolExecutor(0,1,
+        1000, TimeUnit.MILLISECONDS,queue);
+
+    MyTask task = new MyTask(Priority.LOW,"Low");
+    executor.execute(new MyFutureTask(task));
+    task = new MyTask(Priority.HIGH,"High");
+    executor.execute(new MyFutureTask(task));
+}
+  
+
+  MyTask class  : MyTask implements Runnable and accepts priority as an argument in the constructor. When this task runs, it prints a message and then puts the thread to sleep for 1 second. 
+
+     public class MyTask implements Runnable {
+
+  public int getPriority() {
+    return priority.getValue();
+  }
+
+  private Priority priority;
+
+  public String getName() {
+    return name;
+  }
+
+  private String name;
+
+  public MyTask(Priority priority,String name){
+    this.priority = priority;
+    this.name = name;
+  }
+
+  @Override
+  public void run() {
+    System.out.println("The following Runnable is getting executed "+getName());
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+
+}
+  
+
+  MyFutureTask class  : Since we are using PriorityBlocingQueue for holding our tasks, our tasks must be wrapped inside FutureTask and our implementation of FutureTask must implement Comparable interface. The Comparable interface compares the priority of 2 different tasks and submits the task with the highest priority for execution. 
+
+   public class MyFutureTask extends FutureTask<MyFutureTask>
+      implements Comparable<MyFutureTask> {
+
+    private  MyTask task = null;
+
+    public  MyFutureTask(MyTask task){
+      super(task,null);
+      this.task = task;
+    }
+
+    @Override
+    public int compareTo(MyFutureTask another) {
+      return task.getPriority() - another.task.getPriority();
+    }
+  }
+  
+
+  Priority class  : Self explanatory Priority class.  
+
+  public enum Priority {
+
+  HIGHEST(0),
+  HIGH(1),
+  MEDIUM(2),
+  LOW(3),
+  LOWEST(4);
+
+  int value;
+
+  Priority(int val) {
+    this.value = val;
+  }
+
+  public int getValue(){
+    return value;
+  }
+
+
+}
+  
+
+ Now when we run this example, we get the following output  
+
+  The following Runnable is getting executed High
+The following Runnable is getting executed Low
+  
+
+ Even though we submitted the LOW priority first, but HIGH priority task later, but since we are using a PriorityBlockingQueue, an task with a higher priority will execute first. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13953182)
+ Here is an actual replacement for PriorityBlockingQueue which maintains FIFO ordering for items with equal priority. It does all the wrapping/unwrapping transparently for the user.  
+
+ This code was written for a 1.4 JVM and usese the j.u.c. backport. Using it in a newer JVM and adding generics should be straightforward. 
+
+  import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import edu.emory.mathcs.backport.java.util.concurrent.BlockingQueue;
+import edu.emory.mathcs.backport.java.util.concurrent.PriorityBlockingQueue;
+import edu.emory.mathcs.backport.java.util.concurrent.TimeUnit;
+import edu.emory.mathcs.backport.java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * A queue with all properties of a {@link PriorityBlockingQueue} but which additionally 
+ * returns items with equal priority 
+ * in a FIFO order.
+ * In this respect, {@link PriorityBlockingQueue} explicitly gives no return order guarantees for equal priority elements.
+ * 
+ * This queue only accepts {@link Comparable} items. A custom {@link Comparator} cannot
+ * be specified at construction time.
+ * 
+ *
+ */
+public final class FIFOPriorityBlockingQueue implements BlockingQueue {
+    private final PriorityBlockingQueue q;
+
+    public FIFOPriorityBlockingQueue() {
+        q = new PriorityBlockingQueue();
+    }
+
+    public FIFOPriorityBlockingQueue(int initialCapacity) {
+        q = new PriorityBlockingQueue(initialCapacity);
+    }
+
+    public boolean isEmpty() {
+        return q.isEmpty();
+    }
+
+    public boolean addAll(Collection c) {
+    if (c == null)
+        throw new NullPointerException();
+    if (c == this)
+        throw new IllegalArgumentException();
+    boolean modified = false;
+    Iterator e = c.iterator();
+    while (e.hasNext()) {
+        if (add(e.next()))
+        modified = true;
+    }
+    return modified;
+    }
+
+    /**
+     * Always returns  null  as this {@link BlockingQueue} only accepts
+     * {@link Comparable} objects and doesn't allow setting an own {@link Comparator} 
+     * @return
+     */
+    public Comparator comparator() {
+        return null;
+    }
+
+    public boolean containsAll(Collection c) {
+        Iterator e = c.iterator();
+        while (e.hasNext())
+            if(!contains(e.next()))
+            return false;
+
+        return true;
+    }
+
+    public int size() {
+        return q.size();
+    }
+
+    public int remainingCapacity() {
+        return q.remainingCapacity();
+    }
+
+    public boolean removeAll(Collection c) {
+        boolean modified = false;
+        Iterator e = iterator();
+        while (e.hasNext()) {
+            if(c.contains(e.next())) {
+            e.remove();
+            modified = true;
+            }
+        }
+        return modified;
+    }
+
+    public boolean retainAll(Collection c) {
+        boolean modified = false;
+        Iterator e = iterator();
+        while (e.hasNext()) {
+            if(!c.contains(e.next())) {
+            e.remove();
+            modified = true;
+            }
+        }
+        return modified;
+    }
+
+    public Object remove() {
+        return ((FIFOEntry)q.remove()).entry;
+    }
+
+    public Object element() {
+        return ((FIFOEntry)q.element()).entry;
+    }
+
+    public boolean add(Object e) {
+        return q.add(new FIFOEntry((Comparable)e));
+    }
+
+    public boolean offer(Object e) {
+        return q.offer(new FIFOEntry((Comparable)e));
+    }
+
+    public void put(Object e) {
+        q.put(new FIFOEntry((Comparable)e));
+    }
+
+    public boolean offer(Object e, long timeout, TimeUnit unit) {
+        return q.offer(new FIFOEntry((Comparable)e), timeout, unit);
+    }
+
+    public Object poll() {
+        return ((FIFOEntry)q.poll()).entry;
+    }
+
+    public Object take() throws InterruptedException {
+        return ((FIFOEntry)q.take()).entry;
+    }
+
+    public Object poll(long timeout, TimeUnit unit) throws InterruptedException {
+        return ((FIFOEntry)q.poll(timeout, unit)).entry;
+    }
+
+    public Object peek() {
+        return ((FIFOEntry)q.peek()).entry;
+    }
+
+    /**
+     * If more than one equal objects are held by the queue, remove() will
+     * remove any one of them, not necessarily the first or last inserted.
+     */
+    public boolean remove(Object o) {
+        return q.remove(new FIFOEntry((Comparable)o));
+    }
+
+    public boolean contains(Object o) {
+        return q.contains(new FIFOEntry((Comparable)o));
+    }
+
+    public Object[] toArray() {
+        Object[] a = q.toArray();
+        for (int i = 0; i < a.length; i++) { // unpacking
+            a[i] = ((FIFOEntry)a[i]).entry;
+        }
+        return a;
+    }
+
+    public String toString() {
+        return q.toString(); // ok, because each FIFOEntry.toString returns the toString of the entry 
+    }
+
+    public int drainTo(Collection c) {
+        ArrayList tmp = new ArrayList(size());
+        int n = q.drainTo(tmp);
+        for (Iterator it = tmp.iterator(); it.hasNext();) {
+            FIFOEntry en = (FIFOEntry) it.next();
+            c.add(en.entry);
+        }
+        return n;
+    }
+
+
+
+    public int drainTo(Collection c, int maxElements) {
+        ArrayList tmp = new ArrayList(size());
+        int n = q.drainTo(tmp, maxElements);
+        for (Iterator it = tmp.iterator(); it.hasNext();) {
+            FIFOEntry en = (FIFOEntry) it.next();
+            c.add(en.entry);
+        }
+        return n;
+    }
+
+    public void clear() {
+        q.clear();
+    }
+
+
+
+    public Object[] toArray(Object[] a) {
+        Object[] res = q.toArray(a);
+        for (int i = 0; i < res.length; i++) { // unpacking
+            res[i] = ((FIFOEntry)res[i]).entry;
+        }
+        return res;
+    }
+
+
+
+    public Iterator iterator() {
+        final Iterator it = q.iterator();
+        return new Iterator() {
+            public void remove() throws UnsupportedOperationException, IllegalStateException, ConcurrentModificationException {
+                it.remove();
+            }
+
+            public Object next() throws NoSuchElementException, ConcurrentModificationException {
+                return ((FIFOEntry)it.next()).entry;
+            }
+
+            public boolean hasNext() {
+                return it.hasNext();
+            }
+        };
+    }
+
+    public int hashCode() {
+        return q.hashCode();
+    }
+
+    public boolean equals(Object obj) {
+        return q.equals(obj);
+    }
+
+
+    /**
+     * Wrapping class which adds creation ordering to a {@link Comparable} object.
+     * Based on the code in the javadoc for {@link PriorityBlockingQueue}
+     * 
+     *
+     */
+    private static class FIFOEntry implements Comparable {
+        private final static AtomicLong seq = new AtomicLong();
+        private final long seqNum;
+        private final Comparable entry;
+        public FIFOEntry(Comparable entry) {
+            seqNum = seq.getAndIncrement();
+            this.entry = entry;
+        }
+
+        public int compareTo(Object other) {
+            FIFOEntry o = (FIFOEntry) other;
+            int res = entry.compareTo(o.entry);
+            if (res == 0 && o.entry != this.entry)
+                res = (seqNum < o.seqNum ? -1 : 1);
+            return res;
+        }
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + ((entry == null) ? 0 : entry.hashCode());
+            return result;
+        }
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            FIFOEntry other = (FIFOEntry) obj;
+            if (entry == null) {
+                if (other.entry != null)
+                    return false;
+            } else if (!entry.equals(other.entry))
+                return false;
+            return true;
+        }
+
+        public String toString() {
+            return entry.toString();
+        }
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/6620310)
+ The first error is the more significant error.  It occurs because the  FIFOPBQEvent  class doesn't implement  Comparable , which it must to be considered as the generic type for the  FIFOEntry  nested class.  This is because you restrict  E  and say that it  extends Comparable<...> .  Basically, your  FIFOPBQEvent  class must be comparable to provide the priority for the queue (presumably based on the event type). 
+
+ To fix the error, you need to: 
+
+ 
+  Change the header of your class to: 
+
+  public class FIFOPBQEvent implements Comparable<FIFOPBQEvent> {
+   
+  add a  compareTo  method in the  FIFOPBQEvent  class; something like: 
+
+  public int compareTo (FIFOPBQEvent other) {
+    // TODO - compare this and other for priority
+    return 0;
+}
+   
+ 
+
+ Then you need to wrap your entry in your  sendEvent  method: 
+
+  public void sendEvent () {
+    theQueue.put(new FIFOEntry<FIFOPBQEvent> (this));
+}
+  
+
+ The last, minor, error is simply that you aren't unwrapping the  FIFOEntry  object.  To fix this, change  receiveEvent  to: 
+
+  public static FIFOPBQEvent receiveEvent () {
+    FIFOPBQEvent event = theQueue.take ().getEntry ();
+    return event;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6620304)
+ Let's step through your code. 
+
+  static class FIFOEntry<E extends Comparable<? super E>> implements 
+  Comparable<FIFOEntry<E>> {
+  
+
+ This defines the class  FIFOEntry  which takes a generic parameter. You have constrained the type of generic parameter to "Any object that implements Comparable of itself". 
+
+  private static PriorityBlockingQueue<FIFOEntry<FIFOPBQEvent>> theQueue =
+  PriorityBlockingQueue<FIFOEntry<FIFOPBQEvent>>();
+  
+
+ Your declaration of PriorityBlockingQueue is not incorrect here, but your definition of  FIFOEntry<FIFOPBQEvent>  is incorrect. This is because of the above point - you have restricted the type of  FIFOEntry  to anything that implements Comparable of itself i.e. it should be  
+
+  class FIFOPBQEvent implements Comparable<FIFOPBQEvent> {
+  
+
+ Your next problem is - 
+
+  public void sendEvent() {
+  theQueue.put(this);
+}
+  
+
+ The type of  this  is  FIFOPBQEvent  but the queue only accepts  FIFOEntry  objects. To match your Queue signature it should be: 
+
+  public void sendEvent() {
+  // Requires FIFOPBQEvent to be Comparable
+  theQueue.put(new FIFOEntry<FIFOPBQEvent>(this));     
+}
+  
+
+ You have the same problem on  receiveEvent()  too - your Queue signature says that the Queue contains FIFOEntry objects and you are trying to pull out FIFOPBQEvents. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34974467)
+ I will try to explain this problem with a fully functional code. But before diving into the code I would like to explain about PriorityBlockingQueue 
+
+  PriorityBlockingQueue  : PriorityBlockingQueue is an implementation of BlockingQueue. It accepts the tasks along with their priority and submits the task with the highest priority for execution first. If any two tasks have same priority, then we need to provide some custom logic to decide which task goes first. 
+
+ Now lets get into the code straightaway. 
+
+  Driver class  : This class creates an executor which accepts tasks and later submits them for execution. Here we create two tasks one with LOW priority and the other with HIGH priority. Here we tell the executor to run a MAX  of 1 threads and use the PriorityBlockingQueue.  
+
+       public static void main(String[] args) {
+
+       /*
+       Minimum number of threads that must be running : 0
+       Maximium number of threads that can be created : 1
+       If a thread is idle, then the minimum time to keep it alive : 1000
+       Which queue to use : PriorityBlockingQueue
+       */
+    PriorityBlockingQueue queue = new PriorityBlockingQueue();
+    ThreadPoolExecutor executor = new ThreadPoolExecutor(0,1,
+        1000, TimeUnit.MILLISECONDS,queue);
+
+
+    MyTask task = new MyTask(Priority.LOW,"Low");
+    executor.execute(new MyFutureTask(task));
+    task = new MyTask(Priority.HIGH,"High");
+    executor.execute(new MyFutureTask(task));
+    task = new MyTask(Priority.MEDIUM,"Medium");
+    executor.execute(new MyFutureTask(task));
+
+}
+  
+
+  MyTask class  : MyTask implements Runnable and accepts priority as an argument in the constructor. When this task runs, it prints a message and then puts the thread to sleep for 1 second. 
+
+     public class MyTask implements Runnable {
+
+  public int getPriority() {
+    return priority.getValue();
+  }
+
+  private Priority priority;
+
+  public String getName() {
+    return name;
+  }
+
+  private String name;
+
+  public MyTask(Priority priority,String name){
+    this.priority = priority;
+    this.name = name;
+  }
+
+  @Override
+  public void run() {
+    System.out.println("The following Runnable is getting executed "+getName());
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+  }
+
+}
+  
+
+  MyFutureTask class  : Since we are using PriorityBlocingQueue for holding our tasks, our tasks must be wrapped inside FutureTask and our implementation of FutureTask must implement Comparable interface. The Comparable interface compares the priority of 2 different tasks and submits the task with the highest priority for execution. 
+
+   public class MyFutureTask extends FutureTask<MyFutureTask>
+      implements Comparable<MyFutureTask> {
+
+    private  MyTask task = null;
+
+    public  MyFutureTask(MyTask task){
+      super(task,null);
+      this.task = task;
+    }
+
+    @Override
+    public int compareTo(MyFutureTask another) {
+      return task.getPriority() - another.task.getPriority();
+    }
+  }
+  
+
+  Priority class  : Self explanatory Priority class.  
+
+  public enum Priority {
+
+  HIGHEST(0),
+  HIGH(1),
+  MEDIUM(2),
+  LOW(3),
+  LOWEST(4);
+
+  int value;
+
+  Priority(int val) {
+    this.value = val;
+  }
+
+  public int getValue(){
+    return value;
+  }
+
+
+}
+  
+
+ Now when we run this example, we get the following output  
+
+  The following Runnable is getting executed High
+The following Runnable is getting executed Medium
+The following Runnable is getting executed Low
+  
+
+ Even though we submitted the LOW priority first, but HIGH priority task later, but since we are using a PriorityBlockingQueue, any task with a higher priority will execute first. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31235125)
+ A call to  poll  does not necessarily consume an element. If there is no element in the queue, it just returns null. 
+
+ To make sure you effectively consume an element, you would write: 
+
+    while(q.poll() == null);
+  
+
+ Moreover, the class  PriorityQueue  is not threadsafe according to http://docs.oracle.com/javase/7/docs/api/java/util/PriorityQueue.html. You shoule use the thread-safe  PriorityBlockingQueue  class, which has a  poll method that blocks with a timeout. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6632627)
+ Taking @101100's recommendation, I have reworked the design, decoupling the queue from the events.  That seems to make it much simpler and easier to understand (and reuse), but sadly I'm still unclear on some concepts.  What follows here is the PriorityFIFOEventQueue (I've omitted the Event class for brevity).  And I've noted where I still need some help: 
+
+  package ibm1620;
+
+import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * This class represents a Priority Blocking Queue of FIFO entries.  Instantiating
+ * it creates a queue.  It provides instance methods for sending and receiving
+ * entries, a.k.a. events of type E, on the queue.
+ */
+  
+
+ The following is flagged with diagnostic: "The type PriorityFIFOEventQueue must implement the inherited abstract method Comparable>.compareTo (PriorityFIFOEventQueue)" 
+
+ I'm pretty sure I don't want to compare  queues  !!   . 
+
+  public class PriorityFIFOEventQueue<E extends Comparable<? super E>> implements Comparable<PriorityFIFOEventQueue<E>> {
+
+/**
+ * FIFOEntry is a static nested class that wraps an Entry and provides support for
+ * keeping the Entries in FIFO sequence.
+ */
+private static class FIFOEntry<E> implements Comparable<FIFOEntry<E>> {
+
+    /**
+     * There's going to be one atomic seq per ... queue?  runtime?
+     */
+
+    final static AtomicLong seq = new AtomicLong();
+
+    /**
+     * FIFOEntry is simply an entry of type E, and a sequence number
+     */
+    final long seqNum; 
+    final E    entry;
+
+    /**
+     * FIFOEntry() constructor
+     */
+    FIFOEntry(E entry) {
+        seqNum = seq.getAndIncrement();
+        this.entry = entry;
+    }
+
+    /**
+     * Accessor method for entry
+     */
+    E getEntry() {
+        return entry;
+    }
+
+    /**
+     * Here is implementation of Comparable that is called directly by PBQ.
+     * We first invoke E's comparator which compares based on priority. 
+     * If equal priority, order by sequence number (i.e. maintain FIFO).
+     * */
+  
+
+ In the following, the line containing "compareTo" is flagged, and the diagnostic is
+"The method compareTo(E) is undefined for the type E".  Apparently I haven't told the compiler
+that the "other" FIFOEntry implements Comparable.    
+
+      public int compareTo(FIFOEntry<E> other) {
+        int res = entry.compareTo(other.entry); // priority-based compare
+        if (res == 0 && other.entry != this.entry)
+            res = (seqNum < other.seqNum ? -1 : 1); // FIFO compare
+        return res;
+    }
+}
+
+/**
+ * Here is the PriorityBlockingQueue of FIFOEntries
+ */
+
+private PriorityBlockingQueue<FIFOEntry<E>> theQueue = 
+    new PriorityBlockingQueue<FIFOEntry<E>>();
+
+/**
+ * Event queuing ("sending") and dequeuing ("receiving")
+ */
+public void sendEvent(E event) {
+    theQueue.put(new FIFOEntry<E>(event));
+}
+
+/**
+ * pollEvent() 
+ * Will remove and return a ConsoleEvent from the queue, or return
+ * null if queue is empty.
+ */
+public E pollEvent() {
+    E event = null;
+    FIFOEntry<E> aFIFOEvent = theQueue.poll();
+    if (aFIFOEvent != null) {
+        event = aFIFOEvent.getEntry();
+        say("pollEvent() -> "+event);
+    }
+    else {
+    }
+    return event;
+}
+
+/**
+ * receiveEvent() 
+ * Will block if queue is empty.  Takes a FIFOEvent off the queue,
+ * unwraps it and returns the 'E' payload.
+ * 
+ * @return
+ */
+public E receiveEvent() {
+    E event = null;
+    try {
+        FIFOEntry<E> aFIFOEvent = theQueue.take();
+        if (aFIFOEvent != null) {
+            event = aFIFOEvent.getEntry();
+            say("receiveEvent() -> "+event);
+        }
+
+    } catch (InterruptedException e) {
+        say("InterruptedException in receiveEvent()");
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+    }
+    return event;
+}
+
+// for console debugging
+static void say(String s) {
+    System.out.println("ConsoleEvent: " + s);
+}
+
+}
+  
+
+
+

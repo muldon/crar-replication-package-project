@@ -1,0 +1,266 @@
+Query: python pandas: apply a function with arguments to a series. Update
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12183507)
+ The documentation explains this clearly. The apply method accepts a python function which should have a single parameter. If you want to pass more parameters you should use  functools.partial  as suggested by Joel Cornett in his comment. 
+
+ An example: 
+
+  >>> import functools
+>>> import operator
+>>> add_3 = functools.partial(operator.add,3)
+>>> add_3(2)
+5
+>>> add_3(7)
+10
+  
+
+ You can also pass keyword arguments using  partial . 
+
+ Another way would be to create a lambda: 
+
+  my_series.apply((lambda x: your_func(a,b,c,d,...,x)))
+  
+
+ But I think using  partial  is better. 
+
+ 
+
+ Note that newer versions of pandas  do  allow you to pass extra arguments (see the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.apply.html#pandas.Series.apply).  
+
+  my_series.apply(your_function, args=(2,3,4), extra_kw=1)
+  
+
+ The positional arguments are added  after  the element of the series. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50010925)
+ Update your function such that it returns a pandas Series instead of a python list.  
+
+  def add_subtract_list(a, b):
+  return pd.Series([1,2,3,4])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47106936)
+ You can pass any number of arguments to the function that  apply  is calling through either unnamed arguments, passed as a tuple to the  args  parameter, or through other keyword arguments internally captured as a dictionary by the  kwds  parameter. 
+
+ For instance, let's build a function that returns True for values between 3 and 6, and False otherwise. 
+
+  s = pd.Series(np.random.randint(0,10, 10))
+s
+
+0    5
+1    3
+2    1
+3    1
+4    6
+5    0
+6    3
+7    4
+8    9
+9    6
+dtype: int64
+
+s.apply(lambda x: x >= 3 and x <= 6)
+
+0     True
+1     True
+2    False
+3    False
+4     True
+5    False
+6     True
+7     True
+8    False
+9     True
+dtype: bool
+  
+
+ This anonymous function isn't very flexible. Let's created a normal function with two arguments to control the min and max values we want in our Series. 
+
+  def between(x, low, high):
+    return x >= low and x =< high
+  
+
+ We can replicate the output of the first function by passing unnamed arguments to  args : 
+
+  s.apply(between, args=(3,6))
+  
+
+ Or we can use the named arguments 
+
+  s.apply(between, low=3, high=6)
+  
+
+  
+
+  s.apply(between, args=(3,), high=6)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43460506)
+  Steps:  
+
+ 
+ Create a dataframe 
+ Create a function 
+ Use the named arguments of the function in the apply statement. 
+ 
+
+  Example  
+
+  x=pd.DataFrame([1,2,3,4])  
+
+def add(i1, i2):  
+    return i1+i2
+
+x.apply(add,i2=9)
+  
+
+ The outcome of this example is that each number in the dataframe will be added to the number 9.   
+
+      0
+0  10
+1  11
+2  12
+3  13
+  
+
+  Explanation:  
+
+ The "add" function has two parameters: i1, i2.  The first parameter is going to be the value in data frame and the second is whatever we pass to the "apply" function.  In this case, we are passing "9" to the apply function using the keyword argument "i2".   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51804878)
+ You could also  apply  over the rows with a  lambda  like so: 
+
+  df['result'] = df.apply(lambda row: myfunc(row['value'], y=row['y'], x=x, z=z), axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21189254)
+ The  TypeError  is saying that you passed the wrong type to the  lambda  function  x + y . It's expecting the  args  to be a sequence, but it got an  int . You may have thought that  (100)  was a tuple (a sequence), but in python it's the comma that makes a tuple: 
+
+  In [10]: type((100))
+Out[10]: int
+
+In [11]: type((100,))
+Out[11]: tuple
+  
+
+ So change your last line to 
+
+  In [12]: a['x'].apply(lambda x, y: x + y, args=(100,))
+Out[12]: 
+0    101
+1    102
+Name: x, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54692335)
+ If I understand this correctly, you are looking to apply a binary function f(x,y) to a dataframe (for the x) row-wise with arguments from a series for y. One way to do this is to borrow the implementation from pandas internals itself. If you want to extend this function (e.g. apply along columns, it can be done in a similar manner, as long as f is binary. If you need more arguments, you can simply do a  partial  on f to make it binary 
+
+  import pandas as pd
+from pandas.core.dtypes.generic import ABCSeries
+
+def sweep(df, series, FUN):
+    assert isinstance(series, ABCSeries)
+
+    # row-wise application
+    assert len(df) == len(series)
+    return df._combine_match_index(series, FUN)
+
+
+# define your binary operator
+def f(x, y):
+    return x*y    
+
+# the input data frames
+df = pd.DataFrame( { "A" : range(1,4),"B" : range(11,14) } )
+df2 = pd.DataFrame( { "X" : range(10,13),"Y" : range(10000,10003) } )
+
+# apply
+test1 = sweep(df, df2.X, f)
+
+# performance
+# %timeit sweep(df, df2.X, f)
+# 155 µs ± 1.27 µs per loop (mean ± std. dev. of 7 runs, 10000 loops each)#
+
+# another method
+import numpy as np
+test2 = pd.Series(range(df.shape[0])).apply(lambda row_count: np.multiply(df.iloc[row_count,:],df2.iloc[row_count,df2.columns.get_loc('X')]))
+
+# %timeit performance
+# 1.54 ms ± 56.4 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+
+assert all(test1 == test2)
+  
+
+ Hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52936841)
+ Fixing your code, since  interquartile  operates on the DataFrame,  apply  must as well.  
+
+  df_usnews['AvgMathSAT_IQR'] = df_usnews.apply(interquartile)
+  
+
+ Note that when passing the function to  apply , it is passed without arguments (i.e., it is not called). 
+
+ Thankfully,  pd.to_numeric  is vectorised, so you don't need to apply the function here. 
+
+  df_usnews['AvgMathSAT_IQR'] = interquartile(df_usnews)
+  
+
+  
+
+  df_usnews['AvgMathSAT_IQR'] = df_usnews.pipe(interquartile)
+  
+
+ Is going to be a lot faster. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48139373)
+  s=pd.Series(s.apply(pd.Series).astype(int).values.tolist())
+s
+Out[282]: 
+0    [1, 2]
+1    [3, 4]
+dtype: object
+  
+
+   
+
+  s=pd.Series([['001','002'],['003','004']])
+  
+
+ Update: Thanks for Jez and cold point it out :-) 
+
+  pd.Series(s.apply(pd.Series).stack().astype(int).groupby(level=0).apply(list))
+Out[317]: 
+0    [115840, 110005, 1000033, 116000]
+1      [267285, 263627, 267010, 26513]
+2                     [335595, 350750]
+dtype: object
+  
+
+
+

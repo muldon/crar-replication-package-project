@@ -1,0 +1,154 @@
+Query: creating a tmp file in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10972642)
+ Look into the Pythons http://docs.python.org/library/tempfile.html. There you should find what you need.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38437203)
+  mkstemp()  returns a tuple with a file descriptor and a path. I think the issue is that you're writing to the wrong path. (You're writing to a path like  '(5, "/some/path")' .) Your code should look something like this: 
+
+  from tempfile import mkstemp
+
+fd, path = mkstemp()
+
+# use a context manager to open the file at that path and close it again
+with open(path, 'w') as f:
+    f.write('TEST\n')
+
+# close the file descriptor
+os.close(fd)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50113736)
+ The answer by smarx opens the file by specifying  path . It is, however, easier to specify  fd  instead. In that case the context manager closes the file descriptor automatically:  
+
+  from tempfile import mkstemp
+
+fd, path = mkstemp()
+
+# use a context manager to open (and close) file descriptor fd (which points to path)
+with open(fd, 'w') as f:
+    f.write('TEST\n')
+
+# This causes the file descriptor to be closed automatically
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8192589)
+ The code I ended up with was: 
+
+  import os
+import errno
+
+folder_location = "/tmp/example_dir"
+
+try:
+    os.mkdir(folder_location)
+except OSError as e:
+    if e.errno == errno.EEXIST and os.path.isdir(folder_location):
+        # File exists, and it's a directory,
+        # another process beat us to creating this dir, that's OK.
+        pass
+    else:
+        # Our target dir exists as a file, or different error,
+        # reraise the error!
+        raise
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1586663)
+ Could you catch the exception and then test whether the file exists as a directory or not? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1414419)
+ The best way of creating the temporary file name is either using tempName.TemporaryFile(mode='w+b', suffix='.tmp', prifix='someRandomNumber' dir=None)
+or u can use mktemp() function. 
+
+ The mktemp() function will not actually create any file, but will provide a unique filename (actually does not contain PID).  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26541521)
+ If you want a temp file name only you can call inner tempfile function  _get_candidate_names() : 
+
+  import tempfile
+
+temp_name = next(tempfile._get_candidate_names())
+% e.g. px9cp65s
+  
+
+ Calling  next  again, will return another name, etc. This does not give you the path to temp folder. To get default 'tmp' directory, use:  
+
+  defult_tmp_dir = tempfile._get_default_tempdir()
+% results in: /tmp 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1586753)
+ When you have race conditions often EAFP(easier to ask forgiveness than permission) works better that LBYL(look before you leap) 
+
+ http://my.safaribooksonline.com/0596001886/pythonian-CHP-6-SECT-6 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1762903)
+ The file doesn't need to exist in order to create the symlink.  The following example demonstrates creating a symlink to a non-existing file: 
+
+ First, check that there's no file named  foobar  in  /home/wieslander/tmp : 
+
+  [wieslander@rizzo tmp]$ ls -l /home/wieslander/tmp/foobar
+ls: cannot access /home/wieslander/tmp/foobar: No such file or directory
+  
+
+ Create a symlink named  brokensymlink  pointing to  /home/wieslander/tmp/foobar : 
+
+  [wieslander@rizzo tmp]$ python
+Python 2.5.2 (r252:60911, Sep 30 2008, 15:42:03)
+[GCC 4.3.2 20080917 (Red Hat 4.3.2-4)] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import os
+>>> os.symlink('/home/wieslander/tmp/foobar', 'brokensymlink')
+  
+
+ Check that the symlink was created and that the destination still doesn't exist: 
+
+  [wieslander@rizzo tmp]$ ls -l brokensymlink
+lrwxrwxrwx 1 wieslander wieslander 27 19 nov 13.13 brokensymlink -> /home/wieslander/tmp/foobar
+[wieslander@rizzo tmp]$ ls -l /home/wieslander/tmp/foobar
+ls: cannot access /home/wieslander/tmp/foobar: No such file or directory
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3583313)
+ Mostly, we use periodic cron jobs for this. 
+
+ Django already has one cron job to clean up lost sessions.     
+
+ See http://docs.djangoproject.com/en/dev/topics/http/sessions/#clearing-the-session-table 
+
+ You want another command just like this one, in your application, that cleans up old files. 
+
+ See this http://docs.djangoproject.com/en/dev/howto/custom-management-commands/ 
+
+ Also, you may not really be sending this file from Django.  Sometimes you can get better performance by creating the file in a directory used by Apache and redirecting to a URL so the file can be served by Apache for you.  Sometimes this is faster.  It doesn't handle the cleanup any better, however. 
+
+
+

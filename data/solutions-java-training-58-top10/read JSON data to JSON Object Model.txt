@@ -1,0 +1,710 @@
+Query: read JSON data to JSON Object Model
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11678081)
+ I think that the easiest way to do this is using the Jackson http://wiki.fasterxml.com/JacksonTreeModel: let Jackson parse the JSON input into a http://jackson.codehaus.org/1.3.4/javadoc/org/codehaus/jackson/JsonNode.html object that you then query, assuming some knowledge of the data structure. This way you can ignore most of the data, walking down the  JsonNodes  to the data that you want. 
+
+  // String input = The JSON data from your question
+ObjectMapper mapper = new ObjectMapper();
+
+JsonNode rootNode = mapper.readValue(input.getBytes(), JsonNode.class); 
+
+// can also use ArrayNode here, but JsonNode allows us to get(index) line an array:
+JsonNode hits = rootNode.get("hits");
+
+// can also use ObjectNodes here:
+JsonNode oneHit = null;
+JsonNode dataObj = null;
+
+int idx = 0;
+
+Data data = null;
+
+
+if (hits != null)
+{
+    hits = hits.get("hit");
+
+    if (hits != null)
+    {
+        while ((oneHit = hits.get(idx)) != null)
+        {
+            dataObj = oneHit.get("data");
+            System.out.println("Data[" + idx + "]: " + dataObj);
+            idx++;
+        }
+    }
+}
+  
+
+ Output: 
+
+   Data[0]: {"id":"tt1185834","data":{"actor":["Abercrombie, Ian","Baker, Dee","Burton, Corey"],"title":["Star Wars: The Clone Wars"]}}
+ Data[1]: {"id":"tt0121766","data":{"actor":["Bai, Ling","Bryant, Gene","Castle-Hughes, Keisha"],"title":["Star Wars: Episode III - Revenge of the Sith"]}}
+  
+
+ You can still use your  Data  class implementation, but I believe this will require getting the  String  representing each  data  - as above relying on  toString , or using  JsonNode.getText()  - and re-parsing it using the  ObjectMapper : 
+
+  mapper.readValue(dataArray, Data.class));
+  
+
+ The alternative is to use the Jackson Streaming Model, and intercept the nodes yourself until you see the part of the input that marks the beginning of each  data  element, then consume the string and call  objectMapper.readValue  on the contents, for each string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38238862)
+ You should use  GSON  or similar libs for this.  
+
+ 
+
+  Store to DB  
+
+ For example If you use  GSON  
+
+  Person p = new Person();
+p.setname("xyz");
+p.setage("18");
+Gson gson = new Gson();
+String personString = gson.toJson(p);
+  
+
+ Now store this personString to DB. 
+
+ 
+
+  Read from DB  
+
+ Get back this object from database, read string from DB and convert it to object like below  
+
+  String personStringFromDB = READ_LOGIC_OF_DB;
+Gson gson = new Gson();
+Person p = gson.fromJson(personStringFromDB, Person.class);
+  
+
+ 
+
+ For more information, read http://tutorials.jenkov.com/java-json/gson.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36294501)
+  UPDATE  I suggest you use JSON parser to parse the data: 
+
+  import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.HashMap;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+class Course {
+
+    public int _id;
+    public String _name;
+    public Teacher _teacher;
+
+    private Course(int id, String name, Teacher teacher){
+        this._id = id;
+        this._name = name;
+        this._teacher = teacher;
+    }
+    public Course() {
+
+    }
+}
+
+class Teacher {
+    public int _id;
+    public String _firstName;
+    public String _lastName;
+    private Teacher(int id, String fname, String lname){
+        this._id = id;
+        this._firstName = fname;
+        this._lastName = lname;
+    }
+    public Teacher(){
+
+    }
+
+}
+
+public class jsontest {
+
+    public static void main(String[] args) throws JSONException, IOException {
+
+//        String JSON_DATA = "{\n"+
+//        " \"courses\": [\n"+
+//        " { \"id\":\"998\", \"name\":\"Java Data Structures\", \"teacherId\":\"375\" },\n"+
+//        " { \"id\":\"999\", \"name\":\"Java Generics\", \"teacherId\":\"376\" }\n"+
+//        "\n"+
+//        " ],\n"+
+//        " \"teachers\": [\n"+
+//        " { \"id\":\"375\", \"firstName\":\"Amiyo\", \"lastName\":\"Bagchi\"},\n"+
+//        " { \"id\":\"376\", \"firstName\":\"Dennis\", \"lastName\":\"Ritchie\"} \n"+
+//        " ]\n"+
+//        "}\n"+
+//        "";
+        // read json file into string
+        String JSON_DATA = new String(Files.readAllBytes(Paths.get("path_to_json_file")), StandardCharsets.UTF_8);
+
+        // using a JSON parser
+        JSONObject obj = new JSONObject(JSON_DATA);
+        // parse "teachers" first
+        List<Teacher> listCourses = new ArrayList<Teacher>();
+        List<JSONObject> listObjs = parseJsonData(obj,"teachers");
+        for (JSONObject c: listObjs) {
+            Teacher teacher = new Teacher();
+            teacher._id = c.getInt("id");
+            teacher._firstName = c.getString("firstName");
+            teacher._lastName = c.getString("lastName");
+            listCourses.add(teacher);
+        }
+        // parse "courses" next
+        List<Course> resultCourses = new ArrayList<Course>();
+        List<JSONObject> listObjs2 = parseJsonData(obj, "courses");
+
+        for (JSONObject c: listObjs2) {
+            Course course = new Course();
+            course._id = c.getInt("id");
+            course._name = c.getString("name");
+            int teacherId =  c.getInt("teacherId");
+            HashMap<String, Teacher> map = new HashMap<String, Teacher>();
+            for (Teacher t: listCourses){
+                map.put(Integer.toString(t._id), t);
+            }
+            course._teacher = map.get(Integer.toString(teacherId));
+            resultCourses.add(course);
+        }
+    }
+
+
+    public static List<JSONObject> parseJsonData(JSONObject obj, String pattern)throws JSONException {
+
+        List<JSONObject> listObjs = new ArrayList<JSONObject>();
+        JSONArray geodata = obj.getJSONArray (pattern);
+        for (int i = 0; i < geodata.length(); ++i) {
+          final JSONObject site = geodata.getJSONObject(i);
+          listObjs.add(site);
+        }
+        return listObjs;
+    }
+
+}
+  
+
+ Output: 
+
+ https://i.stack.imgur.com/xtLGY.png 
+
+  BTW:  The json data in the example has one value whose double quotes are not in pairs. .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9390517)
+ I will suggest to have a look at http://jackson.codehaus.org/ it is very easy to combine the streaming and tree-model parsing options: you can move through the file as a whole in a streaming way, and then read individual objects into a tree structure. 
+
+ As an http://www.ngdata.com/parsing-a-large-json-file-efficiently-and-easily/, let's take the following input: 
+
+  { 
+  "records": [ 
+    {"field1": "aaaaa", "bbbb": "ccccc"}, 
+    {"field2": "aaa", "bbb": "ccc"} 
+  ] ,
+  "special message": "hello, world!" 
+}
+  
+
+ Just imagine the fields being sparse or the records having a more complex structure. 
+
+ The following snippet illustrates how this file can be read using a combination of stream and tree-model parsing. Each individual record is read in a tree structure, but the file is never read in its entirety into memory, making it possible to process JSON files gigabytes in size while using minimal memory. 
+
+  import org.codehaus.jackson.map.*;
+import org.codehaus.jackson.*;
+
+import java.io.File;
+
+public class ParseJsonSample {
+    public static void main(String[] args) throws Exception {
+        JsonFactory f = new MappingJsonFactory();
+        JsonParser jp = f.createJsonParser(new File(args[0]));
+        JsonToken current;
+        current = jp.nextToken();
+        if (current != JsonToken.START_OBJECT) {
+            System.out.println("Error: root should be object: quiting.");
+            return;
+        }
+        while (jp.nextToken() != JsonToken.END_OBJECT) {
+            String fieldName = jp.getCurrentName();
+            // move from field name to field value
+            current = jp.nextToken();
+            if (fieldName.equals("records")) {
+                if (current == JsonToken.START_ARRAY) {
+                    // For each of the records in the array
+                    while (jp.nextToken() != JsonToken.END_ARRAY) {
+                        // read the record into a tree model,
+                        // this moves the parsing position to the end of it
+                        JsonNode node = jp.readValueAsTree();
+                        // And now we have random access to everything in the object
+                        System.out.println("field1: " + node.get("field1").getValueAsText());
+                        System.out.println("field2: " + node.get("field2").getValueAsText());
+                    }
+                } else {
+                    System.out.println("Error: records should be an array: skipping.");
+                    jp.skipChildren();
+                }
+            } else {
+                System.out.println("Unprocessed property: " + fieldName);
+                jp.skipChildren();
+            }
+        }
+    }
+}
+  
+
+ As you can guess, the nextToken() call each time gives the next parsing event: start object, start field, start array, start object, ..., end object, ..., end array, ... 
+
+ The  jp.readValueAsTree()  call allows to read what is at the current parsing position, a JSON object or array, into Jackson's generic JSON tree model. Once you have this, you can access the data randomly, regardless of the order in which things appear in the file (in the example field1 and field2 are not always in the same order). Jackson supports mapping onto your own Java objects too. The jp.skipChildren() is convenient: it allows to skip over a complete object tree or an array without having to run yourself over all the events contained in it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11554277)
+ The following is an example of deserializing the JSON from the original question (corrected where necessary for validity).  This example also demonstrates how to configure Jackson to allow for single-quoted JSON elements. 
+
+ From the original question, I don't understand where the specific problems were with attempts to deserialize the JSON.  For simple data binding, note that the Java property names must match the JSON element names, and that the Java data structure must match the JSON data structure. 
+
+  input.json  
+
+  {
+    'ruleId': 1000000,
+    'Formula': 
+    {
+        'ruleAggregates': 'foo',
+        'fields': ['foo', 'foo'],
+        'Children':
+        [
+            { 
+                'Formula':
+                {
+                    'ruleAggregates': 'a',
+                    'fields': ['1', '2'],
+                    'Children': []
+                }
+            },
+            {
+                'Formula':
+                {
+                    'ruleAggregates': 'b',
+                    'fields': ['3', '4'],
+                    'Children': []
+                }
+            },
+            {}
+        ]
+    }
+}
+  
+
+  Java Object Model  
+
+  import com.fasterxml.jackson.annotation.JsonProperty;
+
+class RuleModel
+{
+  private long ruleId;
+  @JsonProperty("Formula") private Formula formula;
+}
+
+class Formula
+{
+  private String ruleAggregates;
+  private List<String> fields;
+  private List<FormulaModel> Children;
+}
+
+class FormulaModel
+{
+  @JsonProperty("Formula") private Formula formula;
+}
+  
+
+  JacksonFoo.java  
+
+  import java.io.File;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class JacksonFoo
+{
+  public static void main(String[] args) throws Exception
+  {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+    mapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
+
+    RuleModel model = mapper.readValue(new File("input.json"), RuleModel.class);
+    System.out.println(mapper.writeValueAsString(model));
+  }
+}
+  
+
+  output:  
+
+  {
+    "ruleId": 1000000,
+    "Formula": {
+        "ruleAggregates": "foo",
+        "fields": [
+            "foo",
+            "foo"
+        ],
+        "Children": [
+            {
+                "Formula": {
+                    "ruleAggregates": "a",
+                    "fields": [
+                        "1",
+                        "2"
+                    ],
+                    "Children": []
+                }
+            },
+            {
+                "Formula": {
+                    "ruleAggregates": "b",
+                    "fields": [
+                        "3",
+                        "4"
+                    ],
+                    "Children": []
+                }
+            },
+            {
+                "Formula": null
+            }
+        ]
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34141223)
+ You have already chosen https://github.com/FasterXML/jackson as your Java-JSON library ( which I could say is a good choice ) so problem at your hand is how to use Jackson to traverse and update the JSON in best way, but those who are even deciding on which Java-JSON library to use can read http://www.developer.com/lang/jscript/top-7-open-source-json-binding-providers-available-today.html which compares below mentioned 7 Java-JSON libraries.  Below is conclusion excerpt from link: 
+
+ 
+   As a conclusion, if you know that you are going to use only a  small
+  amount of data  in your application and you wish to store or read it to
+  and from JSON format, you should  consider using Flexjson or Gson . If
+  you are going to use  large amounts of data  and wish to store or read
+  it to and from JSON format, you should  consider using Jackson or
+  JSON-lib . 
+ 
+
+ 
+ Jackson 
+ Google-GSON 
+ JSON-lib 
+ Flexjson 
+ json-io 
+ genson 
+ JSONiJ  
+ 
+
+   
+
+ Jackson 
+
+ Most important thing to understand is that Jackson offers three alternative methods for processing JSON (read more <a href="http://wiki.fasterxml.com/JacksonInFiveMinutes" ), so appropriate approach should be chosen wisely considering the specific requirements. 
+
+ 
+    Streaming API  ( aka "Incremental parsing/generation" ):  It reads and writes JSON content as discrete events.  Best case use:  Iterating over Event (or, token) stream.  Analogous to:  SAX and Stax  
+    Tree Model:   It provides a mutable in-memory tree representation of a JSON document. The tree model is similar to the XML DOM.  Best case use:  Binding Json data into Java Objects.  Analogous to:  JAXB  
+    Data Binding:   It converts JSON to and from POJOs based either on property accessor conventions or annotations. There are two variants: simple and full data binding.  Best case use:  Building a tree structure (from Json) and traversing it using suitable methods.  Analogous to:  DOM 
+
+ 
+  Simple data binding  means converting to and from Java Maps, Lists, Strings, Numbers, Booleans and nulls 
+  Full data binding  means converting to and from any Java bean type (as well as "simple" types mentioned above)  
+  
+ 
+
+  Typically using  "Tree Model"  approach is considered as best from "performance perspective" because it gives advantages of traversing a tree.   
+
+ Other options has also its own advantages like  Streaming API has less memory and CPU overhead  while  Data binding is convenient to use  because it provides  List  and  Map  representation of JSON data. However, with so much processing power and memory, these days what really matters is performance. 
+
+ If your JSON data is huge and then analyze that in a tree representation whether tree would have wider width or longer length. If it has wider width then definitely using "Tree Model" will have performance advantages associated with a tree processing ( make sure you are mapping in chunks and not whole stuff in one shot ). But if tree is lengthier, meaning doesn't have good width but is like a very long tail, then consider using "Streaming API" because in that case advantages of tree processing cannot be substantiated. If data is small then it hardly matters and you can use "Tree Model" as default.   
+
+  Currently you are using "Data Binding" approach but recommendation is to use "Tree Model"  because all you need is traversal and manipulation of JSON. Looking at information you have given, it doesn't look like you need to convert your JSON into Java objects so "data binding" approach looks like a bad idea. 
+
+ Jackson Tree Model 
+
+ Jackson's https://fasterxml.github.io/jackson-databind/javadoc/2.2.0/com/fasterxml/jackson/databind/JsonNode.html forms the basis of Jackson's tree model.  Think of Jackson's Tree model as a DOM of HTML document,  the way DOM represents complete HTML document in a tree structure, Jackson's Tree model represent complete JSON string in a tree strcuture. 
+
+ Below is the code which will help you use Jackson's Tree model and achieve what you are looking for: 
+
+  import java.io.IOException;
+import java.util.Iterator;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+
+public class Test {
+
+    public static void main(String[] args) throws JsonProcessingException, IOException {
+        String jsonString = "{\"test1\": {\"get\": {\"tags\": [\"restcalls1\"]}}, \"test2\": {\"put\": {\"tags\": [\"restcalls2\"] }}}";
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = objectMapper.readTree(jsonString);
+
+        Iterator<JsonNode> iterator2 = rootNode.iterator();
+        while (iterator2.hasNext()) {
+            JsonNode node2 = iterator2.next().findParent("tags");
+            ObjectNode objectNode = (ObjectNode) node2;
+            objectNode.putArray("tags").add("my rest calls");
+        }
+
+        Iterator<JsonNode> iterator = rootNode.iterator();
+        while (iterator.hasNext()) {
+            JsonNode node2 = iterator.next();
+            System.out.println(node2);
+        }
+
+    }
+}
+  
+
+  Tree model advantages:</h3> Read <a href="http://www.cowtowncoder.com/blog/archives/2009/01/entry_153.html"  for more details 
+
+ 
+ If the structure of Json content is highly irregular, it may be difficult (or impossible) to find or create equivalent Java object structure. Tree model may be the only practical choice. 
+ For displaying any JSON content.  Tree model is a natural choice for internal access and manipulation.  
+ Since we do not need specific Java objects to bind to, there may less code to write. 
+ 
+
+  Further readings:  
+
+ 
+ http://www.cowtowncoder.com/blog/archives/2009/01/entry_131.html 
+ http://www.cowtowncoder.com/blog/archives/2011/08/entry_460.html 
+ http://www.cowtowncoder.com/blog/archives/2009/01/entry_153.html 
+ 
+
+  
+  Based on OP's comment:   
+
+ Below code shows how you can traverse and print whole JSON. In this way, you can traverse whole JSON and then access elements you are looking for. Key think to note is that you need to know the element name, even if you use Stream API approach then also you should know the element name to look for, see Stream API example <a href="http://www.mkyong.com/java/jackson-streaming-api-to-read-and-write-json/"   
+
+  In any case, you can always choose to traverse the whole JSON (as shown in example below) or do specific and direct manipulation (as shown in example above)   
+
+  package com.him.services;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+
+public class Test {
+
+    public static void main(String[] args) throws JsonProcessingException, IOException {
+        jacksonTest();
+    }
+
+    private static void jacksonTest() throws JsonProcessingException, IOException {
+        String jsonString = "{\"test1\": {\"get\": {\"tags\": [\"restcalls1\"]}}, \"test2\": {\"put\": {\"tags\": [\"restcalls2\"] }}}";
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = objectMapper.readTree(jsonString);
+        ArrayList<JsonNode> nodeList = new ArrayList<JsonNode>();
+        nodeList.add(rootNode);
+
+        printCompleteJson(nodeList);
+    }
+
+    private static void printCompleteJson(ArrayList<JsonNode> rootNode) throws IOException {
+        for (int i = 0; i < rootNode.size(); i++) {
+            Iterator<JsonNode> iterator = rootNode.get(i).iterator();
+            JsonNode node = null;
+            ArrayList<JsonNode> nodeList = new ArrayList<JsonNode>();
+            boolean isEmpty = true;
+            while (iterator.hasNext()) {
+                isEmpty = false;
+                node = iterator.next();
+                nodeList.add(node);
+                System.out.println(node);
+            }
+            if(isEmpty){
+                return;
+            }
+            printCompleteJson(nodeList);
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3286001)
+ Install http://code.google.com/p/google-gson/  create those two model classes 
+
+  public class Data {
+    private String name;
+    private String title;
+    private int currentMap;
+    private List<Item> items;
+    private int[][] map;
+
+    public String getName() { return name; }
+    public String getTitle() { return title; }
+    public int getCurrentMap() { return currentMap; }
+    public List<Item> getItems() { return items; }
+    public int[][] getMap() { return map; }
+
+    public void setName(String name) { this.name = name; }
+    public void setTitle(String title) { this.title = title; }
+    public void setCurrentMap(int currentMap) { this.currentMap = currentMap; }
+    public void setItems(List<Item> items) { this.items = items; }
+    public void setMap(int[][] map) { this.map = map; }
+}
+  
+
+  
+
+  public class Item {
+    private String name;
+    private int x;
+    private int y;
+
+    public String getName() { return name; }
+    public int getX() { return x; }
+    public int getY() { return y; }
+
+    public void setName(String name) { this.name = name; }
+    public void setX(int x) { this.x = x; }
+    public void setY(int y) { this.y = y; }
+}
+  
+
+ And convert your JSON as follows: 
+
+  Data data = new Gson().fromJson(json, Data.class);
+  
+
+ To get the title just do: 
+
+  System.out.println(data.getTitle()); // Map One
+  
+
+ And to get the map item at x=3  y=3: 
+
+  System.out.println(data.getMap()[3][3]); // 1
+  
+
+ And to get the name of the first  Item : 
+
+  System.out.println(data.getItems().get(0).getName()); // Pickaxe
+  
+
+  Converting the other way on is also simple using  Gson#toJson() . 
+
+  String json = new Gson().toJson(data);
+  
+
+ See also https://stackoverflow.com/questions/1688099/converting-json-to-java/1688182#1688182 for another complex Gson example. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52001306)
+ JSONObject is not supposed to be serialized. It is for an internal use. If you want to have a JSON representation of this data structure without a model (dedidated class) try converting it into a Map. 
+
+  Map<String,Object> result =
+    new ObjectMapper().readValue(dataTable.getContent(), HashMap.class);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/28714523)
+ In Jackson 2.4, you can convert as follows: 
+
+  MyClass newJsonNode = jsonObjectMapper.treeToValue(someJsonNode, MyClass.class);
+  
+
+ where  jsonObjectMapper  is a Jackson  ObjectMapper . 
+
+ 
+
+  
+
+  MyClass newJsonNode = jsonObjectMapper.readValue(someJsonNode, MyClass.class);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36291570)
+ You should try using Jackson as the JSON parsing library instead. There is a lot more support and features that come with it. 
+
+ In your case, a couple of annotations to map the JSON properties to the Java fields should be sufficient. 
+
+ 
+ https://github.com/FasterXML/jackson-annotations 
+ https://github.com/FasterXML/jackson-databind 
+ 
+
+  UPDATE : Some code, to show just much better this can be done with Jackson. 
+
+  public class Course {
+    @JsonProperty("id")
+    private int _id;
+    @JsonProperty("name")
+    private String _name;
+    @JsonProperty("teacher")
+    private Teacher _teacher;
+    // ...public getters and setters
+}
+
+public class Teacher {
+    @JsonProperty("id")
+    private int _id;
+    @JsonProperty("firstName")
+    private String _firstName;
+    @JsonProperty("lastName")
+    private String _lastName;
+    // ...public getters and setters
+}
+
+// Container class to conform to JSON structure
+public class CoursesDto {
+    private List<Teacher> teachers;
+    private List<Course> courses;
+}
+
+// In your parser place
+ObjectMapper mapper = new ObjectMapper();
+FileReader reader = new FileReader(path);
+CoursesDto dto = mapper.readValue(reader, CoursesDto.class);
+  
+
+ The  @JsonProperty  annotations tell Jackson what JSON key should be used to deserialize. They are not necessary if the property names match the JSON keys. That means that if you remove the leading underscore from your property names, this would work without annotations. Also, Jackson will default to using public fields and getter/setter methods. This means that you can keep your fields prefixed by  _  as long as the getter/setter don't have it ( setFirstName(String firstName) ). 
+
+
+

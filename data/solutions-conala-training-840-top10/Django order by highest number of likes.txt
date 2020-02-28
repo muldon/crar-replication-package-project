@@ -1,0 +1,186 @@
+Query: Django order by highest number of likes
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35097248)
+ Django is not creating multiple posts. .
+If you want to sort based on like count then you should do like this, 
+
+  Article.objects.annotate(like_count=Count('likes')).order_by('-like_count')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27832102)
+ Use https://docs.djangoproject.com/en/dev/ref/models/querysets/#order-by specifying a  descending order : 
+
+  Service.objects.order_by('-num_views')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6673395)
+ This does everything you want (# of likes, and order by count) in one query. 
+
+  from django.db.models import Count
+Image.objects.annotate(Count("person")).order_by("person__count")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/23279690)
+ You can get the highest count using Django's https://docs.djangoproject.com/en/dev/ref/models/querysets/#django.db.models.query.QuerySet.latest method. Though documented for dates, it also works on strings and integers. 
+
+ This should get you the Action with the highest to_player count: 
+
+  # combined the filters, no need to separate into two steps
+v = Action.objects.filter(game=1, step=2, type=3)
+v = v.annotate(count=Count('to_player'))
+v = v.latest('count') # will return Action with the highest count
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50689701)
+ We can do this by creating  two  models:  Post  (that will in reality contain extra data like the  message ,  author , etc., and  Like  that is acts as a  many-to-many  relation between a  Post  and a  User : 
+
+  class Post(models.Model:
+
+    total_likes = models.IntegerField(default=0
+    likes = models.ManyToManyField(User, through='app.Like'
+
+    def like(self, user:
+        _, created = Like.objects.get_or_create(user=user, post=self
+        if created:
+            self.total_likes += 1
+            self.save(
+
+    @classmethod
+    def update_likes(cls:
+        cls.objects.annotate(total=Count('likes'.update(total_likes=F('total'
+
+class Like(models.Model:
+    user = models.ForeignKey(User, on_delete=models.CASCADE
+    post = models.ForeignKey(Post, on_delete=models.CASCADE
+  
+
+ So the  like(..  function is used to  like  a post (with as parameter the user. We can thus call  somepost.like(someuser . It will fetch or create a new  Like  object that maps to the specific  post  and the specific  user . In case the  Like  instance already existed, nothing happend, otherwise we increment the  total_likes  field that stores the total number of likes. 
+
+ Perhaps you do not want to update this counter every time a user likes a post: after all, it creates some extra load on the server. In that case, the  if created:  part can be omitted, and we regularly should call  Post.update_likes . This function will perform an aggregate per  Post  that counts the number of likes, and it will update the  total_likes  field. 
+
+ Regardless whether you update  total_likes  constantly, it is better to every now and then update the total number of likes per post. Since other views, models, etc. can - given you the developers are not looking very strict to this - remove  Like  objects. Furthermore  User s can be removed, etc. and we have not much control about that. Yes we can create signals that are triggered after  Like s and  User s are removed (and created, but still there can be problems with counting the number of likes like  race conditions . Therefore I would advice to periodically update the number of likes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4309270)
+ If I understand you correctly, this should do it.    list  will contain a list of all the objects of model A sorted by the text of each object's highest scoring thing. 
+
+  dict = {}
+list = []
+for a in A.objects.all():
+    dict[a] = a.things.all().order_by("-score")[0].text
+for k, v in sorted(dict.items(), key=lambda x: x[1]):
+    list.append(k)
+  
+
+ There might be a prettier way to write it, but I can't think of one off the top of my head... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28882718)
+ To get the next object, first filter to get all objects with a higher priority: 
+
+  objects = MyObjects.objects.filter(priority__gt=12)
+  
+
+ then order the results by priority: 
+
+  objects = objects.order_by('priority')
+  
+
+ finally select the first item in the queryset: 
+
+  next_obj = objects.first()
+  
+
+  
+
+  next_obj = MyObjects.objects.filter(priority__gt=12).order_by('priority').first()
+  
+
+ Getting the previous object is similar, but you need to order in reverse: 
+
+  prev_obj = MyObjects.objects.filter(priority__lt=12).order_by('-priority').first()
+  
+
+ Note that https://docs.djangoproject.com/en/1.7/ref/models/querysets/#django.db.models.query.QuerySet.first can return  None  if there are no objects in the queryset (in your case, that means the current object has the highest or lowest priority in the list). If the same priority can appear more than once, you might want to adjust the code to use https://docs.djangoproject.com/en/1.7/ref/models/querysets/#gte and https://docs.djangoproject.com/en/1.7/ref/models/querysets/#lte. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4312662)
+ This sort of thing is really hard. Aggregation can help you if you want to sort by the  score : 
+
+  from django.db.models import Max
+A.objects.annotate(highest_b=Max(B__score)).order_by('highest_b')
+  
+
+ But in effect you want to do two operations: aggregate by the highest score, then sort by the text of the item with that score. That's tricky no matter what language you do it in. I've written about this issue http://blog.roseman.org.uk/2010/08/14/getting-related-item-aggregate/ - for your purposes, I think doing it in SQL via the  .raw()  method is probably the easiest. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/28341966)
+  sorted()  uses the  reverse  argument for sorting from highest to lowest.  
+
+   sorted(csv1, key=float, reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46285376)
+ You would have to handle that logic yourself, for example in a model method (see below). 
+
+ Basically, you want to return a different string based on how many people liked the Post. For each case, either return nothing (0 likes), a joined list of people who liked it (1 - 3 likes) or a joined list of the first three people who liked it and the remaining like count (> 3 likes). 
+
+  from django.db import models
+
+
+class Post(models.Model)
+
+    # ... your model properties here
+
+    def display_likers(self):
+
+        # how many people liked this?
+        num = self.likers.count()
+
+        if num == 0:
+            # nobody liked this. return simple string.
+            return "Nobody likes this."
+
+        elif num < 4:
+            # 1 to 3 people liked this. join their names and
+            # return that as a string.
+            likers = ', '.join(x.userprofile.first_name for x in self.likers.all())
+            return '{} like this'.format(likers)
+
+        else:
+            # more than 3 people liked this. return the first 3
+            # names and count the remaining likers.
+            # note the indexing after all() to only get 3 entries.
+            three_likers = ', '.join(
+                x.userprofile.first_name for x in self.likers.all()[:3]
+            )
+            more_count = num - 3
+            return '{} and {} others like this'.format(three_likers, more_count)
+  
+
+
+

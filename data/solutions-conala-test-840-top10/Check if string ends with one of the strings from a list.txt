@@ -1,0 +1,306 @@
+Query: Check if string ends with one of the strings from a list
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18351973)
+ Just use: 
+
+  if file_name.endswith(tuple(extensions)):
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32688193)
+ You want to check the length of the string, not the string itself. Hence, doing  s > 2  doesn't do what you want it to do: 
+
+  def both_ends(lst):
+    finalList = []
+    for s in lst:
+        if len(s) > 2:
+            finalList.append(s[0] + s[1] + s[-2] + s[-1])
+        else:
+            finalList.append(s)
+    return finalList
+
+lst = ['apple', 'pizza', 'x', 'joke']
+print both_ends(lst)
+  
+
+ Few other things: 
+
+ 
+ Don't name variables  list . It will override the built-in type. 
+ You have a tuple  (..., ...) . A list is with square brackets. 
+ You have  print both_ends(string) , and not putting in your list. 
+ 
+
+ And finally, you can probably shorten up your code: 
+
+  print [s[:2] + s[-2:] if len(s) > 2 else s for s in lst]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32688201)
+ Yes, that is because you are returning the result directly , so it returns after you go through the first string itself. Instead you should put the result in the  finalList  you create and return the result at the end. 
+
+ And some other things - 
+
+ 
+  As said in the other answer, you want to check the length of the string.  
+  The length of the string should be greater than 4 , otherwise, you would end up adding some characters multiple times.  
+  Do not use names like  list  for variables, it ends up shadowing the builtin functions and so you would not be able to use  list()  to create list after that.  
+  Last issue is you should call you function with your list, not  string  .  
+ 
+
+ Example - 
+
+  def both_ends(list):
+    finalList = []
+    for s in list:
+        if len(s) > 4:
+            finalList.append(s[:2] + s[-2:])
+        else:
+            finalList.append(s)
+    return finalList
+  
+
+ 
+
+ An easier way to do this - 
+
+  def both_ends(s):
+    return s[:2] + s[-2:] if len(s) > 4 else s
+
+lst = ('apple', 'pizza', 'x', 'joke')
+print map(both_ends, lst)          #You would need `list(map(...))` for Python 3.x
+  
+
+  
+
+  >>> def both_ends(s):
+...     return s[:2] + s[-2:] if len(s) > 4 else s
+... 
+>>> lst = ('apple', 'pizza', 'x', 'joke')
+>>> print map(both_ends, lst) 
+['aple', 'piza', 'x', 'joke']
+  
+
+ Or even list comprehension , though to me that makes it a bit less readable - 
+
+  [s[:2] + s[-2:] if len(s) > 4 else s for s in lst]
+  
+
+  
+
+  >>> lst = ('apple', 'pizza', 'x', 'joke')
+>>> [s[:2] + s[-2:] if len(s) > 4 else s for s in lst]
+['aple', 'piza', 'x', 'joke']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15127758)
+  any  returns a boolean value.   str.endswith  expects either a string or a  tuple  of strings. 
+
+ You probably want something like: 
+
+  if s.endswith(tuple(my_list)):
+   print string
+  
+
+ or if you actually want to know which one it matched: 
+
+  suffix = next((word for word in my_list if s.endswith(word)),False)
+if suffix:
+    print word, suffix
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18351977)
+ Though not widely known, http://docs.python.org/2/library/stdtypes.html#str.endswith also accepts a tuple. You don't need to loop. 
+
+  >>> 'test.mp3'.endswith(('.mp3', '.avi'))
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39142006)
+ Or with https://docs.python.org/2/library/functions.html#next: 
+
+  l = ['Some long text', 'often begins', ' with ', 'impenetrable fog ', 
+     'which   ends', ' somewhere further']
+
+startIndex = next((u for u, v in enumerate(l) if 'begins' in v), 0)
+finalIndex = next((u for u, v in enumerate(l) if 'ends' in v), 0)
+
+if (startIndex and finalIndex) and (finalIndex > startIndex):
+    sentence = ' '.join(l[startIndex:finalIndex])
+else:
+    sentence = None
+print(sentence)
+  
+
+ Similar as list comprehension, execpt it doesn't return a list but the first element it found. if it doesn't found anything, it return an optional element (here  '0' ) 
+
+ This way, if there is no  'begins'  or no  'ends'  in your list, you don't have to print anything. Therefore, this allows you to check either if the  'ends'  comes before the  'begins' .  
+
+ I also love list comprehension but sometimes what you need isn't a list. 
+
+  SOLUTION FOR ADVANCE USER:  
+
+ The problem with the use of two comprehension list, is that you check twice your list from start and it will fail when  ends  comes before start: 
+
+  l = ['Some long text ends here',  'often begins', ' with ', 'which   ends']
+                     ^^^
+  
+
+ To avoid this, you might use a generator with https://docs.python.org/3/reference/expressions.html#examples to only iterate once on your list. 
+
+  def get_index(trigger_word):
+    for u, v in enumerate(l):
+        if trigger_word in v:
+            trigger_word = yield u
+
+gen = get_index('begins')
+startIndex = gen.send(None)
+finalIndex = gen.send('ends')
+  
+
+ Here, the  yield  allows you to get the index without exiting the function. 
+
+ This is better, but if there is no  begins  or  ends in the list, there will be a https://docs.python.org/2/library/exceptions.html#exceptions.StopIteration exception. To avoid this, you can just do a infinite loop on  yield  0 instead. Now the complete solution will be: 
+
+  def get_index(l, trigger_word):
+    for u, v in enumerate(l):
+        if trigger_word in v:
+            trigger_word = yield u
+    while True:
+        yield 0
+
+def concat_with_trigger_words(l):           
+    gen = get_index(l, 'begins')
+    startIndex = gen.send(None)
+    finalIndex = gen.send('ends')
+    return ' '.join(l[startIndex:finalIndex]) if (startIndex and finalIndex) else None
+
+# Here some list for free lists for your future unitary tests ;)
+
+l_orignal = ['Some long text here',  'often begins', ' with ', 
+             'impenetrable fog ', 'which   ends', ' somewhere further']
+l_start_with_ends = ['ends',  'often begins', ' with ', 
+                     'impenetrable fog ', 'which   ends', 'begins']
+l_none = ['random', 'word']
+l_without_begin = ['fog', 'ends here']
+l_without_end = ['begins', 'but never' '...']
+
+print(concat_with_trigger_words(l_orignal)) # often begins  with  impenetrable fog 
+print(concat_with_trigger_words(l_start_with_ends)) # often begins  with  impenetrable fog 
+print(concat_with_trigger_words(l_none)) # None
+print(concat_with_trigger_words(l_without_end)) # None
+print(concat_with_trigger_words(l_without_begin)) # None
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25588112)
+ Try this, it's a quick and dirty solution that works fine, but won't be efficient if the input list is really big: 
+
+  lst = ['GATTACA', 'etc']
+[x for x in ''.join(',' if not e else e for e in lst).split(',') if x]
+  
+
+ This is how it works, using generator expressions and list comprehensions from the inside-out: 
+
+ 
+  ',' if not e else e for e in lst  : replace all  ''  strings in the list with  ','  
+  ''.join(',' if not e else e for e in lst)  : join together all the strings. Now the spaces between sequences will be separated by one or more  ,  
+  ''.join(',' if not e else e for e in lst).split(',')  : split the string at the points where there are  ,  characters, this produces a list 
+  [x for x in ''.join(',' if not e else e for e in lst).split(',') if x]  : finally, remove the empty strings, leaving a list of sequences 
+ 
+
+ Alternatively, the same functionality could be written in a longer way using explicit loops, like this: 
+
+  answer  = [] # final answer
+partial = [] # partial answer
+for e in lst:
+    if e == '':           # if current element is an empty string … 
+        if partial:       # … and there's a partial answer
+            answer.append(''.join(partial)) # join and append partial answer
+            partial = []  # reset partial answer
+    else:                 # otherwise it's a new element of partial answer
+        partial.append(e) # add it to partial answer
+else:                     # this part executes after the loop exits
+    if partial:           # if one partial answer is left
+        answer.append(''.join(partial)) # add it to final answer
+  
+
+ The idea is the same: we keep track of the non empty-strings and accumulate them, and whenever an empty string is found, we add all the accumulated values to the answer, taking care of adding the last sublist after the loop ends. The result ends up in the  answer  variable, and this solution only makes a single pass across the input. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40589040)
+ Split on comma's and then use a regex to replace the brackets and digits. Finally split the string on spaces. 
+
+  import re
+>>> [re.sub('\(\d\)', '', y).split() for x in L1 for y in x.split(',')]
+[['alpha', 'beta'], ['delta', 'gamma']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30924661)
+ As a more pythonic way you can just use a list comprehension and  str.isdigit()  method to check of your character is digit : 
+
+  >>> [i for i in y if i.isdigit()]
+['1', '2', '3', '4', '2', '3', '4', '5']
+  
+
+ And about your code first of all you need to split based on space or brackets that could be done with  [\[\] ]  and for get rid of empty strings that is for leading and trailing brackets you can first  strip  your string : 
+
+  >>> y =  "1 2 3 4][2 3 4 5"
+>>> re.split(r'[\[\] ]+',y)
+['1', '2', '3', '4', '2', '3', '4', '5']
+>>> y =  "[1 2 3 4][2 3 4 5]"
+>>> re.split(r'[\[\] ]+',y)
+['', '1', '2', '3', '4', '2', '3', '4', '5', '']
+>>> re.split(r'[\[\] ]+',y.strip('[]'))
+['1', '2', '3', '4', '2', '3', '4', '5']
+  
+
+ You can also wrap your result with  filter  function and using  bool  function. 
+
+  >>> filter(bool,re.split(r'[\[\] ]+',y))
+['1', '2', '3', '4', '2', '3', '4', '5']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14471317)
+ This one will simply return an empty string if the string ends with something that is not a number. 
+
+  import re
+re.split('[^\d]', str)[-1]
+  
+
+ Since an empty string is  falsy , you can overload the meaning: 
+
+  def getNumericTail(str):
+    re.split('[^\d]', str)[-1]
+
+def endsWithNumber(str):
+    bool(getNumericTail(str))
+  
+
+
+

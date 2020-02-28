@@ -1,0 +1,271 @@
+Query: Pandas changing cell values based on another cell
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48295481)
+ Maybe not really clean code but allowed me to adjust all borders of all cells in a table: 
+
+  from pptx.oxml.xmlchemy import OxmlElement
+
+def SubElement(parent, tagname, **kwargs):
+        element = OxmlElement(tagname)
+        element.attrib.update(kwargs)
+        parent.append(element)
+        return element
+
+def _set_cell_border(cell, border_color="000000", border_width='12700'):
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    for lines in ['a:lnL','a:lnR','a:lnT','a:lnB']:
+        ln = SubElement(tcPr, lines, w=border_width, cap='flat', cmpd='sng', algn='ctr')
+        solidFill = SubElement(ln, 'a:solidFill')
+        srgbClr = SubElement(solidFill, 'a:srgbClr', val=border_color)
+        prstDash = SubElement(ln, 'a:prstDash', val='solid')
+        round_ = SubElement(ln, 'a:round')
+        headEnd = SubElement(ln, 'a:headEnd', type='none', w='med', len='med')
+        tailEnd = SubElement(ln, 'a:tailEnd', type='none', w='med', len='med')
+  
+
+ Based on this post: https://groups.google.com/forum/#!topic/python-pptx/UTkdemIZICw 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39544291)
+ One way is to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.apply.html: 
+
+  In [83]: df
+Out[83]: 
+         Name   Color
+0       Apple     NaN
+1        Pear   Green
+2        Pear   Green
+3      Banana  Yellow
+4  Watermelon   Green
+
+In [84]: df['Color'] = df.apply(lambda x: 'Red' if x.Name == 'Apple' else x.Color, 1)
+
+In [85]: df
+Out[85]: 
+         Name   Color
+0       Apple     Red
+1        Pear   Green
+2        Pear   Green
+3      Banana  Yellow
+4  Watermelon   Green
+  
+
+ Another simpler way is to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.ix.html: 
+
+  In [94]: df
+Out[94]: 
+         Name   Color
+0       Apple     NaN
+1        Pear   Green
+2        Pear   Green
+3      Banana  Yellow
+4  Watermelon   Green
+
+In [95]: df.ix[df.Name == 'Apple', 'Color'] = 'Red'
+
+In [96]: df
+Out[96]: 
+         Name   Color
+0       Apple     Red
+1        Pear   Green
+2        Pear   Green
+3      Banana  Yellow
+4  Watermelon   Green
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34835950)
+ You can use http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.where.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.isin.html and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.notnull.html: 
+
+  DF['COL3'] = np.where((DF['COL1'].isin(['b'])) &(DF['COL2'].notnull()), 2, 0)
+print DF 
+
+
+  COL1  COL2  COL3
+0    a     0     0
+1    b   NaN     0
+2    b     1     2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53173139)
+ https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.where.html</h3>
+
+  mask1 = dataset.col2.str.len() > 1
+mask2 = dataset.col1.ne('a')
+
+dataset.assign(col2=dataset.col1.where(mask1 & mask2, dataset.col2))
+
+  col1 col2
+0    a   zz
+1    b    b
+2    c    c
+3   xx    a
+4   yy    b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49807837)
+ You can using  set_index  +  .  
+
+  df.set_index('name',inplace=True)
+df.['Alice']
+Out[164]: 
+is_here    True
+Name: Alice, dtype: bool
+  
+
+ Update  
+
+  df.[df.name=='Charlie','is_here']=True
+df
+Out[176]: 
+   is_here     name
+0     True    Alice
+1     True      Bob
+2     True  Charlie
+  
+
+ Update 2  
+
+  df.[df.name=='Charlie','is_here']=~df['is_here']
+df
+Out[185]: 
+   is_here     name
+0     True    Alice
+1     True      Bob
+2     True  Charlie
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51049753)
+  pd.concat  with  groupby  and  assign  
+
+  pd.concat([
+    g.ffill().assign(d=lambda d: d.b.shift(), e=lambda d: d.d.cumsum())
+    for _, g in df.groupby('key_value')
+])
+
+  key_value     a  b  c    d    e
+0  value_01   1.0  1  x  NaN  NaN
+1  value_01   1.0  2  x  1.0  1.0
+2  value_01   1.0  3  x  2.0  3.0
+3  value_02   7.0  4  y  NaN  NaN
+4  value_02   7.0  5  y  4.0  4.0
+5  value_02   7.0  6  y  5.0  9.0
+6  value_03  19.0  7  z  NaN  NaN
+  
+
+ 
+
+  groupby  and  apply  
+
+  def h(g):
+    return g.ffill().assign(
+        d=lambda d: d.b.shift(), e=lambda d: d.d.cumsum())
+
+df.groupby('key_value', as_index=False, group_keys=False).apply(h)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54640943)
+ Making use of pandas built-in https://pandas.pydata.org/pandas-docs/stable/user_guide/style.html functionality: 
+
+  import pandas as pd
+
+# Initialize example dataframe
+data = {
+    'Week': [1, 2, 3, 4, 5, 1, 2, 3, 4, 5],
+    'Color': ['Green', 'Red', 'Green', 'Yellow', 'Red', 'Green', 'Yellow', 'Red', 'Yellow', 'Red'],
+    'Part': ['A', 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'B'],
+    'Value': [10, -20, 20, -20, -10, 10, -5, -8, -9, -10]
+}
+df = pd.DataFrame(data)
+
+# Merge 'Color' and 'Value' columns into one single column
+df['Value'] = list(zip(df.Color, df.Value))
+
+# Perform pivot operation
+df = df.pivot(index='Part', columns='Week', values='Value')
+
+# Split into two dataframes: a colors dataframe and a numerical values dataframe
+color_df = df.applymap(lambda x: x[0])
+value_df = df.applymap(lambda x: x[1])
+
+# Transform dataframe with colors into formatting commands
+color_df = color_df.applymap(lambda x: f'background-color: {x.lower()}')
+
+# Apply color styling to values dataframe
+styled_df = value_df.style.apply(lambda x: color_df, axis=None)
+styled_df.to_excel('output.xlsx')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49807839)
+  To update your mapping  
+
+  df = df.set_index('name')
+df.loc['Charlie', 'is_here'] = ~df.loc['Charlie', 'is_here']
+
+print(df.reset_index())
+
+#       name  is_here
+# 0    Alice     True
+# 1      Bob     True
+# 2  Charlie     True
+  
+
+ 
+
+  To query your mapping  
+
+ From your dataframe: 
+
+  ishere = df.set_index('name')['is_here'].get
+
+print(ishere('Alice'))  # True
+  
+
+  
+
+  ishere = dict(zip(d['name'], d['is_here'])).get
+
+print(ishere('Alice'))  # True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44855886)
+ Use  lookup  to find your rates and  assign  to drop in a new column 
+
+  df.assign(rate=currencies.lookup(df.date, df.currency))
+
+         price       date currency      rate
+0  21404.00000 2017-06-26      USD  0.785476
+3  21445.00000 2017-06-26      USD  0.785476
+4      1.27213 2017-06-27      USD  0.781594
+5    111.67500 2017-06-27      JPY  0.006952
+6      1.27205 2017-06-28      EUR  0.878451
+8    111.65500 2017-06-28      JPY  0.006892
+9    111.65500 2017-06-29      JPY  0.006857
+  
+
+
+

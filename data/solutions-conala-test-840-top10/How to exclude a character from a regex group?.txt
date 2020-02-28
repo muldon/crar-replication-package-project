@@ -1,0 +1,222 @@
+Query: How to exclude a character from a regex group?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14824277)
+  group(0)  will always return the entire match. 
+
+ See python documentation: 
+
+  >>> m = re.match(r"(\w+) (\w+)", "Isaac Newton, physicist")
+>>> m.group(0)       # The entire match
+'Isaac Newton'
+>>> m.group(1)       # The first parenthesized subgroup.
+'Isaac'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26386070)
+ The pattern is: 
+
+  {((?>R))*)}
+  
+
+ You can see this works for your example: 
+
+  regex.findall("{((?>R))*)}", "{1, {2, 3}} {4, 5}")
+# ['1, {2, 3}', '4, 5']
+  
+
+ Explanation:</h3>
+
+ The m part needs to exclude the brackets. The use of an atomic group is needed if you want at the same time to allow a quantifier for  [^{}]  and to repeat the group without catastropic backtracking problems. To be more clear, if the last closing curly bracket is missing this regex engine will backtrack atomic group by atomic group instead of character by character. To drive home this point, you can make the quantifier possessive like that:  {((?>R))*+)}  (or  {((?:R))*+)}  since the atomic group is no more useful). 
+
+ The atomic group  (?>....)  and the possessive quantifier  ?+ ,  *+ ,  ++  are the two sides of the same feature. This feature forbids the regex engine to backtrack inside the group of characters that becomes an "atom"  (something you can't divide in smaller parts) . 
+
+ The basic examples are the following two patterns that always fail for the string  aaaaaaaaaab : 
+
+  (?>a+)ab
+a++ab
+  
+
+ that is: 
+
+  regex.match("a++ab", "aaaaaaaaaab")
+regex.match("(?>a+)ab", "aaaaaaaaaab")
+  
+
+ When you use  (?:a+)  or  a+  the regex engine (by default) records (in prevision) all backtracking positions for all characters. But when you use an atomic group or a possessive quantifier, theses backtracking positions are no more recorded (except for the begining of the group). So when the backtracking mechanism occurs the last "a" character can't be given back. Only the entire group can be given back.  
+
+ [EDIT]: the pattern can be written in a more efficient way if you use an "unrolled" subpattern to describe the content between brackets: 
+
+  {([^{}]*+(?:(?R)[^{}]*)*+)}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51576228)
+ You're trying to avoid any forward-slashes between the second and last one. You can use a character pattern to exclude it in matches: 
+
+  ^/api/(?P<username>[^/]+)/$
+  
+
+ Where  [^/]+  will match one or more characters that do not consist of a forward-slash. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14824274)
+ Use  m.group(1) .  You also don't need to escape (backslash) the commas.   m.group(0)  refers to the entire match, and each number after that refers to matched groups. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44852853)
+ You can use this regex with a lookahead: 
+
+  (?:#####\s*issue type.*\s+)(?:<!---.*?-->\s+)?([\s\S]*?)(?=\s*(?:#####|$))
+  
+
+ https://regex101.com/r/CmtKI7/2 
+
+  (?=\s*(?:#####|$))  is a lookahead that assert we have  #####  or end of line ahead of current position. This helps you match multiple matches in the given input. 
+
+  Code:  
+
+  >>> reg = re.compile(r'(?:#####\s*issue type.*\s+)(?:<!---.*?-->\s+)?([\s\S]*?)(?=\s*(?:#####|$))', re.I)
+>>> print(reg.findall(test_str))
+['- Problem / Case\n- Requirement', '- Problem / Case\n- Requirement']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53149449)
+ What you want is a capital followed by a bunch of capitals, with optional dots or ampersands in between. 
+
+  re.findall('\\b[A-Z](?:[\\.&]?[A-Z]){1,7}\\b', text)
+  
+
+ Breaking it down: 
+
+ 
+ All back slashes are doubled because they need escaping 
+  \b  word border 
+  [A-Z]  capital 
+  (?:  opening a non-capturing group 
+  [\.&]  character class containing  .  and  &  
+  ?  optional 
+  [A-Z]  followed by another capital 
+  )  closing non-capturing group of an optional  .  or  & , followed by a capital 
+  {1,7}  repeating that group 1 - 7 times 
+  \b  word border 
+ 
+
+ We want a non-capturing group since  re.findall  returns groups (if present). 
+
+ There are better ways of matching capitals that work across all of the Unicode characters. 
+
+ This  does  match  B&WW  and  B&W.W , since we do not enforce the use of the (same) character every time. If you want that, the expression gets a bit more complex (though not much). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41053054)
+ You want to do a https://docs.python.org/2/howto/regex.html#lookahead-assertions on  \1  in the second capture group, then it will work: 
+
+  r'(.)((?!\1).)\2\1'
+  
+
+ Testing your examples: 
+
+  >>> import re
+>>> re.match(r'(.)((?!\1).)\2\1', 'zxxz')
+<_sre.SRE_Match object at 0x109b661c8>
+>>> re.match(r'(.)((?!\1).)\2\1', 'vbbv')
+<_sre.SRE_Match object at 0x109b663e8>
+>>> re.match(r'(.)((?!\1).)\2\1', 'zzzz') is None
+True
+>>> re.match(r'(.)((?!\1).)\2\1', 'vvvv') is None
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32266562)
+ You need to use a look-behind instead of a non-capturing group if you want to check a substring for presence/absence, but exclude it from the match: 
+
+  import re
+s = "Monday, Tuesday, Wednesday, Thursday, Friday, Saturday:"
+print(re.sub(r"[\r\n\t]|<!\d):",'',s))
+#                         ^^^^^^^ 
+# Result: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
+  
+
+ See https://ideone.com/UX5SNx 
+
+ Here,  <!\d)  only checks if the preceding character before a colon is not a digit. 
+
+ Also, alternation involves additional overhead, character class  [\r\n\t]  is preferable, and you do not need any capturing groups (round brackets) since you are not using them at all. 
+
+ Also, please note that the regex is initialized with a raw string literal to avoid overescaping. 
+
+ Some https://docs.python.org/2/library/re.html#regular-expression-syntax regarding  non-capturing groups  and  negative look-behinds : 
+
+ 
+    <!...)  
+   - Matches if the current position in the string is not preceded by a match for  ... . This is called a  negative lookbehind assertion . Similar to positive lookbehind assertions, the contained pattern must only match strings of some fixed length and shouldn’t contain group references. Patterns which start with negative lookbehind assertions may match at the beginning of the string being searched. 
+  
+    :...)  
+  - A non-capturing version of regular parentheses. Matches whatever regular expression is inside the parentheses, but the substring matched by the group cannot be retrieved after performing a match or referenced later in the pattern. 
+ 
+
+ As look-behinds are  zero-width assertions  (=expressions returning  true  or  false  without moving the index any further in the string), they are exactly what you need in this case where you want to  check  but not  match . A non-capturing group will consume part of the string and thus will be part of the match. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32522981)
+ change the semantics from 'strip everything in this group'  to 'strip everything that's not in this group' and use: 
+
+  text = re.sub(ur"(?u)[^a-zA-Z\.]+", ' ', text)
+  
+
+  update    
+
+ i don't think the above mentioned solution will work with all unicode alphabet. 
+the https://stackoverflow.com/questions/1832893/python-regex-matching-unicode-properties offer alternative modules to the builtin  re  that support unicode letter groups.   
+
+ another option is combining the two approaches: 
+
+  >>> text = '1234abcd.à!@#$'
+>>> re.sub(ur'(?u)([^\w\.]|\d)+',' ',text)
+' abcd.\xc3 '
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/12349464)
+ You can exclude classes using a negative lookahead assertion, such as  r'(?!\d)[\w]'  to match a word character, excluding digits. For example: 
+
+  >>> re.search(r'(?!\d)[\w]', '12bac')
+<_sre.SRE_Match object at 0xb7779218>
+>>> _.group(0)
+'b'
+  
+
+ To exclude more than one group, you can use the usual  [...]  syntax in the lookahead assertion, for example  r'(?![0-5])[\w]'  would match any alphanumeric character except for digits 0-5. 
+
+ As with  [...] , the above construct matches a single character. To match multiple characters, add a repetition operator: 
+
+  >>> re.search(r'((?!\d)[\w])+', '12bac15')
+<_sre.SRE_Match object at 0x7f44cd2588a0>
+>>> _.group(0)
+'bac'
+  
+
+
+

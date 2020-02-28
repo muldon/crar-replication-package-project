@@ -1,0 +1,264 @@
+Query: Joining Table/DataFrames with common Column in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19255467)
+ You have to do an  outer  http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.merge.html (join): 
+
+  In [11]: df1.merge(df2, how='outer')
+Out[11]: 
+  Name  ADD   ST
+0    A   12   CA
+1    B   54   CA
+2    C   34   TX
+3    D  756  NaN
+4    E   43  NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13793474)
+ You are looking for a http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.merge.html?highlight=merge#pandas.DataFrame.merge: 
+
+  df1.merge(df2, on='Date_Time')
+  
+
+  The keywords are the same as for  join , but  join  uses only the index, see http://pandas.pydata.org/pandas-docs/stable/merging.html#database-style-dataframe-joining-merging.  
+
+ Here's a simple example: 
+
+  import pandas as pd
+df1 = pd.DataFrame([[1, 2, 3]])
+df2 = pd.DataFrame([[1, 7, 8],[4, 9, 9]], columns=[0, 3, 4])
+
+In [4]: df1
+Out[4]: 
+   0  1  2
+0  1  2  3
+
+In [5]: df2
+Out[5]: 
+   0  3  4
+0  1  7  8
+1  4  9  9
+
+In [6]: df1.merge(df2, on=0)
+Out[6]: 
+   0  1  2  3  4
+0  1  2  3  7  8
+
+In [7]: df1.merge(df2, on=0, how='outer')
+Out[7]: 
+   0   1   2  3  4
+0  1   2   3  7  8
+1  4 NaN NaN  9  9
+  
+
+ If you try and join on a column you get an error: 
+
+  In [8]: df1.join(df2, on=0)
+# error!
+Exception: columns overlap: array([0], dtype=int64)
+  
+
+  See http://pandas.pydata.org/pandas-docs/stable/merging.html#joining-key-columns-on-an-index . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44553961)
+  set_index  and use  pd.concat : 
+
+  pd.concat([i.set_index('A') for i in [df1,df2,df3]],axis=1, join='outer')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47301690)
+ Pandas merge function will also work wonders.  
+
+  pd.merge(left=df1, right=df2, how='inner')
+
+   a  b   c
+0  0  1  11
+1  2  3  13
+2  4  5  15
+3  6  7  17
+4  8  9  19
+  
+
+ by eliminating the 'on' attribute of merge function it will consider the columns which are in-common in both of the dataframes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47300261)
+ First identify the columns in  df2  not in  df1  
+
+  cols = df2.columns.difference(df1.columns)
+  
+
+ Then  pd.DataFrame.join    
+
+  df1.join(df2[cols])
+
+   a  b   c
+0  0  1  11
+1  2  3  13
+2  4  5  15
+3  6  7  17
+4  8  9  19
+  
+
+ Or  pd.concat  will also work 
+
+  pd.concat([df1, df2[cols]], axis=1)
+
+   a  b   c
+0  0  1  11
+1  2  3  13
+2  4  5  15
+3  6  7  17
+4  8  9  19
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17233748)
+ Use http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.merge.html?highlight=merge#pandas.DataFrame.merge 
+
+  pd.merge(df1, df2, on='record_ID', how='left')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43152409)
+ you try : pd.concat([df1, df2], axis=1) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37891437)
+  pandas.merge()  is the underlying function used for all merge/join behavior.  
+
+ DataFrames provide the  pandas.DataFrame.merge()  and  pandas.DataFrame.join()  methods as a convenient way to access the capabilities of  pandas.merge() . For example,  df1.merge(right=df2, ...)  is equivalent to  pandas.merge(left=df1, right=df2, ...) .  
+
+ These are the main differences between  df.join()  and  df.merge() : 
+
+ 
+ lookup on right table:  df1.join(df2)  always joins via the index of  df2 , but  df1.merge(df2)  can join to one or more columns of  df2  (default) or to the index of  df2  (with  right_index=True ).  
+ lookup on left table: by default,  df1.join(df2)  uses the index of  df1  and  df1.merge(df2)  uses column(s) of  df1 . That can be overridden by specifying  df1.join(df2, on=key_or_keys)  or  df1.merge(df2, left_index=True) .  
+ left vs inner join:  df1.join(df2)  does a left join by default (keeps all rows of  df1 ), but  df.merge  does an inner join by default (returns only matching rows of  df1  and  df2 ). 
+ 
+
+ So, the generic approach is to use  pandas.merge(df1, df2)  or  df1.merge(df2) . But for a number of common situations (keeping all rows of  df1  and joining to  an index in  df2 ), you can save some typing by using  df1.join(df2)  instead. 
+
+ Some notes on these issues from the documentation at http://pandas.pydata.org/pandas-docs/stable/merging.html#database-style-dataframe-joining-merging: 
+
+ 
+    merge  is a function in the pandas namespace, and it is also
+  available as a DataFrame instance method, with the calling DataFrame
+  being implicitly considered the left object in the join. 
+  
+   The related  DataFrame.join  method, uses  merge  internally for the
+  index-on-index and index-on-column(s) joins, but joins on indexes by
+  default rather than trying to join on common columns (the default
+  behavior for  merge ). If you are joining on index, you may wish to
+  use  DataFrame.join  to save yourself some typing. 
+ 
+
+ ... 
+
+ 
+   These two function calls are completely equivalent: 
+
+  left.join(right, on=key_or_keys)
+pd.merge(left, right, left_on=key_or_keys, right_index=True, how='left', sort=False)
+  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43315516)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.merge.html without parameter  on  if only common column in both DataFrame is joined column  Column A  with left join: 
+
+  print (DF1)
+  Column A Column B  Column C
+0       A.       ab         1
+1       B.       bc         9
+2       C.       fg         7
+
+print (DF2)
+  Column A  column D  column E
+0       A.         1         8
+1       B.         2         9
+2       C.         3         7
+3       B.         4         3
+4       A.         5         1
+5       A.         6         0
+  
+
+ 
+
+  df = DF2.merge(DF1,how='left')
+print (df)
+  Column A  column D  column E Column B  Column C
+0       A.         1         8       ab         1
+1       B.         2         9       bc         9
+2       C.         3         7       fg         7
+3       B.         4         3       bc         9
+4       A.         5         1       ab         1
+5       A.         6         0       ab         1
+  
+
+ If multiple same columns add  on : 
+
+  df = DF2.merge(DF1,how='left', on='Column A')
+print (df)
+  Column A  column D  column E Column B  Column C
+0       A.         1         8       ab         1
+1       B.         2         9       bc         9
+2       C.         3         7       fg         7
+3       B.         4         3       bc         9
+4       A.         5         1       ab         1
+5       A.         6         0       ab         1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43314946)
+ Assuming that  'Column A'  is the only column in common,  merge  uses all common columns by default. 
+
+  DF2.merge(DF1, 'left')
+
+  Column A  column D  column E Column B  Column C
+0       A.         1         8       ab         1
+1       B.         2         9       bc         9
+2       C.         3         7       fg         7
+3       B.         4         3       bc         9
+4       A.         5         1       ab         1
+5       A.         6         0       ab         1
+  
+
+ 
+
+  join  uses the index, so we set the index of the  DF1  and  join  it to  DF2 .  By default, it would require we set the index of  DF2  as well, but we specify the  on='Column A'  parameter so that we can keep  'Column A'  in the dataframe proper. 
+
+  DF2.join(DF1.set_index('Column A'), on='Column A')
+
+  Column A  column D  column E Column B  Column C
+0       A.         1         8       ab         1
+1       B.         2         9       bc         9
+2       C.         3         7       fg         7
+3       B.         4         3       bc         9
+4       A.         5         1       ab         1
+5       A.         6         0       ab         1
+  
+
+
+

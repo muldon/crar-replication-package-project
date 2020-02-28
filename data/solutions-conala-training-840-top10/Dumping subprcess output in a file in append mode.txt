@@ -1,0 +1,242 @@
+Query: Dumping subprcess output in a file in append mode
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20883659)
+ A simple, easy way of puting the cursor at the end of the file, without reading it is using: 
+
+  fh1.seek(2)
+# .seek(offset, [whence]) >> if offset = 2 it will put the cursor in the given position relatively
+# to the end of the file. default 'whence' position is 0, so at the very end
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33537238)
+ Try changing the file mode. 
+
+  import pickle
+
+def create_file(obj):
+  Fo=open ('pay.txt','ab')
+  pickle.dump(obj,Fo)
+  Fo.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39488510)
+ You need to seek to the beginning of the file with  fp.seek(0)  before dumping the object. 
+
+ If you don't seek you append the new pickle to the end of the file.
+And when you  pickle.load  from the file you only get the first there is in the file. 
+
+  with open(PATH, "rb+") as fp:
+    mocks_pickle = pickle.load(fp)
+    mocks_pickle['aa'] = '123'
+    fp.seek(0)
+    pickle.dump(mocks_pickle, fp)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44197384)
+ This is probably not the most Pythonic way to handle your request but I hope it will help with some issues you might encounter. I wrapped the loading and dumping into try-except bracelets to make the code more robust.
+The biggest surprise for myself was that you don't use 'a' when opening the file as output file but 'w' instead. However,this makes perfect sense if you consider that you append already in line "data.append(data1)", so there is no need to append twice when dumping to the file. 
+
+  data = [{"username": "Mike", "code": "12345", "city": "NYC"}]
+data1 = {"username": "Kelly", "code": "56789", "city": "NYC"}
+data2 = {"username": "Bob", "code": "12222", "city": "NYC"}
+
+try:
+    with open('append.txt', 'r') as fin:
+        data = json.load(fin)
+except FileNotFoundError as exc:
+    pass
+
+try:
+    if data:
+        data.append(data1)
+        with open('append.txt', 'w') as fout:
+            json.dump(data, fout)
+except UnboundLocalError as exc:
+    with open('append.txt', 'w') as fout:
+        json.dump(data, fout)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25663044)
+ I think this may be more of a problem with how you open the file than with  cPickle .
+ ab  mode, besides being an append mode (which should bear no relevance, since you  seek ), provides the  O_TRUNC  flag to the low-level  open  syscall. If you don't want truncation, you should try the  r+  mode. 
+
+ If this doesn't solve yout problem and your objects are not very large, you can still use https://docs.python.org/2/library/pickle.html#pickle.dumps: 
+
+  file = open("test","ab")
+file.seek(50,0)
+dumped= cPickle.dumps(object)
+file.write(dumped)
+file.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39289364)
+ the issue is essentially that you are opening the file twice in different modes. 
+
+  jsonFile = open("json.json", mode="r")
+jdata = json.load(jsonFile)
+jsonFile.close()
+jdata['chat_text'].insert(0, {'x':'x'})
+jsonFile = open('json.json', mode='w+')
+json.dump(jdata, jsonFile)
+jsonFile.close()
+  
+
+ So the first 3 lines open your file and load it into jdata, then close that file.
+Do whatever manipulation you need
+Open the file again, for writing this time. Dump data, close file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20624714)
+ When you open a file in  w  mode (or  wb ), that tells it to write a brand-new file, erasing whatever was already there. 
+
+ As http://docs.python.org/2/library/functions.html#open say: 
+
+ 
+   The most commonly-used values of mode are 'r' for reading, 'w' for writing ( truncating the file if it already exists ), and 'a' for appending… 
+ 
+
+ In other words, you want to use  'ab' , not  'wb' . 
+
+ 
+
+ However, when you append new dumps to the same file, you end up with a file made up of multiple separate values. If you only call  load  once, it's just going to load the first one. If you want to load  all  of them, you need to write code that does that. For example, you can  load  in a loop until  EOFError . 
+
+ 
+
+ Really, it looks like what you're trying to do is not to append to the pickle file, but to  modify  the  existing  pickled dictionary. 
+
+ You could do that with a function that loads and merges all of the dumps together, like this: 
+
+  def Load():
+    d = {}
+    with open('test.txt', 'rb') as f:
+        while True:
+            try:
+                a = pickle.load(f)
+            except EOFError:
+                break
+            else:
+                d.update(a)
+    # do stuff with d
+  
+
+ But that's going to get slower and slower the more times you run your program, as you pile on more and more copies of the same values. To do that  right  you need to load the old dictionary, modify that, and then dump the modified version. And for that, you  want   w  mode. 
+
+ However, a much better way to persist a dictionary, at least if the keys are strings, is to use http://docs.python.org/2/library/dbm.html (if the values are also strings) or http://docs.python.org/2/library/shelve.html (otherwise) instead of a dictionary in the first place. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1238996)
+ On my linux system with Python 2.5.2 writes to a file opened with 'a+' appear to always append to the end, regardless of the current seek position. 
+
+ Here is an example: 
+
+  import os
+
+if __name__ == "__main__":
+
+    f = open("test", "w")
+    f.write("Hello")
+    f.close()
+
+    f = open("test", "a+")
+    f.seek(0, os.SEEK_SET)
+    f.write("Goodbye")
+    f.close()
+  
+
+ On my system (event though I seeked to the beginning of the file) this results in the file "test" containing: 
+
+ 
+   HelloGoodbye 
+ 
+
+ The python documentation says that the mode argument is the same as stdio's. 
+
+ The linux man page for http://linux.die.net/man/3/fopen does say that (emphasis added): 
+
+ 
+   Opening a file in append mode (a as
+  the  first character  of mode) causes
+  all subsequent write operations to
+  this stream to occur at end-of-file,
+  as if preceded by an 
+
+  fseek(stream,0,SEEK_END);
+  
+  
+   . 
+ 
+
+ My stdio reference says that appending a '+' to the mode (i.e. 'a+') means that the stream is opened for  input and output .  However before switching between input and output a  must be made to explicitly set the file position. 
+
+ So adding the '+' doesn't change the fact that on some systems writes for a file opened in 'a' or 'a+' mode will always append to the end of the file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32294233)
+ I've get this error in Python 2.7 because of open mode 'rb': 
+
+      with open(path_to_file, 'rb') as pickle_file:
+        obj = pickle.load(pickle_file)
+  
+
+ So, for Python 2 'mode' should be 'r' 
+
+ Also, I've wondered that Python 3 doesn't support pickle format of Python 2, and in case when you'll try to load pickle file created in Python 2 you'll get: 
+
+  pickle.unpicklingerror: the string opcode argument must be quoted
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26279981)
+ The difference is not supprising, because  io.open()   explicitly  deals with Unicode strings when using text mode. The documentation is quite clear about this: 
+
+ 
+    Note : Since this module has been designed primarily f Python 3.x, you have to be aware that all uses of “bytes” in this document refer to the  str  type (of which  bytes  is an alias), and all uses of “text” refer to the  unicode  type. Furtherme, those two types are not interchangeable in the io APIs. 
+ 
+
+ and 
+
+ 
+   Python distinguishes between files opened in binary and text modes, even when the underlying operating system doesn’t. Files opened in binary mode (including  'b'  in the  mode  argument) return contents as  bytes  objects without any decoding. In text mode (the default,  when  't'  is included in the  mode  argument), the contents of the file are returned as  unicode  strings, the bytes having been first decoded using a platfm-dependent encoding  using the specified  encoding  if given. 
+ 
+
+ You need to open files in  binary mode . The fact that it wked without with the built-in  open()  at all is actually me luck than wisdom; if your pickles contained data with  \n  and/  \r  bytes the pickle loading may well fail. The Python 2 default pickle happens to be a text protocol but the output should still be considered as binary. 
+
+ In all cases, when writing pickle data, use binary mode: 
+
+  pickle.dump(payload, open(fn, 'wb'))
+a = pickle.load(open(fn, 'rb'))
+  
+
+  
+
+  pickle.dump(payload, io.open(fn, 'wb'))
+a = pickle.load(io.open(fn, 'rb'))
+  
+
+
+

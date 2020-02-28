@@ -1,0 +1,410 @@
+Query: How do I compress a file in GZip format?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34305182)
+ The above Answer solves our problem but in addition to that. 
+if we are trying to decompress a uncompressed("not a zip format") byte[] .
+we will get "Not in GZIP format" exception message. 
+
+ For solving that we can add addition code in our Class. 
+
+  public static boolean isCompressed(final byte[] compressed) {
+    return (compressed[0] == (byte) (GZIPInputStream.GZIP_MAGIC)) && (compressed[1] == (byte) (GZIPInputStream.GZIP_MAGIC >> 8));
+}
+  
+
+ My Complete Compression Class with compress/decompress would look like: 
+
+  import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
+public class GZIPCompression {
+  public static byte[] compress(final String str) throws IOException {
+    if ((str == null) || (str.length() == 0)) {
+      return null;
+    }
+    ByteArrayOutputStream obj = new ByteArrayOutputStream();
+    GZIPOutputStream gzip = new GZIPOutputStream(obj);
+    gzip.write(str.getBytes("UTF-8"));
+    gzip.flush();
+    gzip.close();
+    return obj.toByteArray();
+  }
+
+  public static String decompress(final byte[] compressed) throws IOException {
+    final StringBuilder outStr = new StringBuilder();
+    if ((compressed == null) || (compressed.length == 0)) {
+      return "";
+    }
+    if (isCompressed(compressed)) {
+      final GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(compressed));
+      final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(gis, "UTF-8"));
+
+      String line;
+      while ((line = bufferedReader.readLine()) != null) {
+        outStr.append(line);
+      }
+    } else {
+      outStr.append(compressed);
+    }
+    return outStr.toString();
+  }
+
+  public static boolean isCompressed(final byte[] compressed) {
+    return (compressed[0] == (byte) (GZIPInputStream.GZIP_MAGIC)) && (compressed[1] == (byte) (GZIPInputStream.GZIP_MAGIC >> 8));
+  }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26358167)
+ If you are still looking an answer you can use the below code to get the compressed byte[] using deflater and decompress it using inflater. 
+
+  public static void main(String[] args) {
+        //Some string for testing
+        String sr = new String("fsdfesfsfdddddddsfdsfssdfdsfdsfdsfdsfdsdfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghghghghggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggfsdfesfsfdddddddsfdsfssdfdsfdsfdsfdsfdsdfggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghghghghggggggggggggggggggggggggggggggggggggggggg");
+        byte[] data = sr.getBytes();
+        System.out.println("src size "+data.length);
+        try {
+            compress(data);
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+    public static byte[] compress(byte[] data) throws IOException { 
+        Deflater deflater = new Deflater(); 
+        deflater.setInput(data); 
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(data.length);  
+
+        deflater.finish(); 
+        byte[] buffer = new byte[1024];  
+        while (!deflater.finished()) { 
+        int count = deflater.deflate(buffer);  
+        outputStream.write(buffer, 0, count);  
+        } 
+        outputStream.close(); 
+        byte[] output = outputStream.toByteArray(); 
+
+        System.out.println("Original: " + data.length  ); 
+        System.out.println("Compressed: " + output.length ); 
+        return output; 
+        }   
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19044753)
+ Try to use  BufferedWriter  
+
+  public static String compressString(String str) throws IOException{
+if (str == null || str.length() == 0) {
+    return str;
+}
+
+BufferedWriter writer = null;
+
+try{
+    File file =  new File("your.gzip")
+    GZIPOutputStream zip = new GZIPOutputStream(new FileOutputStream(file));
+
+    writer = new BufferedWriter(new OutputStreamWriter(zip, "UTF-8"));
+
+    writer.append(str);
+}
+finally{           
+    if(writer != null){
+     writer.close();
+     }
+  }
+ }
+  
+
+ About your code example try: 
+
+  public static String compressString(String str) throws IOException{
+if (str == null || str.length() == 0) {
+    return str;
+}
+ByteArrayOutputStream out = new ByteArrayOutputStream(str.length());
+GZIPOutputStream gzip = new GZIPOutputStream(out);
+gzip.write(str.getBytes());
+gzip.close();
+
+byte[] compressedBytes = out.toByteArray(); 
+
+Gdx.files.local("gziptest.gzip").writeBytes(compressedBytes, false);
+out.close();
+
+return out.toString(); // I would return compressedBytes instead String
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39564473)
+ String outStr = out.toString("UTF-8"); 
+This "out" is ziped byte stream,encode it to String then decode it from String will be lose some bytes.This maybe a bug of java.
+To Resolve it,you can encode bytes to String in compress() to return, such as : 
+
+  String infoBase64Encode = new String(Base64.encodeBase64(out.toByteArray()))
+  
+
+ decode String to bytes in decompress() to return, such as : 
+
+  String infoBase64Decode = Base64.decodeBase64(decryptAESinfo)
+  
+
+ complete code as follows: 
+
+  public static String compress(String str) throws IOException { 
+           if (str == null || str.length() == 0) { 
+               return str; 
+           } 
+           System.out.println("String length : " + str.length()); 
+           ByteArrayOutputStream out = new ByteArrayOutputStream(); 
+           GZIPOutputStream gzip = new GZIPOutputStream(out); 
+           gzip.write(str.getBytes()); 
+           gzip.close(); 
+           String outStr = new String(Base64.encodeBase64(out.toByteArray()));
+           System.out.println("Output String lenght : " + outStr.length()); 
+           System.out.println("Output : " + outStr.toString()); 
+           return outStr; 
+    } 
+
+    public static String decompress(String str) throws IOException { 
+           if (str == null || str.length() == 0) { 
+              return str; 
+           } 
+           System.out.println("Input String length : " + str.length()); 
+           GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(Base64.decodeBase64(str))); 
+           String outStr = ""; 
+           ByteArrayOutputStream out = new ByteArrayOutputStream();
+           byte[] buffer = new byte[256];
+           int n;
+           while ((n = gis.read(buffer)) >= 0) {
+               out.write(buffer, 0, n);
+           }
+           System.out.println("Output String lenght : " + outStr.length()); 
+           return new String(out.toByteArray()); 
+    } 
+
+    public static void main(String[] args) throws IOException { 
+           String string = "my data"; 
+           System.out.println("after compress:"); 
+           String compressed = compress(string); 
+           System.out.println(compressed); 
+           System.out.println("after decompress:"); 
+           String decomp = decompress(compressed); 
+           System.out.println(decomp); 
+    } 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41969703)
+ Here is an easy way to do it with gzip: 
+
+ Python code: 
+
+  import gzip
+content = "the quick brown fox"
+with gzip.open('fox.txt.gz', 'wb') as f:
+    f.write(content)
+  
+
+ Clojure code: 
+
+  (with-open [in (java.util.zip.GZIPInputStream.
+                (clojure.java.io/input-stream
+                 "fox.txt.gz"))]
+  (println "result:" (slurp in)))
+
+;=>  result: the quick brown fox
+  
+
+ Keep in mind that "gzip" is an algorithm and a format, and does not mean you need to use the "gzip" command-line tool. 
+
+ Please note that the input to Clojure doesn't have to be a file. You could send the gzip compressed data as raw bytes over a socket and still decompress it on the Clojure side. Full details at:  https://clojuredocs.org/clojure.java.io/input-stream 
+
+ Update 
+
+ If you need to use the pure  zlib  format instead of  gzip , the result is very similar: 
+
+ Python code: 
+
+  import zlib
+fp = open( 'balloon.txt.z', 'wb' )
+fp.write( zlib.compress( 'the big red baloon' ))
+fp.close()
+  
+
+ Clojure code: 
+
+  (with-open [in (java.util.zip.InflaterInputStream.
+                (clojure.java.io/input-stream
+                 "balloon.txt.z"))]
+  (println "result:" (slurp in)))
+
+;=> result: the big red baloon
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41853978)
+ To extract the contents of .tar.gz format, I successfully use  apache commons-compress  ('org.apache.commons:commons-compress:1.12'). Take a look at this example method: 
+
+  public void extractTarGZ(InputStream in) {
+    GzipCompressorInputStream gzipIn = new GzipCompressorInputStream(in);
+    try (TarArchiveInputStream tarIn = new TarArchiveInputStream(gzipIn)) {
+        TarArchiveEntry entry;
+
+        while ((entry = (TarArchiveEntry) tarIn.getNextEntry()) != null) {
+            /** If the entry is a directory, create the directory. **/
+            if (entry.isDirectory()) {
+                File f = new File(entry.getName());
+                boolean created = f.mkdir();
+                if (!created) {
+                    System.out.printf("Unable to create directory '%s', during extraction of archive contents.\n",
+                            f.getAbsolutePath());
+                }
+            } else {
+                int count;
+                byte data[] = new byte[BUFFER_SIZE];
+                FileOutputStream fos = new FileOutputStream(entry.getName(), false);
+                try (BufferedOutputStream dest = new BufferedOutputStream(fos, BUFFER_SIZE)) {
+                    while ((count = tarIn.read(data, 0, BUFFER_SIZE)) != -1) {
+                        dest.write(data, 0, count);
+                    }
+                }
+            }
+        }
+
+        System.out.println("Untar completed successfully!");
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46688434)
+ Another example of correct compression and decompression: 
+
+  @Slf4j
+public class GZIPCompression {
+    public static byte[] compress(final String stringToCompress) {
+        if (isNull(stringToCompress) || stringToCompress.length() == 0) {
+            return null;
+        }
+
+        try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            final GZIPOutputStream gzipOutput = new GZIPOutputStream(baos)) {
+            gzipOutput.write(stringToCompress.getBytes(UTF_8));
+            gzipOutput.finish();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Error while compression!", e);
+        }
+    }
+
+    public static String decompress(final byte[] compressed) {
+        if (isNull(compressed) || compressed.length == 0) {
+            return null;
+        }
+
+        try (final GZIPInputStream gzipInput = new GZIPInputStream(new ByteArrayInputStream(compressed));
+             final StringWriter stringWriter = new StringWriter()) {
+            IOUtils.copy(gzipInput, stringWriter, UTF_8);
+            return stringWriter.toString();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Error while decompression!", e);
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44922240)
+ I've improved JITHINRAJ's code - used https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html: 
+
+  private static byte[] gzipCompress(byte[] uncompressedData) {
+        byte[] result = new byte[]{};
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream(uncompressedData.length);
+             GZIPOutputStream gzipOS = new GZIPOutputStream(bos)) {
+            gzipOS.write(uncompressedData);
+            gzipOS.close();
+            result = bos.toByteArray();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+private static byte[] gzipUncompress(byte[] compressedData) {
+        byte[] result = new byte[]{};
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(compressedData);
+             ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             GZIPInputStream gzipIS = new GZIPInputStream(bis)) {
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = gzipIS.read(buffer)) != -1) {
+                bos.write(buffer, 0, len);
+            }
+            result = bos.toByteArray();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14467099)
+ Mixing  String  and  byte[] ; that does never fit. And only works on the the same OS with same encoding. Not every  byte[]  can be converted to a  String , and the conversion back could give other bytes. 
+
+ The  compressedBytes  need not represent a String. 
+
+ Explicitly set the encoding in  getBytes  and  new String . 
+
+      String orig = ".............";
+
+    // Compress it
+    ByteArrayOutputStream baostream = new ByteArrayOutputStream();
+    OutputStream outStream = new GZIPOutputStream(baostream);
+    outStream.write(orig.getBytes("UTF-8"));
+    outStream.close();
+    byte[] compressedBytes = baostream.toByteArray(); // toString not always possible
+
+    // Uncompress it
+    InputStream inStream = new GZIPInputStream(
+            new ByteArrayInputStream(compressedBytes));
+    ByteArrayOutputStream baoStream2 = new ByteArrayOutputStream();
+    byte[] buffer = new byte[8192];
+    int len;
+    while ((len = inStream.read(buffer)) > 0) {
+        baoStream2.write(buffer, 0, len);
+    }
+    String uncompressedStr = baoStream2.toString("UTF-8");
+
+    System.out.println("orig: " + orig);
+    System.out.println("unc:  " + uncompressedStr);
+  
+
+
+

@@ -1,0 +1,255 @@
+Query: How do I implement a null coalescing operator in SQLAlchemy?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/45883198)
+ The ORM internals describe the http://docs.sqlalchemy.org/en/latest/orm/internals.html operator, so you can say: 
+
+  query = query.filter(table_a.id.notin_(subquery))
+#                               ^^^^^^
+  
+
+ From the docs: 
+
+ 
+   inherited from the http://docs.sqlalchemy.org/en/latest/core/sqlelement.html#sqlalchemy.sql.operators.ColumnOperators.notin_ method of http://docs.sqlalchemy.org/en/latest/core/sqlelement.html#sqlalchemy.sql.operators.ColumnOperators 
+  
+   implement the  NOT IN  operator. 
+  
+   This is equivalent to using negation with http://docs.sqlalchemy.org/en/latest/core/sqlelement.html#sqlalchemy.sql.operators.ColumnOperators.in_, i.e.  ~x.in_(y) . 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24084461)
+ For a simple example of SQLAlchemy's coalesce function, this may help: http://progblog10.blogspot.com/2014/06/handling-null-values-in-sqlalchemy.html. 
+
+ Here are a couple of key lines of code from that post: 
+
+  from sqlalchemy.sql.functions import coalesce
+my_config = session.query(Config).order_by(coalesce(Config.last_processed_at, datetime.date.min)).first()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5632224)
+ (as indicated by https://stackoverflow.com/users/2572431/augurar): Because  sqlalchemy  uses  magic methods (operator overloading)  to create  SQL  constructs, it can only handle operator such as  !=  or  == , but is not able to work with  is  (which is a very valid Python construct). 
+
+ Therefore, to make it work with sqlalchemy, you should use:   
+
+  ...filter(or_(people.marriage_status!='married', people.marriage_status == None))
+  
+
+ , basically replace the  is None  with  == None . In this case your query will be translated properly to the following SQL: 
+
+  SELECT people.name AS people_name, people.marriage_status AS people_marriage_status 
+FROM people 
+WHERE people.marriage_status IS NULL OR people.marriage_status != ?
+  
+
+ See  IS NULL  in the http://docs.sqlalchemy.org/en/latest/orm/tutorial.html#common-filter-operators. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7692304)
+ On the null-coalescing operator in C#, what you have in the question isn't a correct usage.  That would fail at compile time. 
+
+ In C#, the correct way to write what you're attempting would be this: 
+
+  trait = this.trait == this.spouse.trait ? self.trait : defaultTrait
+  
+
+ Null coalesce in C# returns the first value that isn't null in a chain of values (or null if there are no non-null values).  For example, what you'd write in C# to return the first non-null trait or a default trait if all the others were null is actually this: 
+
+  trait = this.spouse.trait ?? self.trait ?? defaultTrait;
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43422022)
+ In case anyone else is wondering, you can use  is_  to generate  foo IS NULL : 
+
+ 
+>>> from sqlalchemy.sql import column
+>>> print column('foo').is_(None)
+foo IS NULL
+>>> print column('foo').isnot(None)
+foo IS NOT NULL
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21784915)
+  = None  will produce a http://docs.sqlalchemy.org/en/rel_1_0/core/sqlelement.html#sqlalchemy.sql.expression.ColumnElement.__ne__: 
+
+ 
+   In a column context, produces the clause  a ! . If the target is  None , produces a  IS NOT NULL . 
+ 
+
+ or use http://docs.sqlalchemy.org/en/rel_1_0/core/sqlelement.html#sqlalchemy.sql.expression.ColumnElement.isnot (new in 0.7.9): 
+
+ 
+   Implement the  IS NOT  operator. 
+  
+   Normally,  IS NOT  is generated automatically when comparing to a value of  None , which resolves to  NULL . However, explicit usage of  IS NOT  may be desirable if comparing to boolean values on certain platforms. 
+ 
+
+  
+
+  >>> from sqlalchemy.sql import column
+>>> column('YourColumn') != None
+<sqlalchemy.sql.elements.BinaryExpression object at 0x10c8d8b90>
+>>> str(column('YourColumn') != None)
+'"YourColumn" IS NOT NULL'
+>>> column('YourColumn').isnot(None)
+<sqlalchemy.sql.elements.BinaryExpression object at 0x104603850>
+>>> str(column('YourColumn').isnot(None))
+'"YourColumn" IS NOT NULL'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18102848)
+ SQLAlchemy is not smart enough to build SQL expression tree from these operands, you have to use explicit  propname.expression  decorator to provide it. But then comes another problem: there is no portable way to convert interval to hours in-database. You'd use  TIMEDIFF  in MySQL,  EXTRACT(EPOCH FROM ... ) / 3600  in PostgreSQL etc. I suggest changing properties to return  timedelta  instead, and comparing apples to apples. 
+
+  from sqlalchemy import select, func
+
+
+class Interval(Base):
+    ...
+
+    @hybrid_property
+    def time_spent(self):
+        return (self.end or datetime.now()) - self.start
+
+    @time_spent.expression
+    def time_spent(cls):
+        return func.coalesce(cls.end, func.current_timestamp()) - cls.start
+
+
+class Task(Base):
+    ...
+
+    @hybrid_property
+    def time_spent(self):
+        return sum((i.time_spent for i in self.intervals), timedelta(0))
+
+    @time_spent.expression
+    def hours_spent(cls):
+        return (select([func.sum(Interval.time_spent)])
+            .where(cls.id==Interval.task_id)
+            .label('time_spent'))
+  
+
+ The final query is: 
+
+  session.query(Task).filter(Task.time_spent > timedelta(hours=3)).all()
+  
+
+ which translates to (on PostgreSQL backend): 
+
+  SELECT task.id AS task_id, task.title AS task_title 
+FROM task 
+WHERE (SELECT sum(coalesce(interval."end", CURRENT_TIMESTAMP) - interval.start) AS sum_1 
+FROM interval 
+WHERE task.id = interval.task_id) > %(param_1)s
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37796647)
+  
+
+  sub_stmt = config.Session.query(ChildTable.person_id)
+stmt = config.Session.query(Person).filter(~Person.id.in_(sub_stmt))
+empty_persons = stmt.all()
+  
+
+ emits the following sql: 
+
+  SELECT person.id AS person_id, person.name AS person_name
+FROM person
+WHERE person.id NOT IN (SELECT foo.person_id AS foo_person_id
+FROM foo)
+  
+
+ Using a join: 
+
+  stmt = config.Session.query(Person).outerjoin(ChildTable).filter(ChildTable.person_id.is_(None))
+empty_persons = stmt.all()
+  
+
+ emits the following sql: 
+
+  SELECT person.id AS person_id, person.name AS person_name
+FROM person LEFT OUTER JOIN foo ON person.id = foo.person_id
+WHERE foo.person_id IS NULL
+  
+
+ I think both achieve your desired result set. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30061211)
+ As you mentioned, SQLAlchemy allows expressions like: 
+
+  mytable.query.filter(mytable.some_col < 5).all()
+  
+
+ This is possible because  mytable.some_col  implements magic methods for each logical operator which returns some other object (in this case  __lt__ ). So the operator is not really passed in. In my application, which defines a  User  object, this can be seen via: 
+
+  >>> User.first_name == 'John'
+<sqlalchemy.sql.elements.BinaryExpression object at 0x10f0991d0>
+  
+
+ You could do the same to achieve the same effect. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/37445153)
+ 
+   I need to select all cells which contains 'Null' or '0' values. 
+ 
+
+  Using  |  as the logical  OR   
+
+  Node.query.filter((Node.maintenance == None) | (Node.maintenance == 0))
+  
+
+  Using  is_(None)   
+
+ Or, to avoid using  == None  (because of linters) 
+
+  Node.query.filter((Node.maintenance.is_(None)) | (Node.maintenance == 0))
+  
+
+  Using  or_   
+
+ Or, this form 
+
+  from sqlalchemy import or_
+Node.query.filter(or_(Node.maintenance == None, Node.maintenance == 0))
+  
+
+  Using  in_   
+
+ If are wondering if you can query using something akin to the  in  operator in SQL and Python, you're right you can do it in SQLAlchemy too, but unfortunately https://stackoverflow.com/questions/6362112/in-clause-with-null-or-is-null, but to illustrate we can see that 
+
+  Node.query.filter(Node.maintenance.in_([0, 1]))
+  
+
+  
+
+  Node.query.filter((Node.maintenance == 0) | (Node.maintenance == 1))
+  
+
+
+

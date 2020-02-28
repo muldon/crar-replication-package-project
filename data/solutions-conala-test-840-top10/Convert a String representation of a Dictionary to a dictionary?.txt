@@ -1,0 +1,179 @@
+Query: Convert a String representation of a Dictionary to a dictionary?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52530132)
+ To convert to a dict: 
+
+ Code:</h3>
+
+  data = '[100:0.345,123:0.34,145:0.86]'
+
+new_data = dict(y.split(':') for y in (x.strip().strip('[').strip(']')
+                                       for x in data.split(',')))
+
+print(new_data)
+  
+
+ Or if you need numbers not strings: 
+
+  new_data = dict((map(float, y.split(':'))) for y in (
+    x.strip().strip('[').strip(']') for x in data.split(',')))
+  
+
+ Results:</h3>
+
+  {'100': '0.345', '123': '0.34', '145': '0.86'}
+
+{145.0: 0.86, 123.0: 0.34, 100.0: 0.345}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52530103)
+ It's showing as invalid syntax because it has the wrong brackets, so you could do  
+
+  ast.literal_eval(a.replace("[","{").replace("]", "}"))
+  
+
+ Or alternatively parse the string yourself in a dictionary comprehension 
+
+  {x.split(":")[0]: x.split(":")[1] for x in a[1:-1].split(",")}
+  
+
+ and if as mentioned there are  [  or  ]  elsewhere in your string the following may be more robust 
+
+  ast.literal_eval("{" + a[1:-1] +"}")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38066510)
+ To OP's example: 
+
+  s = "{'muffin' : 'lolz', 'foo' : 'kitty'}"
+  
+
+ We can use https://pypi.python.org/pypi/PyYAML to deal with this kind of non-standard json in string: 
+
+  >>> import yaml
+>>> s = "{'muffin' : 'lolz', 'foo' : 'kitty'}"
+>>> s
+"{'muffin' : 'lolz', 'foo' : 'kitty'}"
+>>> yaml.load(s)
+{'muffin': 'lolz', 'foo': 'kitty'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/988251)
+ Starting in Python 2.6 you can use the built-in https://docs.python.org/library/ast.html#ast.literal_eval: 
+
+  >>> import ast
+>>> ast.literal_eval("{'muffin' : 'lolz', 'foo' : 'kitty'}")
+{'muffin': 'lolz', 'foo': 'kitty'}
+  
+
+ This is safer than using  eval .  As its own docs say: 
+
+ 
+>>> help(ast.literal_eval)
+Help on function literal_eval in module ast:
+
+literal_eval(node_or_string)
+    Safely evaluate an expression node or a string containing a Python
+    expression.  The string or node provided may only consist of the following
+    Python literal structures: strings, numbers, tuples, lists, dicts, booleans,
+    and None.
+ 
+
+ For example: 
+
+  >>> eval("shutil.rmtree('mongo')")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<string>", line 1, in <module>
+  File "/opt/Python-2.6.1/lib/python2.6/shutil.py", line 208, in rmtree
+    onerror(os.listdir, path, sys.exc_info())
+  File "/opt/Python-2.6.1/lib/python2.6/shutil.py", line 206, in rmtree
+    names = os.listdir(path)
+OSError: [Errno 2] No such file or directory: 'mongo'
+>>> ast.literal_eval("shutil.rmtree('mongo')")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/opt/Python-2.6.1/lib/python2.6/ast.py", line 68, in literal_eval
+    return _convert(node_or_string)
+  File "/opt/Python-2.6.1/lib/python2.6/ast.py", line 67, in _convert
+    raise ValueError('malformed string')
+ValueError: malformed string
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41329284)
+ no any libs are used: 
+
+  dict_format_string = "{'1':'one', '2' : 'two'}"
+d = {}
+elems  = filter(str.isalnum,dict_format_string.split("'"))
+values = elems[1::2]
+keys   = elems[0::2]
+d.update(zip(keys,values))
+  
+
+ NOTE: As it has hardcoded  split("'")  will work only for strings where data  is "single quoted". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51432995)
+ To summarize: 
+
+  import ast, yaml, json, timeit
+
+descs=['short string','long string']
+strings=['{"809001":2,"848545":2,"565828":1}','{"2979":1,"30581":1,"7296":1,"127256":1,"18803":2,"41619":1,"41312":1,"16837":1,"7253":1,"70075":1,"3453":1,"4126":1,"23599":1,"11465":3,"19172":1,"4019":1,"4775":1,"64225":1,"3235":2,"15593":1,"7528":1,"176840":1,"40022":1,"152854":1,"9878":1,"16156":1,"6512":1,"4138":1,"11090":1,"12259":1,"4934":1,"65581":1,"9747":2,"18290":1,"107981":1,"459762":1,"23177":1,"23246":1,"3591":1,"3671":1,"5767":1,"3930":1,"89507":2,"19293":1,"92797":1,"32444":2,"70089":1,"46549":1,"30988":1,"4613":1,"14042":1,"26298":1,"222972":1,"2982":1,"3932":1,"11134":1,"3084":1,"6516":1,"486617":1,"14475":2,"2127":1,"51359":1,"2662":1,"4121":1,"53848":2,"552967":1,"204081":1,"5675":2,"32433":1,"92448":1}']
+funcs=[json.loads,eval,ast.literal_eval,yaml.load]
+
+for  desc,string in zip(descs,strings):
+    print('***',desc,'***')
+    print('')
+    for  func in funcs:
+        print(func.__module__+' '+func.__name__+':')
+        %timeit func(string)        
+    print('')
+  
+
+ Results: 
+
+  *** short string ***
+
+json loads:
+4.47 µs ± 33.4 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+builtins eval:
+24.1 µs ± 163 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+ast literal_eval:
+30.4 µs ± 299 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+yaml load:
+504 µs ± 1.29 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+
+*** long string ***
+
+json loads:
+29.6 µs ± 230 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+builtins eval:
+219 µs ± 3.92 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+ast literal_eval:
+331 µs ± 1.89 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+yaml load:
+9.02 ms ± 92.2 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
+  
+
+ Conclusion:
+prefer  json.loads  
+
+
+

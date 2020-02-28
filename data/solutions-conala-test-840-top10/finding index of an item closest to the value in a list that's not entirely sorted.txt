@@ -1,0 +1,185 @@
+Query: finding index of an item closest to the value in a list that's not entirely sorted
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9706105)
+ Try the following: 
+
+  min(range(len(a)), key=lambda i: abs(a[i]-11.5))
+  
+
+ For example: 
+
+  >>> a = [25.75443, 26.7803, 25.79099, 24.17642, 24.3526, 22.79056, 20.84866, 19.49222, 18.38086, 18.0358, 16.57819, 15.71255, 14.79059, 13.64154, 13.09409, 12.18347, 11.33447, 10.32184, 9.544922, 8.813385, 8.181152, 6.983734, 6.048035, 5.505096, 4.65799]
+>>> min(range(len(a)), key=lambda i: abs(a[i]-11.5))
+16
+  
+
+ Or to get the index and the value: 
+
+  >>> min(enumerate(a), key=lambda x: abs(x[1]-11.5))
+(16, 11.33447)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9706069)
+ How about: you zip the two lists, then sort the result? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45946287)
+  import numpy as np
+
+a = [25.75443, 26.7803, 25.79099, 24.17642, 24.3526, 22.79056, 20.84866, 19.49222, 18.38086, 18.0358, 16.57819, 15.71255, 14.79059, 13.64154, 13.09409, 12.18347, 11.33447, 10.32184, 9.544922, 8.813385, 8.181152, 6.983734, 6.048035, 5.505096, 4.65799]
+
+index = np.argmin(np.abs(np.array(a)-11.5))
+a[index] # here is your result
+  
+
+ In case a is already an array, the corresponding transformation can be ommitted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9706115)
+ If you can't sort the array, then there is no quick way to find the closest item - you have to iterate over all entries. 
+
+ There is a workaround but it's quite a bit of work: Write a sort algorithm which sorts the array and (at the same time) updates a second array which tells you where this entry was  before  the array was sorted. 
+
+ That way, you can use binary search to look up index of the closest entry and then use this index to look up the original index using the "index array". 
+
+  [EDIT]  Using  zip() , this is pretty simple to achieve: 
+
+   array_to_sort = zip( original_array, range(len(original_array)) )
+ array_to_sort.sort( key=i:i[0] )
+  
+
+ Now you can binary search for the value (using  item[0] ).  item[1]  will give you the original index. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50507416)
+ If you are searching a long list a lot of times, then  min  scales very bad (O(n) or even O(n^2) if you append some of your searches to the search list I think).
+Bisect is your friend. .  
+
+  class Closest:
+    """Assumes *no* redundant entries - all inputs must be unique"""
+    def __init__(self, numlist=[], firstdistance=0):
+        self.numindexes = dict((val, n) for n, val in enumerate(numlist))
+        self.nums = sorted(self.numindexes)
+        self.firstdistance = firstdistance
+
+    def append(self, num):
+        if num in self.numindexes:
+            raise ValueError("Cannot append '%i' it is already used" % num)
+        self.numindexes[num] = len(self.nums)
+        bisect.insort(self.nums, num)
+
+    def rank(self, target):
+        rank = bisect.bisect(self.nums, target)
+        if rank == 0:
+            pass
+        elif len(self.nums) == rank:
+            rank -= 1
+        else:
+            dist1 = target - self.nums[rank - 1]
+            dist2 = self.nums[rank] - target
+            if dist1 < dist2:
+                rank -= 1
+        return rank
+
+    def closest(self, target):
+        try:
+            return self.numindexes[self.nums[self.rank(target)]]
+        except IndexError:
+            return 0
+
+    def distance(self, target):
+        rank = self.rank(target)
+        try:
+            dist = abs(self.nums[rank] - target)
+        except IndexError:
+            dist = self.firstdistance
+        return dist
+  
+
+ Use it like this: 
+
+  a = [25.75443, 26.7803, 25.79099, 24.17642, 24.3526, 22.79056, 20.84866, 19.49222, 18.38086, 18.0358, 16.57819, 15.71255, 14.79059, 13.64154, 13.09409, 12.18347, 11.33447, 10.32184, 9.544922, 8.813385, 8.181152, 6.983734, 6.048035, 5.505096, 4.65799]
+cl = Closest(a)
+for x in targets:
+    rank = cl.rank(x)
+    print("Closest number:", cl.nums[rank])
+    print("Closest index:",  cl.numindexes[cl.nums[rank]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9706143)
+ Going trough all the items is only linear. If you would sort the array that would be worse. 
+
+ I dont see a problem on keeping an additional  deltax (the min difference so far) and  idx (the index of that element) and just loop once trough the list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27337924)
+ Here is the code that will return the index if the value is found, otherwise the index of the item that is closest to that value, hope it helps. 
+
+  def binarySearch(data, val):
+    lo, hi = 0, len(data) - 1
+    best_ind = lo
+    while lo <= hi:
+        mid = lo + (hi - lo) / 2
+        if data[mid] < val:
+            lo = mid + 1
+        elif data[mid] > val:
+            hi = mid - 1
+        else:
+            best_ind = mid
+            break
+        # check if data[mid] is closer to val than data[best_ind] 
+        if abs(data[mid] - val) < abs(data[best_ind] - val):
+            best_ind = mid
+    return best_ind
+
+def main():
+    data = [1, 2, 3, 4, 5, 6, 7]
+    val = 6.1
+    ind = binarySearch(data, val)
+    print 'data[%d]=%d' % (ind, data[ind])
+
+if __name__ == '__main__':
+    main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9706179)
+ Keep in mind that if space isn't important you can sort any list without moving the contents by creating a secondary list of the sorted indices.  
+
+ Also bear in mind that if you are doing this look up just once, then you will just have to traverse every element in the list O(n). (If multiple times then you probably would want to sort for increase efficiency later) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22854934)
+ Since the input is sorted, you're best bet algorithmically is to use the  bisect  module -- e.g. https://docs.python.org/2/library/bisect.html#bisect.bisect_left 
+
+  >>> list_ = [0, 3.5, 5.8, 6.2, 88]
+>>> item = 4.4
+>>> bisect.bisect_left(list_, item)
+2
+  
+
+ The items you want reside at indices  bisect_left(list_, item)  and   bisect_left(list_, item) - 1  
+
+ This should give you a result in  O(logN)  searches -- It doesn't get much better than that from an algorithm standpoint. 
+
+
+

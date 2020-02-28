@@ -1,0 +1,247 @@
+Query: Python sum of ASCII values of all characters in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/44611099)
+ You can find the sum in hexadecimal as 
+
+  >>> hexsum = hex(0x2e + 0x47 + 0x30)[2:].upper()
+>>> hexsum
+'A5'
+  
+
+ (the  0x  at the front is https://stackoverflow.com/questions/509211/explain-slice-notation off by  [2:] ) 
+
+ Then you can get the ASCII values of the characters in hexadecimal as 
+
+  >>> bytes = [hex(ord(c))[2:] for c in hexsum]
+>>> bytes
+['41', '35']
+  
+
+ (again, the frontal  0x  is removed from each element) 
+
+ Then you can https://stackoverflow.com/questions/1876191/explain-python-join them together: 
+
+  >>> checksum = ''.join(bytes)
+>>> checksum
+'4135'
+  
+
+ Or everything can be done with this one-liner: 
+
+  >>> ''.join(hex(ord(c))[2:] for c in hex(0x2e + 0x47 + 0x30)[2:].upper())
+'4135'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42311075)
+  print sum(map(ord,my_string))
+  
+
+ This would be the easiest. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12492429)
+ You can speed it up a bit (~40% ish, but nowhere near as fast as native C) by removing the creation of the generator... 
+
+ Instead of: 
+
+  sum(ord(c) for c in string)
+  
+
+  
+
+  sum(map(ord, string))
+  
+
+ 
+
+  
+
+  >>> timeit.timeit(stmt="sum(map(ord, 'abcdefgh'))")
+# TP: 1.5709713941578798
+# JC: 1.425781011581421
+>>> timeit.timeit(stmt="sum(ord(c) for c in 'abcdefgh')")
+# TP: 1.7807035140629637
+# JC: 1.9981679916381836
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2759009)
+  re.sub(r'[^\x00-\x7F]', '_', theString)
+  
+
+ This will work if theString is unicode, or a string in an encoding where ASCII occupies values 0 to 0x7F (latin-1, UTF-8, etc.). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12492343)
+ You can use an intermediate  bytearray  to speed things up: 
+
+  >>> sum(bytearray("abcdefgh"))
+804
+  
+
+ This is not 17 times faster than the generator—it involves the creation of an intermediate  bytearray  and  sum  still has to iterate over Python integer objects—but on my machine it does speed up summing an 8-character string from 2μs to about 700ns. If a timing in this ballpark is still too inefficient for your use case, you should probably write the speed-critical parts of your application in C anyway. 
+
+ If your strings are sufficiently large, and if you can use  numpy , you can avoid creating temporary copies by directly referring to the string's buffer using  numpy.frombuffer : 
+
+  >>> import numpy as np
+>>> np.frombuffer("abcdefgh", "uint8").sum()
+804
+  
+
+ For smaller strings this is slower than a temporary array because of the complexities in numpy's view creation machinery. However, for sufficiently large strings, the  frombuffer  approach starts to pay off, and it of course always creates less garbage. On my machine the cutoff point is string size of about 200 characters. 
+
+ Also, see Guido's classic essay https://www.python.org/doc/essays/list2str/. While some of its specific techniques may by now be obsolete, the general lesson of how to  think  about Python optimization is still quite relevant. 
+
+ 
+
+ You can time the different approaches with the  timeit  module: 
+
+  $ python -m timeit -s 's = "a" * 20' 'sum(ord(ch) for ch in s)' 
+100000 loops, best of 3: 3.85 usec per loop
+$ python -m timeit -s 's = "a" * 20' 'sum(bytearray(s))'
+1000000 loops, best of 3: 1.05 usec per loop
+$ python -m timeit -s 'from numpy import frombuffer; s = "a" * 20' \
+                      'frombuffer(s, "uint8").sum()' 
+100000 loops, best of 3: 4.8 usec per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5891509)
+ ASCII defines 128 characters whose byte values range from 0 to 127 inclusive.  So to get a string of all the ASCII characters, you could just do  
+
+  ''.join([chr(i) for i in range(128)])
+  
+
+ Only some of those are printable, however- the printable ASCII characters can be accessed in Python via 
+
+  import string
+string.printable
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23831474)
+ You can do it in vectorized form using NumPy! 
+
+  import numpy as np
+
+counts1 = np.bincount(np.array('aaadez', 'c').view(np.uint8), minlength=128)
+counts2 = np.bincount(np.array('eeeedddddaa', 'c').view(np.uint8), minlength=128)
+np.min((counts1, counts2), axis=0).sum()
+  
+
+ counts1 looks like this: 
+
+  array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+       0, 0, 0, 0, 0, 3, 0, 0, 1, 1, 0...])
+  
+
+ This is an array indexed by ASCII codes.  The nonzero elements are at positions 97, 100, and 101, which are ASCII 'a', 'd', and 'e'.  Then we do a pairwise min(), followed by sum to get the score (in this example, 4). 
+
+ Something neat about this solution is that you can apply it to as many strings as you want with no decrease in efficiency, and even very long strings will be quite fast because there are no loops in Python itself--only in compiled NumPy code. 
+
+ Before editing I had a similar but slower and more complex solution using Pandas and SciPy.   
+
+  import scipy.stats
+import numpy as np
+import pandas
+
+x1 = scipy.stats.itemfreq(np.array('aaade', 'c').view(np.uint8))
+x2 = scipy.stats.itemfreq(np.array('bbacadde', 'c').view(np.uint8))
+merged = pandas.merge(pandas.DataFrame(x1), pandas.DataFrame(x2), on=0)
+np.sum(np.min(merged.values[:,1:], axis=1))
+  
+
+ That gives 4.0.  The first two lines convert the strings to arrays of integers and runs itemfreq() to count how many times each character occurs.  In this example, x1 is: 
+
+  arrray([[  97.,    3.],
+        [ 100.,    1.],
+        [ 101.,    1.]])
+  
+
+ Then we join the two tables by the 0th column, dropping any characters that do not exist in the other one: 
+
+       0  1_x  1_y
+0   97    3    2
+1  100    1    2
+2  101    1    1
+  
+
+ Then we just do a min and sum to get the final score (2+1+1 in this case). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52791342)
+ Using  str.lower , you could lowercase the character you are about to test so you don't need the uppercase letters. Characters that are  .  or  ,  are not affected by  lower . Also, use  sum  with a generator expression to make you code more compact and (IMHO) more readable. 
+
+  >>> letters = "abcdefghijklmnopqrstuvwxyz,."
+>>> s = 'E.666'
+>>> sum(1 for c in s if c.lower() in letters)
+2
+  
+
+ Or you could use https://docs.python.org/3/library/string.html#string.ascii_letters defined in the  string  module: 
+
+  >>> import string
+>>> letters = string.ascii_letters + ",."
+>>> sum(1 for c in s if c in letters)
+2
+  
+
+ In both cases, the  in  check will be linear (O(k) for k "good" letters), though. This should not be a problem for such a short list of letters, but to improve it further, you could turn  letters  into a  set  so that the  in  check will be O(1). 
+
+  >>> letters = set(letters)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3505863)
+ Are you trying to do a  rot-13  (or generalized " rot-x ") type function? 
+
+  from string import ascii_uppercase, ascii_lowercase
+
+def rotx(data,rotby):
+    total = []
+    for char in data:
+        if char in ascii_uppercase:
+            index = (ascii_uppercase.find(char) + rotby) % 26
+            total.append(ascii_uppercase[index])
+        elif char in ascii_lowercase:
+            index = (ascii_lowercase.find(char) + rotby) % 26
+            total.append(ascii_lowercase[index])
+        else:
+            total.append(char)
+    return "".join(total)
+  
+
+  
+
+  >>> import rotx
+>>> rotx.rotx("test",2)
+'vguv'
+>>> rotx.rotx("IBM-9000",-1)
+'HAL-9000'
+  
+
+ If you blanket add 2 to ASCII characters,  }  becomes non-printable,  ~  turns into something depending on your character encoding 
+
+
+

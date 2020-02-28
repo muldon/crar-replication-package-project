@@ -1,0 +1,179 @@
+Query: Python: Filter lines from a text file which contain a particular word
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31343556)
+ Store the filter words in a set, iterate over the words from the line  in  ttext.txt ,  and only keep the words that are not in the set of filter words. 
+
+  with open('ttext.txt') as text,  open('filterlist.txt') as filter_words:
+    st = set(map(str.rstrip,filter_words))
+    txt = next(text).split()
+    out = [word  for word in txt if word not in st]
+  
+
+ If you want to ignore case and remove punctuation you will need to call lower on each line and strip the punctuation: 
+
+  from string import punctuation
+with open('ttext.txt') as text,  open('filterlist.txt') as filter_words:
+    st = set(word.lower().rstrip(punctuation+"\n") for word in  filter_words)
+    txt = next(text).lower().split()
+    out = [word  for word in txt if word not in st]
+  
+
+ If you had multiple lines in  ttext  using  (word for line in text for word in line.split())  would be a more memory efficient approach. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5245225)
+  if "apple" in line:  should work. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5245216)
+ Use can get all lines containing 'apple' using a list-comprehension: 
+
+  [ line for line in open('textfile') if 'apple' in line]
+  
+
+ So - also in one code-line - you can create the new textfile: 
+
+  open('newfile','w').writelines([ line for line in open('textfile') if 'apple' in line])
+  
+
+ And eyquem is right: it's definitely faster to keep it as an iterator and write 
+
+  open('newfile','w').writelines(line for line in open('textfile') if 'apple' in line)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29265362)
+ I think you dont need regex for such task you can simply  split  your lines to create a list of words then loop over your words list and use  in  operator : 
+
+   with open("test.txt") as f :
+     for line in f:
+         for w in line.split():
+              if 'abc' in w :
+                   print w 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42627296)
+ You can use a regular expression to filter out comments: 
+
+  import re
+
+text = """ This line contains a word. # empty
+This line contains two: word word  # word
+newline
+# another word
+"""
+
+filtered = ''.join(re.split('#.*', text))
+print(filtered)
+#  This line contains a word. 
+# This line contains two: word word  
+# newline
+
+print(text.count('word'))  # 5
+print(filtered.count('word'))  # 3
+  
+
+ Just replace  text  with your  file_name.read() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20919649)
+ I am presuming that sentiment_test.txt is just plain text, and not a specific format.
+You are trying to filter lines and not words. You should first tokenize and then filter the stopwords. 
+
+  from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+
+stopset = set(stopwords.words('english'))
+
+with open('sentiment_test.txt', 'r') as text_file:
+    text = text_file.read()
+    tokens=word_tokenize(str(text))
+    tokens = [w for w in tokens if not w in stopset]
+    print tokens
+  
+
+ Hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5245521)
+ Using generators, this is memory efficient and fast 
+
+  def apple_finder(file):
+    for line in file:
+        if 'apple' in line:
+             yield line
+
+
+source = open('forest','rb')
+
+apples = apple_finder(source)
+  
+
+ I love easy solutions with no brain damage for reading :-) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38210926)
+ You can generate a dynamic regular expression pattern and filter your list based on that: 
+
+  import re
+
+words = ["AMALGAMATED", "AMMONIATED", "CIRCUMAMBULATED", "COMMENTATED", 
+         "TAMTAM", "BLUB", "HOUSE", "SOMETHING"]
+filter = "mmt"
+
+regex = re.compile(".*".join(filter), re.IGNORECASE)
+filtered_words = [word for word in words if regex.search(word)]
+
+print(*filtered_words, sep="\n")
+  
+
+ http://ideone.com/TzKqXu 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32065777)
+ Note that  line.rstrip()  only strips whitespace.  But it can take a parameter as in  line.rstrip(badchars)  that will strip everything in  badchars .   
+
+ Even if newlines make it into the RDD, along with empty words and other junk, you can always filter them out by adding a https://spark.apache.org/docs/1.1.1/api/python/pyspark.rdd.RDD-class.html#filter step to your workflow.   filter  calls a function for each element of the RDD and returns an RDD of elements that returned  true . 
+
+ A couple of ways to get rid of newline as a word: 
+
+ Look for it explicitly 
+
+  counts = text_file.flatMap(lambda line: re.split(r'\W*', line.rstrip())) \
+         .filter(lambda word: word!="\n") \
+         .map(lambda word: (word, 1)) \
+         .reduceByKey(lambda a, b: a + b) \
+         .map(lambda (a,b): (b, a)) \
+         .sortByKey(False)
+  
+
+ Filter on word length > 1 char 
+
+  counts = text_file.flatMap(lambda line: re.split(r'\W*', line.rstrip())) \
+         .filter(lambda word: len(word)>1) \
+         .map(lambda word: (word, 1)) \
+         .reduceByKey(lambda a, b: a + b) \
+         .map(lambda (a,b): (b, a)) \
+         .sortByKey(False)
+  
+
+
+

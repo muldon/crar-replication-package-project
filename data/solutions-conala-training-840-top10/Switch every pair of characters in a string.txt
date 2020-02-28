@@ -1,0 +1,242 @@
+Query: Switch every pair of characters in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30628366)
+  from itertools import izip_longest as myzip
+"".join(b+a for a,b in myzip(a[::2],a[1::2],fillvalue=""))
+  
+
+ this is very similar to the other answers just some what more explicit in explaining what it is doing to the reader of the code 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30628338)
+ I'm not sure that reaching f regular expressions first is always the best thing to do, but it seems to fit here. Find 2 characters, sub them in reverse der, and continue until you're out of string. 
+
+  impt re
+
+>>> s = "abcdefghijklmnopqrstuvwxyz"
+>>> re.sub(r'(.)(.)', "\g<2>\g<1>", s)
+'badcfehgjilknmpqtsvuxwzy'
+  
+
+ Easily generalized to other numbers of characters: 
+
+  >>> def swap3(txt):
+...    return re.sub(r'(.)(.)(.)', '\g<3>\g<2>\g<1>', txt)
+...
+>>> swap3(s)
+'cbafedihglkjonmrqputsxwvyz'
+  
+
+   
+
+  >>> def parameterizedSwap(txt, numChars):
+...    pat = r"(.)" * numChars
+...    replace = "".join(["\g<{0}>".fmat(numChars-i) f i in range(numChars)])
+...    return re.sub(pat, replace, txt)
+...
+>>> parameterizedSwap(s, 5)
+'edcbajihgfonmlktsrqpyxwvuz'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30628231)
+ You can use  zip()  function which woud return a list of tuples as  [(b,a), (d,c), ...]  and the applying  .join()  method to both the elements of the tuple and list as well. 
+
+  a = "abcdefghijklmnopqrstuvwxyz"
+# a[::2] = "acegikmoqsuwy"
+# a[1::2] = "bdfhjlnprtvx"
+print "".join("".join(i) for i in zip(a[1::2], a[::2]))
+>>> badcfehgjilknmporqtsvuxwzy
+  
+
+  EDIT:  To handle the case of odd length strings, as suggested by @Ashwini  and @TigerhawkT3, you may change the code as: 
+
+  print "".join("".join(i) for i in zip(a2, a1)) + a[-1] if len(a)%2 else '' 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8086356)
+ Strings are immutable so you can't modify them directly, but you can create a new string from an existing one.  
+
+  if len(s) < 2:
+    return s
+else:
+    return s[-1] + s[1:-1] + s[0] 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30629088)
+ One solution without using any imports will be to convert string to an iterator and during the iteration fetch the next character by calling next on the iterator: 
+
+  >>> s = "abcdefghijklmnopqrstuvwxyz"
+>>> it = iter(s)
+>>> ''.join(next(it, '') + c for c in it )
+'badcfehgjilknmporqtsvuxwzy'
+  
+
+    
+
+  >>> s = "abcdefghijklmnopqrstuvwxyz" * 10**5
+>>> def func_next_no_cache(s):
+    it = iter(s)
+    return ''.join([next(it, '') + c for c in it])
+...
+>>> %timeit func_next_no_cache(s)
+1 loops, best of 3: 291 ms per loop
+  
+
+ But the calls to  next  are actually slowing it down because for finding  next  Python has to go to the builtins starting from local scope, let's cache it and try again: 
+
+  >>> def func_next_cache(s, next=next):
+    it = iter(s)
+    return ''.join([next(it, '') + c for c in it])
+...
+>>> %timeit func_next_cache(s)
+1 loops, best of 3: 241 ms per loop
+  
+
+ But the fastest solution will be to use  itertools.izip_longest : 
+
+  >>> from itertools import izip_longest
+>>> def func_izip_l(s):
+    it = iter(s)
+    return "".join([b+a for a, b in  izip_longest(it, it, fillvalue='')])
+...
+>>> %timeit func_izip_l(s)
+
+1 loops, best of 3: 209 ms per loop
+  
+
+ @Joran's code is also very close to this one when used with a list instead of generator expression, but it creates two additional strings in memory: 
+
+  >>> %timeit "".join([b+a for a, b in izip_longest(s[::2], s[1::2], fillvalue="")])
+1 loops, best of 3: 212 ms per loop
+  
+
+ 
+
+  Note  that we should always feed a  list  to  str.join  if speed is a concern: https://stackoverflow.com/a/9061024/846892 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23533476)
+ First, you need to define what you mean by "word".  I'll assume you just want strings of characters separated by whitespace.   
+
+  ' '.join(reversed(s.split()))
+  
+
+ Note, this will remove leading/trailing whitespaces, and convert any consecutive runs of whitespaces to a single space character. 
+
+  
+
+  >>> s = "Red Joe"
+>>> ' '.join(reversed(s.split()))
+'Joe Red'
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/10618668)
+  In [17]: data = "437c2123"
+
+In [18]: ''.join(chr(int(data[i:i+2], 16)) for i in range(0, len(data), 2))
+Out[18]: 'C|!#'
+  
+
+ Here: 
+
+ 
+  for i in range(0, len(data), 2)  iterates over every second position in  data :  0 ,  2 ,  4  etc. 
+  data[i:i+2]  looks at every pair of hex digits  '43' ,  '7c' , etc. 
+  chr(int(..., 16))  converts the pair of hex digits into the corresponding character. 
+  ''.join(...)  merges the characters into a single string. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43132140)
+  
+
+  pattern = re.escape(''.join(pair)) + '|.'
+result = tuple(re.findall(pattern, word))
+  
+
+ The pattern is  <pair>|. , which matches the pair if possible and a single character* otherwise. 
+
+ You can also do this without regular expressions: 
+
+  import itertools
+
+non_pairs = word.split(''.join(pair))
+result = [(''.join(pair),)] * (2 * len(non_pairs) - 1)
+result[::2] = non_pairs
+result = tuple(itertools.chain(*result))
+  
+
+ <sup>* It doesn’t match newlines, though; if you have those, pass  re.DOTALL  as a third argument to  re.findall . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51493144)
+  from itertools import zip_longest
+s = "456793"
+print(''.join([a + ('-' if b and int(a) * int(b) % 2 else '') for a, b in zip_longest(s, s[1:])]))
+  
+
+ This outputs: 
+
+  4567-9-3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26917408)
+ Your list comprehension does return something useful—a list of every pair of characters. 
+
+ It does have a couple problems, though: You're returning every pair of characters, 1-2, then 2-3, then 3-4. You want to use a  step  argument to make sure the range is distinct pairs, rather than overlapping pairs. And you want to start from 0, not 1, so you don't skip the first character. 
+
+ More importantly, you don't  do  anything with that list, so that isn't very helpful. 
+
+ The first thing to do is assign it to a variable: 
+
+  pairs = [byte[i:i+2] for i in xrange(0, len(byte), 2)]
+  
+
+ Now, you can use another comprehension (or an explicit  for  statement) to add the  0x  to each one: 
+
+  c_pairs = ['0x' + pair for pair in pairs]
+  
+
+ And then you can join them all up with commas: 
+
+  c_initializer = ', '.join(c_pairs)
+  
+
+ It's worth noting that you could just as easily use generator expressions instead of list comprehensions here, saving a bit of memory. And you can merge the separate steps together, too.* For example: 
+
+  c_initializer = ', '.join('0x' + byte[i:i+2] for i in xrange(0, len(byte), 2))
+  
+
+ You probably also want to stick some braces around the string, and write it out somewhere, but I'll leave that part as an exercise for the reader; the fact that you know how to use  file.read  and  str.replace  means you can probably handle these similar tasks pretty easily. 
+
+ 
+
+ <sub>* Although if you merge all the steps together, as I did, replacing the single list comprehension with a generator expression doesn't actually add any benefit anymore, because if you give  str.join  an iterator it just makes a list out of it anyway. 
+
+
+

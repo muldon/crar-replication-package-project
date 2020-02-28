@@ -1,0 +1,385 @@
+Query: Delete Column in Pandas based on Condition
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41307278)
+ Easy: 
+
+  unwanted = [column for column in df.columns 
+            if column.startswith("TYPE") and "_1" not in column]
+df = df.drop(unwanted)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31618099)
+ Same logic, but just put all things in one line. 
+
+  import pandas as pd
+import numpy as np
+
+# artificial data
+# ====================================
+np.random.seed(0)
+df = pd.DataFrame(np.random.randn(10,5), columns=list('ABCDE'))
+df[df < 0] = np.nan
+
+        A       B       C       D       E
+0  1.7641  0.4002  0.9787  2.2409  1.8676
+1     NaN  0.9501     NaN     NaN  0.4106
+2  0.1440  1.4543  0.7610  0.1217  0.4439
+3  0.3337  1.4941     NaN  0.3131     NaN
+4     NaN  0.6536  0.8644     NaN  2.2698
+5     NaN  0.0458     NaN  1.5328  1.4694
+6  0.1549  0.3782     NaN     NaN     NaN
+7  0.1563  1.2303  1.2024     NaN     NaN
+8     NaN     NaN     NaN  1.9508     NaN
+9     NaN     NaN  0.7775     NaN     NaN
+
+# processing: drop columns with no. of NaN > 3
+# ====================================
+df.drop(df.columns[df.apply(lambda col: col.isnull().sum() > 3)], axis=1)
+
+
+Out[183]:
+        B
+0  0.4002
+1  0.9501
+2  1.4543
+3  1.4941
+4  0.6536
+5  0.0458
+6  0.3782
+7  1.2303
+8     NaN
+9     NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50664952)
+ More general solution should be change condition if in  G  or  H  columns is  X , then merge together and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.shift.html by condition: 
+
+  d = pd.DataFrame({
+        'J' : [10,'B','C','C',50, 60],
+        'I' : ['B',20,30,40,'C', 'D'],
+        'H' : ['X','A','C','B','X', 'Y'],         
+        'G' : ['Y', 'B', 'A','B','X', 'X'],                                 
+        }, columns=list('GHIJ'))
+print (d)
+   G  H   I   J
+0  Y  X   B  10
+1  B  A  20   B
+2  A  C  30   C
+3  B  B  40   C
+4  X  X   C  50
+5  X  Y   D  60
+  
+
+ 
+
+  m = d[['G','H']].eq('X').any(axis=1)
+print (m)
+
+0     True
+1    False
+2    False
+3    False
+4     True
+5     True
+dtype: bool
+
+d['H'] = d['G'] + d['H'] 
+d[m] = d[m].shift(-1, axis=1)
+print (d)
+    G   H   I    J
+0  YX   B  10  NaN
+1   B  BA  20    B
+2   A  AC  30    C
+3   B  BB  40    C
+4  XX   C  50  NaN
+5  XY   D  60  NaN 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44606544)
+ you can do it this way: 
+
+  df = df[~df.select_dtypes(['object']).eq('d').any(1)]
+  
+
+  
+
+  In [23]: df
+Out[23]:
+   A  B  C  D
+2  1  3  4  0
+4  3  2  1  7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39019380)
+ You can use  groupby  and  filter , for the example you give you can check if  np.inf  exists in a group and  filter  on the condition: 
+
+  import pandas as pd
+import numpy as np
+df.groupby('name').filter(lambda g: (g != np.inf).all().all())
+#   name   crit1    crit2
+# 0    A     0.3        4
+# 1    A     0.7        6
+  
+
+ If the predicate only applies to one column, you can access the column via  g. , for example: 
+
+  df.groupby('name').filter(lambda g: (g.crit1 != np.inf).all())
+#   name   crit1    crit2
+# 0    A     0.3        4
+# 1    A     0.7        6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50717966)
+ Use http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing: 
+
+  df = df[~df.isin(['V', 'v', 'N', 'n']).all(axis=1)]
+print (df)
+      A    B  C     D
+0   BUY  150  Q  2018
+1  SELL   63  Q  2018
+4  SELL   53  Q  2018
+  
+
+  Detail : 
+
+ First compare by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.isin.html: 
+
+  print (df.isin(['V', 'v', 'N', 'n']))
+       A      B      C      D
+0  False  False  False  False
+1  False  False  False  False
+2   True   True   True   True
+3   True   True   True   True
+4  False  False  False  False
+  
+
+ Get rows if http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.all.html  True s per rows: 
+
+  print (df.isin(['V', 'v', 'N', 'n']).all(axis=1))
+0    False
+1    False
+2     True
+3     True
+4    False
+dtype: bool
+  
+
+ Invert condition by  ~ : 
+
+  print (~df.isin(['V', 'v', 'N', 'n']).all(axis=1))
+0     True
+1     True
+2    False
+3    False
+4     True
+dtype: bool
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41833761)
+ The best is http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing but need invert condition - get all values equal and higher as  72 : 
+
+  print (df[df["coverage"] >= 72])
+            coverage   name  reports  year
+Pima             214  Molly       24  2012
+Santa Cruz       212   Tina       31  2013
+Maricopa          72   Jake        2  2014
+Yuma              85    Amy        3  2014
+  
+
+ It is same as http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.ge.html function: 
+
+  print (df[df["coverage"].ge(72)])
+            coverage   name  reports  year
+Pima             214  Molly       24  2012
+Santa Cruz       212   Tina       31  2013
+Maricopa          72   Jake        2  2014
+Yuma              85    Amy        3  2014
+  
+
+ Another possible solution is invert mask by  ~ : 
+
+  print (df["coverage"] < 72)
+Cochice        True
+Pima          False
+Santa Cruz    False
+Maricopa      False
+Yuma          False
+Name: coverage, dtype: bool
+
+print (~(df["coverage"] < 72))
+Cochice       False
+Pima           True
+Santa Cruz     True
+Maricopa       True
+Yuma           True
+Name: coverage, dtype: bool
+
+
+print (df[~(df["coverage"] < 72)])
+            coverage   name  reports  year
+Pima             214  Molly       24  2012
+Santa Cruz       212   Tina       31  2013
+Maricopa          72   Jake        2  2014
+Yuma              85    Amy        3  2014
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43464302)
+ Consider the dataframe  df  
+
+  np.random.seed([3,1415])
+df = pd.DataFrame(np.random.choice([0, 1], (10, 2)), columns=['x', 'y'])
+
+   x  y
+0  0  1
+1  0  1
+2  0  0
+3  1  0
+4  1  1
+5  1  1
+6  0  1
+7  1  0
+8  1  0
+9  0  0
+  
+
+   option 1   
+ pd.DataFrame.query  
+
+  df.query('x != 0 or y != 0')
+
+   x  y
+0  0  1
+1  0  1
+3  1  0
+4  1  1
+5  1  1
+6  0  1
+7  1  0
+8  1  0
+  
+
+   option 2   
+boolean slicing 
+
+  df[df.x.ne(0) | df.y.ne(0)]
+
+   x  y
+0  0  1
+1  0  1
+3  1  0
+4  1  1
+5  1  1
+6  0  1
+7  1  0
+8  1  0
+  
+
+   option 3   
+boolean slicing take 2 
+
+  df[df.astype(bool).any(1)]
+
+   x  y
+0  0  1
+1  0  1
+3  1  0
+4  1  1
+5  1  1
+6  0  1
+7  1  0
+8  1  0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48556663)
+ I think you need if  MultiIndex  first compare values of  aaa  by condition and then filter all values in first level by http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing, last filter again by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.isin.html with inverted condition by  ~ : 
+
+  print (df)
+                      aaa
+date       time          
+2015-12-01 00:00:00     0
+           00:15:00     0
+           00:30:00     0
+           00:45:00     0
+2015-12-02 05:00:00     0
+           05:15:00   200
+           05:30:00     0
+           05:45:00     0
+2015-12-03 06:00:00     0
+           06:15:00     0
+           06:30:00  1000
+           06:45:00  1000
+           07:00:00  1000
+
+lvl0 = df.index.get_level_values(0)
+idx = lvl0[df['aaa'].gt(100)].unique()
+print (idx)
+Index(['2015-12-02', '2015-12-03'], dtype='object', name='date')
+
+df = df[~lvl0.isin(idx)]
+print (df)
+                     aaa
+date       time         
+2015-12-01 00:00:00    0
+           00:15:00    0
+           00:30:00    0
+           00:45:00    0
+  
+
+ And if first column is not index only compare column  date : 
+
+  print (df)
+          date      time   aaa
+0   2015-12-01  00:00:00     0
+1   2015-12-01  00:15:00     0
+2   2015-12-01  00:30:00     0
+3   2015-12-01  00:45:00     0
+4   2015-12-02  05:00:00     0
+5   2015-12-02  05:15:00   200
+6   2015-12-02  05:30:00     0
+7   2015-12-02  05:45:00     0
+8   2015-12-03  06:00:00     0
+9   2015-12-03  06:15:00     0
+10  2015-12-03  06:30:00  1000
+11  2015-12-03  06:45:00  1000
+12  2015-12-03  07:00:00  1000
+
+idx = df.loc[df['aaa'].gt(100), 'date'].unique()
+print (idx)
+['2015-12-02' '2015-12-03']
+
+df = df[~df['date'].isin(idx)]
+print (df)
+         date      time  aaa
+0  2015-12-01  00:00:00    0
+1  2015-12-01  00:15:00    0
+2  2015-12-01  00:30:00    0
+3  2015-12-01  00:45:00    0
+  
+
+
+

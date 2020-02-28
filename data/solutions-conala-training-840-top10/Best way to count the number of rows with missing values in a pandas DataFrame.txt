@@ -1,0 +1,371 @@
+Query: Best way to count the number of rows with missing values in a pandas DataFrame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/28199630)
+ Total missing: 
+
+  df.isnull().sum().sum()
+  
+
+ Rows with missing: 
+
+  sum(map(any, df.isnull()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34013722)
+ A simple approach to counting the missing values in the rows or in the columns 
+
+  df.apply(lambda x: sum(x.isnull().values), axis = 0) # For columns
+df.apply(lambda x: sum(x.isnull().values), axis = 1) # For rows
+  
+
+ Number of rows with at least one missing value: 
+
+  sum(df.apply(lambda x: sum(x.isnull().values), axis = 1)>0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28199556)
+ For the second count I think just subtract the number of rows from the number of rows returned from  dropna : 
+
+  In [14]:
+
+from numpy.random import randn
+df = pd.DataFrame(randn(5, 3), index=['a', 'c', 'e', 'f', 'h'],
+               columns=['one', 'two', 'three'])
+df = df.reindex(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])
+df
+Out[14]:
+        one       two     three
+a -0.209453 -0.881878  3.146375
+b       NaN       NaN       NaN
+c  0.049383 -0.698410 -0.482013
+d       NaN       NaN       NaN
+e -0.140198 -1.285411  0.547451
+f -0.219877  0.022055 -2.116037
+g       NaN       NaN       NaN
+h -0.224695 -0.025628 -0.703680
+In [18]:
+
+df.shape[0] - df.dropna().shape[0]
+Out[18]:
+3
+  
+
+ The first could be achieved using the built in methods: 
+
+  In [30]:
+
+df.isnull().values.ravel().sum()
+Out[30]:
+9
+  
+
+    
+
+  In [34]:
+
+%timeit sum([True for idx,row in df.iterrows() if any(row.isnull())])
+%timeit df.shape[0] - df.dropna().shape[0]
+%timeit sum(map(any, df.apply(pd.isnull)))
+1000 loops, best of 3: 1.55 ms per loop
+1000 loops, best of 3: 1.11 ms per loop
+1000 loops, best of 3: 1.82 ms per loop
+In [33]:
+
+%timeit sum(df.isnull().values.ravel())
+%timeit df.isnull().values.ravel().sum()
+%timeit df.isnull().sum().sum()
+1000 loops, best of 3: 215 µs per loop
+1000 loops, best of 3: 210 µs per loop
+1000 loops, best of 3: 605 µs per loop
+  
+
+ So my alternatives are a little faster for a df of this size 
+
+  Update  
+
+ So for a df with 80,000 rows I get the following: 
+
+  In [39]:
+
+%timeit sum([True for idx,row in df.iterrows() if any(row.isnull())])
+%timeit df.shape[0] - df.dropna().shape[0]
+%timeit sum(map(any, df.apply(pd.isnull)))
+%timeit np.count_nonzero(df.isnull())
+1 loops, best of 3: 9.33 s per loop
+100 loops, best of 3: 6.61 ms per loop
+100 loops, best of 3: 3.84 ms per loop
+1000 loops, best of 3: 395 µs per loop
+In [40]:
+
+%timeit sum(df.isnull().values.ravel())
+%timeit df.isnull().values.ravel().sum()
+%timeit df.isnull().sum().sum()
+%timeit np.count_nonzero(df.isnull().values.ravel())
+1000 loops, best of 3: 675 µs per loop
+1000 loops, best of 3: 679 µs per loop
+100 loops, best of 3: 6.56 ms per loop
+1000 loops, best of 3: 368 µs per loop
+  
+
+ Actually  np.count_nonzero  wins this hands down. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41320210)
+ So many wrong answers here. OP asked for number of rows with null values, not columns. 
+
+ Here is a better example: 
+
+  from numpy.random import randn
+df = pd.DataFrame(randn(5, 3), index=['a', 'c', 'e', 'f', 'h'],columns=['one','two', 'three'])
+df = df.reindex(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h','asdf'])
+print(df)
+  
+
+ `Now there is obviously 4 rows with null values. 
+
+             one       two     three
+a    -0.571617  0.952227  0.030825
+b          NaN       NaN       NaN
+c     0.627611 -0.462141  1.047515
+d          NaN       NaN       NaN
+e     0.043763  1.351700  1.480442
+f     0.630803  0.931862  1.500602
+g          NaN       NaN       NaN
+h     0.729103 -1.198237 -0.207602
+asdf       NaN       NaN       NaN
+  
+
+ You would get answer as 3 (number of columns with NaNs) if you used some of the answers here. . 
+
+ Here is how I got it: 
+
+  df.isnull().any(axis=1).sum()
+#4
+timeit df.isnull().any(axis=1).sum()
+#10000 loops, best of 3: 193 µs per loop
+  
+
+ 'Fuentes': 
+
+  sum(df.apply(lambda x: sum(x.isnull().values), axis = 1)>0)
+#4
+timeit sum(df.apply(lambda x: sum(x.isnull().values), axis = 1)>0)
+#1000 loops, best of 3: 677 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35530701)
+ I assume you only want to count values where the string ends with '\N'.  If not, you can use  str.contains  instead. 
+
+ I use a dictionary comprehension to loop through the columns of the dataframe and a vectorized  str  function to count the number of rows with  \N  at the end. 
+
+  df = pd.DataFrame({'A': ['\N', 4, None], 
+                   'B': [1, None, 4], 
+                   'C': ['\N', '\N', 'M'], 
+                   'D': [12, 3, None], 
+                   'E': [1, 0, '\N'], 
+                   'F': [None, '\N', 1]})
+
+>>> df
+      A   B   C   D   E     F
+0    \N   1  \N  12   1  None
+1     4 NaN  \N   3   0    \N
+2  None   4   M NaN  \N     1    
+
+>>> pd.Series({col: df[col].str.endswith('\N').sum() 
+               if df[col].dtype == 'object' else 0 
+               for col in df}) + df.isnull().sum()
+A    2
+B    1
+C    2
+D    1
+E    1
+F    2
+dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28200127)
+ What about  numpy.count_nonzero : 
+
+   np.count_nonzero(df.isnull().values)   
+ np.count_nonzero(df.isnull())           # also works  
+  
+
+  count_nonzero  is pretty quick.  However, I constructed a dataframe from a (1000,1000) array and randomly inserted 100 nan values at different positions and measured the times of the various answers in iPython: 
+
+  %timeit np.count_nonzero(df.isnull().values)
+1000 loops, best of 3: 1.89 ms per loop
+
+%timeit df.isnull().values.ravel().sum()
+100 loops, best of 3: 3.15 ms per loop
+
+%timeit df.isnull().sum().sum()
+100 loops, best of 3: 15.7 ms per loop
+  
+
+ Not a huge time improvement over the OPs original but possibly less confusing in the code, your decision.  There isn't really any difference in execution time
+between the two  count_nonzero  methods (with and without  .values ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43660604)
+ Pandas solution (not that nice compared to @Divakar's compact Numpy solution): 
+
+  from itertools import product
+
+In [291]: cats = ['{0[0]}{0[1]}'.format(tup) for tup in product([0,1], [0,1])]
+
+In [292]: pd.Categorical((df.actual.astype(str)+df.prediction.astype(str)),
+                         categories=cats) \
+            .value_counts()
+Out[292]:
+00    3
+01    0
+10    2
+11    1
+dtype: int64
+  
+
+ if you don't need to list missing combinations like  (0, 1) : 
+
+  In [298]: df.groupby(df.columns.tolist()).size().reset_index()
+Out[298]:
+   actual  prediction  0
+0       0           0  3
+1       1           0  2
+2       1           1  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34537085)
+ If you want to count only NaN values in column  'a'  of a DataFrame  df , use: 
+
+  len(df) - df['a'].count()
+  
+
+ Here  count()  tells us the number of non-NaN values, and this is subtracted from the total number of values (given by  len(df) ). 
+
+ To count NaN values in  every  column of  df , use: 
+
+  len(df) - df.count()
+  
+
+ 
+
+ If you want to use  value_counts , tell it  not  to drop NaN values by setting  dropna=False  (added in http://pandas.pydata.org/pandas-docs/version/0.17.1/whatsnew.html#whatsnew-0141-enhancements): 
+
+  dfv = dfd['a'].value_counts(dropna=False)
+  
+
+ This allows the missing values in the column to be counted too: 
+
+   3     3
+NaN    2
+ 1     1
+Name: a, dtype: int64
+  
+
+ The rest of your code should then work as you expect (note that it's not necessary to call  sum ; just  print("nan: %d" % dfv[np.nan])  suffices). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39645171)
+ You can visualize the count of the missing values with vertical bars. 
+
+ Use the pandas.DataFrame.plot() method : 
+
+  df.isnull().sum().plot(kind='bar')
+  
+
+ For more fancy plots you can use the python library
+https://plot.ly/python/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/51192462)
+ Use: 
+
+  s = df.isnull().all(axis=1).sum(level=0)
+print (s)
+user
+user1    1.0
+user2    1.0
+user3    2.0
+dtype: float64
+  
+
+ If need  DataFrame : 
+
+  df1 = df.isnull().all(axis=1).sum(level=0).astype(int).reset_index(name='count')
+print (df1)
+    user  count
+0  user1      1
+1  user2      1
+2  user3      2
+  
+
+  Explanation : 
+
+ First check  NaN s values in all columns: 
+
+  print (df.isnull())
+             val1   val2   val3
+user  cat                      
+user1 cat1  False   True   True
+      cat2   True   True   True
+      cat3   True   True  False
+user2 cat1   True   True   True
+      cat2   True  False   True
+      cat3   True   True  False
+user3 cat1  False   True   True
+      cat2   True   True   True
+      cat3   True   True   True
+  
+
+ Then check all rows for all  True s by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.all.html: 
+
+  print (df.isnull().all(axis=1))
+user   cat 
+user1  cat1    False
+       cat2     True
+       cat3    False
+user2  cat1     True
+       cat2    False
+       cat3    False
+user3  cat1    False
+       cat2     True
+       cat3     True
+dtype: bool
+  
+
+ And then  sum  boolean  True s like  1 s by  sum : 
+
+  print (df.isnull().all(axis=1).sum(level=0))
+user
+user1    1.0
+user2    1.0
+user3    2.0
+dtype: float64
+  
+
+
+

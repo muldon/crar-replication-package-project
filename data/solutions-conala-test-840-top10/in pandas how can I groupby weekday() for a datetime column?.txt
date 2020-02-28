@@ -1,0 +1,384 @@
+Query: in pandas how can I groupby weekday() for a datetime column?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13741439)
+ your call to the function "weekday" does not work as it operates on the index of data.my_dt, which is an int64 array (this is where the error message comes from) 
+
+ you could create a new column in data containing the weekdays using something like: 
+
+  data['weekday'] = data['my_dt'].apply(lambda x: x.weekday())
+  
+
+  
+
+  weekdays_only = data[data['weekday'] < 5 ]
+  
+
+ I hope this helps 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44520728)
+ It seems you need  groupby  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DatetimeIndex.year.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DatetimeIndex.weekday.html: 
+
+  rng = pd.date_range('2017-04-03', periods=10, freq='10M')
+df = pd.DataFrame({'a': range(10)}, index=rng)  
+print (df)
+            a
+2017-04-30  0
+2018-02-28  1
+2018-12-31  2
+2019-10-31  3
+2020-08-31  4
+2021-06-30  5
+2022-04-30  6
+2023-02-28  7
+2023-12-31  8
+2024-10-31  9
+
+df1 = df.groupby([df.index.year, df.index.weekday]).mean()
+print (df1)
+        a
+2017 6  0
+2018 0  2
+     2  1
+2019 3  3
+2020 0  4
+2021 2  5
+2022 5  6
+2023 1  7
+     6  8
+2024 3  9
+  
+
+ 
+
+  df1 = df.groupby([df.index.year, df.index.weekday]).mean().reset_index()
+df1 = df1.rename(columns={'level_0':'years','level_1':'weekdays'})
+print (df1)
+   years  weekdays  a
+0   2017         6  0
+1   2018         0  2
+2   2018         2  1
+3   2019         3  3
+4   2020         0  4
+5   2021         2  5
+6   2022         5  6
+7   2023         1  7
+8   2023         6  8
+9   2024         3  9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30392887)
+ You can use  datetime.strftime()  to parse the date then use  datetime.weekday()  to get the weekday as an integer: 
+
+  Example:  
+
+  from datetime import datetime
+
+d = datetime.strptime("01-01-2011 19:00", "%d-%m-%Y %H:%S")
+d.weekday()  # 5
+  
+
+ Now if we look at the documentation for https://docs.python.org/2/library/datetime.html#datetime.date.weekday we can see: 
+
+ 
+    date.weekday()  
+  
+   Return the day of the week as an integer, where
+  Monday is 0 and Sunday is 6. 
+  
+   For example, date(2002, 12, 4).weekday() == 2, a Wednesday. 
+  
+   See also isoweekday(). 
+ 
+
+ So knowing this we can write a simple function: 
+
+  weekdays = {
+    0: "Monday",
+    1: "Tuesday",
+    2: "Wednesday",
+    3: "Thursday",
+    4: "Friday",
+    5: "Saturday",
+    6: "Sunday",
+}
+
+def weekday(dt):
+    return weekdays[dt.weekday()]
+  
+
+ Now we can simply call  weekday()  on a given  datetime()  object instance: 
+
+  d = datetime.strftime(">>> d = datetime.strptime("01-01-2011 19:00", "%d-%m-%Y %H:%S")
+weekday(d)  # Saturday
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25695211)
+ I think you are looking for a rolling apply (rolling mean in this case)? See the docs: http://pandas.pydata.org/pandas-docs/stable/computation.html#moving-rolling-statistics-moments. But then applied for each weekday seperately, this can be achieved by combining http://pandas.pydata.org/pandas-docs/stable/generated/pandas.rolling_mean.html with grouping on the weekday with  groupby . 
+
+ This should give somethin like (with a series  s ): 
+
+  s.groupby(s.index.weekday).transform(lambda x: pd.rolling_mean(x, window=n))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54928842)
+ If converting week of year is necesary define day of http://strftime.org/: 
+
+ 
+    %w  - Weekday as a decimal number, where 0 is Sunday and 6 is Saturday. 
+ 
+
+  #for Sundays is set value to 0
+s = df['WEEK_OF_YEAR'].astype(str)  + '-0-' + df['YEAR'].astype(str)
+df['date'] = pd.to_datetime(s, format='%W-%w-%Y')
+print (df)
+   WEEK_OF_YEAR  YEAR       date
+0             1  2016 2016-01-10
+1             2  2016 2016-01-17
+2            52  2016 2017-01-01
+3             1  2017 2017-01-08
+4             2  2017 2017-01-15
+5             3  2017 2017-01-22
+6            52  2017 2017-12-31
+7             1  2018 2018-01-07
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29096827)
+ One method, so long as datetime is already a datetime column is to apply  datetime.strftime  to get the string for the weekday: 
+
+  In [105]:
+
+df['weekday'] = df[['datetime']].apply(lambda x: dt.datetime.strftime(x['datetime'], '%A'), axis=1)
+df
+Out[105]:
+             datetime  season  holiday  workingday  weather   temp   atemp  \
+0 2011-01-01 00:00:00       1        0           0        1   9.84  14.395   
+1 2011-01-01 01:00:00       1        0           0        1   9.02  13.635   
+2 2011-01-01 02:00:00       1        0           0        1   9.02  13.635   
+3 2011-01-01 03:00:00       1        0           0        1   9.84  14.395   
+4 2011-01-01 04:00:00       1        0           0        1   9.84  14.395   
+5 2011-01-01 05:00:00       1        0           0        2   9.84  12.880   
+6 2011-01-01 06:00:00       1        0           0        1   9.02  13.635   
+7 2011-01-01 07:00:00       1        0           0        1   8.20  12.880   
+8 2011-01-01 08:00:00       1        0           0        1   9.84  14.395   
+9 2011-01-01 09:00:00       1        0           0        1  13.12  17.425   
+
+   humidity  windspeed  count   weekday  
+0        81     0.0000     16  Saturday  
+1        80     0.0000     40  Saturday  
+2        80     0.0000     32  Saturday  
+3        75     0.0000     13  Saturday  
+4        75     0.0000      1  Saturday  
+5        75     6.0032      1  Saturday  
+6        80     0.0000      2  Saturday  
+7        86     0.0000      3  Saturday  
+8        75     0.0000      8  Saturday  
+9        76     0.0000     14  Saturday  
+  
+
+ As to your other question, there is no difference between  dayofweek  and  weekday . 
+
+ It will be quicker to define a map of the weekday to String equivalent and call map on the weekday: 
+
+  dayOfWeek={0:'Monday', 1:'Tuesday', 2:'Wednesday', 3:'Thursday', 4:'Friday', 5:'Saturday', 6:'Sunday'}
+df['weekday'] = df['datetime'].dt.dayofweek.map(dayOfWeek)
+  
+
+ For version prior to  0.15.0  the following should work: 
+
+  import datetime as dt
+df['weekday'] = df['datetime'].apply(lambda x: dt.datetime.strftime(x, '%A'))
+  
+
+  Version 0.18.1 and newer  
+
+ There is now a new convenience method http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.weekday_name.html to do the above 
+
+  Version 0.23.0 and newer  
+
+ weekday_name is now depricated in favour of http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.day_name.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42781460)
+ You could use the  .dt  methods 
+
+ Data definition 
+
+  s = pd.Series(data={
+'2017-01-17':3477.92,  
+'2017-01-18':5839.64,  
+'2017-01-19':5082.19,  
+'2017-01-20':5761.63,  
+'2017-01-21':6705.89,  
+'2017-01-22':9937.17,  
+'2017-01-23':9432.93,  
+'2017-01-24':7965.56,  
+'2017-01-25':8517.26,  
+'2017-01-26':8098.36,  
+'2017-01-27':8947.25,}  )
+transaction_date = pd.Series(pd.to_datetime(s.index))
+  
+
+ Getting the start of the week 
+
+  start_of_week = transaction_date - pd.to_timedelta(transaction_date.dt.weekday, unit='D')
+start_of_week
+  
+
+ Returns 
+
+  0    2017-01-16
+1    2017-01-16
+2    2017-01-16
+3    2017-01-16
+4    2017-01-16
+5    2017-01-16
+6    2017-01-23
+7    2017-01-23
+8    2017-01-23
+9    2017-01-23
+10   2017-01-23
+  
+
+ This can be assigned to a start of the week column 
+
+ Formatting 
+
+ if the formatting is important, you can add  
+
+  start_of_week = start_of_week.dt.strftime('%b-%d')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46515328)
+ There is problem it is difference between  pandas datetime  (timestamps) where are implemented  .dt  methods and  python date  where not. 
+
+  #return python date
+df['trade_date_2']= pd.to_datetime(df['date']).dt.date
+
+print (df['trade_date_2'].apply(type))
+0    <class 'datetime.date'>
+1    <class 'datetime.date'>
+Name: trade_date_2, dtype: object
+
+#cannot work with python date
+df['dow_2']=df['trade_date_2'].dt.dayofweek
+  
+
+ Need convert to  pandas datetime : 
+
+  df['dow_2']= pd.to_datetime(df['trade_date_2']).dt.dayofweek
+
+print (df)
+        date trade_date_2  dow_2
+0  2017-5-16   2017-05-16      1
+1  2017-5-17   2017-05-17      2
+  
+
+ So the best is use: 
+
+  df['date'] = pd.to_datetime(df['date'])
+print (df['date'].apply(type))
+0    <class 'pandas._libs.tslib.Timestamp'>
+1    <class 'pandas._libs.tslib.Timestamp'>
+Name: date, dtype: object
+
+df['trade_date_2']= df['date'].dt.date
+df['dow_2']=df['date'].dt.dayofweek
+print (df)
+        date trade_date_2  dow_2
+0 2017-05-16   2017-05-16      1
+1 2017-05-17   2017-05-17      2
+  
+
+ EDIT: 
+
+ Thank you https://stackoverflow.com/questions/46515267/pandas-get-day-of-week-from-date-type-column/46515328#comment79984903_46515328 for solution working with  python date  - failed with  NaT : 
+
+  df = pd.DataFrame({'date':['2017-5-16',np.nan]})
+
+df['trade_date_2']= pd.to_datetime(df['date']).dt.date
+df['dow_2'] = df['trade_date_2'].apply(lambda x: x.weekday()) 
+  
+
+ 
+   AttributeError: 'float' object has no attribute 'weekday' 
+ 
+
+ Comparing solutions: 
+
+  df = pd.DataFrame({'date':['2017-5-16','2017-5-17']})
+df = pd.concat([df]*10000).reset_index(drop=True)
+
+def a(df):
+    df['trade_date_2']= pd.to_datetime(df['date']).dt.date
+    df['dow_2'] = df['trade_date_2'].apply(lambda x: x.weekday()) 
+    return df
+
+def b(df):
+    df['date1'] = pd.to_datetime(df['date'])
+    df['trade_date_21']= df['date1'].dt.date
+    df['dow_21']=df['date1'].dt.dayofweek
+    return (df)
+
+def c(df):
+    #dont write to column, but to helper series 
+    dates = pd.to_datetime(df['date'])
+    df['trade_date_22']= dates.dt.date
+    df['dow_22']=        dates.dt.dayofweek
+    return (df)
+
+In [186]: %timeit (a(df))
+10 loops, best of 3: 101 ms per loop
+
+In [187]: %timeit (b(df))
+10 loops, best of 3: 90.8 ms per loop
+
+In [188]: %timeit (c(df))
+10 loops, best of 3: 91.9 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34915486)
+ If your column is a datetime column, you can get weekday and hour with  column.dt.weekday  (monday = 0, sunday = 6), and  column.dt.hour . Also you can use  between  on your series to do range comparison more elegantly: 
+
+  df.DATEn = pd.to_datetime(df.DATEn)
+df.TIMEn = pd.to_datetime(df.TIMEn)
+mask = (df.DATEn == 4) & df.TIMEn.dt.hour.between(0,4)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25561094)
+ Faster way would be to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DatetimeIndex.weekday.html, like so: 
+
+  temp = pd.DatetimeIndex(data['my_dt'])
+data['weekday'] = temp.weekday
+  
+
+ . For further info, check https://stackoverflow.com/a/21811766/3765319 answer. 
+
+
+

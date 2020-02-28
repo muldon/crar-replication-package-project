@@ -1,0 +1,151 @@
+Query: Upload files to Google cloud storage from appengine app
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17846151)
+ You can upload a file to GCS using the blobstore API by specifying the argument  gs_bucket_name  of the function https://developers.google.com/appengine/docs/python/blobstore/functions#create_upload_url. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13247966)
+ upload_url = blobstore.create_upload_url('/upload', gs_bucket_name='mybucketname') 
+
+ does get the upload with the blob key to the cloud storage but it still puts the uploaded file in the blobstore as well. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10567792)
+ AppEngine release 1.7.0 has support for deleting Google Storage objects using the blobstore API. 
+
+  key = blobstore.create_gs_key('/gs/my_bucket/my_object')
+blobstore.delete(key)
+  
+
+ Alternatively, you can use the REST API to make a call out to Google Storage to delete the file. 
+
+ https://developers.google.com/storage/docs/reference-methods#deleteobject 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24593951)
+ That is the correct way. The upload URL is handled by AppEngine itself: it will accept the file upload, then call your own handler directly. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50272094)
+ Is this a Web App? If so you deploy it using GOOGLE APP ENGINE https://cloud.google.com/appengine/docs/standard/python/ or https://cloud.google.com/appengine/docs/flexible/python/. 
+
+ In order to send files to Cloud Storage, try the example in the https://github.com/GoogleCloudPlatform/python-docs-samples repo (folder  appengine/flexible/storage/ ):  
+
+  # [START upload]
+@app.route('/upload', methods=['POST'])
+def upload():
+    """Process the uploaded file and upload it to Google Cloud Storage."""
+    uploaded_file = request.files.get('file')
+
+    if not uploaded_file:
+        return 'No file uploaded.', 400
+
+    # Create a Cloud Storage client.
+    gcs = storage.Client()
+
+    # Get the bucket that the file will be uploaded to.
+    bucket = gcs.get_bucket(CLOUD_STORAGE_BUCKET)
+
+    # Create a new blob and upload the file's content.
+    blob = bucket.blob(uploaded_file.filename)
+
+    blob.upload_from_string(
+        uploaded_file.read(),
+        content_type=uploaded_file.content_type
+    )
+
+    # The public URL can be used to directly access the uploaded file via HTTP.
+    return blob.public_url
+# [END upload]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11370498)
+ easy since 1.7.0 
+
+  upload_url = blobstore.create_upload_url('/upload_handler', gs_bucket_name='my_bucket')
+  
+
+ Will upload straight to Google Storage and return you blob keys that point to the uploads in Cloud Storage. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27472699)
+ Where is your code that puts the file into your Google Cloud Storage bucket? 
+
+ I think the problem might be these two lines, depending on how you implemented the GCS upload... 
+
+  gcs_filename = file_info.gs_object_name
+file_key = blobstore.create_gs_key(gcs_filename)
+  
+
+ The gs_object_name should only return a meaningful result if the item is from GCS. This would cause create_gs_key() to fail as well if the gcs_filename is not correct. 
+
+ For how to use blobstore API with Google Cloud Storage, please see this article for details - https://cloud.google.com/appengine/docs/python/blobstore/#Python_Using_the_Blobstore_API_with_Google_Cloud_Storage 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/23824492)
+ If I understand correctly, what you're trying to do is serve a form from App Engine that allows a user to choose a file to upload.
+Since the uploaded file may be large, you don't want to handle the upload in App Engine, but have the file uploaded directly to Google Cloud Storage. 
+
+ This can be done, and it's not too difficult.
+In fact, this is exactly the example given in the https://developers.google.com/appengine/docs/python/blobstore/#Python_Uploading_a_blob.
+It might be confusing that the example refers to Blobstore while you want the file in Cloud Storage - but it's OK - it appears that since version 1.7.0 you can do this: 
+
+  upload_url = blobstore.create_upload_url('/upload', gs_bucket_name='my_bucket')
+  
+
+ (instead of step 1 in the example I linked), and the upload URL will upload straight to Cloud Storage. 
+
+ Now, your form action should be the string  upload_url  that was returned by the  blobstore.create_upload_url  function. 
+
+ After the form completes processing (meaning the file is uploaded), it will redirect to the argument you passed to that function (in the example- to  /upload ). 
+
+ You do not need to write your own POST processing function, as you described in the question. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20139909)
+ Your AppEngine project has a service account associated with it. That account can be granted membership in your second project. 
+
+ To find the name of your service account, head over to the AppEngine console ( https://appengine.google.com ) and choose your AppEngine project. Down under the Application Settings tab, you'll see a "Service Account Name" that looks like an email address. 
+
+ Now head over to the cloud console ( https://cloud.google.com/console ) and choose the second project, the one you're using for this Google Cloud Storage stuff. While you're there, make sure you've enabled it for Google Cloud Storage (and the JSON version), and that you've set up billing. 
+
+ Under "permissions", you'll see a list of email addresses. Click "Add member" and put in the address we found earlier in the AppEngine console. Choose between owner, editor, or viewer, depending on what your AppEngine app is going to do need to do. 
+
+ Alternately, rather than adding that account to the project itself, you could also grant it permissions for just the buckets or objects it needs to use. 
+
+ When you invoke the Google Cloud Storage JSON API, you can specify which API key you want to use as a keyword argument on the build() function. You can use either API key. 
+
+ In order to get ahold of credentials for invoking the JSON API, you'll most likely want to use AppAssertionsCredentials, as shown here: https://developers.google.com/api-client-library/python/guide/google_app_engine#ServiceAccounts 
+
+  import httplib2
+from google.appengine.api import memcache
+from oauth2client.appengine import AppAssertionCredentials
+from apiclient import discovery
+...
+credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.read_write')
+http = credentials.authorize(httplib2.Http(memcache))
+storage = discovery.build(serviceName='storage', version='v1beta2', http=http, developerKey=your_api_key)
+  
+
+ Also note that, in addition to the JSON API, there is also an AppEngine-specific Python library for accessing Google Cloud Storage: https://developers.google.com/appengine/docs/python/googlecloudstorageclient/ 
+
+
+

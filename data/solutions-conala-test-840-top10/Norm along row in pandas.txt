@@ -1,0 +1,245 @@
+Query: Norm along row in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7741940)
+ Try the following: 
+
+  In [16]: numpy.apply_along_axis(numpy.linalg.norm, 1, a)
+Out[16]: array([ 5.38516481,  1.41421356,  5.38516481])
+  
+
+ where  a  is your 2D array. 
+
+ The above computes the L2 norm. For a different norm, you could use something like: 
+
+  In [22]: numpy.apply_along_axis(lambda row:numpy.linalg.norm(row,ord=1), 1, a)
+Out[22]: array([9, 2, 9])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40742544)
+ Numpy provides norm... Use: 
+
+  np.linalg.norm(df[['X','Y','Z']].values,axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7741976)
+ Note that, as https://stackoverflow.com/a/19794741/190597, as of NumPy version 1.9,  np.linalg.norm(x, axis=1)  is the fastest way to compute the L2-norm. 
+
+ 
+
+ If you are computing an L2-norm, you could compute it directly (using the  axis=-1  argument to sum along rows): 
+
+  np.sum(np.abs(x)**2,axis=-1)**(1./2)
+  
+
+ Lp-norms can be computed similarly of course. 
+
+ It is considerably faster than  np.apply_along_axis , though perhaps not as convenient: 
+
+  In [48]: %timeit np.apply_along_axis(np.linalg.norm, 1, x)
+1000 loops, best of 3: 208 us per loop
+
+In [49]: %timeit np.sum(np.abs(x)**2,axis=-1)**(1./2)
+100000 loops, best of 3: 18.3 us per loop
+  
+
+ Other  ord  forms of  norm  can be computed directly too (with similar speedups): 
+
+  In [55]: %timeit np.apply_along_axis(lambda row:np.linalg.norm(row,ord=1), 1, x)
+1000 loops, best of 3: 203 us per loop
+
+In [54]: %timeit np.sum(abs(x), axis=-1)
+100000 loops, best of 3: 10.9 us per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45006970)
+ Much faster than the accepted answer is 
+
+
+
+  numpy.sqrt(numpy.einsum('ij,ij->i', a, a))
+  
+
+ Note the log-scale: 
+
+ https://i.stack.imgur.com/Rpk4D.png 
+
+ 
+
+ Code to reproduce the plot: 
+
+
+
+  import numpy
+import perfplot
+
+
+def sum_sqrt(a):
+    return numpy.sqrt(numpy.sum(numpy.abs(a)**2, axis=-1))
+
+
+def apply_norm_along_axis(a):
+    return numpy.apply_along_axis(numpy.linalg.norm, 1, a)
+
+
+def norm_axis(a):
+    return numpy.linalg.norm(a, axis=1)
+
+
+def einsum_sqrt(a):
+    return numpy.sqrt(numpy.einsum('ij,ij->i', a, a))
+
+
+perfplot.show(
+    setup=lambda n: numpy.random.rand(n, 3),
+    kernels=[sum_sqrt, apply_norm_along_axis, norm_axis, einsum_sqrt],
+    n_range=[2**k for k in range(20)],
+    logx=True,
+    logy=True,
+    xlabel='len(a)'
+    )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18524166)
+ You are looking for http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.apply.html. Your example would look like this: 
+
+  >> df = pd.DataFrame([[1, 1, 0], [1, 0, 0]], columns=['X', 'Y', 'Z'])
+     X   Y   Z
+0    1   1   0
+1    1   0   0
+
+>>> df.apply(lambda x: np.sqrt(x.dot(x)), axis=1)
+0    1.414214
+1    1.000000
+dtype: float64
+  
+
+ This works for any number of dimensions. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19794741)
+ Resurrecting an old question due to a numpy update. As of the 1.9 release,  numpy.linalg.norm  now accepts an  axis  argument. [https://github.com/numpy/numpy/pull/3387, http://docs.scipy.org/doc/numpy-dev/reference/generated/numpy.linalg.norm.html] 
+
+ This is the new fastest method in town: 
+
+  In [10]: x = np.random.random((500,500))
+
+In [11]: %timeit np.apply_along_axis(np.linalg.norm, 1, x)
+10 loops, best of 3: 21 ms per loop
+
+In [12]: %timeit np.sum(np.abs(x)**2,axis=-1)**(1./2)
+100 loops, best of 3: 2.6 ms per loop
+
+In [13]: %timeit np.linalg.norm(x, axis=1)
+1000 loops, best of 3: 1.4 ms per loop
+  
+
+ And to prove it's calculating the same thing: 
+
+  In [14]: np.allclose(np.linalg.norm(x, axis=1), np.sum(np.abs(x)**2,axis=-1)**(1./2))
+Out[14]: True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21589636)
+ I found a faster solution than what @elyase suggested: 
+
+  np.sqrt(np.square(df).sum(axis=1))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20168725)
+  linalg.norm  does not accept an  axis  argument.   
+
+  np.apply_along_axis(np.linalg.norm, 1, c)
+# array([ 3.74165739,  4.24264069])
+  
+
+ Or to be faster,  implement it yourself with: 
+
+  np.sqrt(np.einsum('ij,ij->i',c,c))
+# array([ 3.74165739,  4.24264069])
+  
+
+  
+
+  timeit np.apply_along_axis(np.linalg.norm, 1, c)
+10000 loops, best of 3: 170 µs per loop
+
+timeit np.sqrt(np.einsum('ij,ij->i',c,c))
+100000 loops, best of 3: 10.7 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20169063)
+  
+
+  a = np.arange(9.).reshape(3,3)
+s = sparse.csr_matrix(a)
+  
+
+ To get the nm of each row from the sparse, you can use: 
+
+  np.sqrt(s.multiply(s).sum(1))
+  
+
+ And the renmalized  s  would be 
+
+  s.multiply(1/np.sqrt(s.multiply(s).sum(1)))
+  
+
+  
+
+  s.multiply(sparse.csr_matrix(1/np.sqrt(s.multiply(s).sum(1))))
+  
+
+ To get dinary matrix  array from it, use: 
+
+  m = s.todense()
+a = s.toarray()
+  
+
+ If you have enough memy f the dense version, you can get the nm of each row with: 
+
+  n = np.sqrt(np.einsum('ij,ij->i',a,a))
+  
+
+  
+
+  n = np.apply_along_axis(np.linalg.nm, 1, a)
+  
+
+ To nmalize, you can do 
+
+  an = a / n[:, None]
+  
+
+ , to nmalize the iginal array in place: 
+
+  a /= n[:, None]
+  
+
+ The  [:, None]  thing basically transposes  n  to be a vertical array. 
+
+
+

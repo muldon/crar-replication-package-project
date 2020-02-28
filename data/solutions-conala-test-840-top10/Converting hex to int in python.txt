@@ -1,0 +1,197 @@
+Query: Converting hex to int in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7595287)
+  
+
+  >>> s = 'C0A80026'
+>>> map(ord, s.decode('hex'))
+[192, 168, 0, 38]
+>>> 
+  
+
+ if you prefer list comprehensions 
+
+  >>> [ord(c) for c in s.decode('hex')]
+[192, 168, 0, 38]
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36289432)
+ Here's a generalised approach that handles a hex string with variable length substrings, e.g.: 
+
+  s = '5b1\n5\n3ad44'
+  
+
+ The following code transforms a string with 3 million variable length hex substrings to a numpy integer array in 2 seconds (on a MacBook) through vectorisation: 
+
+  import numpy as np, pandas as pd, cStringIO
+
+s = ('5b1\n5\n3ad44\n' * 1000000)[:-1]    # 3m item hex string (variable element length)
+
+# change hex to 2 digit decimal
+for i in range(0,9): s = s.replace(str(i),'0' + str(i))  
+for i in [['a','10'],['b','11'],['c','12'],['d','13'],['e','14'],['f','15']]:
+    s = s.replace(i[0],i[1])
+
+# read string into numpy
+n = np.array(pd.read_csv(cStringIO.StringIO(s), header=None)[[0]]).astype('int64')    
+
+# fix base
+n = (n % 100) + 16 * ((n % 10000)/100) + 256 * ((n % 1000000)/10000) + 4096 * ((n % 100000000)/1000000) + 65536 * ((n % 10000000000)/100000000)
+
+n[0:3]    # confirm correct transformation to [1457, 5, 240964]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7595267)
+ You might also need the chr function: 
+
+  chr(65) => 'A'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45586011)
+  int  (including Python2's  long ) can be converted to  bytes  using following function: 
+
+  import codecs
+
+def int2bytes(i):
+    hex_value = '{0:x}'.format(i)
+    # make length of hex_value a multiple of two
+    hex_value = '0' * (len(hex_value) % 2) + hex_value
+    return codecs.decode(hex_value, 'hex_codec')
+  
+
+ The reverse conversion can be done by another one: 
+
+  import codecs
+import six  # should be installed via 'pip install six'
+
+long = six.integer_types[-1]
+
+def bytes2int(b):
+    return long(codecs.encode(b, 'hex_codec'), 16)
+  
+
+ Both functions work on both Python2 and Python3. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4052335)
+ Why don't you just build a  list  of  int s and just print them out in base 16 (either by using  "%x"%value  or  hex ) instead? If the values are given to you in this form (e.g. from some other source), you can use  int  with the optional second parameter to turn this into an  int . 
+
+  >>> int('0x'+'2a',16)
+42
+>>> packet=["2a","19","00","00"]
+>>> packet=[int(p,16) for p in packet]
+>>> packet
+[42, 25, 0, 0]
+>>> print ", ".join(map(hex,packet))
+0x2a, 0x19, 0x0, 0x0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5873143)
+ Try something like this: 
+
+  a = '\xff'
+print int(a.encode('hex'), 16)
+255
+  
+
+ Edit: sorry, the previous version had a mistake - decode instead of encode. This works. 
+
+ Edit 2: I actually misread the question, as commenters noted. This may be already obvious but in case someone finds it helpful the regular python list solution would be: 
+
+  >>> a = '\xff\xfe'
+>>> [str(ord(char)) for char in a]
+['255', '254']
+>>> ' '.join([str(ord(char)) for char in a])
+'255 254'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53515456)
+ Use  lambda  function: 
+
+  df["y"] = df["x"].apply(lambda x: s16(int(x, base=16)))
+  
+
+ Or change function for cleaner code: 
+
+  def s16(value):
+    value = int(value, base=16)
+    return -(value & 0x8000) | (value & 0x7fff)
+
+df["y"] = df["x"].apply(s16)
+print (df)
+      x    y  true
+0  fdf1 -527  -527
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46805729)
+  0x  is a way to input an integer with an hexadecimal notation. 
+
+  >>> n = 0x8F033CAE74F88BA10D2BEA35FFB0EDD3
+  
+
+ This hexadecimal notation is forgotten directly after instantiation, though: 
+
+  >>> n
+190096411054295805012706659640261275091
+>>> str(n)
+'190096411054295805012706659640261275091'
+  
+
+ So when you call  int(str(n), 16) , Python interprets  '190096411054295805012706659640261275091'  as an hexadecimal number: 
+
+  >>> int(str(n), 16)
+8921116140846515089057635273465667902228615313
+  
+
+ You need to input the original hex string: 
+
+  >>> int("8F033CAE74F88BA10D2BEA35FFB0EDD3", 16)
+190096411054295805012706659640261275091
+  
+
+ or use https://docs.python.org/3/library/functions.html#hex: 
+
+  >>> int(hex(n), 16)
+190096411054295805012706659640261275091
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7595205)
+ If you want to get 4 separate numbers from this, then treat it as 4 separate numbers. You don't need  binascii . 
+
+  hex_input  = 'C0A80026'
+dec_output = [
+    int(hex_input[0:2], 16), int(hex_input[2:4], 16),
+    int(hex_input[4:6], 16), int(hex_input[6:8], 16),
+]
+print dec_output # [192, 168, 0, 38]
+  
+
+ This can be generalised, but I'll leave it as an exercise for you. 
+
+
+

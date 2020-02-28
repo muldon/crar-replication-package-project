@@ -1,0 +1,309 @@
+Query: How to remove square bracket from pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38147471)
+ If values in column  value  have type  list , use: 
+
+  df['value'] = df['value'].str[0]
+  
+
+  
+
+  df['value'] = df['value'].str.get(0)
+  
+
+ http://pandas.pydata.org/pandas-docs/stable/text.html#splitting-and-replacing-strings. 
+
+  
+
+  df = pd.DataFrame({'value':[[63],[65],[64]]})
+print (df)
+  value
+0  [63]
+1  [65]
+2  [64]
+
+#check type if index 0 exist
+print (type(df.loc[0, 'value']))
+<class 'list'>
+
+#check type generally, index can be `DatetimeIndex`, `FloatIndex`...
+print (type(df.loc[df.index[0], 'value']))
+<class 'list'>
+
+df['value'] = df['value'].str.get(0)
+print (df)
+   value
+0     63
+1     65
+2     64
+  
+
+ If  strings  use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.strip.html and then convert to numeric by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.astype.html: 
+
+  df['value'] = df['value'].str.strip('[]').astype(int)
+  
+
+  
+
+  df = pd.DataFrame({'value':['[63]','[65]','[64]']})
+print (df)
+  value
+0  [63]
+1  [65]
+2  [64]
+
+#check type if index 0 exist
+print (type(df.loc[0, 'value']))
+<class 'str'>
+
+#check type generally, index can be `DatetimeIndex`, `FloatIndex`...
+print (type(df.loc[df.index[0], 'value']))
+<class 'str'>
+
+
+df['value'] = df['value'].str.strip('[]').astype(int)
+print (df)
+  value
+0    63
+1    65
+2    64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52228666)
+ You can using  str.split  
+
+  s
+Out[417]: 
+0    Tuscaloosa (University of Alabama >> Tuscaloosa
+0    Tuscaloosa (University of Alabama >> Tuscaloosa
+0    Tuscaloosa (University of Alabama >> Tuscaloosa
+0    Tuscaloosa (University of Alabama >> Tuscaloosa
+dtype: object
+s.str.split('(',1).str[0]
+Out[418]: 
+0    Tuscaloosa 
+0    Tuscaloosa 
+0    Tuscaloosa 
+0    Tuscaloosa 
+dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44117460)
+ You can use  .str.replace  with a regex: 
+
+  dfObject['C'] = dfObject.C.str.replace(r"[a-zA-Z]",'')
+  
+
+ output: 
+
+          A         B    C
+1   red78    square  235
+2   green    circle  123
+3  blue45  triangle  657
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54942050)
+ Use cross join with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.crosstab.html: 
+
+  df = df.merge(df, on='value')
+df = pd.crosstab(df['field_x'], df['field_y'])
+print (df)
+
+field_y  a  b  c
+field_x         
+a        2  1  1
+b        1  2  0
+c        1  0  2
+  
+
+ Then remove index and columns names by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rename_axis.html: 
+
+  #pandas 0.24+
+df = pd.crosstab(df['field_x'], df['field_y']).rename_axis(index=None, columns=None)
+print (df)
+   a  b  c
+a  2  1  1
+b  1  2  0
+c  1  0  2
+
+#pandas bellow
+df = pd.crosstab(df['field_x'], df['field_y']).rename_axis(None).rename_axis(None, axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51340714)
+  
+
+  df2 = pd.DataFrame({'Average Monthly Wage $': ['736[4]','7336[445]', '[4]345[5]']})
+print (df2)
+  Average Monthly Wage $
+0                 736[4]
+1              7336[445]
+2              [4]345[5]
+
+df2['Average Monthly Wage $'] = df2['Average Monthly Wage $'].str.replace(r'\[.*?\]','')
+print (df2)
+  Average Monthly Wage $
+0                    736
+1                   7336
+2                    345
+  
+
+ https://regex101.com/r/zEuAPz/1. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49600981)
+ You can also do this via a  lambda  function with  str.isdigit : 
+
+  import pandas as pd
+
+df = pd.DataFrame({'Name': ['John5', 'Tom 8', 'Ron 722']})
+
+df['Name'] = df['Name'].map(lambda x: ''.join([i for i in x if i.isdigit()]))
+
+#   Name
+# 0    5
+# 1    8
+# 2  722
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52228722)
+ You can use  str.extract  (Using data from @Wen): 
+
+  s.str.extract(r'([^(]+)')
+  
+
+  
+
+  0  Tuscaloosa
+1  Tuscaloosa
+2  Tuscaloosa
+3  Tuscaloosa
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49004773)
+ I have accepted jezrael's answer. For sake of completeness, I am adding a couple of lines to remove the duplicates. 
+
+  # from jezrael's solution
+df1 = df.stack().rename_axis(('from','to')).reset_index(name='value')
+
+# drop the dupes
+df1.loc[:, ['from', 'to']] = df1.loc[:, ['from', 'to']].apply(sorted, axis=1)
+df1.drop_duplicates()
+# result -
+  from to
+0    A  A
+1    A  B
+2    A  C
+4    B  B
+5    B  C
+8    C  C
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49994892)
+  
+
+  line="""[[ abstraction, verb.cognition:abstract,+ ]] rewq [[ abs, verb.cognition:abstract,+ ]] fdsaf [[ abstraction, verb.cfdsa,+ ]] """
+rx = re.compile(r'\[\[[^][]*]]')
+line = rx.sub(lambda m: '' if m.group(0).find("abstraction")== -1 else "abstraction", line)                     
+s = line.strip()
+print(s)
+  
+
+ Output is 
+
+  abstraction rewq  fdsaf abstraction
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35951111)
+ We can use simple trick - quote balanced square brackets with double quotes: 
+
+  import re
+import six
+import pandas as pd
+
+
+data = """\
+Item,Date,Time,Location,junk
+1,01/01/2016,13:41,[45.2344:-78.25453],[aaaa,bbb]
+2,01/03/2016,19:11,[43.3423:-79.23423,41.2342:-81242],[0,1,2,3]
+3,01/10/2016,01:27,[51.2344:-86.24432],[12,13]
+4,01/30/2016,05:55,[51.2344:-86.24432,41.2342:-81242,55.5555:-81242],[45,55,65]"""
+
+print('{0:-^70}'.format('original data'))
+print(data)
+data = re.sub(r'(\[[^\]]*\])', r'"\1"', data, flags=re.M)
+print('{0:-^70}'.format('quoted data'))
+print(data)
+df = pd.read_csv(six.StringIO(data))
+print('{0:-^70}'.format('data frame'))
+
+pd.set_option('display.expand_frame_repr', False)
+print(df)
+  
+
+ Output: 
+
+  ----------------------------original data-----------------------------
+Item,Date,Time,Location,junk
+1,01/01/2016,13:41,[45.2344:-78.25453],[aaaa,bbb]
+2,01/03/2016,19:11,[43.3423:-79.23423,41.2342:-81242],[0,1,2,3]
+3,01/10/2016,01:27,[51.2344:-86.24432],[12,13]
+4,01/30/2016,05:55,[51.2344:-86.24432,41.2342:-81242,55.5555:-81242],[45,55,65]
+-----------------------------quoted data------------------------------
+Item,Date,Time,Location,junk
+1,01/01/2016,13:41,"[45.2344:-78.25453]","[aaaa,bbb]"
+2,01/03/2016,19:11,"[43.3423:-79.23423,41.2342:-81242]","[0,1,2,3]"
+3,01/10/2016,01:27,"[51.2344:-86.24432]","[12,13]"
+4,01/30/2016,05:55,"[51.2344:-86.24432,41.2342:-81242,55.5555:-81242]","[45,55,65]"
+------------------------------data frame------------------------------
+   Item        Date   Time                                           Location        junk
+0     1  01/01/2016  13:41                                [45.2344:-78.25453]  [aaaa,bbb]
+1     2  01/03/2016  19:11                 [43.3423:-79.23423,41.2342:-81242]   [0,1,2,3]
+2     3  01/10/2016  01:27                                [51.2344:-86.24432]     [12,13]
+3     4  01/30/2016  05:55  [51.2344:-86.24432,41.2342:-81242,55.5555:-81242]  [45,55,65]
+  
+
+  UPDATE : if you are sure that all square brackets are balances, we don't have to use RegEx's: 
+
+  import io
+import pandas as pd
+
+with open('35948417.csv', 'r') as f:
+    fo = io.StringIO()
+    data = f.readlines()
+    fo.writelines(line.replace('[', '"[').replace(']', ']"') for line in data)
+    fo.seek(0)
+
+df = pd.read_csv(fo)
+print(df)
+  
+
+
+

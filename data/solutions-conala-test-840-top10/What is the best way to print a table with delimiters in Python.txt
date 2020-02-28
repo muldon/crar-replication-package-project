@@ -1,0 +1,187 @@
+Query: What is the best way to print a table with delimiters in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/583607)
+ I don't think it's going to get much better than your second code snippet... maybe, if you really want, 
+
+  print "\n".join("\t".join(str(col) for col in row) for row in tab)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/583757)
+ Your shorter solution would work well as something quick and dirty.  But if you need to handle large amounts of data, it'd be better to use  csv  module: 
+
+  import sys, csv
+writer = csv.writer(sys.stdout, delimiter="\t")
+writer.writerows(data)
+  
+
+ The benefit of this solution is that you may easily customize all aspects of output format: delimiter, quotation, column headers, escape sequences... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/49899162)
+ Jupyter notebook 
+
+ Lets say that your list is  A  
+
+ Then you can code the following ad you will have it as a csv file (columns only!) 
+
+  R="\n".join(A)
+f = open('Columns.csv','w')
+f.write(R)
+f.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47776005)
+  re  doesn't strike me as the best solution for this type of problem. I'd just write a quick logical parser... 
+
+  with open (outfile, 'w') as f_out:
+    f_out.write("TYPE\tDURATION\tRATE\n") #excel likes tab delimination best, everything else tends towards comma separation.
+    with open(infile) as f: 
+        f_iter = iter(f) #make the iterator ahead of time so we can advance manually
+        for line in f_iter: #line by line
+            list_items = line.strip().split() #clean up string and split into list on whitespace
+            if list_items[0] == "0TYPE": #start a new 0TYPE category
+                try: #I always keep calls to next() inside a try block to catch EOF this might happen if you had an empty section
+                    next(f_iter) #skip "---- ------"
+                    list_items = next(f_iter).strip().split() #get next line
+                except StopIteration:
+                    break
+                type_str = list_items.pop(0) #inefficient but simple and understandable
+                duration = 1 #reset duration
+            #from here list_items should always be like "xxx-xxx  x.xx   x.xx  x.xx  x.xx ..."
+            list_items.pop(0) #drop 001-010, 011-020, etc.
+            for item in list_items:
+                f_out.write("{}\t{}\t{}\n".format(type_str, duration, item)) #tab delimination can be changed to comma or spaces
+                duration += 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46492113)
+  str.split  offers  regex  just like  re.split  does. So, you do need to use the latter. The following should do: 
+
+  s = final_df['Column Name'].str.split(r'[;:|]').apply(pd.Series, 1).stack()
+  
+
+ If the starting file contains those delimiters, you could actually provide the regular expression pattern to the  sep  parameter of the  read_table  function and set its  engine  parameter to  "python" . The following uses the  io  module and a random string to illustrate the point: 
+
+  import io
+import pandas as pd
+
+
+mystring = u"hello:world|123;here|we;go,again"
+with io.StringIO(mystring) as f:
+    df = pd.read_table(f, sep=r"[;:|,]", engine="python", header=None)
+
+df
+#        0      1    2     3   4   5      6
+# 0  hello  world  123  here  we  go  again
+  
+
+ This one split on  : ,  ; ,  |  and  , . 
+
+ I hope this proves useful. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1820378)
+ the  re  module provides this functionality: 
+
+  >>> import re
+>>> re.split('(\W+)', 'Words, words, words.')
+['Words', ', ', 'words', ', ', 'words', '.', '']
+  
+
+ (quoted from the Python documentation). 
+
+ For your example (split on whitespace), use  re.split('(\s+)', '\tThis is an example') . 
+
+ The key is to enclose the regex on which to split in capturing parentheses. That way, the delimiters are added to the list of results.  
+
+ Edit: As pointed out, any preceding/trailing delimiters will of course also be added to the list. To avoid that you can use the  .strip()  method on your input string first. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48455482)
+ Like some comments stated, regex is a neat and easy way to get what you want. If you don't mind getting lowercase results, this one should work: 
+
+  import re
+my_str = """
+...
+create table Sales ...
+create TabLE  
+ test
+create external table Persons ...
+...
+"""
+pattern = r"table\s+(\w+)\b"
+items = re.findall(pattern, my_str.lower())
+print items
+  
+
+ It captures the next word after "table   " (followed by at least one whitespace / newline). 
+
+ To get the original case of the table names: 
+
+  for x, item in enumerate(items):
+    i = my_str.lower().index(item)
+    items[x] = my_str[i:i+len(item)]
+print items
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2367845)
+ @OP, you are processing a csv file, which have distinct fields and delimiters. Use a tool that can split on delimiters and give you fields to work with easily. sed is not one of them, although it can be done, as some of the answers suggested, but you will get sed regex that is hard to read when it gets complicated. Use tools like awk/Python/Perl where they work with fields and delimiters easily, best of all, modules that specifically tailored to processing csv is available. For your example, a simple Python approach (without the use of csv module which ideally you should try to use it) 
+
+  for line in open("file"):
+    line=line.rstrip() #strip new lines
+    sline=line.split(",")
+    if len(sline) < 8: # you want exact 8 fields
+        sline.insert(4,"")
+        sline.insert(6,"")
+        line=','.join(sline)
+    print line
+  
+
+ output 
+
+  $ more file
+1,23,56,we,89,2009-12-06
+
+$ ./python.py
+1,23,56,we,,89,,2009-12-06
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34421563)
+ As far as I can tell, it is not possible to escape cell delimiters as of version 1.2.5 (current at the time of posting). The relevant code is https://github.com/behave/behave/blob/81aaea0d054aab5a9f2e6347b47d0a130fe1816f/behave/parser.py#L423. This is how it splits a line into cells: 
+
+  cells = [cell.strip() for cell in line.split('|')[1:-1]]
+  
+
+ I searched before and after this line but did not see code that would transform sequences like  \|  or anything similar into something that  .split('|')  would not affect. 
+
+ The only solution I see, as of 1.2.5, would be to hand-code the content of your cells so that you use another character than  |  in the cell data and then convert it to  |  in your Python code. For instance, using  ! , you could have in the feature file: 
+
+  | foo!bar |
+  
+
+ and then convert  !  to  |  in your step implementations. This is awful but I don't see another way to get what you want. 
+
+
+

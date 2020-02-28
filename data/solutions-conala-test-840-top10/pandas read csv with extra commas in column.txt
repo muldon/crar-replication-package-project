@@ -1,0 +1,241 @@
+Query: pandas read csv with extra commas in column
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13744253)
+ Well, there's a very simple workaround. Add a dummy column to the header when reading csv file in: 
+
+  cols = ...
+cols.append('')
+records = pandas.read_csv('filename.txt', skiprows=1, names=cols)
+  
+
+ Then columns and header get aligned again. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48668307)
+ You can use the parameter usecols in the read_csv function to limit what columns you read in. For example:  
+
+  import pandas as pd
+pd.read_csv(path, usecols=range(8))
+  
+
+ if you only want to read the first 8 columns. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32743785)
+ Imagine we're reading your dataframe called  comma.csv : 
+
+  userid, username, body
+01, n1, 'string1, string2'
+  
+
+ One thing you can do is to specify the delimiter of the strings in the column with: 
+
+  df = pd.read_csv('comma.csv', quotechar="'")
+  
+
+ In this case strings delimited by  '  are considered as total, no matter commas inside them.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24165638)
+ Fix the csv, then proceed normally: 
+
+  import csv
+with open('path/to/broken.csv', 'rb') as f, open('path/to/fixed.csv', 'wb') as g:
+    writer = csv.writer(g, delimiter=',')
+    for line in f:
+        row = line.split(',', 2)
+        writer.writerow(row)
+  
+
+ 
+
+  import pandas as pd
+df = pd.read_csv('path/to/fixed.csv')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45428077)
+ If you want an extra separator, you can write a list with an extra, empty element in it: 
+
+  writer3.writerow([item, ''])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48042585)
+ You can use  usecols  to specify the columns you want to import as follows: 
+
+  import pandas as pd
+
+csv_df = pd.read_csv('temp.csv', header=None, usecols=range(1,13))
+  
+
+ This will skip the first and last empty columns. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48672386)
+ You can use  re.sub  to replace the first few commas with, say, the '|', save the intermediate results in a  StringIO  then process that. 
+
+  import pandas as pd
+from io import StringIO
+import re
+
+for_pd = StringIO()
+with open('MikeS159.csv') as mike:
+    for line in mike:
+        new_line = re.sub(r',', '|', line.rstrip(), count=7)
+        print (new_line, file=for_pd)
+
+for_pd.seek(0)
+
+df = pd.read_csv(for_pd, sep='|', header=None)
+print (df)
+  
+
+ I put the two lines from your question into a file to get this output. 
+
+         0       1  2                    3  4  5   6  \
+0  061AE  Active  1  2017_02_24 15_18_01  6  1  13   
+1  061AE  Active  1  2017_02_24 15_18_01  6  1  13   
+
+                             7  
+0                 some message  
+1  longer message, with commas  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41076688)
+ One more way to solve your problem. 
+
+  import re
+import pandas as pd
+
+l1 =[]
+with open('/home/yusuf/Desktop/c1') as f:
+    headers = map(lambda x: x.strip(), f.readline().strip('\n').split(','))
+    for a in f.readlines():
+        b = re.findall("(.*?),(.*?),'(.*?),'(.*?),'(.*?),'(.*?),(.*)",a)
+        l1.append(list(b[0]))
+df = pd.DataFrame(data=l1, columns=headers)
+df['Volume'] = df['Volume'].apply(lambda x: x.replace(",",""))
+df
+  
+
+ Output: 
+
+ https://i.stack.imgur.com/kpg8g.png 
+
+ Regex Demo: 
+https://regex101.com/r/o1zxtO/2 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48043962)
+ The trailing commas correspond to missing data. When loading in your dataframe, they're loaded in as NaNs, so all you'd need to do is get rid of it, either using  dropna  or by slicing them out -   
+
+  df = pd.read_csv('file.csv', header=None).dropna(how='all', axis=1)
+  
+
+   
+
+  df = pd.read_csv('file.csv', header=None).iloc[:, 1:-1]
+  
+
+  
+
+  df
+
+         1   2    3     4     5    6   7   8      9   10    11    12
+0  11:00:14   4  5.0  93.7  0.01  0.0   7  20  0.001  10  49.3  0.01
+1  11:00:15   4  5.0  94.7  0.04  0.5   7  20  0.005  10  49.5  0.04
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48384553)
+ The file from the URL in your post contains additional commas for some items in the  GICS industry group  column.  The first occurs at line 31 in the file: 
+
+  ABUNDANT PRODUCE LIMITED,ABT,Food, Beverage & Tobacco
+  
+
+ Normally, the 3rd item should be surrounded by quotes to escape breaking on the comma, such as: 
+
+  ABUNDANT PRODUCE LIMITED,ABT,"Food, Beverage & Tobacco"
+  
+
+ For this situation, because the first 2 columns appear to be clean, you can merge any additional text into the 3rd field.  . 
+
+ You can do this with a generator that will pull out and clean each line one at a time.  The  pd.DataFrame  constructor will read in the data and create a data frame. 
+
+  import pandas as pd
+
+def merge_last(file_name, skip_lines=0):
+    with open(file_name, 'r') as fp:
+        for i, line in enumerate(fp):
+            if i < 2:
+                continue
+            x, y, *z = line.strip().split(',')
+            yield (x,y,','.join(z))
+
+# create a generator to clean the lines, skipping the first 2
+gen = merge_last('ASXListedCompanies.csv', 2)
+# get the column names
+header = next(gen)
+# create the data frame
+df = pd.DataFrame(gen, columns=header)
+
+df.head()
+  
+
+ returns: 
+
+            Company name ASX code                 GICS industry group
+0          MOQ LIMITED      MOQ                 Software & Services
+1       1-PAGE LIMITED      1PG                 Software & Services
+2  1300 SMILES LIMITED      ONT    Health Care Equipment & Services
+3    1ST GROUP LIMITED      1ST    Health Care Equipment & Services
+4         333D LIMITED      T3D  Commercial & Professional Services
+  
+
+ And the rows with the extra commas are preserved: 
+
+  df.loc[27:30]
+# returns:
+                           Company name ASX code       GICS industry group
+27             ABUNDANT PRODUCE LIMITED      ABT  Food, Beverage & Tobacco
+28                  ACACIA COAL LIMITED      AJC                    Energy
+29  ACADEMIES AUSTRALASIA GROUP LIMITED      AKG         Consumer Services
+30         ACCELERATE RESOURCES LIMITED      AX8                Class Pend
+  
+
+ 
+
+ Here is a more generalized generator that will merge after a given number of columns: 
+
+  def merge_last(file_name, merge_after_col=2, skip_lines=0):
+    with open(file_name, 'r') as fp:
+        for i, line in enumerate(fp):
+            if i < 2:
+                continue
+            spl = line.strip().split(',')
+            yield (*spl[:merge_after_col], ','.join(spl[merge_after_col:]))
+  
+
+
+

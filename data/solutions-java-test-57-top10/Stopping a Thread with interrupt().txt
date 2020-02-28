@@ -1,0 +1,335 @@
+Query: Stopping a Thread with interrupt()
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4264385)
+ Call the interrupt() method on your thread. This will cause the sleep to be cancelled and an InterruptedException will be thrown. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20528423)
+ 
+   renderThread.interrupt() does not interrupt the thread, it continues
+  to run. 
+ 
+
+ 
+ If the thread is executing and  interrupt()  is invoked it's interrupt status is set. 
+ If this thread is blocked in an invocation one of   wait  methods of the Object class, or of the  Thread.join  and  Thread.sleep  methods of this class then its  interrupt status will be cleared  and it will receive an  InterruptedException . 
+ 
+
+  For example:  
+
+  Thread t = new Thread()
+      {
+          public void run()
+          {
+              try {
+                  for(int i=0; i<10000;i++)
+                      System.out.println("Is interrupTed? "+this.isInterrupted());
+
+                  Thread.sleep(200);
+              } catch (InterruptedException ex) {
+                  Logger.getLogger(getClass().getName()).log(Level.SEVERE, null, ex);
+              }
+
+          }
+      };
+      t.start();
+      t.interrupt();
+    }
+  
+
+ The above code, I have used a  for  loop to intercept the interrput flag with http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#isInterrupted%28%29 function and printed it. As  t.interrupt()  is invoked,  isInterrupted()  will return  true  which you will see in the console. As soon as it reaches the  Thread.sleep(miliTime)  you will see that  InterruptedException  is caught which was thrown as described above.  
+
+  Stopping a thread:   
+
+ you could make use of this  isInterrupted()  flag check if an  interrupt()  was invoked on it and return from the execution: 
+
+  For example:  
+
+  Thread t = new Thread()
+      {
+          public void run()
+          {
+              long executeTime = System.currentTimeMillis() ;
+              int i = 0;    
+              for(; i<10000 && !this.isInterrupted();i++)
+                      System.out.println("Is interrupted? "+this.isInterrupted());
+
+               System.out.println("Was Interrupted? "+this.isInterrupted()
+                                  +" after cycle: "+ i);
+               System.out.println("Time it gets Executed: "
+                                  +(System.currentTimeMillis() - executeTime+" ms"));
+
+          }
+      };
+      t.start();
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException ex) {
+            ex.printStackTrace();
+        }
+      t.interrupt();
+  
+
+ While running the above code: i have sent the main thread to sleep for  200  inside the static main function to allow the started thread  t  to run for some time. Then i invoked 
+ t.interrupt()  on it which causes the  for  loop to stop and print a output as following: 
+
+  Was Interrupted? true after cycle: 1477
+Time it gets Executed: 258 ms
+  
+
+ Which indicates that the  for  loop has  1148  iteration before  t.interrupt();  was invoked in the  main  function. 
+
+ Please read the documentation of http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#interrupt%28%29 function for more details. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4264412)
+ You can interrupt a sleeping thread with  Thread.interrupt() . Now stopping a thread is deprecated - what if the thread is holding a lock to something? (There was a  Thread.stop() , but it is HIGHLY discouraged). 
+
+ Alternatively, instead of sleeping, you can have your thread wait for an object to be notified with a timeout, and simplify notify the object if you want the thread to wake up. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20528033)
+ When you call interrupt() it triggers a boolean flag which tells the run function it should stop.  That is why I usually write my run functions like this. 
+
+  void run()
+{
+    while(!Thread.interrupted())
+    {
+        //Do something
+    }
+}
+  
+
+ Just because you call interrupt doesn't mean the thread will stop immediately or at all.  It depends on what is in the run function. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14246904)
+ Stopping threads in Java is a cooperative process implemented with interruptions. You could store your threads and interrupt them one by one: 
+
+  List<Thread> threads = new ArrayList<> ();
+
+for (int n = 1; n <= m; n++) {
+  Thread t = new HTTP(n + 1, str, j, k);
+  threads.add(t);
+  t.start();
+}
+
+//later on
+
+for (Thread t : threads) {
+    t.interrupt();
+}
+  
+
+ However, it is worth noting a few things: 
+
+ 
+ this will only work if your  run  method reacts to interruption by stopping what it is doing 
+ you could do the same thing more easily with a thread pool, for example by using one of the http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/ExecutorService.html returned by the various factory methods provided by the http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Executors.html class. They would indeed handle the lifecycle of threads for you. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19884301)
+ The thread is blocking on  b.readLine()  as that line of code causes thread execution to halt until there is some input available. 
+
+ To "force" stop, use  Thread.interrupt()  
+
+ E.g: 
+
+  stopChecking.addMouseListener(new MouseAdapter() {
+    @Override
+    public void mousePressed(MouseEvent e) {
+
+        //To clarify the following uses a INSTANCE of CheckFiles, called CheckFiles.
+        //In other words, somewhere there was a declaration with the format:
+        // CheckFiles CheckFiles = ...
+
+        CheckFiles.stop = true;
+        CheckFiles.interrupt(); //Or whatever the name of your thread instance is
+        System.out.println(CheckFiles.stop); //Prints true when pressed
+
+    }
+});
+  
+
+ The internal reading loop should also be modified as such: 
+
+  while(!stop && (line = b.readLine()) != null){
+    Ststem.out.println(line);
+}
+  
+
+ As the interrupt merely unblocks the I/O, we need to check if stop is still  false  before we proceed to do another blocking read. 
+
+ As others have suggested, an alternative way is to directly invoke  b.close()  after setting  stop = true; . 
+
+  
+ Edit:  
+
+ Like Vakh has said, you should also make your boolean  volatile  so that updates to the  stop  variable are immediately visible to all threads. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27338054)
+ All You need do to interrupt the current thread or terminate the running process of the thread is to 
+add the below statement within you catch block 
+
+  try
+{
+   Thread.sleep(4000);
+   System.out.println("VAS CONSULTING")
+}
+catch(InterruptedException e)
+{
+   //Stop printing out VAS CONSULTING
+   return;  /*This will terminate the thread*/
+}
+  
+
+ also if a method that doesn't throw an Interrupted Exception isn't used within the run method
+you can do this to handle Thread Interruption or terminate the Thread 
+
+  @Override
+public void run()
+{
+
+   System.out.println("VAS CONSULTING");
+   if(Thread.Interrupted())
+   {
+     doSomethingElse();//process something else within the thread
+    return; //Terminates the current Thread
+   }
+
+}
+  
+
+ I hope this Helps You or Someone Else. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10372578)
+ Keeping things as simple as possible. 
+
+   public class Threads {
+    public static class MyRunnable implements Runnable {
+        public void run() {
+            try {
+                for (int i = 0; i < 20; ++i) {
+                    Thread.sleep(500);
+                    System.out.print(i + "\n" + "..");
+                }
+            } catch (InterruptedException e) {
+                System.out.println("Interrupted");
+            }
+        }
+    }
+
+    public static void main(String... a) throws InterruptedException {
+        Thread x = new Thread(new MyRunnable());
+        Thread y = new Thread(new MyRunnable());
+        x.start();
+        y.start();
+        Thread.sleep(2000);
+        y.interrupt();
+        Thread.sleep(2000);
+        x.interrupt();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27484555)
+ I believe you should rewrite your run() method: 
+
+  public void run() {
+    while(true) {
+        // Render, update etc...
+
+        // at the end, or after some steps, according to Java doc for Thread
+        if (Thread.interrupted())  
+           throw new InterruptedException();
+    }
+}
+  
+
+ And your stop() method, simply interrupting the thread should do it: 
+
+  public void stop() {
+    thread.interrupt();  //use thread here, not game
+}    
+  
+
+ Add a join() method: 
+
+  public void join() throws InterruptedException {
+    thread.join(); 
+}    
+  
+
+ So in your main, you join your thread 
+
+  public static void main(String[] args) {
+    // Create a new instance of Game and start it
+    Game game = new Game();
+    game.create();
+    try {
+        game.join();
+    } catch (InterruptedException e) {
+        //The interrupt should occur from another thread
+
+        //Somebody called stop()
+        //do your clean up
+        System.exit(0);
+    }           
+}   
+  
+
+ This is the related http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#interrupted(). 
+
+ What is not clear to me yet, is how exactly you invoke stop(). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21267880)
+ If the threads are still  execute() -ing they won't stop since you set their state to IDLE just afterwards, ignoring the previous value. And even adding a check before  status = IDLE  won't work in all cases. 
+
+ I suggest to use an  AtomicInteger  instead of a volatile int and use its  compareAndSet  method, i.e.: 
+
+      while (status.get() == RUNNING) {                
+        try {
+            execute();      //<-- very intensive 
+            if (!status.compareAndSet(RUNNING, IDLE))
+                break;
+        } catch (Exception e) {
+            logger.info("An exception occured in thread with ID : " + id);
+            e.printStackTrace();
+        } finally {
+            try {
+                Thread.sleep(DYNAMIC_VALUE);
+            } catch (InterruptedException e) {}
+            if (!status.compareAndSet(IDLE, RUNNING))
+                break;
+        }
+    }
+  
+
+ You should also interrupt the thread after setting its status to STOPPED to interrupt the  sleep  if applicable. 
+
+
+

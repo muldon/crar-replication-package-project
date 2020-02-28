@@ -1,0 +1,243 @@
+Query: Format string - spaces between every three digit
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17485496)
+ I think a regex would be much nicer: 
+
+  >>> import re
+>>> some_result = '12345678,46'
+>>> re.sub(r"\B(?=(?:\d{3})+,)", " ", some_result)
+'12 345 678,46'
+  
+
+    
+
+  \B       # Assert that we're not at the start of a number
+(?=      # Assert that the following regex could match from here:
+ (?:     # The following non-capturing group
+  \d{3}  # which contains three digits
+ )+      # and can be matched one or more times
+ ,       # until a comma follows.
+)        # End of lookahead assertion
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17485245)
+ Use: 
+
+  ' '.join(re.findall('...?',test[:test.find(',')][::-1]))[::-1]+test[test.find(','):]
+  
+
+ You have used regex which starts matching a string from the  start . But you want to group the 3 numbers from the  end  (before comma). 
+
+ So reverse the string before comma, apply the same logic and then reverse it back. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17484665)
+ This is a bit hacky, but: 
+
+  format(12345678.46, ',').replace(',', ' ').replace('.', ',')
+  
+
+ As described in http://docs.python.org/2/library/string.html#format-specification-mini-language, in a format_spec: 
+
+ 
+   The ',' option signals the use of a comma for a thousands separator. 
+ 
+
+ Then we just replace each comma with a space, then the decimal point with a comma, and we're done. 
+
+ For more complex cases using  str.format  instead of  format , the format_spec goes after the colon, as in: 
+
+  '{:,}'.format(12345678.46)
+  
+
+ See http://www.python.org/dev/peps/pep-0378/ for details. 
+
+ 
+
+ Meanwhile, if you're just trying to use the standard grouping and separators for your system's locale, there are easier ways to do that—the  n  format type, or the  locale.format  function, etc. For example: 
+
+  >>> locale.setlocale(locale.LC_NUMERIC, 'pl_PL')
+>>> format(12345678, 'n')
+12 345 678
+>>> locale.format('%.2f' 12345678.12, grouping=True)
+12 345 678,46
+>>> locale.setlocale(locale.LC_NUMERIC, 'fr_FR')
+>>> locale.format('%.2f' 12345678.12, grouping=True)
+12345678,46
+>>> locale.setlocale(locale.LC_ALL, 'en_AU')
+>>> locale.format('%.2f' 12345678.12, grouping=True)
+12,345,678.46
+  
+
+ If your system locale is, say,  pl_PL , just calling  locale.setlocale(locale.LC_NUMERIC)  (or  locale.setlocale(locale.LC_ALL) ) will pick up the Polish settings that you want, but the same person running your program in Australia will pick up the Australian settings that he wants. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52819753)
+ I'm interpreting this question as "I want to convert each of my floats into a string, adding however many spaces is necessary to make them exactly seven spaces long". 
+
+ You don't actually need  any  conditionals for this. The str.format method can apply the padding to your value without you having to count decimal places or anything. 
+
+  >>> a = 1.0
+>>> b = -23.42
+>>> c = 5.678
+>>> result = "{: 7} {: 7} {: 7}".format(a,b,c)
+>>> print(result)
+    1.0  -23.42   5.678
+  
+
+ If you're thinking "ok, but I also want the number to display exactly three digits after the decimal point, even if they're zeroes," then you can do: 
+
+  >>> "{:7.3f} {:7.3f} {:7.3f}".format(a,b,c)
+'  1.000 -23.420   5.678'
+  
+
+ If you're thinking "ok, but I also want the padding to appear  after  the sign but  before  the digits," then you can do: 
+
+  >>> a = -1.0
+>>> "{:=7.03f} {:=7.03f} {:=7.03f}".format(a,b,c)
+'- 1.000 -23.420   5.678'
+  
+
+ If you're thinking "ok, but can the padding be zeroes instead of spaces? So then every number has exactly two digits before the decimal point", then you can do: 
+
+  >>> "{:0= 7.03f} {:0= 7.03f} {:0= 7.03f}".format(a,b,c)
+'-01.000 -23.420  05.678'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49193038)
+ You may find all the positions between a non-digit/non-whitespace and a digit, or between a digit and a non-digit/non-whitespace and insert a space there: 
+
+  (?<=[^0-9\s])(?=[0-9])|(?<=[0-9])(?=[^0-9\s])
+  
+
+ Replace with a space. 
+
+ See the https://regex101.com/r/hd2GOV/1. 
+
+  Details  
+
+ 
+  (?<=[^0-9\s])  - matches a position that is immediately preceded with a char other than a digit and a whitespace... 
+  (?=[0-9])  - and is followed with a digit 
+  |  - or 
+  (?<=[0-9])  - matches a position immediately preceded with a digit and 
+  (?=[^0-9\s])  - followed with a char other than a digit and a whitespace. 
+ 
+
+  
+
+  >>> from pandas import DataFrame
+>>> import pandas as pd
+>>> col_list = ['wienerstr256pta 18 graz austria8051 4']
+>>> rx = r'(?<=[^0-9\s])(?=[0-9])|(?<=[0-9])(?=[^0-9\s])'
+>>> df = pd.DataFrame(col_list, columns=['col'])
+>>> df['col'].replace(rx," ", regex=True, inplace=True)
+>>> df['col']
+0    wienerstr 256 pta 18 graz austria 8051 4
+Name: col, dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29425867)
+ You could insert the 0 after the fact with  re.sub , but it would have the effect of lengthening the string by one character in the case that the substitution occurs: 
+
+  >>> re.compile("(E[-+])(\d\d)$").sub(r'\g<1>0\2',"{:7.1E}".format(6E19))
+'6.0E+019'
+  
+
+ With the 7.1 format, that's not a problem because if the exponent had three digits, the minimum field length would be 8: 
+
+  >>> re.compile("(E[-+])(\d\d)$").sub(r'\g<1>0\2',"{:7.1E}".format(6E190))
+'6.0E+190'
+  
+
+ But in general, it could produce misalignments. 
+
+ (Of course, in real code, you'd only compile that regex once, rather than every time you do the conversion.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22468286)
+ Assuming there will always be spaces: 
+
+  _, count, hits = name.split(" ")
+print(count)
+print(hits)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/15483617)
+ There are a series of problems with your expression and sample: 
+
+ 
+  Your use of VERBOSE makes all spaces not match, so your spaces around the digits on the first line are ignored too. Replace spaces with  \s  or  [ ]  (the latter only matches a literal space, the former matches newlines and tabs too).  
+  Your input sample has whitespace before the digit on each line but your example pattern requires that the digits are at the start of the line. Either allow for that whitespace or fix your sample input.  
+  The biggest problem is that a capturing group inside a repeating group (so  (\d+)  inside of a larger group with  {3}  at the end) only captures the last match. You'll get  92  and  this is bananas , not the previous two matched lines.   
+ 
+
+ To overcome all that, you  have  to repeat that pattern for the three lines explicitly. You could use Python to implement that repetition: 
+
+  linepattern =  r'[ ]* (\d+) [ ]+ ([^\n]+)\n'
+
+pattern_for_continue = re.compile(r"""
+    Breakpoint [ ]+ (\d+) [ ]+ reached [ ]+ ([^\n]*?)\n
+    {}
+""".format(linepattern * 3), re.MULTILINE|re.VERBOSE)
+  
+
+ Which, for your sample input, returns: 
+
+  >>> pattern_for_continue.match(sample_string).groups()
+('12', '', '90', 'hey this is a great line', '91', 'this is cool too', '92', 'this is bananas')
+  
+
+ If you really do not want to match spaces before the digits on the 3 extra lines, you can remove the first  [ ]*  pattern from  linepattern . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23124489)
+ This is a job for https://docs.python.org/2/library/re.html! 
+
+  
+
+  >>> s
+'12345-0012-0123'
+  
+
+ We want to match <del>two</del> three groups: 
+
+ 
+ one or more ( + ) digits ( d ) followed by a  -  followed by one or more ( + ) digits ( d ) followed by a  -   
+ then there is one or more ( + )  0 , which we don't capture (no  () s). Remove the  +  if you only want to match a single  0 ! 
+ one or more ( + ) digits ( d ) 
+ 
+
+ Then we want to substitute (https://docs.python.org/2/library/re.html#re.sub) our string  s  where it matches this regular expression with what is in those https://stackoverflow.com/q/8157267/78845. 
+
+  >>> re.sub('(\d+-\d+-)0+(\d+)', r'\1\2', s)
+'12345-0012-123'
+  
+
+ N.B:</h3>
+
+ https://docs.python.org/2/library/re.html#re.sub  returns  the modified  s , it does not modify it in-place. 
+
+
+

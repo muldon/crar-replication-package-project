@@ -1,0 +1,208 @@
+Query: Length of longest word in a list
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/53485597)
+  
+
+  def word_list(w_list, remaining_list):
+    max_result_len=0
+    res = w_list
+    for word_index in range(len(remaining_list)):
+        # if the last letter of the word list is equal to the first letter of the word
+        if w_list[-1][-1] == remaining_list[word_index][0]:
+            # make copies of the lists to not alter it in the caller function
+            w_list_copy = w_list.copy()
+            remaining_list_copy = remaining_list.copy()
+            # removes the used word from the remaining list
+            remaining_list_copy.pop(word_index)
+            # append the matching word to the new word list
+            w_list_copy.append(remaining_list[word_index])
+            res_aux = word_list(w_list_copy, remaining_list_copy)
+            # Keep only the longest list
+            res = res_aux if len(res_aux) > max_result_len else res 
+    return res
+
+words = ['giraffe', 'elephant', 'ant', 'tiger', 'racoon', 'cat', 'hedgehog', 'mouse']
+word_list(['dog'], words)
+  
+
+  output:  
+
+  ['dog', 'giraffe', 'elephant', 'tiger', 'racoon']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53485298)
+ Hopefully, a more intuitive way of doing it without recursion. Iterate through the list and let Python's sort and list comprehension do the work for you: 
+
+  words = ['giraffe', 'elephant', 'ant', 'tiger', 'racoon', 'cat', 'hedgehog', 'mouse']
+
+def chain_longest(pivot, words):
+    new_words = []
+    new_words.append(pivot)
+    for word in words:
+        potential_words = [i for i in words if i.startswith(pivot[-1]) and i not in new_words]
+        if potential_words:
+            next_word = sorted(potential_words, key = lambda x: len)[0]
+            new_words.append(next_word)
+            pivot = next_word
+        else:
+            pass
+    return new_words
+
+max([chain_longest(i, words) for i in words], key = len)
+>>
+['hedgehog', 'giraffe', 'elephant', 'tiger', 'racoon']
+  
+
+ Set a pivot and check for  potential_words  if they start with your pivot word and do not appear in your new list of words. If found then just sort them by length and take the first element.  
+
+ The list comprehension goes through every word as a pivot and returns you the longest chain. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54432896)
+ For every word in the list, check that, if the length of the current word is more than the longest word we have seen so far then it is the new longest word. 
+
+ Basically, instead of storing the lengths of the words in a list, we are checking it every time & then determining the word, with the longest length. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53486363)
+ In the spirit of brute force solutions, you can check all permutations of the  words  list and choose the best continuous starting sequence: 
+
+  from itertools import permutations
+
+def continuous_starting_sequence(words):
+    chain = [words[0]]
+    for i in range(1, len(words)):
+        if not words[i].startswith(words[i - 1][-1]):
+            break
+        chain.append(words[i])
+    return chain
+
+words = ['giraffe', 'elephant', 'ant', 'tiger', 'racoon', 'cat', 'hedgehog', 'mouse']
+best = max((continuous_starting_sequence(seq) for seq in permutations(words)), key=len)
+
+print(best)
+# ['hedgehog', 'giraffe', 'elephant', 'tiger', 'racoon']
+  
+
+ Since we're considering all permutations, we know that there must be a permutation that starts with the largest word chain. 
+
+ This, of course, has  O(n n!)   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53485352)
+ Here is a working recursive brute-force approach: 
+
+  def brute_force(pool, last=None, so_far=None):
+    so_far = so_far or []
+    if not pool:
+        return so_far
+    candidates = []
+    for w in pool:
+        if not last or w.startswith(last):
+            c_so_far, c_pool = list(so_far) + [w], set(pool) - set([w])
+            candidates.append(brute_force(c_pool, w[-1], c_so_far))
+    return max(candidates, key=len, default=so_far)
+
+>>> brute_force(words)
+['hedgehog', 'giraffe', 'elephant', 'tiger', 'racoon']
+  
+
+ At every recursive call, this tries to continue the chain with every eligible word form the remaining pool. It then chooses the longest such continuation. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53492290)
+ I have a new idea, as the figure shows: 
+
+ https://i.stack.imgur.com/nHPfW.png 
+
+ We can construct a directed graph by word[0] == word[-1], then the problem is converted to find the maximum length path. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53485347)
+ This function creates a type of iterator called a generator  (see: https://stackoverflow.com/questions/231767). It recursively creates further instances of the same generator to explore all possible tail sequences: 
+
+  words = ['giraffe', 'elephant', 'ant', 'tiger', 'racoon', 'cat', 'hedgehog', 'mouse']
+
+def chains(words, previous_word=None):
+    # Consider an empty sequence to be valid (as a "tail" or on its own):
+    yield []
+    # Remove the previous word, if any, from consideration, both here and in any subcalls:
+    words = [word for word in words if word != previous_word]
+    # Take each remaining word...
+    for each_word in words:
+        # ...provided it obeys the chaining rule
+        if not previous_word or each_word.startswith(previous_word[-1]):
+            # and recurse to consider all possible tail sequences that can follow this particular word:
+            for tail in chains(words, previous_word=each_word):
+                # Concatenate the word we're considering with each possible tail:
+                yield [each_word] + tail  
+
+all_legal_sequences = list(chains(words))  # convert the output (an iterator) to a list
+all_legal_sequences.sort(key=len) # sort the list of chains in increasing order of chain length
+for seq in all_legal_sequences: print(seq)
+# The last line (and hence longest chain) prints as follows:
+# ['hedgehog', 'giraffe', 'elephant', 'tiger', 'racoon']
+  
+
+ Or, to get straight to the longest chain more efficiently: 
+
+  print(max(chains(words), key=len)
+  
+
+ Finally, here is an alternative version that allows repeated words in the input (i.e. if you include a word N times, you may use it up to N times in the chain): 
+
+  def chains(words, previous_word_index=None):
+    yield []
+    if previous_word_index is not None:
+        previous_letter = words[previous_word_index][-1]
+        words = words[:previous_word_index] + words[previous_word_index + 1:]
+    for i, each_word in enumerate( words ):
+        if previous_word_index is None or each_word.startswith(previous_letter):
+            for tail in chains(words, previous_word_index=i):
+                yield [each_word] + tail  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14725806)
+ Your existing code could actually be modified to work without much trouble. Instead of keeping a single string in  s , keep a  list  of strings. If you find one that's the same length as the previous longest,  append  it. If you find one that's even longer, throw out the  list  and start a new one.  
+
+  p=0
+s=[]
+for item in lst:
+    if len(item) > p:
+        s=[item]
+        p=len(item)
+    elif len(item) == p:
+        s.append(item)
+print(s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47113982)
+ If you only want to know the length, and not the actual word, you can use: 
+
+  def length(s):
+    l = map(len, s.split())
+    return max(l), min(l)
+  
+
+
+

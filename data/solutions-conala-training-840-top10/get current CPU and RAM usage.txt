@@ -1,0 +1,216 @@
+Query: get current CPU and RAM usage
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52586129)
+ This script for CPU usage: 
+
+  import os
+
+def get_cpu_load():
+    """ Returns a list CPU Loads"""
+    result = []
+    cmd = "WMIC CPU GET LoadPercentage "
+    response = os.popen(cmd + ' 2>&1','r').read().strip().split("\r\n")
+    for load in response[1:]:
+       result.append(int(load))
+    return result
+
+if __name__ == '__main__':
+    print get_cpu_load()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42275253)
+ One-liner for the RAM usage with only stdlib dependency: 
+
+  import os
+tot_m, used_m, free_m = map(int, os.popen('free -t -m').readlines()[-1].split()[1:])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38984517)
+ Use the https://pypi.org/project/psutil/.  On Ubuntu 18.04, pip installed 5.5.0 (latest version) as of 1-30-2019.  Older versions may behave somewhat differently. 
+ You can check your version of psutil by doing this in Python: 
+
+  from __future__ import print_function  # for Python2
+import psutil
+print(psutil.__versi‌​on__)
+  
+
+ To get some memory and CPU stats: 
+
+  from __future__ import print_function
+import psutil
+print(psutil.cpu_percent())
+print(psutil.virtual_memory())  # physical memory usage
+print('memory % used:', psutil.virtual_memory()[2])
+  
+
+ The  virtual_memory  (tuple) will have the percent memory used system-wide.  This seemed to be overestimated by a few percent for me on Ubuntu 18.04. 
+
+ You can also get the memory used by the current Python instance: 
+
+  import os
+import psutil
+pid = os.getpid()
+py = psutil.Process(pid)
+memoryUse = py.memory_info()[0]/2.**30  # memory use in GB...I think
+print('memory use:', memoryUse)
+  
+
+ which gives the current memory use of your Python script. 
+
+ There are some more in-depth examples on the https://pypi.org/project/psutil/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42249349)
+ Below codes, without external libraries worked for me. I tested at Python 2.7.9 
+
+  CPU Usage  
+
+  import os
+
+    CPU_Pct=str(round(float(os.popen('''grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage }' ''').readline()),2))
+
+    #print results
+    print("CPU Usage = " + CPU_Pct)
+  
+
+  And Ram Usage, Total, Used and Free  
+
+  import os
+mem=str(os.popen('free -t -m').readlines())
+"""
+Get a whole line of memory output, it will be something like below
+['             total       used       free     shared    buffers     cached\n', 
+'Mem:           925        591        334         14         30        355\n', 
+'-/+ buffers/cache:        205        719\n', 
+'Swap:           99          0         99\n', 
+'Total:        1025        591        434\n']
+ So, we need total memory, usage and free memory.
+ We should find the index of capital T which is unique at this string
+"""
+T_ind=mem.index('T')
+"""
+Than, we can recreate the string with this information. After T we have,
+"Total:        " which has 14 characters, so we can start from index of T +14
+and last 4 characters are also not necessary.
+We can create a new sub-string using this information
+"""
+mem_G=mem[T_ind+14:-4]
+"""
+The result will be like
+1025        603        422
+we need to find first index of the first space, and we can start our substring
+from from 0 to this index number, this will give us the string of total memory
+"""
+S1_ind=mem_G.index(' ')
+mem_T=mem_G[0:S1_ind]
+"""
+Similarly we will create a new sub-string, which will start at the second value. 
+The resulting string will be like
+603        422
+Again, we should find the index of first space and than the 
+take the Used Memory and Free memory.
+"""
+mem_G1=mem_G[S1_ind+8:]
+S2_ind=mem_G1.index(' ')
+mem_U=mem_G1[0:S2_ind]
+
+mem_F=mem_G1[S2_ind+8:]
+print 'Summary = ' + mem_G
+print 'Total Memory = ' + mem_T +' MB'
+print 'Used Memory = ' + mem_U +' MB'
+print 'Free Memory = ' + mem_F +' MB'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2468983)
+ https://pypi.python.org/pypi/psutil will give you some system information (CPU / Memory usage) on a variety of platforms: 
+
+ 
+   psutil is a module providing an interface for retrieving information on running processes and system utilization (CPU, memory) in a portable way by using Python, implementing many functionalities offered by tools like ps, top  and Windows task manager. 
+  
+   It currently supports Linux, Windows, OSX, Sun Solaris, FreeBSD, OpenBSD and NetBSD, both 32-bit and 64-bit architectures, with Python versions from 2.6 to 3.5 (users of Python 2.4 and 2.5 may use 2.1.3 version). 
+ 
+
+ 
+
+ UPDATE: Here is some example usages of  psutil : 
+
+  #!/usr/bin/env python
+import psutil
+# gives a single float value
+psutil.cpu_percent()
+# gives an object with many fields
+psutil.virtual_memory()
+# you can convert that object to a dictionary 
+dict(psutil.virtual_memory()._asdict())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49467859)
+ I feel like these answers were written for Python 2, and in any case nobody's made mention of the standard https://docs.python.org/3/library/resource.html package that's available for Python 3. It provides commands for obtaining the resource  limits  of a given process (the calling Python process by default). This isn't the same as getting the current  usage  of resources by the system as a whole, but it could solve some of the same problems like e.g. "I want to make sure I only use X much RAM with this script." 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2311471)
+ I was working on basically the same thing just a couple of weeks ago and I too was having trouble with psutil.cpu_percent().   
+
+ Instead I used psutil.cpu_times() which gives cpu time used for user, system, idle and other things depending on your OS.  I dont know if this is a good way or even an accurate way of doing things. 
+
+  import psutil as ps
+
+class cpu_percent:
+    '''Keep track of cpu usage.'''
+
+    def __init__(self):
+        self.last = ps.cpu_times()
+
+    def update(self):
+        '''CPU usage is specific CPU time passed divided by total CPU time passed.'''
+
+        last = self.last
+        current = ps.cpu_times()
+
+        total_time_passed = sum([current.__dict__.get(key, 0) - last.__dict__.get(key, 0) for key in current.attrs])
+
+        #only keeping track of system and user time
+        sys_time = current.system - last.system
+        usr_time = current.user - last.user
+
+        self.last = current
+
+        if total_time_passed > 0:
+            sys_percent = 100 * sys_time / total_time_passed
+            usr_percent = 100 * usr_time / total_time_passed
+            return sys_percent + usr_percent
+        else:
+            return 0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/276304)
+ "... current system status (current CPU, RAM, free disk space, etc.)"  And "*nix and Windows platforms" can be a difficult combination to achieve. 
+
+ The operating systems are fundamentally different in the way they manage these resources.  Indeed, they differ in core concepts like defining what counts as system and what counts as application time. 
+
+        
+
+ I don't think there's a clear enough consensus between Windows and *nix that makes this possible.  Indeed, there may not even be any consensus between the various operating systems called Windows.  Is there a single Windows API that works for both XP and Vista? 
+
+
+

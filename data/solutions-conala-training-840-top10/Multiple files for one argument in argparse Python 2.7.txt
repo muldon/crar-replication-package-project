@@ -1,0 +1,211 @@
+Query: Multiple files for one argument in argparse Python 2.7
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27008413)
+ If your goal is to read  one or more  readable files, you can try this: 
+
+  parser.add_argument('file', type=argparse.FileType('r'), nargs='+')
+  
+
+  nargs='+'  gathers all command line arguments into a list. There must also be one or more arguments or an error message will be generated. 
+
+  type=argparse.FileType('r')  tries to open each argument as a file for reading. It will generate an error message if argparse cannot open the file. You can use this for checking whether the argument is a valid and readable file. 
+
+ Alternatively, if your goal is to read  zero or more  readable files, you can simply replace  nargs='+'  with  nargs='*' . This will give you an empty list if no command line arguments are supplied. Maybe you might want to open stdin if you're not given any files - if so just add  default=[sys.stdin]  as a parameter to  add_argument . 
+
+ And then to process the files in the list: 
+
+  args = parser.parse_args()
+for f in args.file:
+    for line in f:
+        # process file...
+  
+
+ 
+
+ More about nargs:
+https://docs.python.org/2/library/argparse.html#nargs 
+
+ More about type: https://docs.python.org/2/library/argparse.html#type 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18933093)
+  >>> parser = argparse.ArgumentParser()
+>>> parser.add_argument('--foo', nargs='*')
+>>> parser.add_argument('--bar', nargs='*')
+>>> parser.parse_args('--foo x y --bar 1 2'.split())
+Namespace(bar=['1', '2'], foo=['x', 'y'])
+  
+
+ Also for your files argument you can also use  type=argparse.FileType('w')  or  type=argparse.FileType('r')  and it will create file objects for you when parsing the input 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23480357)
+ because per default https://docs.python.org/2/library/argparse.html#argparse.ArgumentParser.add_argument is for an argument that takes a parameter (try  --help ), but you have to set https://docs.python.org/2/library/argparse.html#action. 
+
+  parser.add_argument('--same', help = 'Find those in List1 that are the same in List2', action='store_true')
+  
+
+ here's your  --help : 
+
+  >>> parser.parse_args(['--help'])
+usage: [-h] [--same SAME] [--diff DIFF] infile1 infile2
+
+Compare two lists.
+
+positional arguments:
+  infile1
+  infile2
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --same SAME  Find those in List1 that are the same in List2
+  --diff DIFF  Find those in List2 that do not exist in List2
+  
+
+ and once your arguments are parsed, you access them as members of args: 
+
+  data1 = set(l.rstrip() for l in open(args.infile1))
+data2 = set(l2.rstrip() for l2 in open(args.infile2))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48190935)
+ Using argparse: 
+
+  import argparse
+parser=argparse.ArgumentParser()
+parser.add_argument(dest='wildcard',nargs='+')
+
+print(parser.parse_args().wildcard)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/22676206)
+ Yes, you can just create a custom action with an  nargs='*'  or  nargs='+' . 
+
+ Something like this should work: 
+
+  class GetLastAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values:
+            setattr(namespace, self.dest, values[-1])
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-a', nargs='+', action=GetLastAction)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23480347)
+  1)  The way you define  --same  and  --diff  they require an argument to follow them that would be assigned to the parsed arguments namespace. To make them boolean flags instead, you change that https://docs.python.org/dev/library/argparse.html#action by specifying the keyword argument  action='store_true' : 
+
+  parser.add_argument('--same',
+                    help='Find those in List1 that are the same in List2',
+                    action='store_true')
+  
+
+  2)  You don't store the parsed arguments in a variable, and you're trying to refer to them as locals instead of on the object returned by  parse_args() : 
+
+  args = parser.parse_args()
+
+if args.same:
+   # ...
+  
+
+  3)  If you specify https://docs.python.org/dev/library/argparse.html#type for the argument, the parsed argument will actually already be an opened file object - so don't use  open()  on it: 
+
+  data1 = set(l.rstrip() for l in args.infile1)
+  
+
+ 
+
+  Note : Currently a user can legally specify both  --same  and  --diff , so your program needs to deal with that. You'll probably want to make those flags https://docs.python.org/dev/library/argparse.html#mutual-exclusion. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11109863)
+ Define a new parser with common arguments and pass it to subparsers as http://docs.python.org/library/argparse.html#parents: 
+
+  files = argparse.ArgumentParser(add_help=False)
+files.add_argument('infile', nargs=1, help='input mesh file name')
+files.add_argument('outfile', nargs='?', help='output mesh file name')
+
+subparsers = parser.add_subparsers()
+parser_actionA = subparsers.add_parser('actionA', parents=[files])
+parser_actionB = subparsers.add_parser('actionB', parents=[files])
+etc..
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43391228)
+ For  default  keyword argument to work, you have to add  nargs='*'  like below: 
+
+  parser.add_argument("command",
+        help="the command to be executed",
+        choices=["dump", "delete", "update", "set"],
+        nargs='?',
+        default="set"
+    )
+  
+
+ See https://docs.python.org/2/library/argparse.html#default for more information :) 
+
+ Edit by OP:  nargs='*'  allows for multiple commands to be entered. Thus changed to  nargs='?'  as I am looking for  exactly one  command to be entered. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9336472)
+ You can use either  nargs='+'  or  nargs='*' . 
+These will gather the args into a list. 
+
+  import argparse
+the_parser = argparse.ArgumentParser()
+the_parser.add_argument('--input_files',nargs='+')
+args = the_parser.parse_args()
+  
+
+ If you want to call from another script using  subprocess  you could do: 
+
+  import subprocess
+the_files = ['to_merge_1.txt', 'to_merge_2.txt']
+cmdlnargs = ['python','argparse_example.py','--input_files']
+cmdlnargs.extend(the_files)
+
+subp = subprocess.Popen(cmdlnargs,
+                        stdout=subprocess.PIPE, 
+                        stdin=subprocess.PIPE,
+                        stderr=subprocess.STDOUT)    
+stdout, stderr = subp.communicate()
+print stdout
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22676315)
+ The  argparse  module does that by default. Take a look at this example, where we specify the same flag twice, and the last one wins: 
+
+  import argparse
+parser = argparse.ArgumentParser(description='example')
+parser.add_argument('-a', '--add')
+options = parser.parse_args(['-a', 'foo', '-a', 'bar'])
+print 'add = {}'.format(options.add) # output: add = bar
+  
+
+
+

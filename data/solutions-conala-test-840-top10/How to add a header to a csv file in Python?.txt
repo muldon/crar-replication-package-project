@@ -1,0 +1,288 @@
+Query: How to add a header to a csv file in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50129935)
+ if you plan to load the data into pandas, you don't need  csv  at all. 
+
+  import pandas as pd
+df = pd.read_csv(filename, sep='\t\, names=['a','b','c',...])
+  
+
+ . 
+
+ Afterwards you can write the dataframe as csv via 
+
+  df.to_csv(filename, sep`='\t')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42978214)
+ From the documentation of Python CSV module,  writeheader  can be used only with DictWriter. 
+[https://docs.python.org/2/library/csv.html#csv.DictWriter.writeheader][Documentation of writeheader] 
+
+ Hence, the code should not be using  writeheader .
+.  
+
+  if not file_exists:
+    writer.writerow(headers)
+else:
+    writer.writerow([strftime("%Y-%m-%d %H:%M:%S", gmtime()), v, w, z])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41390253)
+ Pandas is great solution, but if you want a python std lib solution: 
+
+  import csv
+from itertools import chain
+
+csv_input_filenames = [
+    'csvfile1.csv',
+    'csvfile2.csv',
+    'csvfile3.csv',
+]
+csv_output_filename = 'csv_out.csv'
+
+# get the csv data
+csv_files = [open(file_name) for file_name in csv_input_filenames]
+csv_handles = [csv.reader(csv_file) for csv_file in csv_files]
+rows = (list(chain(*row)) for row in zip(*csv_handles))
+
+# write combined output
+with open(csv_output_filename, 'wb') as csv_file:
+    filenames_header = list(chain(
+        *zip(csv_input_filenames, [''] * len(csv_input_filenames))))
+
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(filenames_header)
+
+    for row in rows:
+        csv_writer.writerow(row)
+
+# close input files
+for csv_file in csv_files:
+    csv_file.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34094058)
+ Alternatively you could read you csv with  header=None  and then add it with  df.columns : 
+
+  Cov = pd.read_csv("path/to/file.txt", sep='\t', header=None)
+Cov.columns = ["Sequence", "Start", "End", "Coverage"]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5700583)
+ Use the http://docs.python.org/library/csv.html that comes with Python. 
+
+  import csv
+import sys
+
+def process_file(filename):
+    # Read the contents of the file into a list of lines.
+    f = open(filename, 'r')
+    contents = f.readlines()
+    f.close()
+
+    # Use a CSV reader to parse the contents.
+    reader = csv.reader(contents)
+
+    # Open the output and create a CSV writer for it.
+    f = open(filename, 'wb')
+    writer = csv.writer(f)
+
+    # Process the header.
+    header = reader.next()
+    header.append('ID')
+    writer.writerow(header)
+
+    # Process each row of the body.
+    for row in reader:
+        row.append(filename)
+        writer.writerow(row)
+
+    # Close the file and we're done.
+    f.close()
+
+# Run the function on all command-line arguments. Note that this does no
+# checking for things such as file existence or permissions.
+map(process_file, sys.argv[1:])
+  
+
+ You can run this as follows: 
+
+  blair@blair-eeepc:~$ python csv_add_filename.py file1.csv file2.csv
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29753825)
+ Read the header first,  then  initialize the reader, write the header first,  then  initialize the writer: 
+
+  import csv
+
+with open("in.csv", "rb") as in_file:
+    header = in_file.readline()
+    csv_file_in = csv.reader(in_file, delimiter=" ")
+    with open("out.csv","wb") as out_file:
+        out_file.write(header)
+        csv_file_out = csv.writer(out_file, delimiter=" ")
+        for row in csv_file_in:
+            csv_file_out.writerow([row[0], 10] + row[1:])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50837673)
+ This worked for me.  
+
+  header = ['row1', 'row2', 'row3']
+some_list = [1, 2, 3]
+with open('test.csv', 'wt', newline ='') as file:
+    writer = csv.writer(file, delimiter=',')
+    writer.writerow(i for i in header)
+    for j in some_list:
+        writer.writerow(j)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40230004)
+ If using pandas is an option: 
+
+  import pandas as pd
+df = pd.read_csv('filename.csv')
+new_column = pd.DataFrame({'new_header': ['new_value_1', 'new_value_2', 'new_value_3']})
+df = df.merge(new_column, left_index = True, right_index = True)
+df.to_csv('filename.csv')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41982383)
+ Here is a comparison of the three suggested solutions for a ~200 MB CSV file with 10^6 rows and 10 columns (n=50).
+The ratio stays approximately the same for larger and smaller files (10 MB to 8 GB). 
+
+ 
+   cp:shutil:csv_reader 1:10:55 
+ 
+
+ i.e. using the builtin  cp  function is approximately 55 times faster than using Python's  csv  module. 
+
+ Computer:  
+
+ 
+ regular HDD 
+ Python 3.5.2 64-bit 
+ Ubuntu 16.04 
+ i7-3770 
+ 
+
+ https://i.stack.imgur.com/9Kfil.png 
+
+ 
+
+  import csv
+import random
+import shutil
+import time
+import subprocess
+
+rows = 1 * 10**3
+cols = 10
+repeats = 50
+
+shell_script = '/tmp/csv.sh'
+input_csv = '/tmp/temp.csv'
+output_csv = '/tmp/huge_output.csv'
+col_titles = ['titles_' + str(i) for i in range(cols)]
+
+with open(shell_script, 'w') as f:
+    f.write("#!/bin/bash\necho '{0}' > {1}\ncat {2} >> {1}".format(','.join(col_titles), output_csv, input_csv))
+
+with open(shell_script, 'w') as f:
+    f.write("echo '{0}' > {1}\ncat {2} >> {1}".format(','.join(col_titles), output_csv, input_csv))
+subprocess.call(['chmod', '+x', shell_script])
+
+run_times = dict([
+    ('csv_writer', list()),
+    ('external', list()),
+    ('shutil', list())
+])
+
+def random_csv():
+    with open(input_csv, 'w') as csvfile:
+        csv_writer = csv.writer(csvfile, delimiter=',')
+        for i in range(rows):
+            csv_writer.writerow([str(random.random()) for i in range(cols)])
+    with open(output_csv, 'w'):
+        pass
+
+for r in range(repeats):
+    random_csv()
+    #http://stackoverflow.com/a/41982368/2776376
+    start_time = time.time()
+    with open(input_csv) as fr, open(output_csv, "w", newline='') as fw:
+        cr = csv.reader(fr)
+        cw = csv.writer(fw)
+        cw.writerow(col_titles)
+        cw.writerows(cr)
+    run_times['csv_writer'].append(time.time() - start_time)
+
+    random_csv()
+    #http://stackoverflow.com/a/41982383/2776376
+    start_time = time.time()
+    subprocess.call(['bash', shell_script])
+    run_times['external'].append(time.time() - start_time)
+
+    random_csv()
+    #http://stackoverflow.com/a/41982383/2776376
+    start_time = time.time()
+    with open('header.txt', 'w') as header_file:
+        header_file.write(','.join(col_titles))
+
+    with open(output_csv, 'w') as new_file:
+        with open('header.txt', 'r') as header_file, open(input_csv, 'r') as main_file:
+            shutil.copyfileobj(header_file, new_file)
+            shutil.copyfileobj(main_file, new_file)
+    run_times['shutil'].append(time.time() - start_time)
+
+    print('#'*20)
+    for key in run_times:
+        print('{0}: {1:.2f} seconds'.format(key, run_times[key][-1]))
+
+print('#'*20)
+print('Averages')
+for key in run_times:
+    print('{0}: {1:.2f} seconds'.format(key, sum(run_times[key])/len(run_times[key])))
+  
+
+ 
+
+ If you really want to do it in Python, you could create the header file first and then merge it with your 2nd file via https://docs.python.org/3/library/shutil.html. 
+
+  import shutil
+with open('header.txt', 'w') as header_file:
+    header_file.write('col1;col2;col3')
+
+with open('new_file.csv', 'w') as new_file:
+    with open('header.txt', 'r') as header_file, open('main.csv', 'r') as main_file:
+        shutil.copyfileobj(header_file, new_file)
+        shutil.copyfileobj(main_file, new_file)
+  
+
+
+

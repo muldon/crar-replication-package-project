@@ -1,0 +1,363 @@
+Query: Getting the Cookies from an HTTP Connection
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3272700)
+ HTTP isn't the type of protocol to have "connections"; it's what they call "stateless", meaning each request is separate from every other request.  That's why we have things like session cookies; people had to hack in a way to allow information to be carried over between requests. 
+
+ Now, even though they're separate, HTTP 1.1 allows a client to make multiple requests over the same TCP/IP connection (which, although it's a connection to an HTTP server, is at a whole other level in the TCP/IP stack).  The requests will still be separate, but you don't have to open a new network connection.  This allows some efficiency gains, as opening a network connection can be expensive. 
+
+ If you'd like to take advantage of this, watch the headers in the request and response.  If the request is using an HTTP version less than 1.1, or there's a header that says http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.10, then the connection is to go away after the current request is handled.  Otherwise, once it's been cleared out (usually by reading all the data from the previous request), it can be reused. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4015856)
+ Cookies are sent within the HTTP header. Thus they are as secure as the HTTPS connection which depends on a lot of SSL/TLS parameters like cipher strength or length of the public key. 
+
+ Please keep in mind that unless you set the  Secure  flag for your Cookie, the Cookie can be transmitted over an unsecure HTTP connection. There are man-in-the-middle attacks that use such unsecure Cookies to steal session information. So, unless you have a good reason not to, always set the Secure flag for Cookies when you want them only transmitted over HTTPS. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7520734)
+ I have been getting  Error fetching http headers  for two reasons: 
+
+ 
+ The server takes to long time to answer. 
+ The server does not support  Keep-Alive  connections (which my answer covers). 
+ 
+
+ PHP will always try to use a persistent connection to the web service by sending the  Connection: Keep-Alive  HTTP header. If the server always closes the connection and has not done so (PHP has not received  EOF ), you can get  Error fetching http headers  when PHP tries to reuse the connection that is already closed on the server side. 
+
+  Note:  this scenario will only happen if the same  SoapClient  object sends more than one request and with a high frequency. Sending  Connection: close  HTTP header along with the first request would have fixed this. 
+
+ In PHP version 5.3.5 (currently delivered with Ubuntu) setting the HTTP header  Connection: Close  is not supported by SoapClient. One should be able to send in the HTTP header in a stream context (using the  $option  - key  stream_context  as argument to  SoapClient ), but https://bugs.php.net/bug.php?id=49853 ( Update:  This bug was  solved  in PHP version 5.3.11).  
+
+ An other solution is to http://www.xdevsoftware.com/blog/post/Set-KeepAlive-Header-in-PHP-SoapClient.aspx. On the link provided, a guy uses  Curl  to send the request. This will make your PHP application dependent on  Curl . The implementation is also missing functionality like saving request/response headers. 
+
+ A third solution is to just close the connection just after the response is received. This can be done by setting SoapClients attribute  httpsocket  to  NULL  in  __doRequest() ,  __call()  or  __soapCall() . Example with  __call() : 
+
+  class MySoapClient extends SoapClient {
+    function __call ($function_name , $arguments) {
+        $response = parent::__call ($function_name , $arguments);
+        $this->httpsocket = NULL;
+        return $response;
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2321774)
+ By default, a cookie can be read by both http and https at the same URL. 
+
+ However, a server can optionally specify the 'secure' flag while setting a cookie this tells the browser to only send it over a secure channel, such as an SSL connection. 
+
+ In this case the cookie will only be sent over https. A cookie not marked as secure will be sent over both http and https. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33718870)
+ The closest I could get to this is, by using a webview as login. Then you can continue your session in the HttpUrlConnection, with the cookies fetched from webview. The cookies can be used as follows:  
+
+  HttpURLConnection urlConnection = null;
+try {
+    urlConnection = (HttpURLConnection) url.openConnection();
+
+    // Fetch and set cookies in requests
+    CookieManager cookieManager = CookieManager.getInstance();
+    String cookie = cookieManager.getCookie(urlConnection.getURL().toString());
+    if (cookie != null) {
+        urlConnection.setRequestProperty("Cookie", cookie);
+    }
+    urlConnection.connect();
+
+    // Get cookies from responses and save into the cookie manager
+    List cookieList = urlConnection.getHeaderFields().get("Set-Cookie");
+    if (cookieList != null) {
+        for (String cookieTemp : cookieList) {
+            cookieManager.setCookie(urlConnection.getURL().toString(), cookieTemp);
+        }
+    }
+
+    InputStream in = new BufferedInputStream (urlConnection.getInputStream());
+} catch (IOException e) {
+    e.printStackTrace();
+} finally {
+    if (urlConnection != null) {
+        urlConnection.disconnect();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3239757)
+ As it has already been said, it's probably because you're using secure cookies. 
+
+ Note that, if you're not using secure cookies, you need to be careful in the logic of your application to enforce its security. It's OK to go from HTTPS to HTTP, but then, you should discard the HTTPS session. Otherwise, an attacker could get the cookie from the HTTP connection and use it over the HTTPS connection, pretending to be authenticated as the legitimate user. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25047234)
+ session.cookie_secure specifies whether cookies should only be sent over secure connections (HTTPS). If you're using HTTP, you won't get any cookies from the server. That's why you don't have a session. 
+
+ . You get the cookies, but your browser doesn't send them to the server, because you're not using a secure connection. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29701535)
+ It doesn't work that way.  setcookie  just says "with next http connection tell client (browser) to set this cookie. The browser sends it back in next http connection, if it has not expired yet. Only then it is contained in  $_COOKIE  array. So you can check that it is set in PHP after next page reload. 
+
+ Besides in your code second cookie will not be set, because you outputted something to the browser which is forbidden before  setcookie  function (any header function). 
+
+ 
+   setcookie() defines a cookie to be sent along with the rest of the HTTP headers. Like other headers, cookies must be sent before any output from your script (this is a protocol restriction). This requires that you place calls to this function prior to any output, including  and  tags as well as any whitespace. 
+  
+   Once the cookies have been set, they can be accessed on the next page
+  load with the $_COOKIE 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47749262)
+ just in case you're still searching for a solution: 
+
+ 1.In case your cookies only valid for a specific domain/subdomain - you should establish connection to your WebSocket server over the same address.
+For example, cookies that only valid for admin.example.com won't be sent to a WebSocket server on your root domain (example.com). 
+
+ 2.In case your cookies only valid for a secure connection (https://), your WebSocket server should be over a secure connection too (wss://), Which is quite easy to achieve with the latest Ratchet version. 
+
+  $webSock = new React\Socket\Server('0.0.0.0:8443', $loop);
+$webSock = new React\Socket\SecureServer($webSock, $loop, [
+    'local_cert'        => 'path_to_server_cert',
+    'local_pk'          => 'path_to_private_key',
+    //'allow_self_signed' => TRUE,
+    'verify_peer' => FALSE
+]);
+  
+
+ 3.With Ratchet 0.4.x, there is no longer a cookie parser.
+You can only get it as a raw string and then parse it by yourself. 
+
+ Get & Parse cookies with Ratchet 0.4.x : 
+
+  $cookiesRaw = $conn->httpRequest->getHeader('Cookie');
+
+if(count($cookiesRaw)) {
+    $cookiesArr = \GuzzleHttp\Psr7\parse_header($cookiesRaw)[0]; // Array of cookies
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/19165562)
+ The "correct" way of doing this is to implement a CookieHandler:  http://developer.android.com/reference/java/net/CookieHandler.html 
+
+ The most basic way of doing this is to extend Application and put this in your applications onCreate(): 
+
+  CookieHandler.setDefault(new CookieManager());
+  
+
+  PLEASE NOTE:   This will only implement a DEFAULT CookieManger.  The default CookieManger will manage cookies for all of your HTTP requests during a specific session of your application.  However, it does not have any means of persisting cookies over subsequent uses of the application. 
+
+ In order to do that, you'll need to write your own cookie manager by implementing CookieStore:
+http://developer.android.com/reference/java/net/CookieStore.html 
+
+ Here's an example of a CookieStore implementation i used in an app that is currently in the Google Play store: 
+
+  package com.touchvision.util;
+
+import java.net.CookieStore;
+import java.net.HttpCookie;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.util.Log;
+
+import com.touchvision.Config;
+
+/*
+ * This is a custom cookie storage for the application. This
+ * will store all the cookies to the shared preferences so that it persists
+ * across application restarts.
+ */
+public class TvCookieStore implements CookieStore {
+
+    private static final String LOGTAG = "TV-TvCookieStore";
+
+    /*
+     * The memory storage of the cookies
+     */
+    private Map<String, Map<String,String>> mapCookies = new HashMap<String, Map<String,String>>();
+    /*
+     * The instance of the shared preferences
+     */
+    private final SharedPreferences sharedPrefs;
+
+    /*
+     * @see java.net.CookieStore#add(java.net.URI, java.net.HttpCookie)
+     */
+    public void add(URI uri, HttpCookie cookie) {
+
+        String domain = cookie.getDomain();     
+
+        // Log.i(LOGTAG, "adding ( " + domain +", " + cookie.toString() );
+
+        Map<String,String> cookies = mapCookies.get(domain);
+        if (cookies == null) {
+            cookies = new HashMap<String, String>(); 
+            mapCookies.put(domain, cookies);
+        }
+        cookies.put(cookie.getName(), cookie.getValue());
+
+        if (cookie.getName().startsWith("SPRING_SECURITY") && !cookie.getValue().equals("")){
+           //  Log.i(LOGTAG, "Saving rememberMeCookie = " + cookie.getValue() );            
+            // Update in Shared Preferences
+            Editor e = sharedPrefs.edit();       
+            e.putString(Config.PREF_SPRING_SECURITY_COOKIE, cookie.toString());       
+            e.commit(); // save changes 
+        }
+
+    }
+
+   /*
+    * Constructor
+    * 
+    * @param  ctxContext the context of the Activity
+    */
+    public TvCookieStore(Context ctxContext) {
+
+        // Log.i(LOGTAG, "constructor()");
+
+        sharedPrefs = ctxContext.getSharedPreferences(Config.SHARED_PREF_NAME, Context.MODE_PRIVATE);
+    }
+
+    /*
+     * @see java.net.CookieStore#get(java.net.URI)
+     */
+    public List<HttpCookie> get(URI uri) {
+
+        List<HttpCookie> cookieList = new ArrayList<HttpCookie>();
+
+        String domain = uri.getHost(); 
+
+        // Log.i(LOGTAG, "getting ( " + domain +" )" );
+
+        Map<String,String> cookies = mapCookies.get(domain);
+        if (cookies == null) {
+               cookies = new HashMap<String, String>(); 
+               mapCookies.put(domain, cookies);
+        }  
+
+        for (Map.Entry<String, String> entry : cookies.entrySet()) {
+            cookieList.add(new HttpCookie(entry.getKey(), entry.getValue()));
+            // Log.i(LOGTAG, "returning cookie: " + entry.getKey() + "="+ entry.getValue());
+        }
+        return cookieList; 
+
+    }
+
+    /*
+     * @see java.net.CookieStore#removeAll()
+     */
+    public boolean removeAll() {
+
+        // Log.i(LOGTAG, "removeAll()" );
+
+        mapCookies.clear();
+        return true;
+
+    }        
+
+    /*
+     * @see java.net.CookieStore#getCookies()
+     */
+    public List<HttpCookie> getCookies() {
+
+        Log.i(LOGTAG, "getCookies()" );
+
+        Set<String> mapKeys = mapCookies.keySet();
+
+        List<HttpCookie> result = new ArrayList<HttpCookie>();
+        for (String key : mapKeys) {
+            Map<String,String> cookies =    mapCookies.get(key);
+            for (Map.Entry<String, String> entry : cookies.entrySet()) {
+                result.add(new HttpCookie(entry.getKey(), entry.getValue()));
+                Log.i(LOGTAG, "returning cookie: " + entry.getKey() + "="+ entry.getValue());
+            }             
+        }
+
+        return result;
+
+    }
+
+    /*
+     * @see java.net.CookieStore#getURIs()
+     */
+    public List<URI> getURIs() {
+
+        Log.i(LOGTAG, "getURIs()" );
+
+        Set<String> keys = mapCookies.keySet();
+        List<URI> uris = new ArrayList<URI>(keys.size());
+        for (String key : keys){
+            URI uri = null;
+            try {
+                uri = new URI(key);
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+            }
+            uris.add(uri);
+        }
+        return uris;
+
+    }
+
+    /*
+     * @see java.net.CookieStore#remove(java.net.URI, java.net.HttpCookie)
+     */
+    public boolean remove(URI uri, HttpCookie cookie) {
+
+        String domain = cookie.getDomain();     
+
+        Log.i(LOGTAG, "remove( " + domain +", " + cookie.toString() );
+
+        Map<String,String> lstCookies = mapCookies.get(domain);
+
+        if (lstCookies == null)
+            return false;
+
+        return lstCookies.remove(cookie.getName()) != null;
+
+    }
+
+}
+  
+
+ The above custom CookieStore uses SharedPreferences to persist cookies.  You implement the above class the similar to how you would implement the default CookieManager in your application class, but the line would look like this: 
+
+  CookieHandler.setDefault( new CookieManager( new TvCookieStore(this), CookiePolicy.ACCEPT_ALL));
+  
+
+ As you can see, the only Cookie i really cared about persisting was the Spring Security Cookie (we were using Spring Framework on the server side).  Your code will obviously be different to account for your specific needs.  
+
+ Another quick note:  I tried countless times to do what you're doing and handle the persistence of cookies within my http client class.  It was nothing but headaches.   Give this strategy a shot. 
+
+
+

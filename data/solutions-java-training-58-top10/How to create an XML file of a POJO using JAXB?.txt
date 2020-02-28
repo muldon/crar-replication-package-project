@@ -1,0 +1,561 @@
+Query: How to create an XML file of a POJO using JAXB?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8578030)
+  Note:   I'm the http://www.eclipse.org/eclipselink/moxy.php lead and a member of the http://jcp.org/en/jsr/detail?id=222 expert group. 
+
+ Assuming your XML document looks something like the following: 
+
+  <?xml version="1.0" encoding="UTF-8"?>
+<rows>
+    <row>
+        <col1>a1</col1>
+        <col2>b1</col2>
+        <col3>c1</col3>
+    </row>
+    <row>
+        <col1>a1</col1>
+        <col2>b2</col2>
+        <col3>c2</col3>
+    </row>
+</rows>
+  
+
+ You could leverage MOXy's @XmlPath annotation and do something like.  EclipseLink also includes a http://www.eclipse.org/eclipselink/jpa.php: 
+
+  Rows  
+
+ You will need to create a Root object to hold everything: 
+
+  package forum8577359;
+
+import java.util.List;
+import javax.xml.bind.annotation.*;
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Rows {
+
+    @XmlElement(name="row")
+    private List<A> rows;
+
+}
+  
+
+  A  
+
+ Since the contents for the  A ,  B , and    objects are all at the same level you can use MOXy's  @XmlPath  annotation and specify the  "."  .  This tells MOXy that the object, and the object it is referencing occur at the same level: 
+
+  package forum8577359;
+
+import javax.xml.bind.annotation.*;
+import org.eclipse.persistence.oxm.annotations.XmlPath;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+public class A {
+
+    private String col1;
+
+    @XmlPath(".")
+    private B b;
+
+}
+  
+
+  B  
+
+ Again we use  @XmlPath(".")  to map the relationship between  B  and   : 
+
+  package forum8577359;
+
+import javax.xml.bind.annotation.*;
+import org.eclipse.persistence.oxm.annotations.XmlPath;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+public class B {
+
+    private String col2;
+
+    @XmlPath(".")
+    private  c;
+
+}
+  
+
+    
+
+  package forum8577359;
+
+import javax.xml.bind.annotation.*;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+public class  {
+
+    private String col3;
+
+}
+  
+
+  Demo  
+
+ The following demo code can be used to run this example: 
+
+  package forum8577359;
+
+import java.io.File;
+import javax.xml.bind.*;
+
+public class Demo {
+
+    public static void main(String[] args) throws Exception {
+        JAXBontext jc = JAXBontext.newInstance(Rows.class);
+
+        Unmarshaller unmarshaller = jc.createUnmarshaller();
+        File xml = new File("src/forum8577359/input.xml");
+        Rows rows = (Rows) unmarshaller.unmarshal(xml);
+
+        Marshaller marshaller = jc.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        marshaller.marshal(rows, System.out);
+    }
+
+}
+  
+
+  jaxb.properties  
+
+ To specify MOXy as your JAXB provider you need to include a  jaxb.properties  file in the same package as your domain classes with the following entry: 
+
+  javax.xml.bind.context.factory = org.eclipse.persistence.jaxb.JAXBontextFactory
+  
+
+  For More Information  
+
+ 
+ http://blog.bdoughan.com/2011/05/specifying-eclipselink-moxy-as-your.html 
+ http://blog.bdoughan.com/2010/07/xpath-based-mapping.html 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25321858)
+ JAXB is the way to go.  
+
+ Note:
+It is included in JAVA 1.6 and later versions 
+
+ Add XML tags to your POJO  (XmlRootElement is enough for simple objects, XmlElement can also be added to variables) 
+
+  import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement(name = "Person")
+public class Person {
+
+    private String firstName;
+
+    private String lastName;
+
+    private String address;
+
+    public final String getFirstName() {
+        return firstName;
+    }
+
+    public final void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public final String getLastName() {
+        return lastName;
+    }
+
+    public final void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public final String getAddress() {
+        return address;
+    }
+
+    public final void setAddress(String address) {
+        this.address = address;
+    }
+
+    @Override
+    public String toString() {
+        return "FirstName: " + firstName + " LastName: " + lastName + " Address: " + address;
+    }
+
+}
+  
+
+ Use Unmarshaller to create the POJO from the xml file. 
+
+      File file = new File("<Path to Xml file>");
+    JAXBContext context = JAXBContext.newInstance(Person.class);
+    Unmarshaller unmarsheller = context.createUnmarshaller();
+    Person person = (Person) unmarsheller.unmarshal(file);
+    System.out.println(person);
+  
+
+ You can use Marshaller to create the XML from the POJO also. 
+
+ There are more examples available https://jaxb.java.net/tutorial/ to create complex objects, add lists, arrays. 
+
+ Note: It is not available in Android Platform, If you want to use it on android you can use http://simple.sourceforge.net/ with almost  same implementation  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25656014)
+ You could do the following with JAXB and StAX: 
+
+  import javax.xml.bind.*;
+import javax.xml.stream.*;
+import javax.xml.stream.events.XMLEvent;
+import java.io.*;
+
+public class Demo {
+
+    public static void main(String[] args) throws Exception {
+        XMLInputFactory xif = XMLInputFactory.newFactory();
+        XMLOutputFactory xof = XMLOutputFactory.newFactory();
+
+        try(
+           FileInputStream in = new FileInputStream("in.xml");
+           FileOutputStream out = new FileOutputStream("out.xml");
+        ) {
+            XMLEventReader xer = xif.createXMLEventReader(in);
+            XMLEventWriter xew = xof.createXMLEventWriter(out);
+
+            JAXBContext jc = JAXBContext.newInstance(File.class);
+            Unmarshaller unmarshaller = jc.createUnmarshaller();
+            Marshaller marshaller = jc.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FRAGMENT, true);
+
+            while(xer.hasNext()) {
+                if(xer.peek().isStartElement() && xer.peek().asStartElement().getName().getLocalPart().equals("file")) {
+                    // Unmarshal the File object from the XMLEventReader
+                    File file = (File) unmarshaller.unmarshal(xer);
+
+                    // Modify the File object
+                    file.description = "NEW DESCRIPTION";
+
+                    // Marshal the File object to the XMLEventWriter
+                    marshaller.marshal(file, xew);
+                } else {
+                    // Copy node from reader to writer
+                    xew.add(xer.nextEvent());
+                }
+            }
+        }
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40809040)
+ You can create a json directly from the classes created with jaxb. 
+
+ Jaxb create pojo classes. 
+
+ Any json library can create the json from a pojo instance. 
+
+ Here are the steps: 
+
+ 
+ Create your xsd 
+ Create the classes from the xsd using the tool http://docs.oracle.com/javase/6/docs/technotes/tools/share/xjc.html 
+ Create an instance of the classes 
+ Pass the instance to the pojo library and create a  String  from it 
+ 
+
+ Here an example with https://github.com/FasterXML/jackson: 
+
+  ObjectMapper mapper = new ObjectMapper();
+
+// PojoClass is the class created with xjc from your xsd
+PojoClass pojoInstance = new PojoClass();  
+
+// Populate pojoInstance as needed
+
+String jsonString = mapper.writeValueAsString(pojoInstance);
+System.out.println(jsonString);  // Print the pojoInstance as json string
+  
+
+ 
+
+ Creating a random object can be done with a code similar to the following. Note that this code creates only primitive types and objects with primitive types or references to other objects. For arrays, list, maps you need to enhance it. 
+
+  public class RandomObjectFiller {
+
+    private Random random = new Random();
+
+    public <T> T createAndFill(Class<T> clazz) throws Exception {
+        T instance = clazz.newInstance();
+        for(Field field: clazz.getDeclaredFields()) {
+            field.setAccessible(true);
+            Object value = getRandomValueForField(field);
+            field.set(instance, value);
+        }
+        return instance;
+    }
+
+    private Object getRandomValueForField(Field field) throws Exception {
+        Class<?> type = field.getType();
+
+
+        if(type.equals(Integer.TYPE) || type.equals(Integer.class)) {
+            return random.nextInt();
+        } else if(type.equals(Long.TYPE) || type.equals(Long.class)) {
+            return random.nextLong();
+        } else if(type.equals(Double.TYPE) || type.equals(Double.class)) {
+            return random.nextDouble();
+        } else if(type.equals(Float.TYPE) || type.equals(Float.class)) {
+            return random.nextFloat();
+        } else if(type.equals(String.class)) {
+            return UUID.randomUUID().toString();
+        } 
+        return createAndFill(type);
+    }
+}
+  
+
+ The previous example using this class is the following code: 
+
+  ObjectMapper mapper = new ObjectMapper();
+
+RandomObjectFiller randomObjectFiller = new RandomObjectFiller();
+
+// PojoClass is the class created with xjc from your xsd
+PojoClass pojoInstance = randomObjectFiller.createAndFill(PojoClass.class);
+
+String jsonString = mapper.writeValueAsString(pojoInstance);
+System.out.println(jsonString);  // Print the pojoInstance as json string
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21752861)
+ Since you are creating xml file for each <b>User</b> object, the objects will be <i>keep on replacing</i> when the program is taking an new User from DB 
+So create a POJO class <b>Users</b> with List of <b>User</b> as an attribute,  
+
+  public class Users 
+{
+//Users grouping
+private List<User> user;
+
+public void setUser(List<ProductInfo> userInfo) 
+{
+    this.user = userInfo;
+}
+
+@XmlElement(name="user")
+public List<User> getUser() {
+    return user;
+}
+  
+
+ } 
+
+ Then in the code section create instance of <b>JAXBContext</b> for the class <b>Users</b>, like mentioned below   
+
+   JAXBContext contextObj = JAXBContext.newInstance(Users.class);
+  
+
+ Now modify the while loop to set all user's information into <b>Users</b> object, and <b>marshar</b> the <b>Users object than marshaling the User</b> object. 
+
+  Users users = new Users();
+while (iterator.hasNext()) {
+      User student = (User) iterator.next();  
+      users.setUser(student);
+}
+MarshallerObj.marshal(users, new FileOutputStream("User.xml"));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13315642)
+ You just need to include the  ObjectFactory  in the array of classes used to bootstrap the  JAXBContext . 
+
+  JAXBContext jc = JAXBContext.newInstance(ObjectFactory.class);
+  
+
+ Or create the  JAXBContext  on the package name of the generated classes: 
+
+  JAXBContext jc = JAXBContext.newInstance("com.example.model");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35069266)
+  How to override the root xmlns attribute with MOXy:  
+
+ http://www.eclipse.org/eclipselink/#moxy provides easy customization of JAXB marshalling, including changing the default namespace of your root element.  The Object to XML mapping ( OXM ) for overriding the default namespace is: 
+
+  <?xml version="1.0"?>
+<xml-bindings xmlns="http://www.eclipse.org/eclipselink/xsds/persistence/oxm" version="2.5">
+    <xml-schema element-form-default="QUALIFIED" namespace="http://www.another.org/package"/>
+</xml-bindings>
+  
+
+ To have no default namespace, use  <xml-schema element-form-default="UNSET"/>  instead. 
+
+  MOXy Setup:  
+
+ 1) add the library to your project: 
+
+  <dependency>
+    <groupId>org.eclipse.persistence</groupId>
+    <artifactId>org.eclipse.persistence.moxy</artifactId>
+    <version>2.6.2</version>
+</dependency>
+  
+
+ 2) Add a  jaxb.properties  to your object model package to enable MOXy's factory ( e.g.   src/main/resources/com/sample/entity/jaxb.properties ): 
+
+  javax.xml.bind.context.factory=org.eclipse.persistence.jaxb.JAXBContextFactory
+  
+
+ 3) Instantiate your context according to your OXM configuration ( in this example, the OXM file is at   src/main/resources/com/sample/entity/my-oxm.xml ): 
+
+  Map<String, Source> metadata = Collections.singletonMap("com.sample.entity", new StreamSource(Customer.class.getResourceAsStream("my-oxm.xml")));
+Map<String, Object> properties = Collections.singletonMap(JAXBContextProperties.OXM_METADATA_SOURCE, metadata);
+JAXBContext jaxbContext = JAXBContext.newInstance(new Class[] {customer.getClass()}, properties);
+  
+
+ You can then use marshalling on the  JAXBContext  as normal.  Instantiate separate contexts for each different OXM file you want to use. 
+
+  Additional customizations with MOXy:  
+
+ Using MOXy allows you to further customize the marshalling of your entity in the future without changing your object model, effectively making your marshalling logic adhere to the https://stackoverflow.com/q/59016/2646526 even though you have no explicit  Marshaller  classes.  For instance, if you needed to marshal your  Customer  object as a  Person , you could do this by adding another OXM file: 
+
+  <?xml version="1.0"?>
+<xml-bindings xmlns="http://www.eclipse.org/eclipselink/xsds/persistence/oxm" version="2.5">
+    <xml-schema element-form-default="QUALIFIED" namespace="http://www.example.com/person"/>
+    <java-types>
+        <java-type name="com.sample.entity.Customer">
+            <xml-root-element name="person"/>
+            <java-attributes>
+                <xml-attribute java-attribute="id" name="personId"/>
+                <xml-element java-attribute="id" xml-path="someOtherId/text()"/>
+            </java-attributes>
+        </java-type>
+    </java-types>
+</xml-bindings>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16823889)
+ Marshalling to XML is easy, but it took me a while to figure out how to marshall to JSON.  Pretty simple after you find the solution though. 
+
+  public static String marshalToXml( Object o ) throws JAXBException {
+
+    StringWriter writer = new StringWriter();
+    Marshaller marshaller = JAXBContext.newInstance( o.getClass() ).createMarshaller();
+    marshaller.setProperty( Marshaller.JAXB_FORMATTED_OUTPUT, true );
+    marshaller.marshal( o, writer );
+    return writer.toString();
+}
+
+public static String marshalToJson( Object o ) throws JAXBException {
+
+    StringWriter writer = new StringWriter();
+    JAXBContext context = JSONJAXBContext.newInstance( o.getClass() );
+
+    Marshaller m = context.createMarshaller();
+    JSONMarshaller marshaller = JSONJAXBContext.getJSONMarshaller( m );
+    marshaller.setProperty( Marshaller.JAXB_FORMATTED_OUTPUT, true );
+    marshaller.marshallToJSON( o, writer );
+    return writer.toString();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27817336)
+ You can use one of the  unmarshal  methods on  Unmarshaller  that take a  Class  parameter to get the behaviour you are looking for. By telling JAXB what type of  Class  you are unmarshalling it doesn't need to figure one out itself by the root element.   
+
+  StreamSource xmlSource = new StreamSource(getFullFileName());
+JAXBElement<Ulti> jaxbElement = unmarshaller.unmarshal(xmlSource, Ulti.class);
+Ulti icc = jaxbElement.getValue();
+  
+
+  Note:  
+
+ The advantage of using  Unmarshaller.unmarshal(Source, Class)  over  JAXB.unmarshal(File, Class)  is the performance benefit of processing the metadata only once by creating a  JAXBContext  that can be reused. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/24552407)
+ JAXB - Java to XML binding, is the way to go for effective and efficient XML to POJO and vice versa as pointed by above example. 
+
+ Plus required tools are bundled with JDK only requirement is error free XSD/set of XSDs required for creating object bindings. 
+
+ XJC 
+
+ xjc  with either command line args as -p for package name -d for out dir etc. details can be found on xjc man page/refer <a href=https//jaxb.java.net/2.2.4/docs/xjc.html rel=nofollow>Online page . 
+
+ But if implementation involves multiple xsds, then prefer using xjb (binding file) 
+
+  <jxbbindings xmlnsjxb=http//java.sun.com/xml/ns/jaxb
+              xmlnsxs=http//www.w3.org/2001/XMLSchema
+              xmlnsxjc=http//java.sun.com/xml/ns/jaxb/xjc
+              version=2.1 jxbextensionBindingPrefixes=xjc>
+    <jxbglobalBindings>
+        <xjcsimple/>
+    </jxbglobalBindings>
+    <jxbbindings schemaLocation=schema/xml/xmldsig-core-schema.xsd>
+        <jxbschemaBindings>
+            <jxbpackage name=org.w3.xmldsig/>
+        </jxbschemaBindings>
+    </jxbbindings>
+    <jxbbindings schemaLocation=schema/xml/xenc-schema.xsd>
+        <jxbschemaBindings>
+            <jxbpackage name=org.w3.xenc/>
+        </jxbschemaBindings>
+    </jxbbindings>
+</jxbbindings>
+  
+
+ Comprehensive guide from oracle on XJBs <a href=http//docs.oracle.com/cd/E17802_01/webservices/webservices/docs/1.5/tutorial/doc/JAXBUsing4.html rel=nofollow>Guide  
+
+ Once you have your bindings generated, all you need is create  JAXBContext  with either class or list of packages separated by  
+
+  final JAXBContext context = JAXBContext.newInstance(Generated.class);
+final JAXBContext contextOnPackage = JAXBContext.newInstance(com.alpha.generatedcom.beta.generated);
+  
+
+ optionally you can provide a Classloader as well 
+    final JAXBContext contextCustomClassLoader = JAXBContext.newInstnace(...., X.class.getClassLoader()); // this is for more advanced use. 
+
+  
+
+  // source can be a file/InputStream/InputSource etc.  
+Test obj = (Test)context.createUnMarshaller().unmarshal(source);
+  
+
+  
+
+  Test test = gen.xml.package.ObjectFactory.createTest();  
+// Bunch of setters   
+// gen.xml.package is generated package XJC will create ObjectFactory as well  
+// sink can be File/OutputStream/Writer etc.  
+context.createMarshaller().marshal(test, sink);
+  
+
+ For more details refer to Javadocs and JAXB Specifications.    
+
+
+

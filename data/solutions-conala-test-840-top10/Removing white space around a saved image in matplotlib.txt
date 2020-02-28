@@ -1,0 +1,210 @@
+Query: Removing white space around a saved image in matplotlib
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50512838)
+ I found the following codes work perfectly for the job. 
+
+  fig = plt.figure(figsize=[6,6])
+ax = fig.add_subplot(111)
+ax.imshow(data)
+ax.axes.get_xaxis().set_visible(False)
+ax.axes.get_yaxis().set_visible(False)
+ax.set_frame_on(False)
+plt.savefig('data.png', dpi=400, bbox_inches='tight',pad_inches=0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11847260)
+ You can remove the white space padding by setting  bbox_inches="tight"  in  savefig : 
+
+  plt.savefig("test.png",bbox_inches='tight')
+  
+
+ You'll have to put the argument to  bbox_inches  as a string, perhaps this is why it didn't work earlier for you. 
+
+ 
+
+  Possible duplicates:  
+
+ https://stackoverflow.com/questions/9295026/matplotlib-plots-removing-axis-legends-and-white-spaces 
+
+ https://stackoverflow.com/questions/10898919/how-to-set-the-margins-for-a-matplotlib-figure 
+
+ https://stackoverflow.com/questions/4042192/reduce-left-and-right-margins-in-matplotlib-plot 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46158847)
+ I found something from Arvind Pereira (http://robotics.usc.edu/~ampereir/wordpress/?p=626) and seemed to work for me: 
+
+  plt.savefig(filename, transparent = True, bbox_inches = 'tight', pad_inches = 0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51573601)
+ This should remove all padding and borders: 
+
+  from matplotlib import pyplot as plt
+
+fig = plt.figure()
+fig.patch.set_visible(False)
+
+ax = fig.add_subplot(111)
+
+plt.axis('off')
+plt.imshow(data)
+
+extent = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+plt.savefig("../images/test.png", bbox_inches=extent)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25570004)
+ You can also specify the extent of the figure to the  bbox_inches  argument. This would get rid of the white padding around the figure. 
+
+  def make_image(inputname,outputname):
+    data = mpimg.imread(inputname)[:,:,0]
+    fig = plt.imshow(data)
+    fig.set_cmap('hot')
+    ax = fig.gca()
+    ax.set_axis_off()
+    ax.autoscale(False)
+    extent = ax.get_window_extent().transformed(plt.gcf().dpi_scale_trans.inverted())
+    plt.savefig(outputname, bbox_inches=extent)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53310715)
+ After trying the above answers with no success (and a slew of other stack posts) what finally worked for me was just 
+
+<pre class="lang-py prettyprint-override"> plt.gca().set_axis_off()
+plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
+            hspace = 0, wspace = 0)
+plt.margins(0,0)
+plt.savefig("myfig.pdf")
+  
+
+ Importantly this does not include the bbox or padding arguments. For unclear reasons, when I had the bbox argument included in my savefig, my figure was shifted right and upwards off-center. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9295367)
+ I learned this trick from https://stackoverflow.com/q/8218887/190597: 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+def make_image(data, outputname, size=(1, 1), dpi=80):
+    fig = plt.figure()
+    fig.set_size_inches(size)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
+    plt.set_cmap('hot')
+    ax.imshow(data, aspect='equal')
+    plt.savefig(outputname, dpi=dpi)
+
+# data = mpimg.imread(inputname)[:,:,0]
+data = np.arange(1,10).reshape((3, 3))
+
+make_image(data, '/tmp/out.png')
+  
+
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9295472)
+ I think that the command  axis('off')  takes care of one of the problems more succinctly than changing each axis and the border separately. It still leaves the white space around the border however. Adding  bbox_inches='tight'  to the  savefig  command almost gets you there, you can see in the example below that the white space left is much smaller, but still present. 
+
+  from numpy import random
+import matplotlib.pyplot as plt
+
+data = random.random((5,5))
+img = plt.imshow(data, interpolation='nearest')
+img.set_cmap('hot')
+plt.axis('off')
+plt.savefig("test.png", bbox_inches='tight')
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35431657)
+ By switching to the mpl object-oriented style, you can plot both the image and the scatter plot on the same axes, and hence only have to set the whitespace once, by using  ax.imshow  and  ax.scatter . 
+
+ In the example below, I've used http://matplotlib.org/api/figure_api.html#matplotlib.figure.Figure.subplots_adjust to remove the whitespace around the axes, and  ax.axis('tight')  to set the axis limits to the data range. 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+# Load an image
+im = plt.imread('stinkbug.png')
+
+# Set the alpha
+alpha = 0.5
+
+# Some random scatterpoint data
+sx = np.random.rand(100)
+sy = np.random.rand(100)
+
+# Creare your figure and axes
+fig,ax = plt.subplots(1)
+
+# Set whitespace to 0
+fig.subplots_adjust(left=0,right=1,bottom=0,top=1)
+
+# Display the image
+ax.imshow(im,alpha=alpha,extent=(0,1,1,0))
+
+# Turn off axes and set axes limits
+ax.axis('tight')
+ax.axis('off')
+
+# Plot the scatter points
+ax.scatter(sx, sy,c="gray",s=4,linewidths=.2,alpha=.5)
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/Bu4Xi.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47999122)
+ First, for certain image formats (i.e. https://en.wikipedia.org/wiki/TIFF) you can actually save the colormap in the header and most viewers will show your data with the colormap. 
+
+ For saving an actual  matplotlib  image, which can be useful for adding annotations or other data to images, I've used the following solution: 
+
+  fig, ax = plt.subplots(figsize=inches)
+ax.matshow(data)  # or you can use also imshow
+# add annotations or anything else
+# The code below essentially moves your plot so that the upper
+# left hand corner coincides with the upper left hand corner
+# of the artist
+fig.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+# now generate a Bbox instance that is the same size as your
+# single axis size (this bbox will only encompass your figure)
+bbox = matplotlib.transforms.Bbox(((0, 0), inches))
+# now you can save only the part of the figure with data
+fig.savefig(savename, bbox_inches=bbox, **kwargs)
+  
+
+
+

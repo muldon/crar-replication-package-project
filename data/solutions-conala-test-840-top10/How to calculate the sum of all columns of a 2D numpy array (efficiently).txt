@@ -1,0 +1,290 @@
+Query: How to calculate the sum of all columns of a 2D numpy array (efficiently)
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13567397)
+ Use http://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html.  
+
+  sum = a.sum(axis=0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13567424)
+ Use the  axis  argument: 
+
+  >> numpy.sum(a, axis=0)
+  array([18, 22, 26])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13567433)
+ Then NumPy  sum  function takes an optional axis argument that specifies along which axis you would like the sum performed: 
+
+  >>> a = numpy.arange(12).reshape(4,3)
+>>> a.sum(0)
+array([18, 22, 26])
+  
+
+  
+
+  >>> numpy.sum(a, 0)
+array([18, 22, 26])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45937825)
+ Other alternatives for summing the columns are 
+
+
+
+  numpy.einsum('ij->j', a)
+  
+
+  
+
+
+
+  numpy.dot(a.T, numpy.ones(a.shape[0]))
+  
+
+ If the number of rows  columns is in the same order of magnitude, all of the possibilities are roughly equally fast: 
+
+ https://i.stack.imgur.com/T5rty.png 
+
+ If there are only a few columns, however, both the  einsum   the  dot  solution significantly outperform numpy's  sum  (note the log-scale): 
+
+ <a href="https://i.stack.imgur.com/jGBXF.png"  
+
+ 
+
+ Code to reproduce the plots: 
+
+
+
+  import numpy
+import perfplot
+
+
+def numpy_sum(a):
+    return numpy.sum(a, axis=1)
+
+
+def einsum(a):
+    return numpy.einsum('ij->i', a)
+
+
+def dot_ones(a):
+    return numpy.dot(a, numpy.ones(a.shape[1]))
+
+
+perfplot.show(
+    # setup=lambda n: numpy.rom.r(n, n),
+    setup=lambda n: numpy.rom.r(n, 3),
+    n_range=[2**k for k in range(15)],
+    kernels=[numpy_sum, einsum, dot_ones],
+    logx=True,
+    logy=True,
+    xlabel='len(a)',
+    )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13567388)
+ Check out the documentation for http://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html, paying particular attention to the  axis  parameter. To sum over columns:   
+
+  >>> import numpy as np
+>>> a = np.arange(12).reshape(4,3)
+>>> a.sum(axis=0)
+array([18, 22, 26])
+  
+
+ Or, to sum over rows: 
+
+  >>> a.sum(axis=1)
+array([ 3, 12, 21, 30])
+  
+
+ Other aggregate functions, like http://docs.scipy.org/doc/numpy/reference/generated/numpy.mean.html, http://docs.scipy.org/doc/numpy/reference/generated/numpy.cumsum.html and http://docs.scipy.org/doc/numpy/reference/generated/numpy.std.html, e.g., also take the  axis  parameter. 
+
+ From the https://scipy.github.io/old-wiki/pages/Tentative_NumPy_Tutorial#Basic_Operations: 
+
+ 
+   Many unary operations, such as computing the sum of all the elements
+  in the array, are implemented as methods of the  ndarray  class.  By
+  default, these operations apply to the array as though it were a list
+  of numbers, regardless of its shape. However, by specifying the  axis 
+  parameter you can apply an operation along the specified axis of an
+  array: 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18688961)
+  >>> import numpy as np
+>>> a=np.array([[1,2,3],[10,2,2]])
+>>> a
+array([[ 1,  2,  3],
+       [10,  2,  2]])
+
+#Mean of rows.
+>>> np.mean(a,axis=1)
+array([ 2.        ,  4.66666667])
+
+#Mean of columns.
+>>> np.mean(a,axis=0)
+array([ 5.5,  2. ,  2.5])
+  
+
+ You can also do this with sum: 
+
+  #Sum of rows.
+>>> np.sum(a,axis=1)
+array([ 6, 14])
+
+#Sum of columns
+>>> np.sum(a,axis=0)
+array([11,  4,  5])
+  
+
+ Numpy's function will usually take an  axis  argument, in terms of a 2D array  axis=0  will apply the function across columns while  axis=1  will apply this across rows. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44147477)
+ I think you can do it with NumPy. Let  arr=df.values . First, let's find all two-column combinations: 
+
+  from itertools import combinations    
+column_combos = combinations(range(arr.shape[1]), 2)
+  
+
+ Now, subtract columns pairwise and convert a list of arrays back to a 2D array: 
+
+  result = np.array([(arr[:,x[1]] - arr[:,x[0]]) for x in column_combos]).T
+#array([[1., 2., 3., 1., 2., 1.],
+#       [1., 2., 3., 1., 2., 1.],
+#       [1., 2., 3., 1., 2., 1.]])
+  
+
+ Another solution is somewhat (~15%)  faster  because it subtracts whole 2D arrays rather than columns, and has fewer Python-side iterations: 
+
+  result = np.concatenate([(arr.T - arr.T[x])[x+1:] for x in range(arr.shape[1])]).T
+#array([[ 1., 2., 3., 1., 2., 1.],
+#       [ 1., 2., 3., 1., 2., 1.],
+#       [ 1., 2., 3., 1., 2., 1.]])
+  
+
+ You can convert the result back to a DataFrame if you want: 
+
+  columns = list(map(lambda x: x[1]+x[0], combinations(df.columns, 2)))
+#['BA', 'CA', 'DA', 'CB', 'DB', 'DC']
+
+pd.DataFrame(result, columns=columns)
+#    BA   CA   DA   CB   DB   DC
+#0  1.0  2.0  3.0  1.0  2.0  1.0
+#1  1.0  2.0  3.0  1.0  2.0  1.0
+#2  1.0  2.0  3.0  1.0  2.0  1.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46416019)
+ You want to slice along the second dimension.  However, keep in mind that  numpy  uses zero based indexing.  You'll need  [1, 2, 0, 1, 2]  instead of  [2, 3, 1, 2, 3]    
+
+  a = np.array([
+    [1, 2, 3],
+    [2, 3, 4]])
+
+a[:, [1, 2, 0, 1, 2]]
+
+array([[2, 3, 1, 2, 3],
+       [3, 4, 2, 3, 4]])
+
+​
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52216760)
+ Swapping the last two columns is done this way: 
+
+  a = np.array([[1., 1., 0.],
+             [0., 4., 0.],
+             [8., 0., 8.],
+             [0., 0., 0.],
+             [5., 0., 0.],
+             [2., 2., 2.]])
+
+result = a[:, [0, 2, 1]]
+  
+
+ So, what you need is to calculate those indexes  [0, 2, 1]  based on column sums. 
+
+ This gets you the sums of all columns: 
+
+  a.sum(axis=0)  # array([16.,  7., 10.])
+  
+
+ and from that, you get the indices for sorting: 
+
+  np.argsort(np.array([16.,  7., 10.]))   # [1, 2, 0]
+  
+
+ You need to flip it to get the highest-to-lowest order: 
+
+  np.flip([1, 2, 0])   # [0, 2, 1]
+  
+
+  
+
+  result = a[:, np.flip(np.argsort(a.sum(axis=0)))]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/12217584)
+ It looks like you are using PIL.  If so I'd use numpy for this. 
+
+ Assuming you are using PIL version >= 1.1.6 , you can convert between the PIL object  src_pix  to numpy array like so: 
+
+  np_pix = numpy.array(srx_pix)
+  
+
+ Then just use  numpy.sum  : 
+
+  rgb = numpy.sum(np_pix)
+  
+
+ Or calculate the average (as your code above does): 
+
+  rgb = numpy.mean(np_pix)
+  
+
+ For older versions of PIL use  numpy.asarray . 
+
+ If you want to compute the sum of a subarray, you can get that subarray using a  slice  like so: 
+
+  rgb_slice = numpy.mean(np_pix[X_start:X_end,Y_start:Y_end])
+  
+
+  References : 
+
+ 
+  https://stackoverflow.com/questions/384759/pil-and-numpy (older SO
+post on this topic)  
+  http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html  
+ 
+
+
+

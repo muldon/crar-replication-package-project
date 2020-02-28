@@ -1,0 +1,197 @@
+Query: Apply variable transparency to an image
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26918760)
+ Create a second  BufferedImage  of type  TYPE_INT_RGB ... 
+
+  BufferedImage copy = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
+  
+
+ Paint the original to the copy... 
+
+  Graphics2D g2d = copy.createGraphics();
+g2d.setColor(Color.WHITE); // Or what ever fill color you want...
+g2d.fillRect(0, 0, copy.getWidth(), copy.getHeight());
+g2d.drawImage(img, 0, 0, null);
+g2d.dispose();
+  
+
+ You now have a non transparent version of the image... 
+
+ To save the image, take a look at http://docs.oracle.com/javase/tutorial/2d/images/saveimage.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25374569)
+ You might compare your approach to the one shown https://stackoverflow.com/a/2166500/230513 with regard to clearing the buffer: 
+
+  g2d.setComposite(AlphaComposite.Clear);
+g2d.fillRect(0, 0, w, h);
+  
+
+ In the worst case, you can break at a point in which your  image  is accessible and set a watch on the expression  image.getRGB(0,0)  with the display set to hexadecimal. The high order byte is the  alpha  value:  FF  is opaque, and  00..FE  represents varying transparency. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2319251)
+ Just create a new BufferedImage with transparency, then paint the other two images (with full or semi-transparency) on it.
+This is how it will look like: 
+
+ https://i.stack.imgur.com/6jZ4V.png 
+
+ Sample code (images are called 'image.png' and 'overlay.png'): 
+
+  File path = ... // base path of the images
+
+// load source images
+BufferedImage image = ImageIO.read(new File(path, "image.png"));
+BufferedImage overlay = ImageIO.read(new File(path, "overlay.png"));
+
+// create the new image, canvas size is the max. of both image sizes
+int w = Math.max(image.getWidth(), overlay.getWidth());
+int h = Math.max(image.getHeight(), overlay.getHeight());
+BufferedImage combined = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+
+// paint both images, preserving the alpha channels
+Graphics g = combined.getGraphics();
+g.drawImage(image, 0, 0, null);
+g.drawImage(overlay, 0, 0, null);
+
+// Save as new image
+ImageIO.write(combined, "PNG", new File(path, "combined.png"));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12076019)
+ Yes, the Java2D API applies strokes to shapes only. You can do two things: 
+
+ Either create a Shape out of the transparency information of your http://en.wikipedia.org/wiki/Raster_graphics image, so that you can stroke only the non-transparent part. This is difficult in any language, because it means converting the bitmap-information into a http://en.wikipedia.org/wiki/Vector_graphics. 
+
+ Check this: https://stackoverflow.com/questions/7052422/image-graphic-into-a-shape-in-java/ 
+
+ And this: https://stackoverflow.com/questions/7218309/smoothing-a-jagged-path 
+
+ But basically I would try to avoid the converting problem, and solve it in a bitmap-only way - for example, colorize those pixels (with the "stroke color") for which a transparent pixel can be found at a given pixel-distance ("stroke width"). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16823047)
+ Using image filter. 
+
+  float[] scales = { 1f, 1f, 1f, 0.1f };
+float[] offsets = new float[4];
+RescaleOp rop = new RescaleOp(scales, offsets, null);
+g2d.drawImage(buffimg, rop, 0, 0);
+  
+
+ 4th element in scales array is transparency, this value goes between 0 - 1 
+
+ Answer by camickr will make the entire component apply the alpha including all inner components. But that will be much faster. 
+
+ Warning: Use Image Filters with Care 
+
+ ref: http://www.informit.com/articles/article.aspx?p=1013851&seqNum=2 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5966228)
+ PNG Images also have transparency support if you want to create transparent image then you have read RGB data along with alpha channels and process alpha 
+
+  Image transPNG=Image.createImage("/trans.png");  //load the tranparent image
+int rgbData[];
+transPNG.getRGB(rgbData, 0,transPNG.getWidth(), 0, 0,transPNG.getWidth(), transPNG.getHeight());
+Image tranparentImage=Image.createRGBImage(rgbData, width, height, true); //process alpha
+transPNG=null;
+  
+
+ Above code shows how to create the transparent image and use. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11372594)
+ You do not need to set the transparency to inherit background from Composite. Use  Composite.setBackgroundMode()  to set  SWT.INHERIT_FORCE . Here is a http://git.eclipse.org/c/platform/eclipse.platform.swt.git/tree/examples/org.eclipse.swt.snippets/src/org/eclipse/swt/snippets/Snippet237.java that can help 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/863273)
+ The following code takes an  Image  from two  ImageIcon s and creates a new  ImageIcon .  
+
+ The image from the second  ImageIcon  is drawn on top of the image from the first, then the resulting image is used to make a new  ImageIcon : 
+
+  Image img1 = imageIcon1.getImage();
+Image img2 = imageIcon2.getImage();
+
+BufferedImage resultImage = new BufferedImage(
+    img1.getWidth(null), img1.getHeight(null), BufferedImage.TYPE_INT_ARGB);
+
+Graphics2D g = resultImage.createGraphics();
+g.drawImage(img1, 0, 0, null);
+g.drawImage(img2, 0, 0, null);
+g.dispose();
+
+ImageIcon resultImageIcon = new ImageIcon(resultImage);
+  
+
+  Edit 
+(Fixed some errors, added transparency support.) 
+
+ For allowing transparency, the  BufferedImage.TYPE_INT_ARGB  can be used for the image type in the constructor, rather than  BufferedImage.TYPE_INT_RGB  which does not have an alpha channel. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32683868)
+ Modify the alpha channel like this (opacity is from 0 to 255): 
+
+  BufferedImage changeOpacity(BufferedImage img, int opacity) {
+    final BufferedImage ret = new BufferedImage(img.getWidth(),
+                                                img.getHeight(),
+                                                BufferedImage.TYPE_INT_ARGB);
+    final RescaleOp ro = new RescaleOp(new float[] {1f, 1f, 1f, ((float)opacity)/255f},
+                                       new float[] {0f, 0f, 0f, 0f},
+                                       null);
+    ro.filter(img, ret);
+    return ret;
+}
+  
+
+  
+
+  BufferedImage overlay(BufferedImage img1, BufferedImage img2) {
+    final BufferedImage combined = new BufferedImage(img1.getWidth(),
+                                                     img1.getHeight(),
+                                                     BufferedImage.TYPE_INT_ARGB);
+    final Graphics g = combined.getGraphics();
+    g.drawImage(img1, 0, 0, null);
+    g.drawImage(img2, 0, 0, null);
+    return combined;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/8919509)
+  
+
+      BufferedImage temp = new BufferedImage(source.getWidth(), source.getHeight(), 
+        BufferedImage.TYPE_INT_ARGB);
+    Graphics2D g2 = temp.createGraphics();
+    g2.setColor(Color.green);
+    g2.fillRect(0, 0, source.getWidth(), source.getHeight());
+    g2.drawImage(0, 0, source, null);
+    g2.dispose();
+  
+
+ Then call  colorConvertOp.filter  with  temp  instead of  source . 
+
+
+

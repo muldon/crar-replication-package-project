@@ -1,0 +1,305 @@
+Query: Find Average of Every Three Columns in Pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40963455)
+ You can use groupby on columns: 
+
+  df.groupby(np.arange(len(df.columns))//3, axis=1).mean()
+  
+
+ Or, those can be converted to datetime. You can use resample: 
+
+  df.columns = pd.to_datetime(df.columns)
+df.resample('Q', axis=1).mean()
+  
+
+ 
+
+ Here's a demo: 
+
+  cols = pd.date_range('2000-01', '2000-06', freq='MS')
+cols = cols.strftime('%Y-%m')
+cols
+Out: 
+array(['2000-01', '2000-02', '2000-03', '2000-04', '2000-05', '2000-06'], 
+      dtype='<U7')
+
+df = pd.DataFrame(np.random.randn(10, 6), columns=cols)
+
+df
+Out: 
+    2000-01   2000-02   2000-03   2000-04   2000-05   2000-06
+0 -1.263798  0.251526  0.851196  0.159452  1.412013  1.079086
+1 -0.909071  0.685913  1.394790 -0.883605  0.034114 -1.073113
+2  0.516109  0.452751 -0.397291 -0.050478 -0.364368 -0.002477
+3  1.459609 -1.696641  0.457822  1.057702 -0.066313 -0.910785
+4 -0.482623  1.388621  0.971078 -0.038535  0.033167  0.025781
+5 -0.016654  1.404805  0.100335 -0.082941 -0.418608  0.588749
+6  0.684735 -2.007105  0.552615  1.969356 -0.614634  0.021459
+7  0.382475  0.965739 -1.826609 -0.086537 -0.073538 -0.534753
+8  1.548773 -0.157250  0.494819 -1.631516  0.627794 -0.398741
+9  0.199049  0.145919  0.711701  0.305382 -0.118315 -2.397075
+  
+
+ First alternative: 
+
+  df.groupby(np.arange(len(df.columns))//3, axis=1).mean()
+Out: 
+          0         1
+0 -0.053692  0.883517
+1  0.390544 -0.640868
+2  0.190523 -0.139108
+3  0.073597  0.026868
+4  0.625692  0.006805
+5  0.496162  0.029067
+6 -0.256585  0.458727
+7 -0.159465 -0.231609
+8  0.628781 -0.467487
+9  0.352223 -0.736669
+  
+
+ Second alternative: 
+
+  df.columns = pd.to_datetime(df.columns)
+df.resample('Q', axis=1).mean()
+
+Out: 
+   2000-03-31  2000-06-30
+0   -0.053692    0.883517
+1    0.390544   -0.640868
+2    0.190523   -0.139108
+3    0.073597    0.026868
+4    0.625692    0.006805
+5    0.496162    0.029067
+6   -0.256585    0.458727
+7   -0.159465   -0.231609
+8    0.628781   -0.467487
+9    0.352223   -0.736669
+  
+
+ You can assign this to a DataFrame: 
+
+  res = df.resample('Q', axis=1).mean()
+  
+
+  
+
+  res = res.rename(columns=lambda col: '{}q{}'.format(col.year, col.quarter))
+
+res
+Out: 
+     2000q1    2000q2
+0 -0.053692  0.883517
+1  0.390544 -0.640868
+2  0.190523 -0.139108
+3  0.073597  0.026868
+4  0.625692  0.006805
+5  0.496162  0.029067
+6 -0.256585  0.458727
+7 -0.159465 -0.231609
+8  0.628781 -0.467487
+9  0.352223 -0.736669
+  
+
+ And attach this to your current DataFrame by: 
+
+  pd.concat([df, res], axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53937104)
+ Vectorized one using https://stackoverflow.com/a/44559180/ - 
+
+  N = 3 # last N entries for averaging
+avg = np.mean(justify(df.values,invalid_val=np.nan,axis=1, side='right')[:,-N:],1)
+df['expected'] = avg
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45314116)
+ If you prefer a non-Pandas solution, you can still get the job done: 
+
+  import statistics
+[statistics.mean(x) for x in zip(data, data[1:], data[2:])]
+# [2, 3, 4, 5, 6, 7, 8, 9]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34481969)
+ Pandas takes care of the  NaN  for you: 
+
+  >>> df
+value1  value2  value3
+0       1       9       5
+1       5     NaN       4
+2       9      55     NaN
+3     NaN       4       9
+
+>>> df.mean(axis=1)
+0     5.0
+1     4.5
+2    32.0
+3     6.5
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38531038)
+ I couldn't find a one-liner however if you can keep three data frames in memory 
+
+ 
+ one with row averages  
+ another with column averages  
+ third with the average of the above two 
+ 
+
+ then  fillna  will replace  NaN  values based on the exact location in the third data frame. 
+
+  import pandas as pd
+import numpy as np
+data = [[158,158,158,177,1,10]
+       ,[158,158,158,177,2,20]
+       ,[177,177,177,177,3,30]
+       ,[1,3,5,7,np.NaN,10]
+       ,[177,177,177,177,6,50]] 
+df = pd.DataFrame(data=data)
+# row and column means replicated over columns and rows
+mean0 = (pd.concat([df.mean(axis=0)]*df.shape[0], axis=1, ignore_index=True)).transpose()
+mean1 = pd.concat([df.mean(axis=1)]*df.shape[1], axis=1, ignore_index=True)
+# average of mean0 and mean1
+m = mean0.add(mean1)/2
+df = df.fillna(m)
+df
+    0       1       2       3       4       5
+0   158     158     158     177     1.0     10
+1   158     158     158     177     2.0     20
+2   177     177     177     177     3.0     30
+3   1       3       5       7       4.1     10
+4   177     177     177     177     6.0     50
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51704178)
+ Use: 
+
+  i = df.index // 5
+#compare by last value
+mask = i == i[-1]
+#length of last group
+no = mask.sum()
+
+#filter only if last group less as 5
+no = mask.sum()
+if no < 5:
+    df = df[~mask]
+  
+
+ Another idea: 
+
+  s = pd.Series(df.index // 5)
+df = df[s.groupby(s).transform('count') == 5]
+  
+
+ 
+
+  new_df = df.groupby(df.index // 5).agg({'DateTime':'last', 'Value':'mean'})
+print (new_df)
+     DateTime   Value
+0  12-07-2018  2.5372
+1  14-07-2018  2.2926
+2  15-07-2018  1.9394
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51585789)
+ Using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.describe.html: 
+
+  df.groupby(['c1', 'c2']).describe().stack(level=0)[['25%', '50%', '75%', 'mean']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49016377)
+ You can approach this problem using  pd.rolling()  to create a rolling average  and then just grab every second element using  iloc    
+
+  df = df.rolling(2).mean() 
+df = df.iloc[::2, :]
+  
+
+ Note that the first observation will be missing (i.e. the rolling starts at the top)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54709419)
+ You can aggregate by month period with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.to_period.html and  mean : 
+
+  df['date'] = pd.to_datetime(df['date'])
+df1 = df.groupby(df['date'].dt.to_period('m'))['col'].mean().reset_index()
+  
+
+ Another solution with year and months in separate columns: 
+
+  df['date'] = pd.to_datetime(df['date'])
+df['year'] = df['date'].dt.year
+df['month'] = df['date'].dt.month
+df1 = df.groupby(['year','month'])['col'].mean().reset_index()
+  
+
+  Sample : 
+
+  df = pd.DataFrame({'date':['2015-01-02','2016-03-02','2015-01-23','2016-01-12','2015-03-02'],
+                   'col':[1,2,5,4,6]})
+print (df)
+         date  col
+0  2015-01-02    1
+1  2016-03-02    2
+2  2015-01-23    5
+3  2016-01-12    4
+4  2015-03-02    6
+
+df['date'] = pd.to_datetime(df['date'])
+df1 = df.groupby(df['date'].dt.to_period('m'))['col'].mean().reset_index()
+print (df1)
+      date  col
+0  2015-01    3
+1  2015-03    6
+2  2016-01    4
+3  2016-03    2
+
+df['date'] = pd.to_datetime(df['date'])
+df['year'] = df['date'].dt.year
+df['month'] = df['date'].dt.month
+df2 = df.groupby(['year','month'])['col'].mean().reset_index()
+print (df2)
+   year  month  col
+0  2015      1    3
+1  2015      3    6
+2  2016      1    4
+3  2016      3    2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/51704468)
+ To my best understanding, your request is equivalent to truncating  df  to a length divisible by 5 before aggregating. You can use slicing on the fly: 
+
+  new_df = df.groupby(df[:(len(df)//5)*5].index // 5).agg({'DateTime':'last', 'Value':'mean'})
+  
+
+
+

@@ -1,0 +1,218 @@
+Query: replacing all regex matches in single line
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4338909)
+ Yes, this can be done in a single line. 
+
+  >>> re.sub(r"\b(this|string)\b", r"<markup>\1</markup>", "this is my string")
+'<markup>this</markup> is my <markup>string</markup>'
+  
+
+  \b  ensures that only complete words are matched. 
+
+ So if you have a list of words that you need to mark up, you could do the following: 
+
+  >>> mywords = ["this", "string", "words"]
+>>> myre = r"\b(" + "|".join(mywords) + r")\b"
+>>> re.sub(myre, r"<markup>\1</markup>", "this is my string with many words!")
+'<markup>this</markup> is my <markup>string</markup> with many <markup>words</markup>!'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4338080)
+  re.sub()  will replace everything it can. If you pass it a function for  repl  then you can do even more. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25822885)
+ The below regex would match both type of comments, 
+
+  (?://[^\n]*|/\*(?:(?!\*/).)*\*/)
+  
+
+ http://regex101.com/r/lU7jH1/4 
+
+  >>> s = """// some comment
+... 
+... foo
+... bar
+... foobar
+... /* comment
+...    more comment */ bar"""
+>>> m = re.findall(r'(?://[^\n]*|/\*(?:(?!\*/).)*\*/)', s, re.DOTALL)
+>>> m
+['// some comment', '/* comment\n   more comment */']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29987518)
+ If you want a more powerful editing option, Regex is your friend. 
+
+  import re
+pattern = re.compile(r'\w*(\W*)$')  # Matches the last word, and captures any remaining non-word characters
+                                    # so we don't lose punctuation. This will includes newline chars.
+
+line_num = 2 # The line number we want to operate on.
+new_name = 'Steve' # Who are we at the shops with? Not Allan.
+
+with open('shopping_friends.txt') as f:
+    lines = f.readlines()
+    lines[line_num] = re.sub(pattern, new_name + r'\1', lines[line_num]) 
+    # substitue the last word for your friend's name, keeping punctuation after it.
+    # Now do something with your modified data here
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11482787)
+ Have you considered using the built in https://docs.djangoproject.com/en/dev/ref/templates/builtins/?from=olddocs#slugify filter? 
+
+ The problem with your second expression is you are using a positive lookbehind ( ?<= ). 
+
+ From http://www.regular-expressions.info/refadv.html: 
+
+ 
+   "Zero-width positive lookbehind. Matches at a position if the pattern inside the lookahead can be
+  matched ending at that position (i.e. to the left of that position). 
+ 
+
+ The following is probably what you were trying to do: 
+
+  re.sub('[,.\t\n ]+', '-', s)
+  
+
+ This is replacing any sequence of characters  ,.\t\n  with a single dash. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8888615)
+ You can use the built in functions  any  (or  all  if all regexes have to match) and a Generator expression to cicle through all the regex-objects.  
+
+  any (regex.match(line) for regex in [regex1, regex2, regex3])  
+
+ (or  any(re.match(regex_str, line) for regex in [regex_str1, regex_str2, regex_str2])  if the regexes are not pre-compiled regex objects, of course) 
+
+ Although that will be ineficient compared to combining your regexes in a single expression - if this code is time or cpu critical, you should try instead, composing a single regular expression that encompass all your needs, using the special  |  regex operator to separate the original expressions.
+ A simple way to combine all the regexs is to use the string "join" operator: 
+
+  re.match("|".join([regex_str1, regex_str2, regex_str2])    , line)  
+
+ Although combining the regexes on this form can result in wrong expressions if the original ones already do make use of the  |  operator. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4338791)
+ For a constant regexp like in your example, do 
+
+  re.sub("(this)(.*)(string)",
+       r'<markup>\1</markup>\2<markup>\3</markup>',
+       text)
+  
+
+  .. 
+
+ Now if you don't know what the regexp looks like, it's more difficult, but should be doable. 
+
+  pattern = "(this)(.*)(string)"
+re.sub(pattern,
+       lambda m: ''.join('<markup>%s</markup>' % s if n % 2 == 0
+                         else s for n, s in enumerate(m.groups())),
+       text)
+  
+
+ If the first thing matched by your pattern doesn't necessarily have to be marked up, use this instead, with the first group optionally matching some prefix text that should be left alone: 
+
+  pattern = "()(this)(.*)(string)"
+re.sub(pattern,
+       lambda m: ''.join('<markup>%s</markup>' % s if n % 2 == 1
+                         else s for n, s in enumerate(m.groups())),
+       text)
+  
+
+ You get the idea. 
+
+ If your regexps are complicated and you're not sure you can make everything part of a group, where only every second group needs to be marked up, you might do something smarter with a more complicated function: 
+
+  pattern = "(this).*(string)"
+def replacement(m):
+    s = m.group()
+    n_groups = len(m.groups())
+    # assume groups do not overlap and are listed left-to-right
+    for i in range(n_groups, 0, -1):
+        lo, hi = m.span(i)
+        s = s[:lo] + '<markup>' + s[lo:hi] + '</markup>' + s[hi:]
+    return s
+re.sub(pattern, replacement, text)
+  
+
+ If you need to handle overlapping groups, you're on your own, but it should be doable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45683049)
+ You can use a lookbehind and lookahead based regex and then a  lambda  function to iterate through replacements words: 
+
+  >>> words = ['Swimming', 'Eating', 'Jogging']
+>>> pattern = re.compile(r'(?<=I love )\w+(?=\.)')
+>>> print pattern.sub(lambda m: words.pop(0), string)
+'I love Swimming. I love Eating. I love Jogging.'
+  
+
+ http://ideone.com/Zsi8vJ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34758141)
+ What you are doing is matching  "Apples\r" , capturing the  "\r"  in the process, and then replacing the entire match with  "\r:1" .  
+
+ For this simple example, there's no need to capture matches to  \r , anyway, since the only thing that will match it is  \r . You can hard code that into the replacement string. 
+
+ I'll assume you want the resulting string to be  "\rApples: 1\rBananas\rPineapples\r . 
+
+ You can use a https://docs.python.org/3/library/re.html#regular-expression-syntax so that  Apples  is not consumed (though I hear that consuming one a day keeps the doctor away): 
+
+  re.sub("(?<=Apples)\r", ": 1\r", fruits)
+  
+
+  
+
+  re.sub("Apples\r", "Apples: 1\r", fruits)
+  
+
+ The lookbehind would be more useful if you wanted to add  : 1  after each fruit: 
+
+  re.sub("(?<=[^\r])\r", ": 1\r", fruits)
+  
+
+ The above says find every  \r  that follows a character that isn't an  \r , and replace them with  : 1\r . The result would then be: 
+
+  # \rApples: 1\rBananas: 1\rPineapples: 1\r\r
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33520224)
+ You may use 
+
+  re.sub(r",?\b[0-5]x[a-zA-Z]\b","", s)
+  
+
+ See http://ideone.com/6EXArO 
+
+ The regex -  ,?\b[0-5]x[a-zA-Z]\b  - features a http://www.regular-expressions.info/wordboundaries.html  \b  so that <kbd>digit</kbd> + <kbd>x</kbd> + <kbd>letter</kbd> must be preceded and followed by non-word characters (not  [a-zA-Z0-9_] ) and a comma is optional at the start (as  ?  matches 1 or 0 occurrences of the preceding subpattern). 
+
+ Also, please note that regular expressions are best declared using "raw" string literals (see  r""  notation). That way, we do not have to use double backslashes when using the word boundary. 
+
+
+

@@ -1,0 +1,207 @@
+Query: Insert images in mongoDB
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4245903)
+ For storing binary data like images you can use http://www.mongodb.org/display/DOCS/GridFS+Specification or implement your own realization; Download the https://github.com/mongodb/mongo-java-driver and look at  src/test/com/mongodb/gridfs/GridFSTest.java  ;) 
+
+ Edit: you are lucky today! I made complete code for you;) Enjoy! 
+
+<pre class="lang-java prettyprint-override"> package mongodb.testing.java;
+import com.mongodb.*;
+import com.mongodb.gridfs.*;
+import java.io.*;
+
+public class Main {
+
+    public static byte[] LoadImage(String filePath) throws Exception {
+        File file = new File(filePath);
+        int size = (int)file.length();
+        byte[] buffer = new byte[size];
+        FileInputStream in = new FileInputStream(file);
+        in.read(buffer);
+        in.close();
+        return buffer;
+    }
+
+    public static void main(String[] args) throws Exception {
+        //Load our image
+        byte[] imageBytes = LoadImage("C:/Temp/bear.bmp");
+        //Connect to database
+        Mongo mongo = new Mongo( "127.0.0.1" );
+        String dbName = "GridFSTestJava";
+        DB db = mongo.getDB( dbName );
+        //Create GridFS object
+        GridFS fs = new GridFS( db );
+        //Save image into database
+        GridFSInputFile in = fs.createFile( imageBytes );
+        in.save();
+
+        //Find saved image
+        GridFSDBFile out = fs.findOne( new BasicDBObject( "_id" , in.getId() ) );
+
+        //Save loaded image from database into new image file
+        FileOutputStream outputImage = new FileOutputStream("C:/Temp/bearCopy.bmp");
+        out.writeTo( outputImage );
+        outputImage.close();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4245868)
+ <strike>Well, AFAIK, you cant store images in mongodb</strike>, you can store the links to images. And I am not high as I say this, if the images are small, like 100x100 px, U can try storing the image in binary, and reform and image on the fly. But, it will take some time to render the images, and hence I suggest you to save the link, and just fetch that image and populate it dynamically. 
+
+ You can use GridFS to store larger binary objects.  
+
+ Since you are new to mongoDB, take a look at: 
+
+ http://www.slideshare.net/drumwurzel/intro-to-mongodb 
+
+ http://kylebanker.com/blog/2009/11/mongodb-in-three-minutes/ 
+
+ http://www.mongodb.org/display/DOCS/Java+Tutorial 
+
+ http://www.mongodb.org/display/DOCS/GridFS+Specification 
+
+ You can also always ask on SO, I am also new to mongoDB, and wouldn't mind helping a newbie along :D 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30059362)
+ Before 3.0, you can use below code in Java 
+
+  DB db = mongoClient.getDB("yourDB");
+            DBCollection coll = db.getCollection("yourCollection");
+            BulkWriteOperation builder = coll.initializeUnorderedBulkOperation();
+            for(DBObject doc :yourList)
+            {
+                builder.insert(doc);
+            }
+            BulkWriteResult result = builder.execute();
+            return result.isAcknowledged();
+  
+
+ If you are using  mongodb version 3.0  , you can use 
+
+  MongoDatabase database = mongoClient.getDatabase("yourDB");
+            MongoCollection<Document> collection = database.getCollection("yourCollection");
+            collection.insertMany(yourDocumentList);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36247663)
+ To avoid casting from  Object  to  ObjectId , given a  com.mongodb.client.MongoCollection collection  and a  org.bson.Document doc , you can do the following: 
+
+  collection.insert(doc);
+ObjectId id = doc.getObjectId("_id");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18128586)
+  DBCollection.insert  accepts a parameter of type  DBObject ,  List<DBObject>  or an array of  DBObject s for inserting multiple documents at once. You are passing in a string array. 
+
+ You must manually populate documents( DBObject s), insert them to a  List<DBObject>  or an array of  DBObject s and eventually  insert  them. 
+
+  DBObject document1 = new BasicDBObject();
+document1.put("name", "Kiran");
+document1.put("age", 20);
+
+DBObject document2 = new BasicDBObject();
+document2.put("name", "John");
+
+List<DBObject> documents = new ArrayList<>();
+documents.add(document1);
+documents.add(document2);
+collection.insert(documents);
+  
+
+ The above snippet is essentially the same as the command you would issue in the MongoDB shell: 
+
+  db.people.insert( [ {name: "Kiran", age: 20}, {name: "John"} ]);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21260704)
+ You can do it as follows :  
+
+  DBCollection coll = ...
+coll.insert(new BasicDBObject("ts", new Date()));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4247399)
+ For small (<1mb) images I'd suggest storing them in a binary field (byte[] in java); if you have larger files GridFS will work better. 
+
+ I store lots of thumbnails in my documents directly using a simple binary field. 
+
+ I use Morphia (http://code.google.com/p/morphia) to store my POJOs.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/23942867)
+ As of MongoDB 2.6 and 2.12 version of the driver you can also now do a http://docs.mongodb.org/manual/reference/method/Bulk/.  In Java you could use the http://api.mongodb.org/java/2.12/com/mongodb/BulkWriteOperation.html.  An example use of this could be: 
+
+  DBCollection coll = db.getCollection("user");
+BulkWriteOperation bulk = coll.initializeUnorderedBulkOperation();
+bulk.find(new BasicDBObject("z", 1)).upsert().update(new BasicDBObject("$inc", new BasicDBObject("y", -1)));
+bulk.find(new BasicDBObject("z", 1)).upsert().update(new BasicDBObject("$inc", new BasicDBObject("y", -1)));
+bulk.execute();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30208846)
+ Your insert record format like in MongoDB that query retire from any source
+EG. 
+
+   {
+    "_id" : 1,
+    "name" : a
+}
+{
+    "_id" : 2,
+    "name" : b,
+} 
+  
+
+ it is  mongodb 3.0  
+
+  FindIterable<Document> resulutlist = collection.find(query);            
+List docList = new ArrayList();
+for (Document document : resulutlist) {
+    docList.add(document);
+}
+
+if(!docList.isEmpty()){
+    collectionCube.insertMany(docList);
+}   
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10170541)
+ With MongoDB you cannot insert your Java bean in the DB, but you have to remap them to MongoDB Object. 
+
+  
+
+  BasicDBObject basicDBObject = new BasicDBObject();
+basicDBObject.put("no", employee.getNo());
+basicDBObject.put("name", employee.getName());
+  
+
+
+

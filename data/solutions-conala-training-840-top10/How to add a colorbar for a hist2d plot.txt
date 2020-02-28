@@ -1,0 +1,275 @@
+Query: How to add a colorbar for a hist2d plot
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42388179)
+ You are almost there with the 3rd option. You have to pass a  mappable  object to  colorbar  so it knows what colormap and limits to give the colorbar. That can be an  AxesImage  or  QuadMesh , etc.  
+
+ In the case of http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.hist2d, the tuple returned in your  h  contains that  mappable , but also some other things too. 
+
+ From the http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.hist2d: 
+
+ 
+    Returns: 
+  The return value is (counts, xedges, yedges, Image). 
+ 
+
+ So, to make the colorbar, we just need the  Image . 
+
+ To fix your code: 
+
+  from matplotlib.colors import LogNorm
+import matplotlib.pyplot as plt
+import numpy as np
+
+# normal distribution center at x=0 and y=5
+x = np.random.randn(100000)
+y = np.random.randn(100000) + 5
+
+fig, ax = plt.subplots()
+h = ax.hist2d(x, y, bins=40, norm=LogNorm())
+plt.colorbar(h[3], ax=ax)
+  
+
+ Alternatively: 
+
+  counts, xedges, yedges, im = ax.hist2d(x, y, bins=40, norm=LogNorm())
+plt.colorbar(im, ax=ax)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44563417)
+ A colorbar needs a ScalarMappable object as its first argument.  plt.hist2d  returns this as the forth element of the returned tuple. 
+
+  h = hist2d(x, y, bins=40, norm=LogNorm())
+colorbar(h[3])
+  
+
+ Complete code: 
+
+  from matplotlib.colors import LogNorm
+import matplotlib.pyplot as plt
+import numpy as np
+
+#normal distribution center at x=0 and y=5
+x = np.random.randn(100000)
+y = np.random.randn(100000)+5
+
+h = plt.hist2d(x, y, bins=40, norm=LogNorm())
+plt.colorbar(h[3])
+show()
+  
+
+ https://i.stack.imgur.com/gDZ0b.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24524250)
+ This should do it: 
+
+  from matplotlib.colors import LogNorm
+import matplotlib.pyplot as plt
+from numpy.random import randn
+
+#normal distribution center at x=0 and y=5
+x = randn(100000)
+y = randn(100000)+5
+
+H, xedges, yedges, img = plt.hist2d(x, y, norm=LogNorm())
+extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1)
+im = ax.imshow(H, cmap=plt.cm.jet, extent=extent, norm=LogNorm())
+fig.colorbar(im, ax=ax)
+plt.show()
+  
+
+ Notice how colorbar is attached to "fig", not "sub_plot". There are some other examples of this https://stackoverflow.com/questions/13784201/matplotlib-2-subplots-1-colorbar. Notice how you also need to generate a ScalarMappable with  imshow , as explained in the API <a href="http://matplotlib.org/api/colorbar_api.html" rel="nofollow noreferrer" . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36080553)
+  EDIT:  The PR referenced below has been merged into the geopandas master.  
+
+  gdf.plot(column='val', cmap='hot', legend=True)
+  
+
+ and the colorbar will be added automatically. 
+
+ Notes: 
+
+ 
+  legend=True  tells Geopandas to add the colorbar. 
+  colormap  is now called  cmap . 
+  vmin  and  vmax  are not required anymore. 
+ 
+
+ 
+
+ There is a PR to add this to geoapandas (https://github.com/geopandas/geopandas/pull/172), but for now, you can add it yourself with this workaround: 
+
+  ## make up some random data
+df = pd.DataFrame(np.random.randn(20,3), columns=['x', 'y', 'val'])
+df['geometry'] = df.apply(lambda row: shapely.geometry.Point(row.x, row.y), axis=1)
+gdf = gpd.GeoDataFrame(df)
+
+## the plotting
+
+vmin, vmax = -1, 1
+
+ax = gdf.plot(column='val', colormap='hot', vmin=vmin, vmax=vmax)
+
+# add colorbar
+fig = ax.get_figure()
+cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
+sm = plt.cm.ScalarMappable(cmap='hot', norm=plt.Normalize(vmin=vmin, vmax=vmax))
+# fake up the array of the scalar mappable. Urgh...
+sm._A = []
+fig.colorbar(sm, cax=cax)
+  
+
+ The workaround comes from https://stackoverflow.com/questions/8342549/matplotlib-add-colorbar-to-a-sequence-of-line-plots/11558629#11558629. And the reason that you have to supply  vmin  and  vmax  yourself is because the colorbar is not added based on the data itself, therefore you have to instruct what the link between values and color should be.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26019071)
+ . This can still be done using  add_lines . This function adds the lines from a non-filled contour plot to a colorbar. The documentation can be found http://matplotlib.org/api/colorbar_api.html. 
+
+ So, by first defining the colorbar based on your  pcolor  plot you can later add the lines from  contour  to that colorbar: 
+
+  import numpy
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+
+#Generate data
+delta = 0.025
+
+x = numpy.arange(-3.0, 3.0, delta)
+y = numpy.arange(-2.0, 2.0, delta)
+
+X, Y = numpy.meshgrid(x, y)
+
+Z1 = mlab.bivariate_normal(X, Y, 1.0, 1.0, 0.0, 0.0)
+Z2 = mlab.bivariate_normal(X, Y, 1.5, 0.5, 1, 1)
+# difference of Gaussians
+Z = 10.0 * (Z2 - Z1)
+
+#Plot
+fig = plt.figure()
+ax1 = fig.add_subplot(1, 1, 1)
+
+PC = ax1.pcolor(X, Y, Z)
+CF = ax1.contour(X, Y, Z, 50, colors = "black")
+
+cbar = plt.colorbar(PC)
+cbar.add_lines(CF)
+
+plt.show()
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44563280)
+ https://matplotlib.org/devdocs/api/_as_gen/matplotlib.axes.Axes.hist2d.html returns a tuple: 
+
+ 
+   The return value is  (counts, xedges, yedges, Image) . 
+ 
+
+ You only need the image for your colorbar: 
+
+  cb=fig.colorbar(cax[3])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49374315)
+ As other answers here do try to use dummy plots, which is not really good style, here is a generic code for a  
+
+ Discrete colorbar 
+
+ A discrete colorbar is produced in the same way a continuous colorbar is created, just with a different Normalization. In this case a  BoundaryNorm  should be used. 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors
+
+n_lines = 5
+x = np.linspace(0, 10, 100)
+y = np.sin(x[:, None] + np.pi * np.linspace(0, 1, n_lines))
+c = np.arange(1., n_lines + 1)
+
+cmap = plt.get_cmap("jet", len(c))
+norm = matplotlib.colors.BoundaryNorm(np.arange(len(c)+1)+0.5,len(c))
+sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+sm.set_array([])
+
+fig, ax = plt.subplots(dpi=100)
+for i, yi in enumerate(y.T):
+    ax.plot(x, yi, c=cmap(i))
+fig.colorbar(sm, ticks=c)
+plt.show()
+  
+
+ https://i.stack.imgur.com/linte.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10927372)
+ the  plt.colorbar()  is made for really simple cases, e.g. not really thought for a plot with 2 y-axes. 
+For a fine grained control of the colorbar location and properties you should almost always rather work with colorbar specifying on which axes you want to plot the colorbar.  
+
+  # on the figure total in precent l    b      w , height 
+cbaxes = fig.add_axes([0.1, 0.1, 0.8, 0.05]) # setup colorbar axes. 
+# put the colorbar on new axes
+cbar = fig.colorbar(mapable,cax=cbaxes,orientation='horizontal')
+  
+
+ Note that colorbar takes the following keywords: 
+
+ 
+   keyword arguments: 
+  
+    cax 
+      None | axes object into which the colorbar will be drawn    ax 
+      None | parent axes object from which space for a new
+      colorbar axes will be stolen 
+ 
+
+ you could also see here a more extended answer of mine regarding https://stackoverflow.com/questions/9912008/how-to-add-a-single-colobar-that-will-show-the-data-from-2-different-subplot/9914204#9914204. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44675552)
+ In  plt.colorbar(z1_plot,cax=ax1) , use  ax=  instead of  cax= , i.e.  plt.colorbar(z1_plot,ax=ax1)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/13311914)
+ The best way to get good control over the colorbar position is to give it its own axis.  
+
+  # What I imagine your plotting looks like so far
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+ax1.plot(your_data)
+
+# Now adding the colorbar
+cbaxes = fig.add_axes([0.8, 0.1, 0.03, 0.8]) 
+cb = plt.colorbar(ax1, cax = cbaxes)  
+  
+
+ The numbers in the square brackets of add_axes refer to [left, bottom, width, height], where the coordinates are just fractions that go from 0 to 1 of the plotting area.  
+
+
+

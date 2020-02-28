@@ -1,0 +1,223 @@
+Query: How to decode a 'url-encoded' string in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26488773)
+ Use https://docs.python.org/2/library/urllib.html#urllib.unquote to decode  % -encoded string: 
+
+  >>> import urllib
+>>> url = u'/static/media/uploads/gallery/Marrakech%2C%20Morocco_be3Ij2N.jpg'
+>>> urllib.unquote(url)
+u'/static/media/uploads/gallery/Marrakech, Morocco_be3Ij2N.jpg'
+  
+
+ Using https://docs.python.org/2/library/urllib.html#urllib.quote or https://docs.python.org/2/library/urllib.html#urllib.quote_plus, you can get back: 
+
+  >>> urllib.quote(u'/static/media/uploads/gallery/Marrakech, Morocco_be3Ij2N.jpg')
+'/static/media/uploads/gallery/Marrakech%2C%20Morocco_be3Ij2N.jpg'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35238539)
+ You are looking for  unquote  instead of decode. 
+
+  urllib.unquote('EC%2d2EC7')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28431419)
+ Your input is encoded  double . Using Python 3: 
+
+  urllib.parse.unquote(urllib.parse.unquote(some_string))
+  
+
+ Output: 
+
+  'FireShot3+(2).png'
+  
+
+ now you have the  +  left. 
+
+  Edit:  
+
+ Using Python 2.7 it of course is: 
+
+  urllib.unquote(urllib.unquote('FireShot3%2B%25282%2529.png'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47338241)
+ The first URL is broken. What happend is, that some software considered the correct UTF-8 URL being CP1252 even though there were some bytes invalid in CP1252. Thus it translated the bytes of the correct URL from the supposed CP1252 to UTF8, but if and only if the bytes were valid in CP1252. The invalid bytes were left as they were. This is the reason, why all the URL is not restorable by one encode-decode combination. 
+
+ To reverse the described process we need for example this code (in Python 2): 
+
+  #-*-coding:utf8-*-
+from six.moves.urllib import parse
+
+correct = 'https://ja-jp.facebook.com/名古屋ｊｒゲートタワーホテル-219123305237478'
+url = 'https://ja-jp.facebook.com/%C3%A5%C2%90%C2%8D%C3%A5%C2%8F%C2%A4%C3%A5%C2%B1%E2%80%B9%C3%AF%C2%BD%C5%A0%C3%AF%C2%BD%E2%80%99%C3%A3%E2%80%9A%C2%B2%C3%A3%C6%92%C2%BC%C3%A3%C6%92%CB%86%C3%A3%E2%80%9A%C2%BF%C3%A3%C6%92%C2%AF%C3%A3%C6%92%C2%BC%C3%A3%C6%92%E2%80%BA%C3%A3%C6%92%E2%80%A0%C3%A3%C6%92%C2%AB-219123305237478'
+unq_url = parse.unquote(url.encode('ascii'))
+
+res = ''
+for c in unq_url.decode('utf8'):
+    try:
+        res += c.encode('cp1252')
+    except:
+        res += chr(ord(c))
+
+print res == correct
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1808688)
+ Your html data is a string that comes from the internet  already encoded  with some encoding. Before encoding it to  utf-8 , you  must decode it first . 
+
+ Python is   implicity   trying to decode it (That's why you get a  UnicodeDecodeError  not  UnicodeEncodeError ). 
+
+ You can solve the problem by  explicity decoding your bytestring  (using the appropriate encoding)  before  trying to reencode it to  utf-8 . 
+
+ Example: 
+
+  utf8encoded = htmlSource.decode('some_encoding').encode('utf-8')
+  
+
+ Use the correct encoding the page was encoded in first place, instead of  'some_encoding' . 
+
+ You  have  to know which encoding a string is using before you can decode it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15919084)
+  In [4]: urllib.urlencode({"name":"汉字".decode('utf-8').encode('GB2312'),"id":u"12345"})
+Out[4]: 'name=%BA%BA%D7%D6&id=12345'
+  
+
+ According to the curl man page, 
+
+  --data-urlencode <data>
+      ...
+      The <data> part can be passed to
+      curl using one of the following syntaxes:
+      ...
+      name=content
+      This will make curl URL-encode the content part and pass that on.
+      Note that the name part is expected to be URL-encoded already.
+  
+
+ Since curl will URL-encode the content, we need to pass it a string which is not already URL-encoded: 
+
+  In [7]: urllib.unquote(urllib.urlencode({"name":"汉字".decode('utf-8').encode('GB2312'),"id":u"12345"}))
+Out[7]: 'name=\xba\xba\xd7\xd6&id=12345'
+  
+
+  
+
+  url="http://xxx.com/login.asp"
+curl --data-urlencode 'name=\xba\xba\xd7\xd6&id=12345' $url
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/875777)
+ One way of doing the encode/decode is to use the package base64, for an example: 
+
+  import base64
+import sys
+
+encoded = base64.b64encode(sys.stdin.read())
+print encoded
+
+decoded = base64.b64decode(encoded)
+print decoded
+  
+
+ Is it what you were looking for? With your particular case you get: 
+
+ input: 12234_1_Hello'World_34433_22acb_4554344_accCC44 
+
+ encoded: MTIyMzRfMV9IZWxsbydXb3JsZF8zNDQzM18yMmFjYl80NTU0MzQ0X2FjY0NDNDQ= 
+
+ decoded: 12234_1_Hello'World_34433_22acb_4554344_accCC44 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7623878)
+ Due to a quirk of Python 2, you can call  encode  on a byte string (i.e. text that's already encoded). In this case, it first tries to convert it to a unicode object by decoding with ascii. So, if get_url_contents is returning a byte string, your line effectively does this: 
+
+  get_url_contents(r[0]).decode('ascii').encode('ascii', 'ignore')
+  
+
+ In Python 3, byte strings don't have an  encode  method, so the same problem would just cause an AttributeError. 
+
+ (Of course, I don't know that this is the problem - it could be related to the  get_url_contents  function. But what I've described above is my best guess) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11768110)
+ There are two encodings in play here. Your string has first been encoded as http://en.wikipedia.org/wiki/UTF-8, then each byte has been http://en.wikipedia.org/wiki/Percent-encoding. 
+
+ To get the original string back you need to first unquote it, and then decode it: 
+
+  >>> import urllib
+>>> s = '%CE%B1%CE%BB%20'
+>>> result = urllib.unquote(s).decode('utf8')
+>>> print result
+αλ 
+  
+
+ Note that you need a Unicode enabled console in order to display the value (if you get an error with the print statement, try running it in http://en.wikipedia.org/wiki/IDLE_%28Python%29). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43188785)
+ You have a https://en.wikipedia.org/wiki/Mojibake encoding. The bytes encoded are those of the Latin-1 interpretation of the UTF-8 bytes: 
+
+  >>> from urllib.parse import quote
+>>> text = 'huà 話 用'
+>>> quote(text)
+'hu%C3%A0%20%E8%A9%B1%20%E7%94%A8'
+>>> quote(text.encode('utf8').decode('latin1'))
+'hu%C3%83%C2%A0%20%C3%A8%C2%A9%C2%B1%20%C3%A7%C2%94%C2%A8'
+  
+
+ You can reverse the process by manually encoding to Latin-1 again, then decoding from UTF-8: 
+
+  >>> unquote('hu%C3%83%C2%A0%20%C3%A8%C2%A9%C2%B1%20%C3%A7%C2%94%C2%A8').encode('latin1').decode('utf8')
+'huà 話 用'
+  
+
+ or you could use the https://ftfy.readthedocs.io/en/latest/ to automate fixing the wrong encoding ( ftfy  usually does a much better job, especially when Windows codepages are involved in the Mojibake): 
+
+  >>> from ftfy import fix_text
+>>> fix_text(unquote('hu%C3%83%C2%A0%20%C3%A8%C2%A9%C2%B1%20%C3%A7%C2%94%C2%A8'))
+'huà 話 用'
+  
+
+ You said this about the source of the URL: 
+
+ 
+   The location header leaving the server is ok; it is encoded as UTF-8 
+ 
+
+ That's your problem, right there. HTTP headers are  always encoded as Latin-1 <sup>(*)</sup>. The server MUST set the Location header to a fully percent-encoded URL, so that all UTF-8 bytes are represented as  %HH  escape sequences. These are just ASCII characters, perfectly save in a Latin-1 context.  
+
+ If your server sends the header as un-escaped UTF-8 bytes, then HTTP clients (including  requests ) will decode that as Latin-1 instead resulting in the exact Mojibake problem you observed. And because the URL contains invalid URL characters,  requests  escapes the Mojibake result to the percent-encoded version.  
+
+ 
+
+ <sup>(*)</sup> Actually, the  Location  header should be an https://tools.ietf.org/html/rfc2396#section-3 which is always ASCII (7-bit) clean data, but because some other HTTP headers allow for 'descriptive' text, Latin-1 (ISO-8859-1) is the accepted default encoding for header data. See the https://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2.2, and the https://docs.python.org/3/library/http.client.html that ultimately decodes the headers for  requests  follows this RFC in this regard when decoding non-ASCII data in any header. You can provide non-Latin-1 data only if wrapped as per https://tools.ietf.org/html/rfc2047, but this doesn't apply to the  Location  header. 
+
+
+

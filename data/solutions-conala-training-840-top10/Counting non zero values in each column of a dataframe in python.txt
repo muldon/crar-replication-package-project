@@ -1,0 +1,358 @@
+Query: Counting non zero values in each column of a dataframe in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34968266)
+ Use double http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sum.html: 
+
+  print df
+   a  b  c  d  e
+0  0  1  2  3  5
+1  1  4  0  5  2
+2  5  8  9  6  0
+3  4  5  0  0  0
+
+print (df != 0).sum(1)
+0    4
+1    4
+2    4
+3    2
+dtype: int64
+
+print (df != 0).sum(1).sum()
+14
+  
+
+ If you need count only column  c  or  d : 
+
+  print (df['c'] != 0).sum()
+2
+
+print (df['d'] != 0).sum()
+3
+  
+
+ EDIT: Solution with https://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html: 
+
+  print ((df != 0).values.sum())
+14
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26053895)
+ To count nonzero values, just do  (column!=0).sum() , where  column  is the data you want to do it for.   column != 0  returns a boolean array, and True is 1 and False is 0, so summing this gives you the number of elements that match the condition. 
+
+ So to get your desired result, do 
+
+  df.groupby('user_id').apply(lambda column: column.sum()/(column != 0).sum())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34156147)
+ My favorite way of getting number of nonzeros in each column is 
+
+  df.astype(bool).sum(axis=0)
+  
+
+ For the number of non-zeros in each row use 
+
+  df.astype(bool).sum(axis=1)
+  
+
+ (Thanks to Skulas) 
+
+ If you have nans in your df you should make these zero first, otherwise they will be counted as 1. 
+
+  df.fillna(0).astype(bool).sum(axis=1)
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31936635)
+ You could use  pandas  (http://pandas.pydata.org/). (since you tried  scipy/numpy  which are not standard library Python packages I assume it is ok to suggest another package). 
+
+ A  DataFrame  is an object that lets you do all of your operations, and many more. 
+
+  import numpy as np                                                                
+import pandas as pd                                                               
+
+m = array([[4, 0, 9, 0], [0, 7, 0, 0], [0, 0, 0, 0], [0, 0, 0, 5]])               
+
+# create a dataframe                                                                                  
+df = pd.DataFrame(m, columns=[10,20,30,40])   
+
+# replace 0 with NaN (to make use of pandas `dropna`)                                    
+df.replace(0, np.NaN, inplace=True)
+
+# values per row                                                                  
+df.irow(0).dropna().as_matrix()                                                   
+array([ 4.,  9.])                                                                 
+
+df.irow(1).dropna().as_matrix()                                                   
+array([ 7.])                                                                      
+
+df2.irow(2).dropna().as_matrix()                                                  
+array([], dtype=float64)
+
+# column labels (as list)                                                         
+df.irow(1).dropna().index.tolist()
+[10, 30]
+
+# or non-zero values per column?
+df.icol(0).dropna().as_matrix()
+array([ 4.])
+
+# ...
+  
+
+ You could also combine column label and value, since the normal return from the  dropna  is a DataFrame. 
+
+  non_zero_1 = df.irow(0).dropna()
+labels_1 = non_zero_1.index
+
+Int64Index([10, 30], dtype='int64')
+  
+
+ Best just try Pandas and see if it fits your needs. And also have a look at the great intro (<a href="http://pandas.pydata.org/pandas-docs/stable/10min.html"pandas-docs/stable/10min.html ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29624811)
+ You can filter the df using a boolean condition and then iterate over the cols and call  describe  and access the mean and std columns: 
+
+  In [103]:
+
+df = pd.DataFrame({'a':np.random.randn(10), 'b':np.random.randn(10), 'c':np.random.randn(10)})
+df
+Out[103]:
+          a         b         c
+0  0.566926 -1.103313 -0.834149
+1 -0.183890 -0.222727 -0.915141
+2  0.340611 -0.278525 -0.992135
+3  0.380519 -1.546856  0.801598
+4 -0.596142  0.494078 -0.423959
+5 -0.064408  0.475466  0.220138
+6 -0.549479  1.453362  2.696673
+7  1.279865  0.796222  0.391247
+8  0.778623  1.033530  1.264428
+9 -1.669838 -1.117719  0.761952
+In [111]:
+
+for col in df[df>0]:
+    print('col:', col, df[col].describe()[['mean','std']])
+col: a mean    0.028279
+std     0.836804
+Name: a, dtype: float64
+col: b mean   -0.001648
+std     1.014950
+Name: b, dtype: float64
+col: c mean    0.297065
+std     1.159999
+Name: c, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41492252)
+ Here's an approach with NumPy - 
+
+  In [35]: df
+Out[35]: 
+    ID  bass  gar  minnow  trout
+0  111     0    0       1      2
+1  222     1    1       3      0
+2  333     3    0       5      0
+3  444     0    0       4      3
+
+In [36]: a = df.iloc[:,1:].values!=0
+
+In [37]: r,c = np.triu_indices(df.shape[0],1)
+
+In [38]: l = df.ID
+
+In [39]: pd.DataFrame(np.column_stack((l[r], l[c], (a[r] | a[c]).sum(1))))
+Out[39]: 
+     0    1  2
+0  111  222  4
+1  111  333  3
+2  111  444  2
+3  222  333  3
+4  222  444  4
+5  333  444  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43458646)
+ given the dataframe  df  and list  lst  as a numpy array 
+
+  df = pd.DataFrame(np.random.rand(10, 10))
+
+lst = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0])
+  
+
+ Then we can use a mask to filter.  By using a mask, we can use boolean slicing to get at just the columns that have corresponding zero values in  lst .  We can also easily access the non zeros with  ~m  and slice. 
+
+  m = lst == 0
+
+# assign the number 1 to all columns where there is a zero in lst
+df.values[:, m] = 1
+
+# do the division in place for all columns where lst is not zero
+df.values[:, ~m] /= lst[~m]
+
+print(df)
+
+          0    1         2    3         4    5
+0  0.195316  1.0  0.988503  1.0  0.981752  1.0
+1  0.136812  1.0  0.887689  1.0  0.346385  1.0
+2  0.927454  1.0  0.733464  1.0  0.773818  1.0
+3  0.782234  1.0  0.363441  1.0  0.295135  1.0
+4  0.751046  1.0  0.442886  1.0  0.700396  1.0
+5  0.028402  1.0  0.724199  1.0  0.047674  1.0
+6  0.680154  1.0  0.974464  1.0  0.717932  1.0
+7  0.636310  1.0  0.191252  1.0  0.777813  1.0
+8  0.766330  1.0  0.975292  1.0  0.224856  1.0
+9  0.335766  1.0  0.093384  1.0  0.547195  1.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32248974)
+ I was looking for an answer to a similar question but to produce a mean etc on nonzero items. 
+
+ After playing around for a while the answer was quite simple: 
+
+  In [3]: df = pd.DataFrame({'a':np.random.randint(-5,5,10), 'b':np.random.randint(-5,5,10), 'c':np.random.randint(-5,5,10)})
+
+In [4]: df
+Out[4]:
+a  b  c
+0  3 -5 -2
+1  0 -2  1
+2 -1  1 -4
+3 -3  0 -4
+4 -5 -3  0
+5 -1  4  1
+6  0 -5 -4
+7  2  0 -5
+8  4  0  2
+9 -1  1 -4
+
+In [5]: df[df <> 0].describe()   # or use .mean() etc.
+Out[5]:
+              a         b         c
+count  8.000000  7.000000  9.000000
+mean  -0.250000 -1.285714 -2.111111
+std    3.058945  3.401680  2.713137
+min   -5.000000 -5.000000 -5.000000
+25%   -1.500000 -4.000000 -4.000000
+50%   -1.000000 -2.000000 -4.000000
+75%    2.250000  1.000000  1.000000
+max    4.000000  4.000000  2.000000
+  
+
+ I also needed the mean for timeseries data but to ignore zero values (response times) and found another solution; 
+
+  In [6]: df = pd.DataFrame({'a':np.random.randint(0,5,5), 'b':np.random.randint(0,5,5), 'c':np.random.randint(0,5,5)})
+
+In [7]: df['Time'] = pd.date_range('2015/01/01',periods=5)
+
+In [8]: df2 = pd.DataFrame({'a':np.random.randint(0,5,5), 'b':np.random.randint(0,5,5), 'c':np.random.randint(0,5,5)})
+
+In [9]: df2['Time'] = pd.date_range('2015/01/01',periods=5)
+
+In [10]: df=pd.concat([df,df2]).set_index('Time').sort_index()
+
+In [11]: df
+Out[11]:
+            a  b  c
+Time
+2015-01-01  0  0  1
+2015-01-01  4  3  3
+2015-01-02  2  3  4
+2015-01-02  3  0  4
+2015-01-03  3  4  4
+2015-01-03  1  1  3
+2015-01-04  4  2  2
+2015-01-04  3  1  2
+2015-01-05  3  2  0
+2015-01-05  2  2  1
+
+In [12]: df[df<>0].groupby(df.index).mean()
+Out[12]:
+              a    b    c
+Time
+2015-01-01  4.0  3.0  2.0
+2015-01-02  2.5  3.0  4.0
+2015-01-03  2.0  2.5  3.5
+2015-01-04  3.5  1.5  2.0
+2015-01-05  2.5  2.0  1.0
+  
+
+ Note if all items in the same time are zero the mean evaluates as Nan. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50175419)
+ You can use  groupby  +  cumcount , and horizontally  concat  the new column: 
+
+  >>> pd.concat([df, df.group.groupby(df.group).cumcount()], axis=1).rename(columns={0: 'n'})
+    group   n
+0   a   0
+1   a   1
+2   a   2
+3   b   0
+4   b   1
+5   a   3
+6   b   2
+7   c   0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/41926156)
+ A solution managing the non overlapping feature. 
+
+  def count(row,mins):
+    runs=(row!=0).astype(uint8).tobytes().decode().split(chr(0))
+    lengths=[len(run) for run in runs]
+    return np.floor_divide.outer(lengths,mins).sum(0) 
+  
+
+ It use strings fast operations to find all the runs, then use //  to find how many non overlapping runs of given length you can build in each. 
+
+ with  df:  
+
+      a1  a2  a3  a4
+id                
+1    3   0  10  25
+2    0   0  31  15
+3   20  11   6   5
+4    0   3   1   7
+  
+
+  np.apply_along_axis(count,1,df,[2,3,4])  returns 
+
+  array([[1, 0, 0],
+       [1, 0, 0],
+       [2, 1, 1],
+       [1, 1, 0]], dtype=int32)
+  
+
+ which is the expected result for  df . 
+
+
+

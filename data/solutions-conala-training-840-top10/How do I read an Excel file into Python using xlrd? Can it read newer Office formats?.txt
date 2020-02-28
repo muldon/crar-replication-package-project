@@ -1,0 +1,144 @@
+Query: How do I read an Excel file into Python using xlrd? Can it read newer Office formats?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/272170)
+ xlrd support for Office 2007/2008 (OpenXML) format is in alpha test - see the following post in the python-excel newsgroup:
+http://groups.google.com/group/python-excel/msg/0c5f15ad122bf24b?hl=en  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/694688)
+ FWIW, I'm the author of xlrd, and the maintainer of xlwt (a fork of pyExcelerator). A few points: 
+
+ 
+  The file ComponentReport-DJI.xls is misnamed; it is not an XLS file, it is a tab-separated-values file. Open it with a text editor (e.g. Notepad) and you'll see what I mean. You can also look at the not-very-raw raw bytes with Python: 
+
+  >>> open('ComponentReport-DJI.xls', 'rb').read(200)
+'COMPANY NAME\tPRIMARY EXCHANGE\tTICKER\tSTYLE\tICB SUBSECTOR\tMARKET CAP RANGE\
+tWEIGHT PCT\tUSD CLOSE\t\r\n3M Co.\tNew York SE\tMMM\tN/A\tDiversified Industria
+ls\tBroad\t5.15676229508\t50.33\t\r\nAlcoa Inc.\tNew York SE\tA'
+  
+
+ You can read this file using Python's csv module ... just use  delimiter="\t"  in your call to  csv.reader() .  
+  xlrd can read any file that pyExcelerator can, and read them better&mdash;dates don't come out as floats, and the full story on Excel dates is in the xlrd documentation.  
+  pyExcelerator is abandonware&mdash;xlrd and xlwt are alive and well. Check out http://groups.google.com/group/python-excel  
+ 
+
+ HTH
+John 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37583472)
+ For newer formats they are often just zipped xml, so you can use standard libs to unzip and parse the xml. Some code to grab the document creator was previously https://stackoverflow.com/a/7021492/1341437. 
+
+  import zipfile, lxml.etree
+
+# open zipfile
+zf = zipfile.ZipFile('my_doc.docx')
+# use lxml to parse the xml file we are interested in
+doc = lxml.etree.fromstring(zf.read('docProps/core.xml'))
+# retrieve creator
+ns={'dc': 'http://purl.org/dc/elements/1.1/'}
+creator = doc.xpath('//dc:creator', namespaces=ns)[0].text
+  
+
+ For older formats you might want to look at the https://bitbucket.org/haypo/hachoir/wiki/hachoir-metadata 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7057076)
+ In xlrd 0.7.2 or newer, you can use https://secure.simplistix.co.uk/svn/xlrd/trunk/xlrd/doc/xlrd.html?p=4966#sheet.Sheet.hyperlink_map-attribute: 
+
+  import xlrd
+mainData_book = xlrd.open_workbook("IEsummary.xls", formatting_info=True)
+mainData_sheet = mainData_book.sheet_by_index(0)
+for row in range(1, 101):
+    rowValues = mainData_sheet.row_values(row, start_colx=0, end_colx=8)
+    company_name = rowValues[0]
+
+    link = mainData_sheet.hyperlink_map.get((row, 0))
+    url = '(No URL)' if link is None else link.url_or_path
+    print(company_name.ljust(20) + ': ' + url)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20105297)
+ Read your excel using the  xlrd  module and then you can use the  csv  module to create your own csv.  
+
+ Install the xlrd module in your command line: 
+
+  pip install xlrd  
+
+ Python script: 
+
+  import xlrd
+import csv
+
+def csv_from_excel():
+    wb = xlrd.open_workbook('excel.xlsx')
+    sh = wb.sheet_by_name('Sheet1')
+    your_csv_file = open('your_csv_file.csv', 'w')
+    wr = csv.writer(your_csv_file, quoting=csv.QUOTE_ALL)
+
+    for rownum in range(sh.nrows):
+        wr.writerow(sh.row_values(rownum))
+
+    your_csv_file.close()
+
+# runs the csv_from_excel function:
+csv_from_excel()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7038272)
+ For old office documents you could use https://bitbucket.org/haypo/hachoir/wiki/hachoir-metadata.
+I use it daily in a script and it works flawlessly.
+But I don't know wether it works with the new file formats. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29236995)
+  xlrd ,  xlwt , and  xlutils  are for accessing  xls  files, and have not been updated for use with  xlsx  files, which results in your multiple errors. 
+
+ As a workaround, there is now a Python library https://openpyxl.readthedocs.org/en/latest/which can easily read and write Excel  xlsx / xlsm / xltx / xltm  files. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7372812)
+ You're best bet for parsing Excel files would be the http://pypi.python.org/pypi/xlrd library.  The http://www.python-excel.org/ site has links and examples for http://pypi.python.org/pypi/xlrd and related python excel libraries, including a http://www.simplistix.co.uk/presentations/python-excel.pdf that has some good examples of using xlrd. Of course, there are also lots of https://stackoverflow.com/search?q=python%20xlrd on StackOverflow that might be of use. 
+
+ <strike>One caveat with the xlrd library is that it will only work with  xls  (Excel 2003 and earlier versions of excel) file formats and not the more recent  xlsx  file format. There is   a newer library https://bitbucket.org/ericgazoni/openpyxl/wiki/Home for dealing with the  xlsx , but I have never used it.</strike> 
+
+  UPDATE :
+As per John's comment, the http://pypi.python.org/pypi/xlrd library now supports both  xls  and  xlsx  file formats. 
+
+ Hope that helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/25486618)
+ I don't know of any Python utility that will convert  .xls  files to  . . You could simply combine the two libraries: read with  xlrd  and write with  openpyxl  or  writer .  openpyxl  does support formatting entire columns and rows with the  ColumnDimension  and  RowDimension  objects. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/7558637)
+ The xlrd, xlwt, and xlutils packages mentioned above can only read and write .xls files which have size limitations of 65,000 rows and 256 columns. Aside from that it is a good tool. 
+
+ But I have moved on to another python-excel package, OpenPyXL, which can read and write .. Also I find it easy to use and the documentation is good. 
+
+ OpenPyXL: http://packages.python.org/openpyxl/index.html 
+
+
+

@@ -1,0 +1,237 @@
+Query: Converting a hex-string representation to actual bytes in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3519142)
+ You can: 
+
+ 
+ Remove the  \x -es 
+ Use .decode('hex') on the resulting string 
+ 
+
+ Code: 
+
+  >>> '\\xF3\\xBE\\x80\\x80'.replace('\\x', '').decode('hex')
+'\xf3\xbe\x80\x80'
+  
+
+ Note the appropriate interpretation of backslashes. When the string representation is '\xf3' it means it's a single-byte string with the byte value 0xF3. When it's '\\xf3', which is your input, it means a string consisting of 4 characters:  \ ,  x ,  f  and  3  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3519973)
+ If you are using Python2.6+ here is a safe way to use eval 
+
+  >>> from ast import literal_eval
+>>> item='\\xF3\\xBE\\x80\\x80'
+>>> literal_eval("'%s'"%item)
+'\xf3\xbe\x80\x80'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28769060)
+ You can use  hexlify  to convert a  bytes  (Python 3) / binary  str  (Python 2) into a hex string (the string will be  bytes  on Python 3, so we need  .decode('ascii')  there to match against the  hexdigest  that is a  str ). 
+
+  from binascii import hexlify
+hex_string = hexlify(raw.read(16)).decode('ascii')
+
+if md5.hexdigest() == hex_string:
+    ...
+  
+
+ Likewise you can compare the raw bytes with the  digest() ; the  hexdigest()  is just 32-character readable representation of the 16-byte value that is the actual MD5 digest sum. 
+
+  the_bytes = raw.read(16)
+if md5.digest() == the_bytes:
+    ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3284069)
+  
+
+  >>> bytes.fromhex('4a4b4c').decode('utf-8')
+'JKL'
+  
+
+ Just put the actual encoding you are using. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21052094)
+ Python is being helpful. 
+
+ The  bytes  representation will use ASCII characters for any bytes that are printable and escape codes for the rest. 
+
+ Thus, 0x40 is printed as  @ , because that's a printable byte. But  0x0a  is represented as  \n  instead, because that is the standard Python escape sequence for a newline character. 0x00 is represented as  \x00 , a hex escape sequence denoting the NULL byte value. . 
+
+ All this is just the Python representation when echoing the values, for your debugging benefit. The actual value itself still consists of actual byte values. 
+
+  >>> b'\x40' == b'@'
+True
+>>> b'\x0a' == b'\n'
+True
+  
+
+ It's just that any byte in the printable ASCII range will be shown as that ASCII character rather than a  \xhh  hex escape or dedicated  \c  one-character escape sequence. 
+
+ If you wanted to see  only  hexadecimal representations, use the  binascii.hexlify()  function: 
+
+  >>> import binascii
+>>> binascii.hexlify(b'@\x00\x00\x00')
+b'40000000'
+>>> binascii.hexlify(b'\n\x00\x00\x00')
+b'0a000000'
+  
+
+ which returns bytes as hex characters (with no prefixes), instead. The return value is of course no longer the same value, you now have a bytestring of twice the original length consisting of characters representing hexadecimal values, literal  a  through to  f  and  0  through to  9  characters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48983139)
+ For starters,  0xf08c98caf1fd82e8cea9825dbff04fd0  is a number in Python (e.g.  0x10  is another way to write 16). But a number is not what you actually have, you have the hexadecimal representation of a list of bytes, also known as a hex string. 
+
+ So things to do:  
+
+ 
+ Get rid of the  0x , use a string. 
+ Decode that string into bytes. 
+ Encode those bytes to base64. 
+ 
+
+ Code: 
+
+  import base64
+
+nonce_hex = 'f08c98caf1fd82e8cea9825dbff04fd0'
+nonce = bytearray.fromhex(nonce_hex)
+base64_nonce = base64.encodebytes(nonce)
+
+# -> b'8IyYyvH9gujOqYJdv/BP0A==\n'
+  
+
+ The  actual  nonce is always bytes. Different methods are being used to represent/store/transport those bytes. Using hex strings is one common way. Using base64 is another. Both hex strings and base64 serve the same purpose: To store arbitrary bytes in string form for easy handling. Base64 happens to need less space than hex strings, this is why it is often preferred. The above code just converts one string representation of bytes into another. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18640222)
+ You are confusing Python byte literal syntax here; you do not need to generate the literal syntax, just the byte value; the  bytes()  type accepts a sequence of  integers  too: 
+
+  >>> bytes([255])
+b'\xff'
+  
+
+ Applied to your code: 
+
+  SET_BG_COLOR = b'\xAA\x03\x03'
+for r in range(0,255):
+    red = bytes([r])
+    blue = bytes([255 - r])
+    ser.write(SET_BG_COLOR + blue + b'\x00' + red + b'\xC3') #BGR format
+  
+
+ or, simpler still: 
+
+  SET_BG_COLOR = [0xAA, 0x03, 0x03]
+for r in range(0,255):
+    ser.write(bytes(SET_BG_COLOR + [r, 0x00, 255 - r, 0xC3])) #BGR format
+  
+
+ using literal hex integer notation. 
+
+ Demo for  r = 10 : 
+
+  >>> SET_BG_COLOR = [0xAA, 0x03, 0x03]
+>>> r = 10
+>>> bytes(SET_BG_COLOR + [r, 0x00, 255 - r, 0xC3])
+b'\xaa\x03\x03\n\x00\xf5\xc3'
+  
+
+ The  hex()  function outputs 4 characters per byte; starting with a literal  0x  followed by the hex representation of the integer number. Encoded to UTF8 that's still 4 bytes,  b'\x30\x78\x30\x31'  for the integer value  10 , for example, versus  b'\x10'  for the actual byte you wanted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30408869)
+ First: 
+
+ 
+   The documentation says "binary" though it looks more like hexadecimal because it says the ACK packet has to start with "0xFE 0x02". 
+ 
+
+ Well, it's impossible print actual binary data in a human-readable form, so documentation will usually either give a sequence of hexadecimal bytes. They could use a  bytes  literal like  b'\xFE\x02'  or something instead, but that's still effectively hexadecimal to the human reader, right? 
+
+ So, if they say "binary", they probably mean "binary", and the hex is just how they're showing you what binary bytes you need. 
+
+ 
+
+ So, you need to convert the ASCII representation of a number into an actual number, which you do with the https://docs.python.org/3/library/functions.html#int function. Then you need to  pack  that into 8 bytes, which you do with the https://docs.python.org/3/library/struct.html module. 
+
+ . Since this sounds like a network protocol, and it sounds like it wasn't designed by Microsoft, I would  guess  big-endian, but you should actually know, not guess. 
+
+  
+
+  imei_string = '1234567890123456789'
+imei_number = int(imei_string) # 1234567890123456789
+imei_bytes = struct.pack('>Q', imei_number) # b'\x11\x22\x10\xf4\x7d\xe9\x81\x15'
+buf = b'\xFE\x02' + imei_bytes + seq_bytes
+  
+
+ (You didn't say where you're supposed to get the sequence number from, but wherever it comes from, you'll  pack  it the same way, just using  >H  instead of  >Q .) 
+
+ 
+
+ If you actually  did  need a hex string rather than binary, you'd need to know exactly what format. The https://docs.python.org/3/library/binascii.html#binascii.b2a_hex function gives you "bare hex", two characters per byte, no  0x  or other header or footer. If you want something different, well, it depends on what exactly you want; no format is really that hard. But, again, I'm pretty sure you don't need a hex string here. 
+
+ 
+
+ One last thing: Since you didn't specify your Python version, I wrote this in a way that's compatible with both 2.6+ and 3.0+; if you need to use 2.5 or earlier, just drop the  b  prefix on the literal in the  buf =  line. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27023448)
+ You simply want to decode from ASCII here, your bytestring is  already  representing hexadecimal numbers, in ASCII characters: 
+
+  >>> a = b'067b'
+>>> a.decode('ascii')
+'067b'
+  
+
+ Everything you tried is interpreting the bytes as numeric data instead, either as hexadecimal numbers representing bytes or as bytes representing numeric data. 
+
+ So your first attempt takes the value  06  as a hexadecimal number and turns that into the byte value  6 , and  7b  is turned into the byte value 123, which is the ASCII codepoint for the  {  character. 
+
+ In your second attempt you are converting each byte to a hexadecimal representation of its numeric value. The  0  byte being interpreted as the integer number 48 (the ASCII codepoint for the  '0'  character), which is  30  in hexadecimal.  '6'  is 54, or  36  in hex, etc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54481693)
+ It's simply the representation of the byte with value  26  (decimal 38), which is the  '&'  character in ASCII. 
+
+ If you print the actual byte values of the bytes literal you used, you can see this clearly: 
+
+<pre class="lang-none prettyprint-override"> >>> print(' '.join('%02x' % b for b in b'\x00\x00\x04\x12\xaa\x12\x12&'))
+00 00 04 12 aa 12 12 26
+  
+
+ And the  repr  of the  bytearray  object prefers to represent bytes using ASCII characters rather than hex escapes whenever possible. So it will prefer the representation  '&'  rather than  '\x26' , even though they are technically equivalent: 
+
+<pre class="lang-none prettyprint-override"> >>> bytearray([0x00, 0x00, 0x04, 0x12, 0xAA, 0x12, 0x12, 0x26])
+bytearray(b'\x00\x00\x04\x12\xaa\x12\x12&')
+
+>>> b'\x26' == b'&'
+True
+  
+
+
+

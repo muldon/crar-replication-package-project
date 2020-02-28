@@ -1,0 +1,275 @@
+Query: How to remove multiple columns that end with same text in Pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38426183)
+  
+
+  not_prefix_cols= [col for col in df.columns if not 'prefix' in col]
+df2[not_prefix_cols]
+  
+
+ But better is use: 
+
+  prefix_cols= [col for col in df.columns if not col.endswith('prefix')]
+print (df[prefix_cols])
+  
+
+  
+
+  import pandas as pd
+
+df = pd.DataFrame({'prefixone' : pd.Series([1, 2, 3, 4]),
+                   'twoprefix' : pd.Series([20, 30, 40, 50]),
+                   'two1prefix' : pd.Series([20, 30, 40, 50])})
+
+print (df)
+   prefixone  two1prefix  twoprefix
+0          1          20         20
+1          2          30         30
+2          3          40         40
+3          4          50         50
+
+prefix_cols= [col for col in df.columns if not col.endswith('prefix')]
+print (df[prefix_cols])
+   prefixone
+0          1
+1          2
+2          3
+3          4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38426418)
+ using  filter  and  regex  
+
+  df.filter(regex=r'^((?!prefix).)*$')
+  
+
+ Demo</h3>
+
+  df = pd.DataFrame(np.random.rand(2, 6),
+                  columns=['oneprefix', 'one',
+                           'twoprefix', 'two',
+                           'threeprefix', 'three'])
+
+df.filter(regex=r'^((?!prefix).)*$')
+  
+
+ https://i.stack.imgur.com/EGF4N.png 
+
+ where: 
+
+  df
+  
+
+ <a href="https://i.stack.imgur.com/BRoHw.png"  
+
+ 
+
+ Timing</h3>
+
+ All are about the same
+<a href="https://i.stack.imgur.com/auorJ.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38426594)
+  
+
+  In [306]: df
+Out[306]:
+   prefixcol1  col2prefix  col3prefix  colN
+0           1           1           1     1
+1           2           2           2     2
+2           3           3           3     3
+
+In [307]: df.loc[:, ~df.columns.str.contains('prefix$')]
+Out[307]:
+   prefixcol1  colN
+0           1     1
+1           2     2
+2           3     3
+  
+
+ or another variant: 
+
+  In [388]: df.select(lambda x: re.search(r'prefix$', str(x)) is None, axis=1)
+Out[388]:
+   prefixcol1  colN
+0           1     1
+1           2     2
+2           3     3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39238880)
+ building on https://stackoverflow.com/questions/22649693/drop-rows-with-all-zeros-in-pandas-data-frame to avoid using the sum() 
+
+  df = pd.DataFrame({'A': [1,0,1,0,1],
+                   'B': [1,0,0,1,1],
+                   'C': [0,0,0,0,0],
+                   'D': [1,0,1,0,1]})
+
+df.loc[(df!=0).any(1), (df!=0).any(0)]
+
+   A  B  D
+0  1  1  1
+2  1  0  1
+3  0  1  0
+4  1  1  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43745546)
+ If  col1  contains flat strings: 
+
+  In [94]: df
+Out[94]:
+  col0                      col1
+0   g1                      text
+1   g2                 text,text
+2   g3            text,text,text
+3   g4                      text
+4   g5  text,text,text,text,text
+
+In [95]: df = df.loc[~df.col1.str.contains(',')]
+
+In [96]: df
+Out[96]:
+  col0  col1
+0   g1  text
+3   g4  text
+  
+
+ 
+
+  In [105]: df
+Out[105]:
+  col0                            col1
+0   g1                          [text]
+1   g2                    [text, text]
+2   g3              [text, text, text]
+3   g4                          [text]
+4   g5  [text, text, text, text, text]
+
+In [106]: df.col1.str.len() < 2
+Out[106]:
+0     True
+1    False
+2    False
+3     True
+4    False
+Name: col1, dtype: bool
+
+In [107]: df[df.col1.str.len() < 2]
+Out[107]:
+  col0    col1
+0   g1  [text]
+3   g4  [text]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54746247)
+ Pandas is designed for  structured  data. This means something organised into rows and columns, like a spreadsheet or a matrix. It'll give a text file a try, but loose text is far too disorganised for Pandas to parse. 
+
+ What you might want to do is split it into a list of sentences, then feed that list into Pandas. 
+
+ Here's a simple example: 
+
+  with open('pg18857.txt') as f:
+    content = f.readlines()
+# Remove whitespace characters like `\n` at the end of each line
+content = [x.strip() for x in content] 
+df = pd.DataFrame(content)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51843196)
+ If you have lot of columns say - 1000 columns in dataframe and you want to merge few columns based on  particular column name  e.g. - Column2  in question and arbitrary no. of columns after that column (e.g. here 3 columns after  'Column2  inclusive of  Column2  as OP asked). 
+
+ We can get position of column using http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_loc.html#pandas.Index.get_loc - as answered https://stackoverflow.com/questions/33941406/pandas-how-to-get-position-of-columns 
+
+  source_col_loc = df.columns.get_loc('Column2') # column position starts from 0
+
+df['ColumnA'] = df.iloc[:,source_col_loc+1:source_col_loc+4].apply(
+    lambda x: ",".join(x.astype(str)), axis=1)
+
+df
+
+Column1  Column2  Column3  Column4  Column5  ColumnA
+0       a        1        2        3        4  1,2,3,4
+1       a        3        4        5      NaN    3,4,5
+2       b        6        7        8      NaN    6,7,8
+3       c        7        7      NaN      NaN      7,7
+  
+
+ To remove  NaN , use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.dropna.html or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.fillna.html 
+
+ Hope it helps! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46576229)
+ IIUC: 
+
+ You want to do this over the entire dataframe. 
+If so, here is a vectorized way using  numpy  over the entire dataframe at once.   
+
+      
+
+  df = pd.DataFrame([
+    ['xxxxxxxx20yyyy', 'z' * 14, 'wwwwwwww20vvvv'],
+    ['k' * 14, 'dddddddd20ffff', 'a' * 14]
+], columns=list('ABC'))
+
+df
+
+                A               B               C
+0  xxxxxxxx20yyyy  zzzzzzzzzzzzzz  wwwwwwww20vvvv
+1  kkkkkkkkkkkkkk  dddddddd20ffff  aaaaaaaaaaaaaa
+  
+
+  Solution  
+Using  numpy.core.defchararray.find  and  np.where    
+
+  from numpy.core.defchararray import find
+
+v = df.values.astype(str)
+i, j = np.where(find(v, '20') > -1)
+
+v[i, j] = v[i, j].astype('<U10')
+
+df.loc[:] = v
+
+df
+
+                A               B               C
+0      xxxxxxxx20  zzzzzzzzzzzzzz      wwwwwwww20
+1  kkkkkkkkkkkkkk      dddddddd20  aaaaaaaaaaaaaa
+  
+
+ 
+
+ If you don't want to overwrite the old dataframe, you can create a new one: 
+
+  pd.DataFrame(v, df.index, df.columns)
+
+                A               B               C
+0      xxxxxxxx20  zzzzzzzzzzzzzz      wwwwwwww20
+1  kkkkkkkkkkkkkk      dddddddd20  aaaaaaaaaaaaaa
+  
+
+
+

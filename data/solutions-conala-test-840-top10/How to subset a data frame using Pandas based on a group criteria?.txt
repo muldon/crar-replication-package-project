@@ -1,0 +1,358 @@
+Query: How to subset a data frame using Pandas based on a group criteria?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49538925)
+ you can use groupby to group the column     
+
+  for _, g in df0.groupby('Group'):
+  print g
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27868335)
+ As an alternative to @unutbu's answer, there's also 
+
+  >>> df.loc[df.groupby("User")["X"].transform(sum) == 0]
+   User  X
+0     1  0
+1     1  0
+5     3  0
+6     3  0
+  
+
+ This creates a  df -length boolean Series to use as a selector: 
+
+  >>> df.groupby("User")["X"].transform(sum) == 0
+0     True
+1     True
+2    False
+3    False
+4    False
+5     True
+6     True
+dtype: bool
+  
+
+  transform  is used when you want to "broadcast" the result of a groupby reduction operation back up to all the elements of each group.  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35725898)
+ You can try http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.notnull.html: 
+
+  data[(data['a']=='bbb') & (data['a'].notnull())]
+  
+
+  
+
+  print data
+      a
+0   bbb
+1   bbb
+2   bbb
+3   bbb
+4   bbb
+5   bbb
+6   bbb
+7   NaN
+8     a
+9     a
+10  bbb
+
+print data[(data['a']=='bbb') & (data['a'].notnull())]
+      a
+0   bbb
+1   bbb
+2   bbb
+3   bbb
+4   bbb
+5   bbb
+6   bbb
+10  bbb
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53810369)
+ Use: 
+
+  L = [1,2,3]
+
+for v in L:
+    #new column name 
+    col = 'HG>={}'.format(v)
+    #filter by condition
+    df1 =  df[df['HomeGoal'] >= v]
+    #new Series filled by aggregated values per groups and added column AOS
+    df[col] = df1.groupby('Match')['% Prob'].transform('sum') + df['AOS']
+    #only first non missing value per group
+    mask = ~df.dropna(subset=[col]).duplicated(subset=[col, 'Match']) 
+    df[col] = df[col].mask(~mask, 0)
+
+for v in L:
+    col = 'HG>{}'.format(v)
+    df[col] = df[df['HomeGoal'] < v].groupby('Match')['% Prob'].transform('sum')
+    mask = ~df.dropna(subset=[col]).duplicated(subset=[col, 'Match']) 
+    df[col] = df[col].mask(~mask, 0)
+  
+
+ 
+
+  print (df)
+
+  Match  HomeGoal  AwayGoal   AOS  % Prob  HG>=1  HG>=2  HG>=3  HG>1  HG>2  \
+0     A         0         0  0.12    0.15   0.00   0.00   0.00  0.15  0.27   
+1     A         1         1  0.12    0.12   0.47   0.00   0.00  0.00  0.00   
+2     A         2         2  0.12    0.10   0.00   0.35   0.00  0.00  0.00   
+3     A         3         3  0.12    0.08   0.00   0.00   0.25  0.00  0.00   
+4     A         4         4  0.12    0.05   0.00   0.00   0.00  0.00  0.00   
+5     B         0         0  0.06    0.18   0.00   0.00   0.00  0.18  0.33   
+6     B         1         1  0.06    0.15   0.44   0.00   0.00  0.00  0.00   
+7     B         2         2  0.06    0.10   0.00   0.29   0.00  0.00  0.00   
+8     B         3         3  0.06    0.08   0.00   0.00   0.19  0.00  0.00   
+9     B         4         4  0.06    0.05   0.00   0.00   0.00  0.00  0.00   
+
+   HG>3  
+0  0.37  
+1  0.00  
+2  0.00  
+3  0.00  
+4  0.00  
+5  0.43  
+6  0.00  
+7  0.00  
+8  0.00  
+9  0.00  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43104013)
+ You can use  groupby.filter ; In the filter, construct a unique boolean value for each group to filter the data frame: 
+
+  df.groupby("column3").filter(lambda g: (g.name != 0) and (g.column3.size >= 3))
+  
+
+ https://i.stack.imgur.com/yob3U.png 
+
+ Another option could be: 
+
+  df[(df.column3 != 0) & (df.groupby("column3").column3.transform("size") >= 3)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27868152)
+ https://stackoverflow.com/a/27868335/190597, which selects rows using a boolean mask, works well even if the DataFrame has a non-unique index. 
+My method, which selects rows using index values, is slightly slower when the index is unique and  significantly slower  when the index contains duplicate values.  
+
+ @roland: Please consider accepting DSM's answer instead. 
+
+ 
+
+ You could use a http://pandas.pydata.org/pandas-docs/stable/groupby.html#filtration: 
+
+  In [16]: df.loc[df.groupby('User')['X'].filter(lambda x: x.sum() == 0).index]
+Out[16]: 
+   User  X
+0     1  0
+1     1  0
+5     3  0
+6     3  0
+  
+
+ 
+
+ By itself, the groupby-filter just returns this: 
+
+  In [29]: df.groupby('User')['X'].filter(lambda x: x.sum() == 0)
+Out[29]: 
+0    0
+1    0
+5    0
+6    0
+Name: X, dtype: int64
+  
+
+ but you can then use its index,  
+
+  In [30]: df.groupby('User')['X'].filter(lambda x: x.sum() == 0).index
+Out[30]: Int64Index([0, 1, 5, 6], dtype='int64')
+  
+
+ to select the desired rows using  df.loc . 
+
+ 
+
+ Here is the benchmark I used: 
+
+  In [49]: df2 = pd.concat([df]*10000)   # df2 has a non-unique index
+  
+
+ I <kbd>Ctrl</kbd>-<kbd>C</kbd>'d this one because it was taking too long to finish: 
+
+  In [50]: %timeit df2.loc[df2.groupby('User')['X'].filter(lambda x: x.sum() == 0).index]
+  
+
+ When I realized my mistake, I made a DataFrame with a unique index: 
+
+  In [51]: df3 = df2.reset_index()     # this gives df3 a unique index
+
+In [52]: %timeit df3.loc[df3.groupby('User')['X'].filter(lambda x: x.sum() == 0).index]
+100 loops, best of 3: 13 ms per loop
+
+In [53]: %timeit df3.loc[df3.groupby("User")["X"].transform(sum) == 0]
+100 loops, best of 3: 11.4 ms per loop
+  
+
+ This shows DSM's method performs well even with a non-unique index: 
+
+  In [54]: %timeit df2.loc[df2.groupby("User")["X"].transform(sum) == 0]
+100 loops, best of 3: 11.2 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35726177)
+ Reassign the column type as follows: 
+
+  df['a'] = df['a'].astype('O')
+  
+
+ This should solve the issue. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41497530)
+ 
+  query  to subset 
+  groupby  
+  unstack  
+ 
+
+ 
+
+  df.query('Value_Bucket == 5').groupby(
+    ['Hour_Bucket', 'DayofWeek']).Values.mean().unstack()
+
+DayofWeek      1    3
+Hour_Bucket          
+1            1.0  NaN
+5            1.5  NaN
+7            NaN  2.0
+  
+
+ 
+
+ If you want to have zeros instead of  NaN  
+
+  df.query('Value_Bucket == 5').groupby(
+    ['Hour_Bucket', 'DayofWeek']).Values.mean().unstack(fill_value=0)
+
+DayofWeek      1    3
+Hour_Bucket          
+1            1.0  0.0
+5            1.5  0.0
+7            0.0  2.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35304584)
+ Here is another approach. It's cleaner, more performant, and has the advantage that  columns  can be empty (in which case the entire data frame is returned). 
+
+  def filter(df, value, *columns):
+    return df.loc[df.loc[:, columns].eq(value).all(axis=1)]
+  
+
+  Explanation  
+
+ 
+  values = df.loc[:, columns]  selects only the columns we are interested in. 
+  masks = values.eq(value)  gives a boolean data frame indicating equality with the target value. 
+  mask = masks.all(axis=1)  applies an AND across columns (returning an index mask). Note that you can use  masks.any(axis=1)  for an OR. 
+  return df.loc[mask]  applies index mask to the data frame. 
+ 
+
+    
+
+  import numpy as np
+import pandas as pd
+
+df = pd.DataFrame(np.random.randint(0, 2, (100, 3)), columns=list('ABC'))
+
+# both columns
+assert np.all(filter(df, 1, 'A', 'B') == df[(df.A == 1) & (df.B == 1)])
+
+# no columns
+assert np.all(filter(df, 1) == df)
+
+# different values per column
+assert np.all(filter(df, [1, 0], 'A', 'B') == df[(df.A == 1) & (df.B == 0)])
+  
+
+ 
+
+  Alternative  
+
+ For a small number of columns (< 5), the following solution, based on https://stackoverflow.com/a/35303896/1391671, is more performant than the above, although less flexible. As-is, it will not work for an empty  columns  set, and will not work using different values per column. 
+
+  from operator import and_
+
+def filter(df, value, *columns):
+    return df.loc[reduce(and_, (df[column] == value for column in columns))]
+  
+
+ Retrieving a  Series  object by key ( df[column] ) is significantly faster than constructing a  DataFrame  object around a subset of columns ( df.loc[:, columns] ). 
+
+  In [4]: %timeit df['A'] == 1
+100 loops, best of 3: 17.3 ms per loop
+
+In [5]: %timeit df.loc[:, ['A']] == 1
+10 loops, best of 3: 48.6 ms per loop
+  
+
+ Nevertheless, this speedup becomes negligible when dealing with a larger number of columns. The bottleneck becomes ANDing the masks together, for which  reduce(and_, ...)  is far slower than the Pandas builtin  all(axis=1) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38319278)
+ You can call the  duplicated  method on the  foo  column and then subset your original data frame based on it, something like this: 
+
+  data.loc[data['foo'].duplicated(), :]
+  
+
+ As an example: 
+
+  data = pd.DataFrame({'foo': [1,1,1,2,2,2], 'bar': [1,1,2,2,3,3]})    
+data
+
+# bar foo
+#0  1   1
+#1  1   1
+#2  2   1
+#3  2   2
+#4  3   2
+#5  3   2
+
+
+data.loc[data['foo'].duplicated(), :]
+# bar foo
+#1  1   1
+#2  2   1
+#4  3   2
+#5  3   2
+  
+
+
+

@@ -1,0 +1,179 @@
+Query: How to use the mv command in Python with subprocess
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22714317)
+  subprocess.call  doesn't invoke the shell by default.  *  is expanded by the shell: 
+
+  import pipes
+from subprocess import check_call
+
+check_call("mv %s/* %s" % tuple(map(pipes.quote, [tmp, destination_dir])),
+           shell=True)
+  
+
+ Or without the shell, using  glob  module: 
+
+  import os
+from glob import glob
+from subprocess import check_call
+
+check_call(['mv'] + glob(os.path.join(tmp, '*')) + [destination_dir])
+  
+
+ Or without the external subprocess using  shutil.move : 
+
+  import os
+import shutil
+
+for path in os.listdir(tmp):
+    shutil.move(os.path.join(tmp, path), destination_dir)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7450481)
+ You shouldn't need to use subprocess for this, check out http://docs.python.org/library/shutil.html#shutil.copytree 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7450626)
+ You can do it without starting a new process using modules shutil and glob: 
+
+  import glob
+import shutil
+
+def moveFilesByType(source, destination, extension):
+    for path in glob.glob(source + "/*." + extension):
+        shutil.move(path, destination)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21804966)
+ if you call subprocess that way: 
+
+  subprocess.call(["mv", "/home/somedir/subdir/*", "somedir/"])
+  
+
+ you're actually giving the argument  /home/somedir/subdir/*  to the  mv  command, with an actual  *  file. i.e. you're actually trying to move the  *  file. 
+
+  subprocess.call("mv /home/somedir/subdir/* somedir/", shell=True)
+  
+
+ it will use the shell that will expand the first argument.  
+
+  Nota Bene : when using the  shell=True  argument you need to change your argument list into a string that will be given to the shell. 
+
+  Hint : You can also use the  os.rename()  or  shutil.move()  functions, along with  os.path.walk()  or  os.listdir()  to move the files to destination in a more pythonic way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21804962)
+ You can solve this by adding the parameter  shell=True , to take into account wildcards in your case (and so write the command directly, without any list): 
+
+  subprocess.call("mv /home/somedir/subdir/* somedir/", shell=True)
+  
+
+ Without it, the argument is directly given to the  mv  command with the asterisk. It's the shell job to return every files which match the pattern in general. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44276741)
+ You can use  subprocess  that can call a  shell command  like below, for this purpose 
+
+  import subprocess
+cmd = '''ls *.txt | sort | awk 'BEGIN{ a=1 }{ printf "mv %s test%0d.txt\\n", $0, a++ }' | bash'''
+subprocess.call(cmd, shell=True)
+  
+
+  PS : If you want to make copies of files, instead of  mv  use  cp   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21804963)
+ You are using shell globbing  * , and expecting the  mv  command to know what it means. You can get the same error from a command shell this way: 
+
+  $ mv 'somedir/subdir/*' ...
+  
+
+ Notice the quotes. The shell usually does glob-matching on  *  for you, but commands don't do that on their command lines; not even a shell does. There is a C library function called  fnmatch  that does shell-style globbing for you, which every programming language more or less copies. It might even have the same name in Python. Or it might have the word "glob" in it; I don't remember. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9483459)
+ The problem is that this subprocess command 
+
+  subprocess.call(['mv', 'at*', './output20'])
+  
+
+ is not the same as typing this at a prompt 
+
+  $ mv at* ./output20
+  
+
+ In the latter case, the bash glob expansion converts the single  at*  argument to a list of arguments of matching filenames for the  mv  command.  So the kernel sees the second as 
+
+  ['mv', 'at0_l0_l0', 'at0_l1_l-1', './output20']
+  
+
+ https://stackoverflow.com/a/9483204/79513 tells Python to pass the command through the shell, so the escaping will occur. 
+
+ But the better solution is to use the  glob  module and  os.rename  libraries and not call the subprocess.  Creating subprocesses is expensive, and using  shell=True  could lead to security holes, so it's best to avoid that habit. 
+
+ (Actually, I suggest making the output directory, switching into it, and then running the  exp_fit  program from within that directory.  Then you won't have to move the output.  Try that first.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48973023)
+ 
+ don't use  os.system , it's deprecated and not able to compose a proper command line with quoted args, etc... (Since  inp  contains spaces, you need quoting, and it can become a mess quickly enough) 
+ don't use  mv  when you have  shutil.move  
+ 
+
+ my proposal: use  subprocess.check_call  (python <3.5), using  os.path.expanduser  allows to evaluate  ~  without needing  shell=True : 
+
+  import subprocess
+subprocess.check_call(["python",
+           os.path.expanduser("~/Desktop/smc/fuzzy/name_of_my_python_file.py"),inp])
+  
+
+ Passing arguments as a list of arguments allows to let  check_call  handle the quoting when needed. 
+
+ Now, to move the files use a loop on globbed files and  shutil : 
+
+  import glob,shutil
+for file in glob.glob("*_"+str(arg[i])):
+   shutil.move(file,"results")
+  
+
+ However, in the long run, since you're calling a python program from a python program and you're passing python lists, you'd be better off with simple module imports and function calls, passing the lists directly, not converted as string, where you have to parse them back in the subprocess. 
+
+ This present answer is better suited for non-python subprocesses. 
+
+ As an aside, don't use system calls to create directories: 
+
+  os.system("test -d results || mkdir results")
+  
+
+ can be replaced by full-python code, OS independent: 
+
+  if not os.path.isdir("results"):
+   os.mkdir("results")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/13288337)
+ The shell features they are talking about are things like  |  pipes,  *  globs and other wildcards, stdout/stderr redirects with  >  or  2> ,  <(process substitution)  etc.  They are not talking about other commands/programs such as mv, grep, etc. 
+
+
+

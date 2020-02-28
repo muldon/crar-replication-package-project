@@ -1,0 +1,364 @@
+Query: How to write a multidimensional array to a text file?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10958051)
+ If your array has many zeros you can use sparse matrix representation: instead of writing the whole matrix to the file, only write the nonzero elements (of course, you need to write each element with its indices, one by one). Suppose you want to write this matrix: 
+
+  0 0 0 2
+1 0 0 0
+0 0 0 0
+0 0 3 0
+0 0 0 0
+  
+
+ You can write this to the file: 
+
+  0 3 2
+1 0 1
+3 2 3
+  
+
+ In each line, the first number is the row, the second is the column and the third is the stored value. 
+
+ If you are writing the file as text, you can switch to binary format: when you write text, you will use a byte for each digit; in binary, you use fixed amount of bytes per number, and wouldn't have to represent spaces and newlines: 
+
+ Writing the numbers  100 200 300  to a file takes 11 bytes if you use text format. But they may be written using 6 bytes if you write three 16-bit integers. In Python, use "wb" and "rb" modes for opening binary files, then write them as bytes: 
+
+  f = open('file', 'wb')
+f.write('%c' % 123)
+f.close()
+  
+
+ Or -- more efficiently, 
+
+  import array
+f = open('file', 'wb')
+data = array.array('B')
+data.append(1)
+data.append(2)
+data.append(3)
+data.tofile(f)
+f.close()
+  
+
+ Otherwise, then you should probably try compressing the data structure, using standard techniques. Since you tagged your question with  python , you will probably be interested in these http://docs.python.org/library/archiving.html 
+
+ There is also this nice http://www.cs.cmu.edu/~guyb/realworld/compression.pdf, a bit heavy on the theoretical side, in case you would like to know more about it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3685295)
+ I am not certain if this meets your requirements, given I think you are interested in making the file readable by people, but if that's not a primary concern, just http://docs.python.org/library/pickle.html it. 
+
+ To save it: 
+
+  import pickle
+
+my_data = {'a': [1, 2.0, 3, 4+6j],
+           'b': ('string', u'Unicode string'),
+           'c': None}
+output = open('data.pkl', 'wb')
+pickle.dump(my_data, output)
+output.close()
+  
+
+  
+
+  import pprint, pickle
+
+pkl_file = open('data.pkl', 'rb')
+
+data1 = pickle.load(pkl_file)
+pprint.pprint(data1)
+
+pkl_file.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3685318)
+ You can simply traverse the array in three nested loops and write their values to your file. For reading, you simply use the same exact loop construction. You will get the values in exactly the right order to fill your arrays correctly again. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19056245)
+ You can use http://docs.python.org/2/library/functions.html#map with  the unbound method  http://docs.python.org/2/library/stdtypes.html#str.split: 
+
+  >>> map(str.split, open('testFile.txt'))
+[['Hello', 'World'], ['How', 'are', 'you?'], ['Bye', 'World']]
+  
+
+ In Python 3.x, you have to use  list(map(str.split, ...))  to get a list because <a href="http://docs.python.org/3/library/functions.html#map"  in Python 3.x return an iterator instead of a list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3685767)
+ There exist special libraries to do just that. (Plus wrappers for python) 
+
+ 
+ netCDF4: http://www.unidata.ucar.edu/software/netcdf/ 
+  netCDF4 Python interface: <a href="http://www.unidata.ucar.edu/software/netcdf/software.html#Python"software.html#Python   
+  HDF5: http://www.hdfgroup.org/HDF5/  
+ 
+
+ hope this helps 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18010155)
+ If you don't need a human-readable output, another option you could try is to save the array as a MATLAB  .mat  file, which is a structured array. I despise MATLAB, but the fact that I can both read and write a  .mat  in very few lines is convenient.  
+
+ Unlike Joe Kington's answer, the benefit of this is that you  don't need to know the original shape of the data  in the  .mat  file, i.e. no need to reshape upon reading in. And, unlike using  pickle , a  .mat  file can be read by MATLAB, and probably some other programs/languages as well.  
+
+ Here is an example: 
+
+  import numpy as np
+import scipy.io
+
+# Some test data
+x = np.arange(200).reshape((4,5,10))
+
+# Specify the filename of the .mat file
+matfile = 'test_mat.mat'
+
+# Write the array to the mat file. For this to work, the array must be the value
+# corresponding to a key name of your choice in a dictionary
+scipy.io.savemat(matfile, mdict={'out': x}, oned_as='row')
+
+# For the above line, I specified the kwarg oned_as since python (2.7 with 
+# numpy 1.6.1) throws a FutureWarning.  Here, this isn't really necessary 
+# since oned_as is a kwarg for dealing with 1-D arrays.
+
+# Now load in the data from the .mat that was just saved
+matdata = scipy.io.loadmat(matfile)
+
+# And just to check if the data is the same:
+assert np.all(x == matdata['out'])
+  
+
+ If you forget the key that the array is named in the  .mat  file, you can always do: 
+
+  print matdata.keys()
+  
+
+ And of course you can store many arrays using many more keys. 
+
+ So yes – it won't be readable with your eyes, but only takes 2 lines to write and read the data, which I think is a fair trade-off. 
+
+ Take a look at the docs for http://docs.scipy.org/doc/scipy/reference/generated/scipy.io.savemat.html
+and http://docs.scipy.org/doc/scipy/reference/generated/scipy.io.loadmat.html
+and also this tutorial page: http://docs.scipy.org/doc/scipy/reference/tutorial/io.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18145279)
+ http://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.tofile.html#numpy.ndarray.tofile should also work 
+
+ e.g. if your array is called  a : 
+
+  a.tofile('yourfile.txt',sep=" ",format="%s")
+  
+
+ Not sure how to get newline formatting though. 
+
+  Edit  (credit Kevin J. Black's comment https://stackoverflow.com/a/30189734/1461850): 
+
+ 
+   Since version 1.5.0,  np.tofile()  takes an optional parameter
+   newline='\n'  to allow multi-line output.
+  https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.savetxt.html 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19056145)
+ Use a list comprehension and  str.split : 
+
+  with open("textFile.txt") as textFile:
+    lines = [line.split() for line in textFile]
+  
+
+    
+
+  >>> with open("textFile.txt") as textFile:
+        lines = [line.split() for line in textFile]
+...     
+>>> lines
+[['Hello', 'World'], ['How', 'are', 'you?'], ['Bye', 'World']]
+  
+
+ http://docs.python.org/2/tutorial/inputoutput.html#reading-and-writing-files: 
+
+ 
+   It is good practice to use the  with  keyword when dealing with file
+  objects. This has the advantage that the file is properly closed after
+  its suite finishes, even if an exception is raised on the way. It is
+  also much shorter than writing equivalent try-finally blocks. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3685339)
+ If you want to write it to disk so that it will be easy to read back in as a numpy array, look into http://docs.scipy.org/doc/numpy/reference/generated/numpy.save.html.  Pickling it will work fine, as well, but it's less efficient for large arrays (which yours isn't, so either is perfectly fine). 
+
+ If you want it to be human readable, look into http://docs.scipy.org/doc/numpy/reference/generated/numpy.savetxt.html. 
+
+  Edit:   So, it seems like  savetxt  isn't quite as great an option for arrays with >2 dimensions... But just to draw everything out to it's full conclusion: 
+
+ I just realized that  numpy.savetxt  chokes on ndarrays with more than 2 dimensions... This is probably by design, as there's no inherently defined way to indicate additional dimensions in a text file. 
+
+ E.g. This (a 2D array) works fine 
+
+  import numpy as np
+x = np.arange(20).reshape((4,5))
+np.savetxt('test.txt', x)
+  
+
+ While the same thing would fail (with a rather uninformative error:  TypeError: float argument required, not numpy.ndarray ) for a 3D array: 
+
+  import numpy as np
+x = np.arange(200).reshape((4,5,10))
+np.savetxt('test.txt', x)
+  
+
+ One workaround is just to break the 3D (or greater) array into 2D slices. E.g. 
+
+  x = np.arange(200).reshape((4,5,10))
+with file('test.txt', 'w') as outfile:
+    for slice_2d in x:
+        np.savetxt(outfile, slice_2d)
+  
+
+ However, our goal is to be clearly human readable, while still being easily read back in with  numpy.loadtxt . Therefore, we can be a bit more verbose, and differentiate the slices using commented out lines. By default,  numpy.loadtxt  will ignore any lines that start with  #  (or whichever character is specified by the  comments  kwarg).  (This looks more verbose than it actually is...) 
+
+  import numpy as np
+
+# Generate some test data
+data = np.arange(200).reshape((4,5,10))
+
+# Write the array to disk
+with open('test.txt', 'w') as outfile:
+    # I'm writing a header here just for the sake of readability
+    # Any line starting with "#" will be ignored by numpy.loadtxt
+    outfile.write('# Array shape: {0}\n'.format(data.shape))
+
+    # Iterating through a ndimensional array produces slices along
+    # the last axis. This is equivalent to data[i,:,:] in this case
+    for data_slice in data:
+
+        # The formatting string indicates that I'm writing out
+        # the values in left-justified columns 7 characters in width
+        # with 2 decimal places.  
+        np.savetxt(outfile, data_slice, fmt='%-7.2f')
+
+        # Writing out a break to indicate different slices...
+        outfile.write('# New slice\n')
+  
+
+  
+
+  # Array shape: (4, 5, 10)
+0.00    1.00    2.00    3.00    4.00    5.00    6.00    7.00    8.00    9.00   
+10.00   11.00   12.00   13.00   14.00   15.00   16.00   17.00   18.00   19.00  
+20.00   21.00   22.00   23.00   24.00   25.00   26.00   27.00   28.00   29.00  
+30.00   31.00   32.00   33.00   34.00   35.00   36.00   37.00   38.00   39.00  
+40.00   41.00   42.00   43.00   44.00   45.00   46.00   47.00   48.00   49.00  
+# New slice
+50.00   51.00   52.00   53.00   54.00   55.00   56.00   57.00   58.00   59.00  
+60.00   61.00   62.00   63.00   64.00   65.00   66.00   67.00   68.00   69.00  
+70.00   71.00   72.00   73.00   74.00   75.00   76.00   77.00   78.00   79.00  
+80.00   81.00   82.00   83.00   84.00   85.00   86.00   87.00   88.00   89.00  
+90.00   91.00   92.00   93.00   94.00   95.00   96.00   97.00   98.00   99.00  
+# New slice
+100.00  101.00  102.00  103.00  104.00  105.00  106.00  107.00  108.00  109.00 
+110.00  111.00  112.00  113.00  114.00  115.00  116.00  117.00  118.00  119.00 
+120.00  121.00  122.00  123.00  124.00  125.00  126.00  127.00  128.00  129.00 
+130.00  131.00  132.00  133.00  134.00  135.00  136.00  137.00  138.00  139.00 
+140.00  141.00  142.00  143.00  144.00  145.00  146.00  147.00  148.00  149.00 
+# New slice
+150.00  151.00  152.00  153.00  154.00  155.00  156.00  157.00  158.00  159.00 
+160.00  161.00  162.00  163.00  164.00  165.00  166.00  167.00  168.00  169.00 
+170.00  171.00  172.00  173.00  174.00  175.00  176.00  177.00  178.00  179.00 
+180.00  181.00  182.00  183.00  184.00  185.00  186.00  187.00  188.00  189.00 
+190.00  191.00  192.00  193.00  194.00  195.00  196.00  197.00  198.00  199.00 
+# New slice
+  
+
+ Reading it back in is very easy, as long as we know the shape of the original array. We can just do  numpy.loadtxt('test.txt').reshape((4,5,10)) .  As an example (You can do this in one line, I'm just being verbose to clarify things): 
+
+  # Read the array from disk
+new_data = np.loadtxt('test.txt')
+
+# Note that this returned a 2D array!
+print new_data.shape
+
+# However, going back to 3D is easy if we know the 
+# original shape of the array
+new_data = new_data.reshape((4,5,10))
+
+# Just to check that they're the same...
+assert np.all(new_data == data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/34212631)
+ You can do this a couple of way, you can check each char seeing if it is alphanumeric: 
+
+  stg = "abcde123]\nefghi456}\njk{lmn789"
+import numpy as np
+
+arr = np.array([ch for line in stg for ch in line if ch.isdigit() or ch.isalpha()])
+  
+
+ Or if all the junk is punctuation you can  str.translate : 
+
+  from string import punctuation
+
+junk = {ord(ch):"" for ch in punctuation + "\n"}
+
+
+arr = np.array(list(stg.translate(junk)))
+  
+
+ Both will give you a flat list: 
+
+  ['a' 'b' 'c' 'd' 'e' '1' '2' '3' 'e' 'f' 'g' 'h' 'i' '4' '5' '6' 'j' 'k' 'l' 'm' 'n' '7' '8' '9']
+  
+
+ If you want multidimensional arrays, you can split on the newline: 
+
+  arr = np.array([[ch for ch in line ] for line in stg.translate(junk).split()])
+
+arr = np.array([[ch for ch in line if ch.isdigit() or ch.isalpha()] for line in stg.split()])
+  
+
+ Which will give you: 
+
+  [['a' 'b' 'c' 'd' 'e' '1' '2' '3']
+ ['e' 'f' 'g' 'h' 'i' '4' '5' '6']
+ ['j' 'k' 'l' 'm' 'n' '7' '8' '9']]
+  
+
+ For python2 the  translate  is a little different: 
+
+  from string import punctuation
+import numpy as np
+
+
+stg = "abcde123]\nefghi456}\njk{lmn789"
+arr = np.array([[ch for ch in line ] for line in stg.translate(None, punctuation).split()])
+print(arr)
+  
+
+
+

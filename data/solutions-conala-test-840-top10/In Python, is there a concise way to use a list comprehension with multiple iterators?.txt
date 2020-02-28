@@ -1,0 +1,195 @@
+Query: In Python, is there a concise way to use a list comprehension with multiple iterators?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/329978)
+ Cartesian product is in the http://docs.python.org/library/itertools.html#itertools.product (in 2.6). 
+
+  >>> import itertools
+>>> list(itertools.product(range(1, 3), range(1, 5)))
+[(1, 1), (1, 2), (1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/345576)
+ Use izip and chain together: 
+
+  >>> list(itertools.chain.from_iterable(itertools.izip(items, c))) # 2.6 only
+['foo', 1, 'bar', 2]
+
+>>> list(itertools.chain(*itertools.izip(items, c)))
+['foo', 1, 'bar', 2]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53255)
+ Sometimes you can get away with the  tee  function from https://docs.python.org/3/library/itertools.html, it returns multiple iterators for the same generator that can be used independently. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1198794)
+ To answer your question with your own suggestion: 
+
+  >>> [x for b in a for x in b] # Works fine
+  
+
+ While you asked for list comprehension answers, let me also point out the excellent itertools.chain(): 
+
+  >>> from itertools import chain
+>>> list(chain.from_iterable(a))
+>>> list(chain(*a)) # If you're using python < 2.6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5399982)
+ I prefer this other way which is much more concise: 
+
+  iter = reduce(lambda x,y: itertools.chain(x,y), iters)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/243909)
+ You can use  zip  as well as  itertools.chain . This will <b>only work</b> if the first list is <b>finite</b>: 
+
+  merge=itertools.chain(*[iter(i) for i in zip(['foo', 'bar'], itertools.count(1))])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/330335)
+ Fun fact about the nested comprehension: it mimics nested "for" loops, so the inner ones can use values from outer ones. This isn't useful in the cartesian product case, but good to know. For example: 
+
+  [ (i,j) for i in range(10) for j in range(i) ] 
+  
+
+ generates all pairs  (i,j)  where  0>=i>j>10 . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48254151)
+ Map with multiple iterators: 
+
+ Given your desired intermediate output I'd say that  map  isn't the right tool to get a  j  containing the integers 1-9. 
+
+ That's because  map  with multiple iterators goes through the iterators simultaneously: 
+
+ https://i.stack.imgur.com/zLLcn.gif 
+
+ It doesn't repeat, that's just because it's a gif file.  
+
+ The problem(s) in your approaches: 
+
+ In the first iteration it will return  "1", "4", "7"  (the first elements of each iterable) the next iteration will return  "2", "5", "8"  and the last iteration  "3", "6", "9" . 
+
+ On each of these returns it will apply the function, in your first example in the first iteration that's 
+
+  int("1") and int("4") and int("7")
+  
+
+ which evaluates to  7  because that's the last truthy value of the chained  and s: 
+
+  >>> int("1") and int("4") and int("7")
+7
+  
+
+ That also explains why the result is  24  because the results of the other iterations are  8  and  9 : 
+
+  >>> int("2") and int("5") and int("8")
+8
+>>> int("3") and int("6") and int("9")
+9
+
+>>> 7 + 8 + 9
+24
+  
+
+ In your second example you added the strings (which concatenates the strings) and then converted it to an integer: 
+
+  >>> "1" + "4" + "7"
+"147"
+>>> int("147")
+147
+  
+
+ The solution: 
+
+ So, you need the addition from your second approach but apply the  int  to each variable like you did in the first example: 
+
+  j = list(map(lambda x, y, z: int(x)+int(y)+int(z), num, num2, num3))
+  
+
+ A better solution: 
+
+ But for that problem I would probably use a different approach, especially if you want the "desired"  j . 
+
+ To get that you need to https://docs.python.org/library/itertools.html#itertools.chain the iterables: 
+
+  import itertools
+chained = itertools.chain(num, num2, num3)
+  
+
+ Then convert all of them to integers: 
+
+  chained_integers = map(int, chained)
+  
+
+ This  chained_integers  is the iterator-equivalent to the  [1, 2, 3, 4, 5, 6, 7, 8, 9]  list you wanted as  j . You could also use  chained_integers = list(map(int, chained))  and print the  chained_integers  before proceeding if you want to double-check that. 
+
+ And finally to  reduce  it I would actually use the built-in  sum  function: 
+
+  reduced = sum(chained_integers)  # or "reduce(lambda x, y: x+y, chained_integers)"
+  
+
+ Or the one-line-version: 
+
+  sum(map(int, itertools.chain(num, num2, num3)))
+  
+
+ An alternative solution using a comprehension instead of  map : 
+
+ Even simpler would be a comprehension (in this case I used a generator expression) instead of the  map : 
+
+  reduced = sum(int(v) for v in itertools.chain(num, num2, num3))
+  
+
+ An alternative solution using a generator function: 
+
+ That's pretty short and easy to understand but I would like to present another example of how to do it using your own generator function: 
+
+  def chain_as_ints(*iterables):
+    for iterable in iterables:
+        for item in iterable:
+            yield int(item)
+  
+
+ And you could use it like this: 
+
+  sum(chain_as_ints(num, num2, num3))
+  
+
+ In this case a generator function is not really necessary (and probably not advisable given the alternatives) I just wanted to mention it for completeness. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/243902)
+ A generator will solve your problem nicely. 
+
+  def imerge(a, b):
+    for i, j in itertools.izip(a,b):
+        yield i
+        yield j
+  
+
+
+

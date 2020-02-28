@@ -1,0 +1,181 @@
+Query: How to run two functions simultaneously
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/53937529)
+  from threading import Timer
+
+class Interval(object):
+    """Interface wrapper for re-occuring functions."""
+
+    def __init__(self, f, timeout):
+        super(Interval, self).__init__()
+        self.timeout = timeout
+        self.fn = f
+        self.next = None
+        self.done = False
+        self.setNext()
+
+
+    def setNext(self):
+        """Queues up the next call to the intervaled function."""
+        if not self.done:
+            self.next = Timer(self.timeout, self.run)
+            self.next.start()
+
+        return self
+
+
+    def run(self):
+        """Starts the interval."""
+        self.fn()
+        self.setNext()
+        return self
+
+
+    def stop(self):
+        """Stops the interval. Cancels any pending call."""
+        self.done = True
+        self.next.cancel()
+        return self
+  
+
+ Pass the functions and timeouts as arguments. The Timer class from the threading module does most of what you need (running a function after a certain time has passed) the wrapper class I added just adds the repetition, makes it easy to start it, stop it, pass it around, etc.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18865028)
+ . :) 
+
+ Try running this silly piece of code: 
+
+  from multiprocessing import Process
+import sys
+
+rocket = 0
+
+def func1():
+    global rocket
+    print 'start func1'
+    while rocket < sys.maxint:
+        rocket += 1
+    print 'end func1'
+
+def func2():
+    global rocket
+    print 'start func2'
+    while rocket < sys.maxint:
+        rocket += 1
+    print 'end func2'
+
+if __name__=='__main__':
+    p1 = Process(target = func1)
+    p1.start()
+    p2 = Process(target = func2)
+    p2.start()
+  
+
+ You will see it print 'start func1' and then 'start func2' and then after a (very) long time you will finally see the functions end. But they will indeed execute simultaneously. 
+
+ Because processes take a while to start up, you may even see 'start func2'  before  'start func1'. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47896583)
+ Simple bug in your code. 
+
+ Replace: 
+
+  T1 = Thread(target=ThreadTest().loop1(), args=())
+T2 = Thread(target=ThreadTest().loop2(), args=())
+  
+
+  
+
+  T1 = Thread(target=ThreadTest().loop1, args=())
+T2 = Thread(target=ThreadTest().loop2, args=())
+  
+
+ Because you're calling the functions  loop1()  and  loop2()  in the main thread, they're going to run sequentially. You want to point to the functions, without actually calling them so the subthreads can call them themselves. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35891043)
+ 
+   how to run two functions(threads) simultaneously? I don't want to use multiprocessing.. 
+ 
+
+ Unfortunately, you can't really have these two simultaneously (or at least, you can't run things truly concurrently using  threading ). This is an http://jessenoller.com/blog/2009/02/01/python-threads-and-the-global-interpreter-lock. 
+
+ The only thing that  threading  gives is single-core context switching, where the interpreter will run a function on a single core, then swap it out temporarily and run a different function on single core, etc. This is possibly useful for applications that do something while, e.g., monitoring user input, but that's about it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/102612)
+ See the "Motivation" section in http://www.python.org/dev/peps/pep-0255/. 
+
+ A non-obvious use of generators is creating interruptible functions, which lets you do things like update UI or run several jobs "simultaneously" (interleaved, actually) while not using threads. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33863741)
+ After the first call, you've exhausted the input.  In order to do what you want, you need to seek back to the beginning before the second call.  Just add a seek call between the two as follows: 
+
+  wordNumbers(fin)
+fin.seek(0)
+lineNumbers(fin)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3474436)
+ You could use http://docs.python.org/library/threading.html or http://docs.python.org/library/multiprocessing.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54507208)
+ This can be done elegantly with https://github.com/ray-project/ray, a system that allows you to easily parallelize and distribute your Python code. 
+
+ To parallelize your example, you'd need to define your functions with the  @ray. decorator , and then invoke them with  . . 
+
+  import ray
+
+ray.init()
+
+# Define functions you want to execute in parallel using 
+# the ray. decorator.
+@ray.
+def func1():
+    #does something
+
+@ray.
+def func2():
+    #does something
+
+# Execute func1 and func2 in parallel.
+ray.get([func1.(), func2.()])
+  
+
+ If  func1()  and  func2()  return results, you need to rewrite the code as follows: 
+
+  ret_id1 = func1.()
+ret_id2 = func1.()
+ret1, ret2 = ray.get([ret_id1, ret_id2])
+  
+
+ There are a number of advantages of using Ray over the https://docs.python.org/2/library/multiprocessing.html module. In particular, the  same code  will run on a single machine as well as on a cluster of machines. For more advantages of Ray see https://stackoverflow.com/questions/20548628/how-to-do-parallel-programming-in-python/48177988#48177988. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2132076)
+ If you can get your code to run under Jython or IronPython, then you  can  run several threads simultaneously; they don't have that goofy "Global Interpreter Lock" thing of CPython. 
+
+
+

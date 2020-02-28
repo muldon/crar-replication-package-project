@@ -1,0 +1,324 @@
+Query: python dict to numpy structured array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40220343)
+ It's a structured array. Use  d2.item()  to retrieve the actual dict object first: 
+
+  import numpy as np
+
+d1={'key1':[5,10], 'key2':[50,100]}
+np.save("d1.npy", d1)
+d2=np.load("d1.npy")
+print d1.get('key1')
+print d2.item().get('key2')
+  
+
+ result:  
+
+  [5, 10]
+[50, 100]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28579136)
+ Let me propose an improved method when the values of the dictionnary are lists with the same lenght : 
+
+  import numpy
+
+def dctToNdarray (dd, szFormat = 'f8'):
+    '''
+    Convert a 'rectangular' dictionnary to numpy NdArray
+    entry 
+        dd : dictionnary (same len of list 
+    retrun
+        data : numpy NdArray 
+    '''
+    names = dd.keys()
+    firstKey = dd.keys()[0]
+    formats = [szFormat]*len(names)
+    dtype = dict(names = names, formats=formats)
+    values = [tuple(dd[k][0] for k in dd.keys())]
+    data = numpy.array(values, dtype=dtype)
+    for i in range(1,len(dd[firstKey])) :
+        values = [tuple(dd[k][i] for k in dd.keys())]
+        data_tmp = numpy.array(values, dtype=dtype)
+        data = numpy.concatenate((data,data_tmp))
+    return data
+
+dd = {'a':[1,2.05,25.48],'b':[2,1.07,9],'c':[3,3.01,6.14]}
+data = dctToNdarray(dd)
+print data.dtype.names
+print data
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43187340)
+ Even more simple if you accept using pandas : 
+
+  import pandas
+result = {0: 1.1181753789488595, 1: 0.5566080288678394, 2: 0.4718269778030734, 3: 0.48716683119447185, 4: 1.0, 5: 0.1395076201641266, 6: 0.20941558441558442}
+df = pandas.DataFrame(result, index=[0])
+print df
+  
+
+  
+
+            0         1         2         3  4         5         6
+0  1.118175  0.556608  0.471827  0.487167  1  0.139508  0.209416
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11637157)
+ I've often seen the following conversion approaches:  
+
+ matlab array -> python numpy array 
+
+ matlab cell array -> python list 
+
+ matlab structure  -> python dict 
+
+ So in your case that would correspond to a python list containing dicts, which themselves contain numpy arrays as entries 
+
+  item[i]['attribute1'][2,j]  
+
+  Note  
+
+ Don't forget the 0-indexing in python! 
+
+ [Update] 
+
+  Additional: Use of classes  
+
+ Further to the simple conversion given above, you could also define a dummy class, e.g.  
+
+  class structtype():
+    pass
+  
+
+ This allows the following type of usage: 
+
+  >> s1 = structtype()
+>> print s1.a
+---------------------------------------------------------------------------
+AttributeError                            Traceback (most recent call last)
+<ipython-input-40-7734865fddd4> in <module>()
+----> 1 print s1.a
+AttributeError: structtype instance has no attribute 'a'
+>> s1.a=10
+>> print s1.a
+10
+  
+
+ Your example in this case becomes, e.g.  
+
+  >> item = [ structtype() for i in range(10)]
+>> item[9].a = numpy.array([1,2,3])
+>> item[9].a[1]
+2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24794783)
+ You could make an empty structured array of the right size and dtype, and then fill it from the list. 
+
+ http//docs.scipy.org/doc/numpy/user/basics.rec.html 
+
+ 
+   Structured arrays can be filled by field or row by row.
+  ...
+  If you fill it in row by row, it takes a take a tuple (but not a list or array!) 
+ 
+
+  In [72] dt=dtype([('weight',int),('animal','S10')])
+
+In [73] values = [tuple(each.values()) for each in d]
+
+In [74] values
+Out[74] [(5, 'cat'), (20, 'dog')]
+  
+
+ fields in the  dt  occur in the same order as in  values . 
+
+  In [75] a=np.zeros((2,),dtype=dt)
+
+In [76] a[]=[tuple(each.values()) for each in d]
+
+In [77] a
+Out[77] 
+array([(5, 'cat'), (20, 'dog')], 
+      dtype=[('weight', '<i4'), ('animal', 'S10')])
+  
+
+ With a bit more testing I found I can create the array directly from  values . 
+
+  In [83] a = np.array(values, dtype=dt)
+
+In [84] a
+Out[84] 
+array([(5, 'cat'), (20, 'dog')], 
+      dtype=[('weight', '<i4'), ('animal', 'S10')])
+  
+
+ 
+
+ The  dtype  could be deduced from one (or more) of the dictionary items 
+
+  def gettype(v)
+    if isinstance(v,int) return 'int'
+    elif isinstance(v,float) return 'float'
+    else
+        assert isinstance(v,str)
+        return '|S%s'%(len(v)+10)
+d0 = d[0]
+names = d0.keys()
+formats = [gettype(v) for v in d0.values()]
+dt = np.dtype({'names'names, 'formats'formats})
+  
+
+ producing 
+
+  dtype=[('weight', '<i4'), ('animal', 'S13')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/25767675)
+ As a workaround, it works if you specify the string width: 
+
+  >>> mdtype = dict(names=['x','y'],formats=['int64','a1'])
+>>> np.dtype(mdtype)
+dtype([('x', '<i8'), ('y', 'S1')])
+  
+
+ Probably related to https://stackoverflow.com/questions/25219344/numpy-set-values-in-structured-array-based-on-other-values-in-structured-array and <a href="https://github.com/numpy/numpy/issues/4955" rel="nofollow noreferrer" . If it isn't a bug, it is awfully close... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28910519)
+ I would prefer storing keys and values on separate arrays. . Structures of arrays are perfect replacement to array of structures. As most of the time you have to process only a subset of your data (in this cases keys or values, operation only with only one of the two arrays would be more efficient than operating with half of the two arrays together. 
+
+ But in case this way is not possible, I would suggest to use arrays sorted by column instead of by row. In this way you would have the same benefit as having two arrays, but packed only in one. 
+
+  import numpy as np
+result = {0: 1.1181753789488595, 1: 0.5566080288678394, 2: 0.4718269778030734, 3: 0.48716683119447185, 4: 1.0, 5: 0.1395076201641266, 6: 0.20941558441558442}
+
+names = 0
+values = 1
+array = np.empty(shape=(2, len(result)), dtype=float)
+array[names] = r.keys()
+array[values] = r.values()
+  
+
+ But my favorite is this (simpler): 
+
+  import numpy as np
+result = {0: 1.1181753789488595, 1: 0.5566080288678394, 2: 0.4718269778030734, 3: 0.48716683119447185, 4: 1.0, 5: 0.1395076201641266, 6: 0.20941558441558442}
+
+arrays = {'names': np.array(k.keys(), dtype=float),
+          'values': np.array(k.values(), dtype=float)}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/23173133)
+ @DSM beat me to it when I am preparing a full answer. . Only that you have to use  Pandas  (imported as  pd ) to convert it to a  DataFrame  and then convert it to a  recarray  
+
+  In [8]:
+
+print pd.DataFrame(raw)
+   age             extra has_money   name
+0   45               NaN      True  Billy
+1   32  Something wicked     False  Tommy
+2   31               NaN      True     Al
+In [9]:
+
+pd.DataFrame(raw).to_records()
+Out[9]:
+rec.array([(0, 45, nan, True, 'Billy'),
+       (1, 32, 'Something wicked', False, 'Tommy'),
+       (2, 31, nan, True, 'Al')], 
+      dtype=[('index', '<i8'), ('age', '<i8'), ('extra', 'O'), ('has_money', '?'), ('name', 'O')])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17458264)
+ You want to use http://docs.scipy.org/doc/numpy/reference/generated/numpy.column_stack.html: 
+
+  import numpy as np
+
+x = np.random.randint(10,size=3)
+y = np.random.randint(10,size=3)
+z = np.random.randint(10,size=3)
+
+w = np.column_stack((x, y, z))
+w = w.ravel().view([('x', x.dtype), ('y', y.dtype), ('z', z.dtype)])
+
+>>> w
+array([(5, 1, 8), (8, 4, 9), (4, 2, 6)], 
+      dtype=[('x', '<i4'), ('y', '<i4'), ('z', '<i4')])
+>>> x
+array([5, 8, 4])
+>>> y
+array([1, 4, 2])
+>>> z
+array([8, 9, 6])
+>>> w['x']
+array([5, 8, 4])
+>>> w['y']
+array([1, 4, 2])
+>>> w['z']
+array([8, 9, 6])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26350293)
+ On the  numpy  structured array doc pages, most of the examples involve mixed data types - floats, ints, and strings.  On SO most of the structured array questions have to do with loading mixed data from CSV files.  On the other hand, in your example it appears that the main purpose of the structure is to give names to the 'columns'. 
+
+ You can do math on the named columns, e.g. 
+
+  struct_array1['scalar']+struct_array2['scalar']
+struct_array1['2d-array']+struct_array2['2d-array']
+  
+
+ You can also 'iterate' over the fields: 
+
+  for n in my_dtype['names']:
+    print a1[n]+a2[n]
+  
+
+ And yes, for that purpose, making those arrays values in a dictionary, or attributes of an object, works just as well. 
+
+ However, thinking about the CSV case, sometimes we want to talk about specific 'rows' of a CSV or structured array, e.g.  struct_array[0] .  Such a 'row' is a tuple of values. 
+
+ In any case, the primary data structures in  numpy  are multiple dimensional arrays of numeric values, and most of the code revolves around number data types - float, int, etc.  Structured arrays are a generalization of this, using elements that are, fundamentally, just fixed sets of bytes.  How those bytes are interpreted is determined by the  dtype . 
+
+ Think about how MATLAB evolved - Matrices came first, then cells (like Python lists), then structures, and finally classes and objects.  Python already had the lists, dictionaries and objects.  numpy  adds the arrays.  It doesn't need to reinvent the general Python structures. 
+
+ I'd lean toward defining a class like this: 
+
+  class Foo(object):
+    def __init__(self):
+        self.scalar = 1
+        self._1d_array = np.arange(10)
+        self._2d_array = np.array([[1,2],[3,4]])
+  
+
+ and implementing only the binary operations that really needed for the application. 
+
+
+

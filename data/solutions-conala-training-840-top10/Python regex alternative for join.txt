@@ -1,0 +1,288 @@
+Query: Python regex alternative for join
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52819715)
+ You can use a regular expression with  str.replace : 
+
+  s.str.replace(r'(\w+)\s+\(([^\)])\)', r'\1_ID_\2')
+  
+
+  
+
+  0      My_name_ID_1
+1    Your_name_ID_2
+Name: 0, dtype: object
+  
+
+ An alternative is: 
+
+  s.str.replace(r'\s+\(([^\)])\)', r'_ID_\1')
+  
+
+ . 
+
+ 
+
+   Regex Explanation   
+
+  (                          # matching group 1
+  \w+                      # matches any word character
+)                          
+\s+                        # matches one or more spaces
+\(                         # matches the character (
+(                          # matching group 2
+  [^\)]                    # matches any character that IS NOT )
+) 
+\)                         # matches the character )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27457995)
+ A solution using look arounds will be 
+
+  >>> import re
+>>> str="abcdefghi"
+>>> re.sub(r'<=\w)=\w)', '-', str)
+'a-b-c-d-e-f-g-h-i'
+  
+
+ 
+   <=\w)  asserts that a letter is presceded by the postion   
+   =\w)  asserts that a letter is followed by the postion   
+ 
+
+  OR  
+
+  >>> re.sub(r'<=.)=.)', '-', str)
+'a-b-c-d-e-f-g-h-i'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27458081)
+ Since  ''.join(s)  doesn't care if  s  is made up of letters, spaces, or anything else, anything using  \w  or  \B  is going to be wrong for any string that isn't made up of purely "word characters". 
+
+ You can easily adapt https://stackoverflow.com/a/27457995/908494 to not rely on word characters: 
+
+  re.sub(r'(?<=.)(?=.)', '-', s)
+  
+
+ But https://stackoverflow.com/a/27458055/908494 can't be; it relies on the magic of  \b  and  \B , and there's no corresponding magic class for "character boundary" like there is for "word boundary". 
+
+ Of course you could use just a normal capture group and a lookahead, instead of a lookbehind and a lookahead, which is probably a lot simpler: 
+
+  re.sub(r'(.)(?=.)', r'\1-', s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27458055)
+  ..... 
+
+  >>> string = 'abcdefghi'
+>>> import re
+>>> re.sub(r'\B', '-', string)
+'a-b-c-d-e-f-g-h-i'
+  
+
+  \b  matches between a word character and a non-word character. But  \B  does the opposite of  \b , that is it matches between two word characters and two non-word characters. 
+
+  
+
+  >>> re.sub(r'<=.)=.)', '-', string)
+'a-b-c-d-e-f-g-h-i'
+  
+
+ I'll never let the  \B  to go.  
+
+  >>> string = '(a)bc*d+e{f}gh[i]'
+>>> re.sub(r'<!^)(\B|\b)!$)', '-', string)
+'(-a-)-b-c-*-d-+-e-{-f-}-g-h-[-i-]'
+  
+
+  <!^)  Negative lookbehind asserts that the match won't be preceded by start of the line anchor  ^ .  (\B|\b)  matches word boundary or non-word boundary.  !$)  negative lookahead asserts that the match won't be followed by an end of the line anchor  $ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34371639)
+ Use raw string literals; both Python string literal syntax and regex interpret backslashes;  \1  in a python string literal is interpreted as an octal escape, but not in a raw string literal: 
+
+  re.sub(r"([,\w])\n(\w)", r"\1 \2", x)
+  
+
+ The alternative would be to double all backslashes so that they reach the regex engine as such. 
+
+ See the https://docs.python.org/2/howto/regex.html#the-backslash-plague of the Python regex HOWTO. 
+
+  
+
+  >>> import re
+>>> x = 'the meaning\nof life'
+>>> re.sub(r"([,\w])\n(\w)", r"\1 \2", x)
+'the meaning of life'
+  
+
+ It might be easier just to split on newlines; use the https://docs.python.org/2/library/stdtypes.html#str.splitlines, then re-join with spaces using https://docs.python.org/2/library/stdtypes.html#str.join: 
+
+  ' '.join(ex.splitlines())
+  
+
+ but admittedly this won't distinguish between newlines between words and extra newlines elsewhere. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17060409)
+  >>> n = 2
+>>> groups = text.split('_')
+>>> '_'.join(groups[:n]), '_'.join(groups[n:])
+('20_231', 'myString_234')
+  
+
+ Seems like this is the most readable way, the alternative is regex) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52972523)
+ Regex-free alternative: 
+
+  >>> s = '4a 1 a2 3 21 12a3 123.12'
+>>> 
+>>> ''.join(c for c in s if c.isdigit() or c == '.')
+>>> '412321123123.12'
+  
+
+ Using a list comprehension with  str.join  is https://stackoverflow.com/questions/9060653/list-comprehension-without-in-python/9061024#9061024 than the generator-comprehension, i.e.: 
+
+  >>> ''.join([c for c in s if c.isdigit() or c == '.'])
+>>> '412321123123.12'
+  
+
+ This assumes that you want to keep multiple  .  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48141021)
+ Do you really need regex? You could just split on newlines, add  X  accordingly, and re-join. Here's one way of doing it, using  yield  - 
+
+  In [504]: def f(s):
+     ...:     for l in s.splitlines():
+     ...:         yield l + ('X' if l else '')
+     ...:         
+
+In [505]: '\n'.join(list(f(s)))
+Out[505]: 'some textX\n\nsome other textX'
+  
+
+ Here's an alternative using a list comprehension -  
+
+  In [506]: '\n'.join([x + 'X' if x else '' for x in s.splitlines()])
+Out[506]: 'some textX\n\nsome other textX'
+  
+
+ 
+
+ For reference, this is how you'd do this with regex - 
+
+  Out[507]: re.sub(r'(?<=\S)(?=\n|$)', r'X', s, re.M)
+Out[507]: 'some textX\n\nsome other textX'
+  
+
+ You need to use a look-ahead as well as a look-behind. Here's a breakdown of the expression -  
+
+  (?<=    # lookbehind
+\S      # anything that is not a whitespace character, alt - `[^\n]`
+)
+(?=     # lookahead
+\n      # newline
+|       # regex OR
+$       # end of line
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44365530)
+ You can do this easily with regex. 
+
+  import re
+text = open('file.txt'.read(
+text = re.sub(r'\(.*?\', '', text, flags=re.M
+  
+
+ The  re.M  flag is the multiline specifier, which is useful when your string has newlines within the matching pattern. 
+
+ Now, this code'll remove all occurrences of  (.. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52743884)
+ Four ways to do this. 
+
+ The first is just a regular 'ole loop: 
+
+  li=[]
+for s in a:
+    m = re.search(r'v-02-(\d\d\d)', s)
+    if m:
+        li.append(m.group(1))
+ # li=['001', '002', '003']
+  
+
+ Second in two calls to the same regex in a list comprehension: 
+
+  >>> [re.search(r'v-02-(\d\d\d)', s).group(1) for s in a if re.search(r'v-02-(\d\d\d)', s)]
+['001', '002', '003']
+  
+
+ Third is to use  map : 
+
+  >>> [m.group(1) for m in map(lambda s: re.search(r'v-02-(\d\d\d)', s), a) if m]
+['001', '002', '003']
+  
+
+ Finally, you can flatten the list with  .join  and then use  findall : 
+
+  >>> re.findall(r'\bv-02-(\d\d\d)\b', '\t'.join(a))
+['001', '002', '003']
+  
+
+ Or, use  \n  and  re.M  vs two  \b : 
+
+  >>> re.findall(r'^v-02-(\d\d\d)$', '\n'.join(a), flags=re.M)
+['001', '002', '003']
+  
+
+ I would probably write this in that same order if I were writing this bit of code.  
+
+ What is considered  more elegant  is in the eye of the beholder I suppose. I would consider the last one to be  more elegant.  
+
+ 
+
+ You can also skip the regex and use Python's string methods: 
+
+  >>> prefix='v-02-'
+>>> [e[len(prefix):] for e in filter(lambda s: s.startswith(prefix),a)]
+['001', '002', '003']
+  
+
+ That would likely be the  fastest  if that matters in this case. 
+
+ 
+
+ In December of 2019, there will be a more  elegant  alternative. As defined in https://www.python.org/dev/peps/pep-0572/, you will be able to use an assignment statement so you can assign the match and test the match in one step: 
+
+  [m.group(1) for s in a if (m:=re.search(r'v-02-(\d\d\d)', s))]
+  
+
+
+

@@ -1,0 +1,290 @@
+Query: Changing marker's size in matplotlib
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19948876)
+ Specify using  s  keyword argument: 
+
+  scatter(x, y, s=500, color='green', marker='h')
+#             ^^^^^
+  
+
+ You can also specify individual marker size by passing a list: 
+
+  scatter(x, y, s=[5, 50, 500, 1000, 1500, 2000], color='green', marker='h')
+  
+
+ See http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.scatter. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38131657)
+  scatter  has the option  set_sizes , which you can use to set a new size. For example: 
+
+  import matplotlib.pylab as pl
+import numpy as np
+
+x = np.random.random(10)
+y = np.random.random(10)
+s = np.random.random(10)*100
+
+pl.figure()
+l=pl.scatter(x,y,s=s)
+
+s = np.random.random(10)*100
+l.set_sizes(s)
+  
+
+ It seems that  set_sizes  only accepts arrays, so for a constant marker size you could do something like: 
+
+  l.set_sizes(np.ones(x.size)*100)
+  
+
+  
+
+  l.set_sizes(l.get_sizes()*2)
+  
+
+ https://i.stack.imgur.com/OljIxm.png
+<a href="https://i.stack.imgur.com/xm1kHm.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47116009)
+ The solution may depend on whether the markers in the legend should be scaled compared to the original size or whether a constant marker size independent on the original size is desired. 
+
+ A. Scale the markers</h3>
+
+ You may use the  legend.markerscale  https://matplotlib.org/users/customizing.html. 
+
+  plt.rcParams["legend.markerscale"] = 0.3
+  
+
+ or the  markerscale  argument to the legend. 
+
+  plt.legend(markerscale=0.3)
+  
+
+ From the https://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.legend: 
+
+ 
+    markerscale  : None or int or float 
+  
+   The relative size of legend markers compared with the originally drawn ones. Default is None which will take the value from the legend.markerscale rcParam. 
+ 
+
+ Example: 
+
+  import matplotlib.pyplot as plt
+plt.rcParams["legend.markerscale"] = 0.3
+
+plt.scatter([.3,.5], [.3,.6], s=1000, label="label")
+plt.scatter([.7,.4], [.3,.6], s=81, marker="^", label="label2")
+plt.legend()
+plt.show()
+  
+
+ https://i.stack.imgur.com/aOkOQ.png 
+
+ Note that this will scale all markers simultaneously.  
+
+ B. Set a constant marker size</h3>
+
+ In case you want a constant marker size in the legend, independent on the actual size of the scatter points, the solution is slightly more complicated. You may use the legend's  handler_map  to set the desired marker size to the legend handles.  
+
+  import matplotlib.pyplot as plt
+from matplotlib.legend_handler import HandlerPathCollection
+
+sc = plt.scatter([.3,.5], [.3,.6], s=1000, label="label")
+plt.scatter([.7,.4], [.3,.6], s=[100,300], marker="^", label="label2")
+
+marker_size = 36
+def update_prop(handle, orig):
+    handle.update_from(orig)
+    handle.set_sizes([marker_size])
+
+plt.legend(handler_map={type(sc): HandlerPathCollection(update_func=update_prop)})
+plt.show()
+  
+
+ <a href="https://i.stack.imgur.com/5aUeQ.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45114621)
+ It is very like to be a bug. However you can set marker edge line width by  mew  keyword to get what you want: 
+
+  import matplotlib.pyplot as plt
+import seaborn as sns
+
+x_cross = [768]
+y_cross = [1.028e8]
+
+# set marker edge line width to 0.5
+plt.plot(x_cross, y_cross, '+k', mew=.5)
+
+plt.gca().set_xlim([10, 1e4])
+plt.gca().set_ylim([1, 1e18])
+plt.xscale('log')
+plt.yscale('log')
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/hOk3k.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33674314)
+ If you specify the figure size in inches and matplotlib uses a resolution of 72 points per inch ( ppi ), then for a given number of markers the width of each marker should be  size_in_inches * points_per_inch / number_of_markers  points (assuming for now that the subplot uses the entire figure)? As I see it,  dpi  is only used to display or save the figure in a size of  size_in_inches * dpi  pixels. 
+
+ If I understand your goal correctly, the code below should reproduce the required behavior: 
+
+  # Figure settings
+fig_size_inch = 3
+fig_ppi = 72
+margin = 0.12
+subplot_fraction = 1 - 2*margin
+
+# Plot settings
+lim_max = 10
+lim_min = 2
+n_markers = lim_max-lim_min
+
+# Centers of each marker
+xy = np.arange(lim_min+0.5, lim_max, 1)
+
+# Size of the marker, in points^2
+marker_size = (subplot_fraction * fig_size_inch * fig_ppi / n_markers)**2 
+
+fig = pl.figure(figsize=(fig_size_inch, fig_size_inch))
+fig.subplots_adjust(margin, margin, 1-margin, 1-margin, 0, 0)
+
+# Create n_markers^2 colors
+cc = pl.cm.Paired(np.linspace(0,1,n_markers*n_markers))
+
+# Plot each marker (I could/should have left out the loops...)
+for i in range(n_markers):
+    for j in range(n_markers):
+        ij=i+j*n_markers
+        pl.scatter(xy[i], xy[j], s=marker_size, marker='s', color=cc[ij])
+pl.xlim(lim_min, lim_max)
+pl.ylim(lim_min, lim_max)
+  
+
+ This is more or less the same as you wrote (in the calculation of  marker_size ), except the division by  Resolution  has been left out.  
+
+ Result: 
+
+ https://i.stack.imgur.com/c5Nup.png 
+
+ Or when settings  fig_ppi  incorrectly to 60: 
+
+ <a href="https://i.stack.imgur.com/r4SYG.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36498897)
+ you are looking for the kwarg  linewidths . e.g.: 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+x = y = np.arange(5)
+
+fig,ax = plt.subplots(1)
+
+ax.scatter(x,y,  s=100,marker='x',color='b',linewidths=1)
+ax.scatter(x,y+1,s=100,marker='x',color='r',linewidths=2)
+ax.scatter(x,y+2,s=100,marker='x',color='g',linewidths=3)
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/mSzTP.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41105245)
+ Use http://matplotlib.org/examples/shapes_and_collections/scatter_demo.html instead of  plt.plot . Scatter lets you specify the size  s  as well as the color  c  of the points using a tuple or list. 
+
+  import pandas as pd
+import matplotlib.pyplot as plt
+
+my_dict = {'Vx': [16,25,85,45], 'r': [1315,5135,8444,1542], 'ms': [10,50,100, 25]}
+df= pd.DataFrame(my_dict)
+fig, ax = plt.subplots(1, 1, figsize=(20, 10))
+ax.scatter(df.Vx, df.r, s= df.ms)
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45115820)
+ The reason for this behaviour is that seaborn sets the marker edge width to zero. (see https://github.com/mwaskom/seaborn/blob/master/seaborn/rcmod.py#L361). 
+
+ As is pointed out in the http://seaborn.pydata.org/installing.html?highlight=markeredgewidth#known-issues 
+
+ 
+   An unfortunate consequence of how the matplotlib marker styles work is that line-art markers (e.g.  "+" ) or markers with  facecolor  set to  "none"  will be invisible when the default seaborn style is in effect. This can be changed by using a different  markeredgewidth  (aliased to  mew ) either in the function call or globally in the rcParams. 
+ 
+
+ https://stackoverflow.com/questions/26618339/matplotlib-1-4-2-with-seaborn-line-markers-not-functioning is telling us about it as well as https://github.com/mwaskom/seaborn/issues/344.  
+
+ In this case, the solution is to set the markeredgewidth to something larger than zero, 
+
+ 
+  using rcParams (after importing seaborn): 
+
+  plt.rcParams["lines.markeredgewidth"] = 1
+   
+  using the  markeredgewidth  or  mew  keyword argument 
+
+  plt.plot(..., mew=1)
+   
+ 
+
+ However, as @mwaskom points out in the comments, there is actually more to it. In https://github.com/matplotlib/matplotlib/issues/4679 it is argued that markers should be divided into two classes, bulk style markers and line art markers. This has been partially accomplished in matplotlib version 2.0 where you can obtain a "plus" as marker, using  marker="P"  and this marker will be visible even with  markeredgewidth=0 . 
+
+  plt.plot(x_cross, y_cross, 'kP')
+  
+
+ https://i.stack.imgur.com/ExdYM.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14896718)
+ The  s = 1  parameter sets the size of the points drawn by  ax.scatter : 
+
+  self.ax.scatter(data[:,1],data[:,0],color='black', marker = 's', s = 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16774762)
+ What about iterating over all markers like this: 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.random.rand(100)
+y = np.random.rand(100)
+category = np.random.random_integers(0, 3, 100)
+
+markers = ['s', 'o', 'h', '+']
+for k, m in enumerate(markers):
+    i = (category == k)
+    plt.scatter(x[i], y[i], marker=m)
+
+plt.show()
+  
+
+
+

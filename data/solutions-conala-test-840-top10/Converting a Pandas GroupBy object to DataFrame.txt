@@ -1,0 +1,214 @@
+Query: Converting a Pandas GroupBy object to DataFrame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36926844)
+ I found this worked for me. 
+
+  import numpy as np
+import pandas as pd
+
+df1 = pd.DataFrame({ 
+    "Name" : ["Alice", "Bob", "Mallory", "Mallory", "Bob" , "Mallory"] , 
+    "City" : ["Seattle", "Seattle", "Portland", "Seattle", "Seattle", "Portland"]})
+
+df1['City_count'] = 1
+df1['Name_count'] = 1
+
+df1.groupby(['Name', 'City'], as_index=False).count()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52052340)
+ Below solution may be simpler: 
+
+  df1.reset_index().groupby( [ "Name", "City"],as_index=False ).count()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47865979)
+ I have aggregated with Qty wise data and store to dataframe 
+
+  almo_grp_data = pd.DataFrame({'Qty_cnt' :
+almo_slt_models_data.groupby( ['orderDate','Item','State Abv']
+          )['Qty'].sum()}).reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36953019)
+ Simply, this should do the task: 
+
+  import pandas as pd
+
+grouped_df = df1.groupby( [ "Name", "City"] )
+
+pd.DataFrame(grouped_df.size().reset_index(name = "Group_Count"))
+  
+
+ .size() pulls up the unique groupby count, and reset_index() method resets the name of the column you want it to be.
+Finally, the pandas Dataframe() function is called upon to create DataFrame object.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10374456)
+  g1  here  is  a DataFrame. It has a hierarchical index, though: 
+
+  In [19]: type(g1)
+Out[19]: pandas.core.frame.DataFrame
+
+In [20]: g1.index
+Out[20]: 
+MultiIndex([('Alice', 'Seattle'), ('Bob', 'Seattle'), ('Mallory', 'Portland'),
+       ('Mallory', 'Seattle')], dtype=object)
+  
+
+ Perhaps you want something like this? 
+
+  In [21]: g1.add_suffix('_Count').reset_index()
+Out[21]: 
+      Name      City  City_Count  Name_Count
+0    Alice   Seattle           1           1
+1      Bob   Seattle           2           2
+2  Mallory  Portland           2           2
+3  Mallory   Seattle           1           1
+  
+
+ Or something like: 
+
+  In [36]: DataFrame({'count' : df1.groupby( [ "Name", "City"] ).size()}).reset_index()
+Out[36]: 
+      Name      City  count
+0    Alice   Seattle      1
+1      Bob   Seattle      2
+2  Mallory  Portland      2
+3  Mallory   Seattle      1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43148562)
+ Maybe I misunderstand the question but if you want to convert the groupby back to a dataframe you can use .to_frame(). I wanted to reset the index when I did this so I included that part as well.  
+
+ example code unrelated to question 
+
+  df = df['TIME'].groupby(df['Name']).min()
+df = df.to_frame()
+df = df.reset_index(level=['Name',"TIME"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45336345)
+  df.groupby(['request','date'])[['count','users']].agg(lambda x: ','.join(x.astype(str)))
+  
+
+ Output: 
+
+               count users
+request date            
+2       1      1,1   1,3
+        2        2     7
+        3        3     3
+3       2      3,1   1,7
+        3      1,2   4,9
+        4        1     7
+        5        1     9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49391015)
+ You can convert the pandas.core.groupby.SeriesGroupBy to a DataFrame very simply as follows: 
+
+  survivor.apply(pd.DataFrame)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51329759)
+ These solutions only partially worked for me because I was doing multiple aggregations. Here is a sample output of my grouped by that I wanted to convert to a dataframe: 
+
+ https://i.stack.imgur.com/AFVpr.png  
+
+ Because I wanted more than the count provided by reset_index(), I wrote a manual method for converting the image above into a dataframe. I understand this is not the most pythonic/pandas way of doing this as it is quite verbose and explicit, but it was all I needed. Basically, use the reset_index() method explained above to start a "scaffolding" dataframe, then loop through the group pairings in the grouped dataframe, retrieve the indices, perform your calculations against the ungrouped dataframe, and set the value in your new aggregated dataframe. 
+
+  df_grouped = df[['Salary Basis', 'Job Title', 'Hourly Rate', 'Male Count', 'Female Count']]
+df_grouped = df_grouped.groupby(['Salary Basis', 'Job Title'], as_index=False)
+
+# Grouped gives us the indices we want for each grouping
+# We cannot convert a groupedby object back to a dataframe, so we need to do it manually
+# Create a new dataframe to work against
+df_aggregated = df_grouped.size().to_frame('Total Count').reset_index()
+df_aggregated['Male Count'] = 0
+df_aggregated['Female Count'] = 0
+df_aggregated['Job Rate'] = 0
+
+def manualAggregations(indices_array):
+    temp_df = df.iloc[indices_array]
+    return {
+        'Male Count': temp_df['Male Count'].sum(),
+        'Female Count': temp_df['Female Count'].sum(),
+        'Job Rate': temp_df['Hourly Rate'].max()
+    }
+
+for name, group in df_grouped:
+    ix = df_grouped.indices[name]
+    calcDict = manualAggregations(ix)
+
+    for key in calcDict:
+        #Salary Basis, Job Title
+        columns = list(name)
+        df_aggregated.loc[(df_aggregated['Salary Basis'] == columns[0]) & 
+                          (df_aggregated['Job Title'] == columns[1]), key] = calcDict[key]
+  
+
+ If a dictionary isn't your thing, the calculations could be applied inline in the for loop: 
+
+      df_aggregated['Male Count'].loc[(df_aggregated['Salary Basis'] == columns[0]) & 
+                                (df_aggregated['Job Title'] == columns[1])] = df['Male Count'].iloc[ix].sum()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50344411)
+ I think need create dictionary of  Series  by converting  groupby  object to tuples and dicts: 
+
+  d = dict(tuple(df.groupby(3)[2]))
+
+print (d[39])
+0    -67
+1    -72
+5    -67
+26   -71
+27   -71
+29   -71
+Name: 2, dtype: int64
+  
+
+ For  DataFrame : 
+
+  d1 = dict(tuple(df.groupby(3)))
+
+print (d1[39])
+       0   1   2   3     4
+0   00B2   0 -67  39  1.13
+1   00B2  85 -72  39  1.13
+5   00B2  91 -67  39  1.13
+26  00B2  21 -71  39  1.13
+27  00B2  22 -71  39  1.13
+29  00B2  24 -71  39  1.13
+  
+
+
+

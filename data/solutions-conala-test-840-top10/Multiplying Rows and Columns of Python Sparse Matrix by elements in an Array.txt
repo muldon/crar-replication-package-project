@@ -1,0 +1,382 @@
+Query: Multiplying Rows and Columns of Python Sparse Matrix by elements in an Array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13168790)
+ In general you want to avoid loops and use matrix operations for speed and efficiency. In this case the solution is simple linear algebra, or more specifically matrix multiplication. 
+
+ To multiply the columns of M by the array A, multiply M*diag(A). To multiply the rows of M by A, multiply diag(A)*M. To do both: diag(A)*M*diag(A), which can be accomplished by: 
+
+  numpy.dot(numpy.dot(a, m), a)
+  
+
+ diag(A) here is a matrix that is all zeros except having A on its diagonal. You can have methods to create this matrix easily (e.g. numpy.diag() and scipy.sparse.diags()). 
+
+ I expect this to run very fast. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49674545)
+ Here is how you can do it with NumPy/SciPy, both for dense and sparse  M  matrices: 
+
+  import numpy as np
+import scipy.sparse as sp
+
+# Coordinates where S is True
+S = np.array([[0, 1],
+              [3, 6],
+              [3, 4],
+              [9, 1],
+              [4, 7]])
+
+# Dense M matrix
+# Random big matrix
+M = np.random.random(size=(1000, 2000))
+# Take relevant rows and compute values
+values = np.sum(M[S[:, 0]] * M[S[:, 1]], axis=1)
+# Make result matrix from values
+result = np.zeros((len(M), len(M)), dtype=values.dtype)
+result[S[:, 0], S[:, 1]] = values
+
+# Sparse M matrix
+# Construct sparse M as COO matrix or any other way
+M = sp.coo_matrix(([10, 20, 30, 40, 50],  # Data
+                   ([0, 1, 3, 4, 6],      # Rows
+                    [4, 4, 5, 5, 8])),    # Columns
+                  shape=(1000, 2000))
+# Convert to CSR for fast row slicing
+M_csr = M.tocsr()
+# Take relevant rows and compute values
+values = M_csr[S[:, 0]].multiply(M_csr[S[:, 1]]).sum(axis=1)
+values = np.squeeze(np.asarray(values))
+# Construct COO sparse matrix from values
+result = sp.coo_matrix((values, (S[:, 0], S[:, 1])), shape=(M.shape[0], M.shape[0]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12238133)
+   .multiply  method of the CSR matrix seems to densify the matrix if the other one is dense. So this would be one way avoiding that: 
+
+  # Assuming that Y is 1D, might need to do Y = Y.A.ravel() or such...
+
+# just to make the point that this works only with CSR:
+if not isinstance(X, scipy.sparse.csr_matrix):
+    raise ValueError('Matrix must be CSR.')
+
+Z = X.copy()
+# simply repeat each value in Y by the number of nnz elements in each row: 
+Z.data *= Y.repeat(np.diff(Z.indptr))
+  
+
+ This does create some temporaries, but at least its fully vectorized, and it does not densify the sparse matrix. 
+
+ 
+
+ For a COO matrix the equivalent is: 
+
+  Z.data *= Y[Z.row] # you can use np.take which is faster then indexing.
+  
+
+ For a CSC matrix the equivalent would be: 
+
+  Z.data *= Y[Z.indices]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44065437)
+ If you want your  udf  to return a  SparseVector , we'll first need to modify the output of your function, and secondly set the output schema of the  udf  to  VectorUDT() : 
+
+ To declare a  SparseVector , we need the  size  of the original array, and both the  indices  and the  values  of the  non-zero  elements. We can find these using  len()  and list comprehensions if the intermediate result of the multiplication is a  list : 
+
+  from pyspark.ml.linalg import Vectors, VectorUDT
+
+def xByY(x,y):
+  res = np.multiply(x,y).tolist()
+  vec_args =  len(res), [i for i,x in enumerate(res) if x != 0], [x for x in res if x != 0] 
+  return Vectors.sparse(*vec_args)  
+  
+
+ Now we can declare our  udf  and test it: 
+
+  xByY_udf = udf(xByY, VectorUDT())
+tempDF.select(xByY_udf('v1', 'v2')).show()
++-------------+
+| xByY(v1, v2)|
++-------------+
+|(3,[0],[2.0])|
+|(3,[0],[2.0])|
++-------------+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40920172)
+  
+
+  In [51]: A=np.array([[1,2,0,0],[0,0,0,0],[2,0,3,0]])
+In [52]: M=sparse.csr_matrix(A)
+  
+
+ In  lil  format, values for each row are stored in a list. 
+
+  In [56]: Ml=M.tolil()
+In [57]: Ml.data
+Out[57]: array([[1, 2], [], [2, 3]], dtype=object)
+  
+
+ Take the product of each of those: 
+
+  In [58]: np.array([np.prod(i) for i in Ml.data])
+Out[58]: array([ 2.,  1.,  6.])
+  
+
+ In  csr  format values are stored as: 
+
+  In [53]: M.data
+Out[53]: array([1, 2, 2, 3], dtype=int32)
+In [54]: M.indices
+Out[54]: array([0, 1, 0, 2], dtype=int32)
+In [55]: M.indptr
+Out[55]: array([0, 2, 2, 4], dtype=int32)
+  
+
+  indptr  gives the start of the row values. Calculation code on  csr  (and  csc ) matrices routinely perform calculations like this (but compiled): 
+
+  In [94]: lst=[]; i=M.indptr[0]
+In [95]: for j in M.indptr[1:]:
+    ...:     lst.append(np.product(M.data[i:j]))
+    ...:     i = j    
+In [96]: lst
+Out[96]: [2, 1, 6]
+  
+
+ With Diavaker's test matrix: 
+
+  In [137]: M.A
+Out[137]: 
+array([[-1,  2,  0,  0],
+       [ 0,  0,  0,  0],
+       [ 2,  0,  3,  0],
+       [ 4,  5,  6,  0],
+       [ 1,  9,  0,  2]], dtype=int32)
+  
+
+ the above loop produces: 
+
+  In [138]: foo(M)
+Out[138]: [-2, 1, 6, 120, 18]
+  
+
+ Divakar's code with  unique  and  reduceat  
+
+  In [139]: divk(M)
+Out[139]: array([ -2,   0,   6, 120,  18], dtype=int32)
+  
+
+ . 
+
+ Reduceat with  indptr  is simply: 
+
+  In [140]: np.multiply.reduceat(M.data,M.indptr[:-1])
+Out[140]: array([ -2,   2,   6, 120,  18], dtype=int32)
+  
+
+ The value for the empty 2nd line needs to be fixed (with  indptr  values of [2,2,...],  reduceat  uses  M.data[2] ). 
+
+  def wptr(M, empty_val=1):
+    res = np.multiply.reduceat(M.data, M.indptr[:-1])
+    mask = np.diff(M.indptr)==0
+    res[mask] = empty_val
+    return res
+  
+
+ With a larger matrix 
+
+  Mb=sparse.random(1000,1000,.1,format='csr')
+  
+
+ this  wptr  is about 30x faster than Divaker's version. 
+
+ More discussion on calculating values across rows of a sparse matrix:
+https://stackoverflow.com/questions/31790819/scipy-sparse-csr-matrix-how-to-get-top-ten-values-and-indices 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13163383)
+ The following should work: 
+
+  [[x*array[i]*array[j] for j, x in enumerate(row)] for i, row in enumerate(M)]
+  
+
+ Example: 
+
+  >>> array = [0.2, 0.3, 0.4]
+>>> M = [[0, 1, 2], [1, 0, 1], [2, 1, 0]]
+>>> [[x*array[i]*array[j] for j, x in enumerate(row)] for i, row in enumerate(M)]
+[[0.0, 0.059999999999999998, 0.16000000000000003], [0.059999999999999998, 0.0, 0.12], [0.16000000000000003, 0.12, 0.0]]
+  
+
+ Values are slightly off due to limitations on http://docs.python.org/2/tutorial/floatingpoint.html#floating-point-arithmetic-issues-and-limitations.  Use the http://docs.python.org/2/library/decimal.html module if the rounding error is unacceptable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7478393)
+ Have you looked at  scipy.sparse ?  There's no point in re-inventing the wheel, here.  Sparse matricies are a fairly standard thing.   
+
+ (In the example, I'm using a  300000x4  matrix for easier printing after the multiplication. A  300000x1000  matrix shouldn't be any problem, though.  This will be much faster than multiplying two dense arrays, assuming you have a majority of  0  elements.) 
+
+  import scipy.sparse
+import numpy as np
+
+# Make the result reproducible...
+np.random.seed(1977)
+
+def generate_random_sparse_array(nrows, ncols, numdense):
+    """Generate a random sparse array with -1 or 1 in the non-zero portions"""
+    i = np.random.randint(0, nrows-1, numdense)
+    j = np.random.randint(0, ncols-1, numdense)
+    data = np.random.random(numdense)
+    data[data <= 0.5] = -1
+    data[data > 0.5] = 1
+    ij = np.vstack((i,j))
+    return scipy.sparse.coo_matrix((data, ij), shape=(nrows, ncols))
+
+A = generate_random_sparse_array(4, 300000, 1000)
+B = generate_random_sparse_array(300000, 5, 1000)
+
+C = A * B
+
+print C.todense()
+  
+
+  
+
+  [[ 0.  1.  0.  0.  0.]
+ [ 0.  2. -1.  0.  0.]
+ [ 1. -1.  0.  0.  0.]
+ [ 0.  0.  0.  0.  0.]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/23129527)
+ Reading the notes on IDL's definition of matrix multiplication, it seems they use the opposite notation to everyone else: 
+
+ 
+   IDL’s convention is to consider the first dimension to be the column
+  and the second dimension to be the row 
+ 
+
+ So # can be achieved by the rather strange looking: 
+
+  numpy.dot(A.T, B.T).T  
+
+ from their example values: 
+
+  import numpy as np
+A =  np.array([[0, 1, 2], [3, 4, 5]])
+B = np.array([[0, 1], [2, 3], [4, 5]])
+C = np.dot(A.T, B.T).T
+print(C)
+  
+
+  
+
+  [[ 3  4  5]
+ [ 9 14 19]
+ [15 24 33]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18453547)
+ A little convoluted, but I would probably do it like this: 
+
+  >>> import scipy.sparse as sps
+>>> a = [np.arange(5), np.arange(7), np.arange(3)]
+>>> lens = [len(j) for j in a]
+>>> cols = np.concatenate([np.arange(j) for j in lens])
+>>> rows = np.concatenate([np.repeat(j, len_) for j, len_ in enumerate(lens)])
+>>> data = np.concatenate(a)
+>>> b = sps.coo_matrix((data,(rows, cols)))
+>>> b.toarray()
+array([[0, 1, 2, 3, 4, 0, 0],
+       [0, 1, 2, 3, 4, 5, 6],
+       [0, 1, 2, 0, 0, 0, 0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40918719)
+  Approach #1:  We can use the row indices of the sparse elements as IDs and perform multiplication of the corresponding values of those elements with https://docs.scipy.org/doc/numpy/reference/generated/numpy.ufunc.reduceat.html to get the desired output. 
+
+ Thus, an implementation would be - 
+
+  from scipy import sparse
+from scipy.sparse import csc_matrix
+
+r,c,v = sparse.find(a) # a is input sparse matrix
+out = np.zeros(a.shape[0],dtype=a.dtype)
+unqr, shift_idx = np.unique(r,return_index=1)
+out[unqr] = np.multiply.reduceat(v, shift_idx)
+  
+
+  
+
+  In [89]: # Let's create a sample csc_matrix
+    ...: A = np.array([[-1,2,0,0],[0,0,0,0],[2,0,3,0],[4,5,6,0],[1,9,0,2]])
+    ...: a = csc_matrix(A)
+    ...: 
+
+In [90]: a
+Out[90]: 
+<5x4 sparse matrix of type '<type 'numpy.int64'>'
+    with 10 stored elements in Compressed Sparse Column format>
+
+In [91]: a.toarray()
+Out[91]: 
+array([[-1,  2,  0,  0],
+       [ 0,  0,  0,  0],
+       [ 2,  0,  3,  0],
+       [ 4,  5,  6,  0],
+       [ 1,  9,  0,  2]])
+
+In [92]: out
+Out[92]: array([ -2,   0,   6, 120,   0,  18])
+  
+
+ 
+
+  Approach #2:  We are performing bin-based multiplication. We have bin-based summing solution with https://docs.scipy.org/doc/numpy/reference/generated/numpy.bincount.html. So, a trick that could be use here would be converting the numbers to logarithmic numbers, perform bin-based summing and then convert back to original format with  exponential  (reverse of log) and that's it! For negative numbers, we might to add a step or more, but let's see what the implementation be like for non-negative numbers - 
+
+  r,c,v = sparse.find(a)
+out = np.exp(np.bincount(r,np.log(v),minlength = a.shape[0]))
+out[np.setdiff1d(np.arange(a.shape[0]),r)] = 0
+  
+
+ A sample run with non-negative numbers - 
+
+  In [118]: a.toarray()
+Out[118]: 
+array([[1, 2, 0, 0],
+       [0, 0, 0, 0],
+       [2, 0, 3, 0],
+       [4, 5, 6, 0],
+       [1, 9, 0, 2]])
+
+In [120]: out  # Using listed code
+Out[120]: array([   2.,    0.,    6.,  120.,   18.])
+  
+
+
+

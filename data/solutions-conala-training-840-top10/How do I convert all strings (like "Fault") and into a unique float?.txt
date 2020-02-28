@@ -1,0 +1,306 @@
+Query: How do I convert all strings (like "Fault") and into a unique float?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42458882)
+ As mentioned by Jon, you could make use of http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.factorize.html?highlight=factorize#pandas.Series.factorize.  
+
+  (s.factorize()[0]+1).astype('float')
+  
+
+ To perform this column-wise over an entire DataFrame, just use  apply .  
+
+    
+
+  >>> s = pd.Series(['Exhaust', 'Fault', 'Probation', 5, int,
+                   'Exhaust', int, 'Fault', 'Motor'])
+
+>>> s
+0          Exhaust
+1            Fault
+2        Probation
+3                5
+4    <class 'int'>
+5          Exhaust
+6    <class 'int'>
+7            Fault
+8            Motor
+dtype: object
+
+>>> (s.factorize()[0]+1).astype('float')
+array([ 1.,  2.,  3.,  4.,  5.,  1.,  5.,  2.,  6.])
+  
+
+ 
+
+ A NumPy solution may be to use the  return_inverse  keyword arg of  np.unique ,  
+
+  (np.unique(s, return_inverse=True)[1]+1).astype('float')
+  
+
+ however from some rough benchmarking the Pandas solution may be faster.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44330688)
+  numpy.unique  used with the  return_inverse  argument allows you to obtain the inverted index. 
+
+  arr = np.array(['a','a','bas','dgg','a'])
+unique, rev = np.unique(arr, return_inverse=True)
+
+#unique: ['a' 'bas' 'dgg']
+#rev: [0 0 1 2 0]
+  
+
+ such that  unique[rev]  returns the original array  ['a' 'a' 'bas' 'dgg' 'a'] . 
+
+ This can be easily used to plot the data. 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+arr = np.array(['a','a','bas','dgg','a'])
+x = np.array([1,2,3,4,5])
+
+unique, rev = np.unique(arr, return_inverse=True)
+print unique
+print rev
+print unique[rev]
+
+fig,ax=plt.subplots()
+ax.scatter(x, rev)
+ax.set_yticks(range(len(unique)))
+ax.set_yticklabels(unique)
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/oGyMm.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43167428)
+ I think you can convert columns to  strings  and then  sum : 
+
+  u, rev = np.unique(df.astype(str).values.sum(axis=1), return_inverse=True)
+print (rev)
+[0 1 2 2 3]
+  
+
+ As pointed https://stackoverflow.com/questions/43167413/using-numpy-unique-on-multiple-columns-of-a-pandas-dataframe#comment73409300_43167428 (thank you), it is dangerous. 
+
+ Another solution is convert rows to  tuples : 
+
+  u, rev = np.unique(df.apply(tuple, axis=1), return_inverse=True)
+print (rev)
+[0 1 2 2 3]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5177693)
+ Why use  eval()  at all? 
+
+  def pi(times):
+    val = 1
+    counter = 0
+    for x in range(times) :
+        counter += 2
+        val *= float(counter)**2/(counter**2 - 1)
+    return val * 2
+  
+
+ Does the exact same thing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51116483)
+ The segmentation fault isn't happening because you are using a loop, but because you are providing non-ASCII characters as input for an alignment mode that takes ASCII string inputs only. Luckily,  Bio.pairwise2.align.globalmx  also permits aligning lists that contain arbitrary strings of ASCII and non-ASCII characters as tokens(i.e. aligning lists of strings, such as  ['ABC', 'ABD']    ['ABC', 'GGG']  to produce alignments like 
+
+  ['ABC', 'ABD', '-'  ]
+['ABC', '-'  , 'GGG']
+  
+
+ or in your case, aligning lists of non-ASCII characters such as  ['ś', 'w', 'i', 'a', 't']  and  ['w', 'y', 'r', 'z', 'u', 'c', 'i', 's', 'z']  to produce alignments like 
+
+  ['ś', 'w', '-', '-', '-', '-', '-', 'i', 'a', 't', '-', '-']
+['-', 'w', 'y', 'r', 'z', 'u', 'c', 'i', '-', '-', 's', 'z']
+  
+
+ To accomplish this  Biopython, in your code, replace 
+
+  alignments = pairwise2.align.globalmx(source, targ,1,-0.5)
+  
+
+   
+
+  alignments = pairwise2.align.globalmx(list(source), list(targ), 1, -0.5, gap_char=['-'])
+  
+
+  
+
+  source = 'świat'
+targ = 'wyrzucisz'
+  
+
+ the modified code will produce 
+
+  [(['ś', 'w', '-', '-', '-', '-', '-', 'i', 'a', 't', '-', '-'],
+  ['-', 'w', 'y', 'r', 'z', 'u', 'c', 'i', '-', '-', 's', 'z'],
+  2.0,
+  0,
+  12)]
+  
+
+ instead of a segmentation fault. 
+
+ And since each token in the list is only one character long, you can also convert the resulting aligned lists back into strings using: 
+
+  new_alignment = []
+
+for aln in alignment:
+    # Convert lists back into strings
+    a = ''.join(aln[0])
+    b = ''.join(aln[1])
+
+    new_aln = (a, b) + aln[2:]
+    new_alignment.append(new_aln)
+  
+
+ In the above example,  new_alignment  would then be 
+
+  [('św-----iat--', '-wyrzuci--sz', 2.0, 0, 12)]
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37672825)
+ You can use http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.unique.html's optional argument  return_inverse  to ID each string based on their uniqueness among others and set those in the input dataframe, like so - 
+
+  _,idx = np.unique(df['col'],return_inverse=True)
+df['col'] = idx
+  
+
+ Please note that the  IDs  correspond to a unique alphabetically sorted array of the strings. If you have to get that unique array, you can replace  _  with it, like so - 
+
+  uniq_lab,idx = np.unique(df['col'],return_inverse=True)
+  
+
+  
+
+  >>> d = {'col': ["baked","beans","baked","baked","beans"]}
+>>> df = pd.DataFrame(data=d)
+>>> df
+     col
+0  baked
+1  beans
+2  baked
+3  baked
+4  beans
+>>> _,idx = np.unique(df['col'],return_inverse=True)
+>>> df['col'] = idx
+>>> df
+   col
+0    0
+1    1
+2    0
+3    0
+4    1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46037438)
+ I believe it is because with your one-line construction, the numpy array object has no references held to it, so it is being garbage collected, then you are trying to dereference a dangling pointer. I tried your code and avoided the segfault by breaking the line into two - one line to create the numpy array, then a second one to obtain the pointer into the underlying storage: 
+
+  x = np.ascontiguousarray(np.array([1]*10000000, dtype=np.float32)/255)
+data = x.ctypes.data_as(POINTER(c_float))
+print data.contents.value # no more segmentation fault
+  
+
+ I guess the larger memory block is more aggressively collected, hence the difference in behaviour depending on size. I also had to increase the memory size to get a segfault on my machine. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34867729)
+ I used the following project:https://github.com/Algomorph/pyboostcvconverter and statically linked to it. 
+
+ Note (To avoid segmentation fault):  
+
+ 1) PY_ARRAY_UNIQUE_SYMBOL should be defined where import_array is invoked
+In other places where  is included, use NO_IMPORT_ARRAY 
+
+  #define PY_ARRAY_UNIQUE_SYMBOL PYVISION_ARRAY_API
+#include <pyboostcvconverter/pyboostcvconverter.hpp>
+  
+
+ 2) Invoke init_ar from the BOOST_PYTHON_MODULE 
+
+  /**
+ * @brief Initialize Numpy Array
+ */
+static void init_ar( )
+{
+    // initialize
+    Py_Initialize();
+
+    // defined in numpy
+    import_array();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14633776)
+  >>> a = ['str','5','','4.1']
+>>> a2 = []
+>>> for s in a:
+...     try:
+...         a2.append(float(s))
+...     except ValueError:
+...         a2.append(s)
+>>> a2
+['str', 5.0, '', 4.0999999999999996]
+  
+
+ If you're doing decimal math, you may want to look at the decimal module: 
+
+  >>> import decimal
+>>> for s in a:
+...     try:
+...         a2.append(decimal.Decimal(s))
+...     except decimal.InvalidOperation:
+...         a2.append(s)
+>>> a2
+['str', Decimal('5'), '', Decimal('4.1')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50129703)
+ Use https://docs.scipy.org/doc/numpy/reference/generated/numpy.unique.html with parameter  return_inverse=True , but there is difference with handling  NaN s - check http://pandas.pydata.org/pandas-docs/stable/reshaping.html#factorizing-values: 
+
+  L = ['ABC', 'DEF', 'GHI', 'DEF', 'ABC']
+
+print (np.unique(L, return_inverse=True)[1])
+[0 1 2 1 0]
+  
+
+ pandas http://pandas.pydata.org/pandas-docs/stable/generated/pandas.factorize.html working nice with list or array too:  
+
+  print (pd.factorize(L)[0])
+[0 1 2 1 0]
+  
+
+
+

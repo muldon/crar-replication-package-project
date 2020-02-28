@@ -1,0 +1,288 @@
+Query: How do I get JDBC driver property information?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35147321)
+  DriverManager.getDriver(String)  should do this: 
+
+  Connection conn = DriverManager.getConnection(...); 
+
+String originalURL = conn.getMetaData().getURL();
+Driver drv = DriverManager.getDriver(originalURL);
+String driverClass = drv.getClass().getName();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52715900)
+ https://springframework.guru/configuring-spring-boot-for-microsoft-sql-server/, the correct property is  spring.datasource.driverClassName . 
+
+ So, the full connection string should be: 
+
+  spring.datasource.driverClassName=com.microsoft.sqlserver.jdbc.SQLServerDriver
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6665818)
+ You can use the DatabaseMetaData class. 
+
+ http://download.oracle.com/javase/1.4.2/docs/api/java/sql/DatabaseMetaData.html 
+
+ I'm not sure if all vendors implement this, but this is the intent for this class. You can get a handle to it from the underlying connection object. 
+
+  dataSource.getConnection().getMetaData()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2911445)
+ You use a statement like: 
+
+  Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
+  
+
+ to load and register the JDBC driver class for Derby, so that the JDBC  java.sql.DriverManager  can find the driver when you want to connect to the database. If you want to connect to a different database or use a different driver implementation, you'll have to change the name for the driver you're using. Ofcourse you can put the information in a configuration file instead of hard-coding it in your program, so that you can change the driver without re-compiling your program. 
+
+ For example, put the necessary information in a configuration file  database.properties : 
+
+  jdbc.driver=org.apache.derby.jdbc.EmbeddedDriver
+jdbc.url=jdbc:derby:derbyDB;create=true
+jdbc.username=dbusername
+jdbc.password=dbpassword
+  
+
+ Then load those settings in your program and use them to open a database connection: 
+
+  InputStream in = new FileInputStream("database.properties");
+Properties props = new Properties();
+props.load(in);
+in.close();
+
+String driver = props.getProperty("jdbc.driver");
+Class.forName(driver);
+
+String url = props.getProperty("jdbc.url");
+String username = props.getProperty("jdbc.username");
+String password = props.getProperty("jdbc.password");
+
+Connection conn = DriverManager.getConnection(url, username, password);
+  
+
+ See the http://db.apache.org/derby/papers/DerbyTut/index.html and Sun's http://java.sun.com/docs/books/tutorial/jdbc/index.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27290859)
+ Use http://ucanaccess.sourceforge.net/site.html JDBC Driver : 
+
+
+
+<pre class="lang-java prettyprint-override"> Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");  // can be omitted in most cases
+Connection conn=DriverManager.getConnection("jdbc:ucanaccess://<mdb or accdb file path>",user, password); 
+  
+
+ e.g.:  
+
+<pre class="lang-java prettyprint-override"> Connection conn=DriverManager.getConnection("jdbc:ucanaccess://c:/pippo.mdb");
+  
+
+ So for your example it will be  
+
+<pre class="lang-java prettyprint-override"> con = DriverManager.getConnection("jdbc:ucanaccess://"+f.getPath()+"/db/JavaAccess.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10638359)
+ Ok try the alternative approach with DataSource and not directly the Driver
+Below is the code (working with oracle driver, i don't have my sql db, but the properties are the same)
+Generally using the DataSource interface is the preferred approach since JDBC 2.0
+The DataSource jar was not in the classpath neither for the test below 
+
+  public static void urlCLSample2() throws Exception
+{
+
+    File f = new File("C:\\_programs\\jdbc_drivers\\oracle\\v11.2\\ojdbc6.jar");
+
+    URLClassLoader urlCl = new URLClassLoader(new URL[] { f.toURL() }, System.class.getClassLoader());
+    // replace the data source class with MySQL data source class.
+    Class dsClass = urlCl.loadClass("oracle.jdbc.pool.OracleDataSource");
+    DataSource ds = (DataSource) dsClass.newInstance();
+
+    invokeProperty(dsClass, ds, "setServerName", String.class, "<put your server here>");
+    invokeProperty(dsClass, ds, "setDatabaseName", String.class, "<put your db instance here>");
+    invokeProperty(dsClass, ds, "setPortNumber", int.class, <put your port here>);
+    invokeProperty(dsClass, ds, "setDriverType",String.class, "thin");
+    ds.getConnection("<put your username here>", "<put your username password here>");
+
+    System.out.println("Got Connection");
+  }
+
+  // Helper method to invoke properties
+  private static void invokeProperty(Class dsClass, DataSource ds, String propertyName, Class paramClass,
+      Object paramValue) throws Exception
+  {
+    try
+    {
+      Method method = dsClass.getDeclaredMethod(propertyName, paramClass);
+      method.setAccessible(true);
+      method.invoke(ds, paramValue);
+    }
+    catch (Exception e)
+    {
+      throw new Exception("Failed to invoke method");
+    }
+  }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20887378)
+ Get rid of the  ;  at the end of your property 
+
+  jdbc.driverClassName=com.mysql.jdbc.Driver;
+  
+
+ Spring uses reflection and the value of that property to load a  Class  instance by fully qualified class name. There is no class called  com.mysql.jdbc.Driver; . There is a class called  com.mysql.jdbc.Driver , so use that. 
+
+  jdbc.driverClassName=com.mysql.jdbc.Driver
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/288941)
+ From the article http://www.kfu.com/~nsayer/Java/dyn-jdbc.html; I am just going to post the code here for reference. 
+
+ The idea is to trick the driver manager into thinking that the driver was loaded from the system classloader. To do this we use this class: 
+
+  public class DelegatingDriver implements Driver
+{
+    private final Driver driver;
+
+    public DelegatingDriver(Driver driver)
+    {
+        if (driver == null)
+        {
+            throw new IllegalArgumentException("Driver must not be null.");
+        }
+        this.driver = driver;
+    }
+
+    public Connection connect(String url, Properties info) throws SQLException
+    {
+       return driver.connect(url, info);
+    }
+
+    public boolean acceptsURL(String url) throws SQLException
+    {
+       return driver.acceptsURL(url);
+    }
+
+    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException
+    {
+        return driver.getPropertyInfo(url, info);
+    }
+
+    public int getMajorVersion()
+    {
+        return driver.getMajorVersion();
+    }
+
+    public int getMinorVersion()
+    {
+        return driver.getMinorVersion();
+    }
+
+    public boolean jdbcCompliant()
+    { 
+        return driver.jdbcCompliant();
+    }
+}
+  
+
+ This way the driver you register is of type  DelegatingDriver  which is loaded with the system classloader. You now just have to load the driver you really want to use using whatever classloader you want. For example: 
+
+  URLClassLoader classLoader = new URLClassLoader(new URL[]{"path to my jdbc driver jar"}, this.getClass().getClassLoader());
+Driver driver = (Driver) Class.forName("org.postgresql.Driver", true, classLoader).newInstance();
+DriverManager.registerDriver(new DelegatingDriver(driver)); // register using the Delegating Driver
+
+DriverManager.getDriver("jdbc:postgresql://host/db"); // checks that the driver is found
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35033823)
+ I Think that the real problem is that in the method HikariGFXDPool you create a local variable and the class variable protected HikariDataSource ds = null; remain null.
+So you cannot get the connection. 
+
+ The best way is to use a separate class to make and get the connections 
+
+ something like this: 
+
+  public class DBHandler{
+    private static HikariDataSource ds;
+    static{
+
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:mysql://localhost:3306/simpsons");
+        config.setUsername("bart");
+        config.setPassword("51mp50n");  
+        config.setDriverClassName("com.mysql.jdbc.Driver");
+        config.addDataSourceProperty("cachePrepStmts", "true");
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+
+        ds = new HikariDataSource(config);
+    }
+
+    public static Connection getConn() throws SQLException {
+        return ds.getConnection();
+    }
+
+}
+  
+
+ Then in yours other class you get the connection using:  
+
+  Connection conn = DBHandler.getConn();
+// query
+conn.close();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1337068)
+ Basically in JDBC most of these properties are not configurable in the API like that, rather they depend on implementation. The way JDBC handles this is by allowing the connection URL to be different per vendor. 
+
+ So what you do is register the driver so that the JDBC system can know what to do with the URL: 
+
+   DriverManager.registerDriver((Driver) Class.forName("com.mysql.jdbc.Driver").newInstance());
+  
+
+ Then you form the URL: 
+
+   String url = "jdbc:mysql://[host][,failoverhost...][:port]/[database][?propertyName1][=propertyValue1][&propertyName2][=propertyValue2]"
+  
+
+ And finally, use it to get a connection: 
+
+   Connection c = DriverManager.getConnection(url);
+  
+
+ In more sophisticated JDBC, you get involved with connection pools and the like, and application servers often have their own way of registering drivers in JNDI and you look up a DataSource from there, and call getConnection on it. 
+
+ In terms of what properties MySQL supports, see http://dev.mysql.com/doc/refman/5.0/en/connector-j-reference-configuration-properties.html. 
+
+ EDIT: One more thought, technically just having a line of code which does Class.forName("com.mysql.jdbc.Driver") should be enough, as the class should have its own static initializer which registers a version, but sometimes a JDBC driver doesn't, so if you aren't sure, there is little harm in registering a second one, it just creates a duplicate object in memeory. 
+
+
+

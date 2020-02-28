@@ -1,0 +1,264 @@
+Query: How to center a window with PyGObject
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16389270)
+ pydoc tells you what you need to know: 
+
+  >>> help(window.set_position)
+
+Help on method set_position in module gi.repository.Gtk:
+
+set_position(*args, **kwargs) method of gi.overrides.Gtk.Window instance
+    set_position(self, position:Gtk.WindowPosition)
+  
+
+  Gtk.WindowPosition  wraps the enum values, so try: 
+
+  window.set_position(Gtk.WindowPosition.CENTER)
+  
+
+ 
+
+ edit: seems that for newer versions the docstring isn't displayed by  help(window.set_position)  anymore, use  help(window)  (or  print(window.get_position.__doc__) ) instead. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11070455)
+ I need GLib.threads_init() before gdk's. 
+
+  
+
+  from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import GObject
+from gi.repository import GLib
+from gi.repository import WebKit
+import threading
+import time
+
+# Use threads                                       
+GLib.threads_init()
+
+class App(object):
+    def __init__(self):
+        window = Gtk.Window()
+        webView = WebKit.WebView()
+        window.add(webView)
+        window.show_all()
+
+        #webView.load_uri('http://www.google.com') # Here it works on main thread
+
+        self.window = window
+        self.webView = webView
+
+    def run(self):
+        Gtk.main()
+
+    def show_html(self):
+        print 'show html'
+
+        time.sleep(1)
+        print 'after sleep'
+
+        # Update widget in main thread             
+        GLib.idle_add(self.webView.load_uri, 'http://www.google.com') # Here it doesn't work
+
+app = App()
+
+thread = threading.Thread(target=app.show_html)
+thread.start()
+
+app.run()
+Gtk.main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17270428)
+ use http://ipython.org/  
+
+  In [1]: from gi.repository import Gtk
+In [2]: Gtk.Window()?
+Type:       GObjectMeta
+String Form:<class 'gi.overrides.Gtk.Window'>
+File:       /usr/lib/python3/dist-packages/gi/overrides/Gtk.py
+Docstring:  <no docstring>
+Constructor information:
+ Definition:Gtk.Window(self, type=<enum GTK_WINDOW_TOPLEVEL of type GtkWindowType>, **kwds)
+  
+
+  
+
+  In [3]: help(Gtk.Window())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54847886)
+ You forgot to show the menu: 
+
+      def _build_context_menu(self):
+        self.cmenu = Gtk.Menu.new()
+        self.cm_item = Gtk.MenuItem.new_with_label('label')
+        self.cmenu.append(self.cm_item)
+        self.cmenu.show_all()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8610359)
+ In order to illustrate my points made in the comments, let me post a quick'n'dirty PyGtk  example that uses a  GtkDrawingArea  to create a canvas and paints into it using cairo 
+
+  CORRECTION : you said PyGObject, that is Gtk+3, so the example is as follows (the main difference is that there is no  expose  event, instead it is  draw  and a cairo context is already passed as a parameter): 
+
+  #!/usr/bin/python
+from gi.repository import Gtk
+import cairo
+import math
+
+def OnDraw(w, cr):
+    cr.set_source_rgb(1, 1, 0)
+    cr.arc(320,240,100, 0, 2*math.pi)
+    cr.fill_preserve()
+
+    cr.set_source_rgb(0, 0, 0)
+    cr.stroke()
+
+    cr.arc(280,210,20, 0, 2*math.pi)
+    cr.arc(360,210,20, 0, 2*math.pi)
+    cr.fill()
+
+    cr.set_line_width(10)
+    cr.set_line_cap(cairo.LINE_CAP_ROUND)
+    cr.arc(320, 240, 60, math.pi/4, math.pi*3/4)
+    cr.stroke()
+
+w = Gtk.Window()
+w.set_default_size(640, 480)
+a = Gtk.DrawingArea()
+w.add(a)
+
+w.connect('destroy', Gtk.main_quit)
+a.connect('draw', OnDraw)
+
+w.show_all()
+
+Gtk.main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10528052)
+ I figured it out :D I just needed to register the new type in GObject before calling  add_from_file()  as I suspected. Just needed to add GObject in the imports from gi.repository and call  type_register()  like this: 
+
+  from gi.repository import Gtk, GtkSource, GObject
+from os.path import abspath, dirname, join
+
+WHERE_AM_I = abspath(dirname(__file__))
+
+class MyApp(object):
+
+    def __init__(self):
+        self.builder = Gtk.Builder()
+        self.glade_file = join(WHERE_AM_I, 'test.glade')
+        GObject.type_register(GtkSource.View)
+        self.builder.add_from_file(self.glade_file)
+
+if __name__ == '__main__':
+    try:
+        gui = MyApp()
+        Gtk.main()
+    except KeyboardInterrupt:
+        pass
+  
+
+ I'll update the page with this info. 
+
+ Kind regards 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9981358)
+ This is the easiest solution to get a transparent cursor: 
+
+  from gi.repository import Gtk, Gdk
+
+win = Gtk.Window(title="Hello World")
+win.show_all()
+cursor = Gdk.Cursor.new(Gdk.CursorType.BLANK_CURSOR)
+win.get_window().set_cursor(cursor)
+Gtk.main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24136048)
+ You are looking for the https://developer.gnome.org/gtk3/stable/GtkWindow.html#GtkWindow--transient-for property of the modal window (which should be available in Glade). If the modal window needs to be transient to either of the two other windows, then you need to use gtk_window_set_transient_for() as needed since the modal can only be transient for one window at a time.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32839454)
+ You need to hold reference to your notification object until the callback is called: 
+
+  from gi.repository import Gtk, Notify
+
+
+class Window(Gtk.Window):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        Notify.init('Test')
+        self.notification = None
+
+        self.set_border_width(5)
+
+        self.button = Gtk.Button('Test')
+
+        self.box = Gtk.Box()
+        self.box.pack_start(self.button, True, True, 0)
+        self.add(self.box)
+
+        self.button.connect('clicked', self.on_button)
+        self.connect('delete-event', Gtk.main_quit)
+        self.show_all()
+
+    def on_button(self, button):
+        if self.notification:
+            self.notification.close()
+        self.notification = Notify.Notification.new('Test')
+        self.notification.add_action('clicked', 'Action', self.callback)
+        self.notification.show()
+
+    def callback(self, notification, action_name):
+        print(action_name)
+
+win = Window()
+Gtk.main()
+  
+
+ If you need to show more of the same notification you need a list of notification objects.  
+
+ For window-less example see this https://stackoverflow.com/questions/32681532/python-program-with-notification-in-gnome-shell-doesnt-work/32839296#32839296. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10287230)
+ The following seems to do the job: 
+
+  def draw(self, widget, context):
+    Gdk.cairo_set_source_pixbuf(context, self.pixbuf, 0, 0)
+    context.paint()
+  
+
+ One question still remains: Is this the preferred way of doing things? 
+
+
+

@@ -1,0 +1,345 @@
+Query: Numpy: cartesian product of x and y array points into single array of 2D points
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11144716)
+  >>> numpy.transpose([numpy.tile(x, len(y)), numpy.repeat(y, len(x))])
+array([[1, 4],
+       [2, 4],
+       [3, 4],
+       [1, 5],
+       [2, 5],
+       [3, 5]])
+  
+
+ See https://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays for a general solution for computing the Cartesian product of N arrays. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19459709)
+ You can just do normal list comprehension in python 
+
+  x = numpy.array([1,2,3])
+y = numpy.array([4,5])
+[[x0, y0] for x0 in x for y0 in y]
+  
+
+ which should give you 
+
+  [[1, 4], [1, 5], [2, 4], [2, 5], [3, 4], [3, 5]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34610835)
+ More generally, if you have two 2d numpy arrays a and b, and you want to concatenate every row of a to every row of b (A cartesian product of rows, kind of like a join in a database), you can use this method: 
+
+  import numpy
+def join_2d(a, b):
+    assert a.dtype == b.dtype
+    a_part = numpy.tile(a, (len(b), 1))
+    b_part = numpy.repeat(b, len(a), axis=0)
+    return numpy.hstack((a_part, b_part))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46626894)
+ As of Oct. 2017, numpy now has a generic  np.stack  function that takes an axis parameter.  Using it, we can have  a "generalized cartesian product" using the "dstack and meshgrid" technique:   
+
+  import numpy as np
+def cartesian_product(*arrays):
+    ndim = len(arrays)
+    return np.stack(np.meshgrid(*arrays), axis=-1).reshape(-1, ndim)
+  
+
+ Note on the  axis=-1  parameter.  This is the last (inner-most) axis in the result.  It is equivalent to using  axis=ndim . 
+
+ One other comment, since Cartesian products blow up very quickly, unless we  need  to realize the array in memory for some reason, if the product is very large, we may want to make use of  itertools  and use the values on-the-fly. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48104036)
+ I used @kennytm https://stackoverflow.com/a/11144716/5721839 for a while, but when trying to do the same in TensorFlow, but I found that TensorFlow has no equivalent of  numpy.repeat() . After a little experimentation, I think I found a more general solution for arbitrary vectors of points. 
+
+ For numpy: 
+
+<pre class="lang-py prettyprint-override"> import numpy as np
+
+def cartesian_product(*args: np.ndarray) -> np.ndarray:
+    """
+    Produce the cartesian product of arbitrary length vectors.
+
+    Parameters
+    ----------
+    np.ndarray args
+        vector of points of interest in each dimension
+
+    Returns
+    -------
+    np.ndarray
+        the cartesian product of size [m x n] wherein:
+            m = prod([len(a) for a in args])
+            n = len(args)
+    """
+    for i, a in enumerate(args):
+        assert a.ndim == 1, "arg {:d} is not rank 1".format(i)
+    return np.concatenate([np.reshape(xi, [-1, 1]) for xi in np.meshgrid(*args)], axis=1)
+  
+
+ and for TensorFlow: 
+
+<pre class="lang-py prettyprint-override"> import tensorflow as tf
+
+def cartesian_product(*args: tf.Tensor) -> tf.Tensor:
+    """
+    Produce the cartesian product of arbitrary length vectors.
+
+    Parameters
+    ----------
+    tf.Tensor args
+        vector of points of interest in each dimension
+
+    Returns
+    -------
+    tf.Tensor
+        the cartesian product of size [m x n] wherein:
+            m = prod([len(a) for a in args])
+            n = len(args)
+    """
+    for i, a in enumerate(args):
+        tf.assert_rank(a, 1, message="arg {:d} is not rank 1".format(i))
+    return tf.concat([tf.reshape(xi, [-1, 1]) for xi in tf.meshgrid(*args)], axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45378609)
+ I was interested in this as well and did a little performance comparison, perhaps somewhat clearer than in @senderle's answer. 
+
+ For two arrays (the classical case): 
+
+ https://i.stack.imgur.com/GcRgX.png 
+
+ For four arrays: 
+
+ <a href="https://i.stack.imgur.com/mapch.png"  
+
+ (Note that the length the arrays is only a few dozen entries here.) 
+
+ 
+
+ Code to reproduce the plots: 
+
+
+
+  from functools import reduce
+import itertools
+import numpy
+import perfplot
+
+
+def dstack_product(arrays):
+    return numpy.dstack(
+        numpy.meshgrid(*arrays, indexing='ij')
+        ).reshape(-1, len(arrays))
+
+
+# Generalized N-dimensional products
+def cartesian_product(arrays):
+    la = len(arrays)
+    dtype = numpy.find_common_type([a.dtype for a in arrays], [])
+    arr = numpy.empty([len(a) for a in arrays] + [la], dtype=dtype)
+    for i, a in enumerate(numpy.ix_(*arrays)):
+        arr[..., i] = a
+    return arr.reshape(-1, la)
+
+
+def cartesian_product_transpose(arrays):
+    broadcastable = numpy.ix_(*arrays)
+    broadcasted = numpy.broadcast_arrays(*broadcastable)
+    rows, cols = reduce(numpy.multiply, broadcasted[0].shape), len(broadcasted)
+    dtype = numpy.find_common_type([a.dtype for a in arrays], [])
+
+    out = numpy.empty(rows * cols, dtype=dtype)
+    start, end = 0, rows
+    for a in broadcasted:
+        out[start:end] = a.reshape(-1)
+        start, end = end, end + rows
+    return out.reshape(cols, rows).T
+
+
+# from https://stackoverflow.com/a/1235363/577088
+def cartesian_product_recursive(arrays, out=None):
+    arrays = [numpy.asarray(x) for x in arrays]
+    dtype = arrays[0].dtype
+
+    n = numpy.prod([x.size for x in arrays])
+    if out is None:
+        out = numpy.zeros([n, len(arrays)], dtype=dtype)
+
+    m = n // arrays[0].size
+    out[:, 0] = numpy.repeat(arrays[0], m)
+    if arrays[1:]:
+        cartesian_product_recursive(arrays[1:], out=out[0:m, 1:])
+        for j in range(1, arrays[0].size):
+            out[j*m:(j+1)*m, 1:] = out[0:m, 1:]
+    return out
+
+
+def cartesian_product_itertools(arrays):
+    return numpy.array(list(itertools.product(*arrays)))
+
+
+perfplot.show(
+    setup=lambda n: 4*(numpy.arange(n, dtype=float),),
+    n_range=[2**k for k in range(6)],
+    kernels=[
+        dstack_product,
+        cartesian_product,
+        cartesian_product_transpose,
+        cartesian_product_recursive,
+        cartesian_product_itertools
+        ],
+    logx=True,
+    logy=True,
+    xlabel='len(a), len(b)',
+    equality_check=None
+    )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46135435)
+ For large arrays, AFAIK, http://stackoverflow.com/a/11146645/190597 is the fastest way<sup>1</sup> to generate cartesian products using NumPy : 
+
+ 
+
+  In [372]: A = np.random.random((100,100,100))
+
+In [373]: %timeit indices_merged_arr_generic_using_cp(A)
+100 loops, best of 3: 16.8 ms per loop
+
+In [374]: %timeit indices_merged_arr_generic(A)
+10 loops, best of 3: 28.9 ms per loop
+  
+
+ 
+
+ Here is the setup I used to benchmark.
+Below,  indices_merged_arr_generic_using_cp  is a modification of senderle's  cartesian_product  to include the flattened array beside with the cartesian product: 
+
+  import numpy as np
+import functools
+
+def indices_merged_arr_generic_using_cp(arr):
+    """
+    Based on cartesian_product
+    http://stackoverflow.com/a/11146645/190597 (senderle)
+    """
+    shape = arr.shape
+    arrays = [np.arange(s, dtype='int') for s in shape]
+    broadcastable = np.ix_(*arrays)
+    broadcasted = np.broadcast_arrays(*broadcastable)
+    rows, cols = functools.reduce(np.multiply, broadcasted[0].shape), len(broadcasted)+1
+    out = np.empty(rows * cols, dtype=arr.dtype)
+    start, end = 0, rows
+    for a in broadcasted:
+        out[start:end] = a.reshape(-1)
+        start, end = end, end + rows
+    out[start:] = arr.flatten()
+    return out.reshape(cols, rows).T
+
+def indices_merged_arr_generic(arr):
+    """
+    https://stackoverflow.com/a/46135084/190597 (Divakar)
+    """
+    n = arr.ndim
+    grid = np.ogrid[tuple(map(slice, arr.shape))]
+    out = np.empty(arr.shape + (n+1,), dtype=arr.dtype)
+    for i in range(n):
+        out[...,i] = grid[i]
+    out[...,-1] = arr
+    out.shape = (-1,n+1)
+    return out
+  
+
+ 
+
+ <sup>1</sup>Note that above I actually used senderle's  cartesian_product_transpose . For me, this is
+the fastest version. For others, including senderle,  cartesian_product  is
+faster. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48888541)
+ An alternate solution is to https://stackoverflow.com/a/48104036/636626 (which is easier, as solutions for cartesian products of 1D arrays exist): 
+
+  idx = cartesian_product(
+    np.arange(len(a)),
+    np.arange(len(b)) + len(a),
+    np.arange(len(a))
+)
+  
+
+ And then use fancy indexing to create the output array: 
+
+  x = np.concatenate((a, b))
+result = x[idx.ravel(), :].reshape(*idx.shape, -1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30335589)
+ For the specific case of a space of natural numbers, you want  np.indices : 
+
+  >>> np.indices((4, 4)).reshape(2,-1).T
+array([[0, 0],
+       [0, 1],
+       [0, 2],
+       [0, 3],
+       [1, 0],
+       [1, 1],
+       [1, 2],
+       [1, 3],
+       [2, 0],
+       [2, 1],
+       [2, 2],
+       [2, 3],
+       [3, 0],
+       [3, 1],
+       [3, 2],
+       [3, 3]])
+  
+
+ (numpy actually outputs these in a grid, but you wanted a 1-D list of points, hence the  .reshape ) 
+
+ Otherwise, what you're describing is not a powerset but a cartesian product 
+
+  itertools.product(range(4), repeat=3)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49499476)
+ The http://scikit-learn.org/stable/ package has a fast implementation of exactly this: 
+
+  from sklearn.utils.extmath import cartesian
+product = cartesian((x,y))
+  
+
+ Note that the convention of this implementation is different from what you want, if you care about the order of the output. For your exact ordering, you can do 
+
+  product = cartesian((y,x))[:, ::-1]
+  
+
+
+

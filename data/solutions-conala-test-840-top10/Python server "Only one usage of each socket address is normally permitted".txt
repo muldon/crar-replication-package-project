@@ -1,0 +1,319 @@
+Query: Python server "Only one usage of each socket address is normally permitted"
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/47959364)
+ Try this line after creating s : 
+
+  # ...
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# ...
+  
+
+ https://stackoverflow.com/questions/14388706/socket-options-so-reuseaddr-and-so-reuseport-how-do-they-differ-do-they-mean-t#14388707 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12362623)
+ Enable the http://hea-www.harvard.edu/~fine/Tech/addrinuse.html socket option before calling bind(). This allows the address/port to be reused immediately instead of it being stuck in the TIME_WAIT state for several minutes, waiting for late packets to arrive. 
+
+  s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4527161)
+ The error comes from Windows itself, see http://msdn.microsoft.com/en-us/library/aa560610%28v=bts.20%29.aspx. To fix the error close your connection, you are not calling opener.close() hence leaking sockets. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6176920)
+ If you open/close the socket multiple times, it could be in the TIME_WAIT state. This would explain why it acts differently on separate platforms (different TIME_WAIT settings and TCP stack). If you're controlling the socket object, you can set SO_REUSEADDR before binding to fix the problem. 
+
+ For example: 
+
+  sock = socket.socket()
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, server.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) | 1)
+  
+
+ You can run  netstat -b  from the command prompt to give you a list of open sockets with the state and owning process. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16939614)
+ For me the better solution was the following. Since the initiative of closing the connection was done by the server, the  setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  had no effect and the TIME_WAIT was avoiding a new connection on the same port with error: 
+
+  [Errno 10048]: Address already in use. Only one usage of each socket address (protocol/IP address/port) is normally permitted 
+  
+
+ I finally used the solution to let the OS choose the port itself, then another port is used if the precedent is still in TIME_WAIT. 
+
+ I replaced: 
+
+  self._socket.bind((guest, port))
+  
+
+  
+
+  self._socket.bind((guest, 0))
+  
+
+ As it was indicated in the http://docs.python.org/2/library/socket.html of a tcp address: 
+
+ 
+   If supplied, source_address must be a 2-tuple (host, port) for the socket to bind to as its source address before connecting. If host or port are ‘’ or 0 respectively the OS default behavior will be used. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37799189)
+ On Windows, you can try these steps: 
+
+ 1. check which process uses the port. 
+
+  # 4444 is your port number
+netstat -ano|findstr 4444
+  
+
+ you will get something like this: 
+
+  # 19088 is the PID of the process
+TCP    0.0.0.0:4444           *:*                                    19088
+  
+
+ 2. kill this process 
+
+  tskill 19088
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45101773)
+ You have to change the  socket.gethostname()  in the server script to the empty string (or just directly call  socket.bind(('', port)) ). 
+
+ Your problem is not in the python but in the usage of sockets generally. When you create socket you just prepare your process to receive/send some data from/to another process.  
+
+ Server 
+
+ The first step for creating a socket you have to specify what kind of protocol will be used for communication between those processes. In your case it is the  socket.AF_INET  which is constant for use of IP protocol and the  socket.SOCK_STREAM  is specify reliable stream-oriented service. The reliable stream-oriented service means that you want to be sure that every single sent byte will be delivered to the other side and nothing can be lost during the communication (the underlying OS will use TCP protocol for that). From this point we are using IPv4 protocol (because we set the  socket.AF_INET ) 
+
+ The second step is  bind  it to address. The  bind  process assign address where you expected that client will join (with your socket's settings it's a IP address and the TCP port). Your PC has multiple IP address (well at least two). It's always has  127.0.0.1  which is called callback and it works only when your applications communicate on the same PC (that is you Linux - Linux scenario in the question) and then you have IP which is used for communication with others computers (let's pretend it is  10.0.0.1 ). 
+
+ When you call  socket.bind(('127.0.0.1', 5555))  you're setting the socket to listen only for communication from the same PC. If you call  socket.bind(('10.0.0.1', 5555))  then the socket setting is ready to receive data targeted to the  10.0.0.1  address. 
+
+ But what if you have 10 IPs or more and you want to receive everything (with right TCP port). For those scenarios you can leave the IP address in  bind()  empty and it does exactly what you want. 
+
+ With Python's version of  bind()  you can enter also "computer name" instead of the concrete IP. The  socket.gethostname()  call return your computer's name. The problem is in the translation of "computer name" to the IP which Python makes behind your backs. The translation has some rules but generally your "computer name" can be translated into any IP address which you have set on your computer. In your case the your computer's name is converted into  127.0.0.1  and that's why communication works only between processes on the same computer. 
+
+ After  socket.bind()  you have the socket ready to use but it is still "inactive". The  socket.listen()  activate the socket and wait while someone want to connect. When socket receives new connection request it will put into queue and wait for processing.  
+
+ That's what  socket.accept()  do. It pulls the connection request from queue, accept it and establish the stream (remember the  socket.SOCK_STREAM  while you set up the socket) between the server and the client. The new stream is actually new socket but ready to communicate with other side.  
+
+ What did happen with the old socket? Well it's still alive and you can call  socket.listen()  again to get another stream (connection). 
+
+ How is possible to have multiple sockets on the same port 
+
+ Every connection within computer's network is defined by flow which is 5-tuple of: 
+
+ 
+ L4 protocol (usually TCP or UDP) 
+ Source IP address 
+ Source L4 port 
+ Destination IP address 
+ Destination L4 port 
+ 
+
+ When you create new connection from client the flow can look like this  (TCP, 192.168.0.1, 12345, 10.0.0.1, 55555) . Just for clarification the server's response flow is  (TCP,  10.0.0.1, 55555, 192.168.0.1, 12345)  but it isn't important for us. If you create another connection from client that it will differ at source TCP port (if you do it from another computer that it will differ also at the source IP). Only from this information you can distinguish every connection created to your computer. 
+
+ When you create a server socket in your code and call  socket.listen()  it listen for any flow with this pattern  (TCP, *, *, *, 55555)  (the * means match everything). So when you get connection with  (TCP, 192.168.0.1, 12345, 10.0.0.1, 55555)  then  socket.accept()  create another socket which works only with this one concrete flow while the old socket still accepting new connections which wasn't established. 
+
+ When operating system receives a packet it looks in the packet and check the flow. From this point it can happen a several scenarios: 
+
+ 
+ The packet's flow match all 5 items exactly (without usage of  * ). Then the packet's content is delivered to the queue associated with that socket (you're reading the queue when you call  socket.recv() ). 
+ The packet's flow matched socket with associated flow contains  *  then it is considered as new connection and you can call  scoket.accept() . 
+ The operating system doesn't contain open socket which would match the flow. In that case the OS  refuse connection (or just ignore the packet it depends on firewall settings). 
+ 
+
+ Probably some example can clarify those scenarios. The operating system has something like table where it map flows to sockets. When you call  socket.bind()  it will assign flow to the socket. After the call the table can look like this: 
+
+  +=====================================+========+
+|                Flow                 | Socket |
++=====================================+========+
+| (TCP, *, *, *, 55555)               |      1 |
++-------------------------------------+--------+
+  
+
+ When it receive packet with flow  (TCP, 1.1.1.1, 10, 10.0.0.1, 10)  then it won't match any flow (last port won't match). So the connection is refused. If it receives a packet with flow  (TCP, 1.1.1.1, 10, 10.0.0.1, 55555)  then the packet is delivered to the socket  1  (because there is a match). The  socket.accept()  call creates a new socket and record in the table. 
+
+  +=====================================+========+
+|                Flow                 | Socket |
++=====================================+========+
+| (TCP, 1.1.1.1, 10, 10.0.0.1, 55555) |      2 |
++-------------------------------------+--------+
+| (TCP, *, *, *, 55555)               |      1 |
++-------------------------------------+--------+
+  
+
+ Now you got 2 sockets for 1 port. Every received packet which match the flow associated with the socket  2  also match flow associated with socket  1  (on the contrary it does not apply). It's not a problem because the socket  2  has preciser match (is doesn't use the  * ) so any data with that flow will be delivered to socket  2 . 
+
+ How to server multiple connections 
+
+ When you want to do a "real" server than you're application should be able process multiple connection (without restarting). There are 2 basic approaches: 
+
+ 
+  sequential processing 
+
+  try:
+    l = prepare_socket()
+    while True:
+        l.listen()
+        s, a = socket.accept()
+        process_connection(s) # before return you should call s.close()
+except KeyboardInterrupt:
+    l.close()
+  
+
+ In this case you can process only one client while others clients have to wait for accept. If the  process_connection()  takes too long then others clients will timeout.  
+   
+
+  import threading
+threads = []
+
+try:
+    l = prepare_socket()
+    while True:
+        l.listen()
+        s, a = socket.accept()
+        t = threading.Thread(target=process_connection, s)
+        threads.append(t)
+        t.start()
+except KeyboardInterrupt:
+    for t in threads:
+        t.join()
+    l.close()
+  
+
+ Now when you receive new connection it will create new thread so every connection is processed in parallel. The main disadvantage of this solution is that you have to solve common troubles with threading (like access to shared memory, deadlocks etc.).  
+ 
+
+ Beware those are only example codes and they are not complete! For example it doesn't contain code for graceful exit on unexpected exceptions. 
+
+ Servers in the Python 
+
+ The Python also contains module called https://docs.python.org/3/library/socketserver.html which contains shortcuts to create servers. https://docs.python.org/3/library/socketserver.html#socketserver-tcpserver-example you can find example how to use it. 
+
+ Client 
+
+ With the client it's much more simpler than with the server. You just have to create socket with some settings (same as server side) and then tell it where is the server is (what is its IP and TCP port). This is accomplished through  socket.connect()  call. As bonus it also establish the stream between your client and server so from this point you can communicate. 
+
+ 
+
+ You can find more information about socktes at the https://beej.us/guide/bgnet/output/html/multipage/index.html. It's written for usage with C but the concepts are the same. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32022722)
+ Server PY: 
+
+  import socket
+import fcntl
+import struct
+#s = socket.socket()
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+
+
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
+
+host = get_ip_address("eth0")#replace with "wlan0"
+port = 12345
+s.bind((host,port))
+s.listen(5)
+while True:
+    c,addr = s.accept()
+    print "Got connection from",addr
+    c.send("Thank you for connecting")
+    c.close()
+  
+
+  
+
+  import socket
+import fcntl
+import struct
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
+
+#s = socket.socket()
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+host = get_ip_address("eth0")#replace with "wlan0"
+port = 12345
+s.connect((host,port))
+print s.recv(1024)
+s.close
+  
+
+ http://code.activestate.com/recipes/439094-get-the-ip-address-associated-with-a-network-inter/.
+ warning :  Server py run on shell("python server.py") and client run on idle. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9862900)
+ You have to send to addr instead of address. 
+
+  from socket import *
+import sys
+import select
+address = ('localhost', 6005)
+server_socket = socket(AF_INET, SOCK_DGRAM)
+server_socket.bind(address)
+
+while(1):
+    print "Listening"
+    recv_data, addr = server_socket.recvfrom(2048)
+    print recv_data
+    if recv_data == "Request 1" :
+        print "Received request 1"
+        server_socket.sendto("Response 1", addr)
+    elif recv_data == "Request 2" :
+        print "Received request 2"
+        data = "Response 2"
+        server_socket.sendto(data, addr)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27636473)
+ The idea of the socket.SO_REUSEADDR  to reuse the local port is good but the protection of TIME_WAIT to get unconsistent message from the previous source is there, kernel do not allow you to connect to the previous source. 
+
+ Take a look to this article http://hea-www.harvard.edu/~fine/Tech/addrinuse.html 
+
+
+

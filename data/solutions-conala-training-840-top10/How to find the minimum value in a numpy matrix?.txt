@@ -1,0 +1,319 @@
+Query: How to find the minimum value in a numpy matrix?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11764285)
+ As you're using  numpy , you could use 
+
+  arr[arr>0].min()
+  
+
+ . 
+but if your array could have negative values, then you should use 
+
+  arr[arr != 0].min()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29301948)
+ You just need to specify the axis across which you want to take the minimum. To find the minimum value in each row, you need to specify axis 1: 
+
+  >>> numbers.min(axis=1)
+array([ 0,  4,  8, 12, 16])
+  
+
+ For a 2D array,  numbers.min()  finds the  single  minimum value in the array,  numbers.min(axis=0)  returns the minimum value for each column and  numbers.min(axis=1)  returns the minimum value for each row. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16041891)
+ You need to find the minimum value  per row , and only then can you determine what the coordinates are for the row with the minimum column: 
+
+  result = min((min((v, c) for c, v in enumerate(row)), r) for r, row in enumerate(e))
+return result[1], result[0][1]
+  
+
+ This code uses  enumerate()  to annotate each value with the column index, finds the minimum  per row , annotates each row minimum with the row number (again with  enumerate ) and finds the minimum row. The result is a nested tuple with  ((value, column), row) , which we unpack to return the row and column indices. 
+
+  
+
+  >>> e = [[2, 1, 7, 7], [1, 2, 7, 7], [2, 5, 6, 7], [5, 6, 8, 9]]
+>>> result = min((min((v, c) for c, v in enumerate(row)), r) for r, row in enumerate(e))
+>>> result[0][1], result[1]
+(0, 1)
+  
+
+ So position  e[0][1]  is  a  minimum value in the matrix. If you wanted to include the exact value of that position as well, return: 
+
+  return result[1], result[0][1], result[0][0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36363269)
+ Does this work for you 
+
+  import numpy as np
+
+array = np.random.rand((1000)).reshape(10,10,10)
+
+print np.array(np.where(array == array.min())).flatten()
+  
+
+ in the case of multiple minimums you could try something like 
+
+  import numpy as np
+
+array = np.array([[1,1,2,3],[1,1,4,5]])
+
+print zip(*np.where(array == array.min()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3230123)
+ Use http://docs.scipy.org/doc/numpy/reference/generated/numpy.unravel_index.html: 
+
+  numpy.unravel_index(A.argmin(), A.shape)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29661707)
+ If I understand correctly, what you want to do is divide by the maximum value in each column. You can do this easily using http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html. 
+
+ Starting with your example array: 
+
+  import numpy as np
+
+x = np.array([[1000,  10,   0.5],
+              [ 765,   5,  0.35],
+              [ 800,   7,  0.09]])
+
+x_normed = x / x.max(axis=0)
+
+print(x_normed)
+# [[ 1.     1.     1.   ]
+#  [ 0.765  0.5    0.7  ]
+#  [ 0.8    0.7    0.18 ]]
+  
+
+  x.max(0)  takes the maximum over the 0th dimension (i.e. rows). This gives you a vector of size  (ncols,)  containing the maximum value in each column. You can then divide  x  by this vector in order to normalize your values such that the maximum value in each column will be scaled to 1. 
+
+ 
+
+ If  x  contains negative values you would need to subtract the minimum first: 
+
+  x_normed = (x - x.min(0)) / x.ptp(0)
+  
+
+ Here,  x.ptp(0)  returns the "peak-to-peak" (i.e. the range, max - min) along axis 0. This normalization also guarantees that the minimum value in each column will be 0. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44431626)
+ 
+   However it only evaluates along a single axis and returns the index of the minimum value along a single row/column whereas I wish to evaluate the whole array and return the lowest value not the indices. 
+ 
+
+  numpy.argmin  does not by default evaluate along a single axis, the default is to evaluate along the flattened matrix and it returns the linear index in the flattened array; from the  numpy  docs that you linked: 
+
+ 
+   By default, the index is into the flattened array, otherwise along the specified axis. 
+ 
+
+ Either way, use https://docs.scipy.org/doc/numpy/reference/generated/numpy.amin.html#numpy.amin or  numpy.min  to return the minimum  value , or equivalently for an array  arrname  use https://docs.scipy.org/doc/numpy-1.10.0/reference/generated/numpy.ndarray.min.html. As you mentioned,  numpy.argmin  returns the  index  of the minimum value (of course, you can then use this index to return the minimum value by indexing your array with it). You could also flatten into a single dimension array with  arrname.flatten()  and pass that into the built-in  min  function. 
+
+ The four following methods produce what you want. 
+
+  import numpy as np
+
+values = np.array([
+    [8,2,3,4,5,6],
+    [3,6,6,7,2,6],
+    [3,8,5,1,2,9],
+    [6,4,2,7,8,3]])
+
+values.min()          # = 1
+np.min(values)        # = 1
+np.amin(values)       # = 1
+min(values.flatten()) # = 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29394807)
+ This should work 
+
+  >>> import numpy as np
+>>> import numpy.random
+
+# create sample matrix
+>>> a = numpy.random.randint(10,size=(8,8))
+>>> a[0,0] = 100
+>>> a
+array([[100, 8, 6, 5, 5, 7, 4, 5],
+   [4, 6, 1, 7, 4, 5, 8, 5],
+   [0, 2, 0, 7, 4, 2, 7, 9],
+   [5, 7, 5, 9, 8, 3, 2, 8],
+   [2, 1, 3, 4, 0, 7, 8, 1],
+   [6, 6, 7, 6, 0, 6, 6, 8],
+   [6, 0, 1, 9, 7, 7, 9, 3],
+   [0, 5, 5, 5, 1, 5, 4, 4]])
+
+# create mask
+>>> mask = np.ones((8,8)) 
+>>> mask = (mask - np.diag(np.ones(8))).astype(np.bool)
+>>> mask
+array([[False,  True,  True,  True,  True,  True,  True,  True],
+   [ True, False,  True,  True,  True,  True,  True,  True],
+   [ True,  True, False,  True,  True,  True,  True,  True],
+   [ True,  True,  True, False,  True,  True,  True,  True],
+   [ True,  True,  True,  True, False,  True,  True,  True],
+   [ True,  True,  True,  True,  True, False,  True,  True],
+   [ True,  True,  True,  True,  True,  True, False,  True],
+   [ True,  True,  True,  True,  True,  True,  True, False]], dtype=bool)
+
+# calculate the maximum
+>>> np.amax(a[mask])
+9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42536277)
+ Given your matrix 
+
+  >>> import numpy as np
+>>> a = np.array([[1,2],[3,4]])
+  
+
+ You can just call the  min  method off your matrix 
+
+  >>> a.min()
+1
+  
+
+ Or call the free function  min  and pass in your matrix 
+
+  >>> np.min(a)
+1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40662165)
+ Hmm, was a bit more work than expected ^^.
+The algorithm is roughly: 
+
+ 
+ sort the values of the matrix a in a 1d array aSrt 
+ loop through aSrt and identify the 2x2 submatrix according to this value 
+ if we do not have this submatrix already in lstSubMat, add it by global coordinate of submatrix(0,0) 
+ now we have a list lstSubMat, which contains the submatrices ordered by there minimum value 
+ for each submatrix we find now the minimum value under the precondition that the local coordinate is still available (i.e. is not listet in msk). This is stored in result (by global coordinate) 
+ 
+
+ What you can nicely see in the code below is: 
+
+ 
+ How to find elements in ndarrays 
+ How to order an adarray rowwise first by second column index, then by first column index 
+ how to transform lists in tupels and the other way round 
+ 
+
+ Code: 
+
+  #lc: local coordinates
+#gc: global coordinates
+#sc: submatrix coordinates
+
+
+import numpy as np
+a = np.array(
+    [[ 32673.    ,  15108.2   ,  26767.2   ,   9420.   ],
+    [ 32944.2   ,  14604.01  ,  26757.01  ,   9127.2  ],
+    [ 26551.2   ,  9257.01   ,  26595.01  ,   9309.2  ],
+    [ 26624.    ,   8935.2   ,  26673.2   ,   8982.   ]]
+    )
+#print(a)
+
+
+
+#sort values of a in 1d array
+aSrt=np.sort(a.flatten())
+#print(aSrt)
+
+#list of submatrix coordinates ordered by their minimum
+lstSubMat=[]
+for ii in range(0,len(aSrt)):
+    #print('just to make things clear:',np.where(a==aSrt[ii]))
+    gc=[elem[0] for elem in list(np.where(a==aSrt[ii]))]
+    lc = [elem%2 for elem in gc]
+    sc = [gc[jj]-lc[jj] for jj in range(0,2)]
+    #print('gc:',gc,'sc',sc,'lc:',lc, 'value:',aSrt[0])
+    if not sc in lstSubMat:
+        lstSubMat.append(sc)
+        #lstSubMat[1].append(lc)
+        #lstSubMat[2].append(value)
+
+# result is list of gc
+result=np.empty((4,2),dtype=int)
+#result=np.empty([4,2])
+nmbFound=0
+
+#check list with lc
+msk=[]
+
+while nmbFound<4:
+    sc=lstSubMat[0]
+    subMat=a[sc[0]:sc[0]+2,sc[1]:sc[1]+2]
+    #print('subMat:',subMat)
+    valSubMatSrt=np.sort(subMat.flatten())
+    for ii in range(0,4):
+        lc=[elem[0] for elem in list(np.where(subMat==valSubMatSrt[ii]))]
+        if not lc in msk:
+            msk.append(lc)
+            #result.append([sc[jj]+lc[jj] for jj in range(0,2)])
+            #result[nmbFound]=[sc[jj]+lc[jj] for jj in range(0,2)]
+            result[nmbFound,0]=sc[0]+lc[0]
+            result[nmbFound,1]=sc[1]+lc[1]
+            nmbFound+=1
+            #print('gc:',result[-1],'sc',sc,'lc:',lc, 'value:',aSrt[0])
+            lstSubMat=lstSubMat[1:]
+            break
+
+#print(result)
+
+#sort first by row then by col index of submatrix -> //2
+result=result[(result[:,1]//2).argsort()] 
+result=result[(result[:,0]//2).argsort()] 
+#print(result)
+
+print('\n\nresult:')
+for ii in range(0,len(result)):
+    sc=tuple([elem//2 for elem in result[ii,:]])
+    lc=tuple([result[ii,jj]%2 for jj in range(0,2)])
+    print(sc,lc,a[tuple(result[ii,:])])
+  
+
+ Output:    
+
+  result:
+(0, 0) (0, 0) 32673.0
+(0, 1) (1, 0) 26757.01
+(1, 0) (1, 1) 8935.2
+(1, 1) (0, 1) 9309.2
+  
+
+
+

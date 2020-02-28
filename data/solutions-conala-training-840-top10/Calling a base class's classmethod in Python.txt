@@ -1,0 +1,173 @@
+Query: Calling a base class's classmethod in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1269224)
+ If you're using a new-style class (i.e. derives from  object  in Python 2, or always in Python 3), you can do it with  super()  like this: 
+
+  super(Derived, cls).do(a)
+  
+
+ This is how you would invoke the code in the base class's version of the method (i.e.  print cls, a ), from the derived class, with  cls  being set to the derived class. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5682347)
+ this has been a while, but I think I may have found an answer. When you decorate a method to become a classmethod the original unbound method is stored in a property named 'im_func': 
+
+  class Base(object):
+    @classmethod
+    def do(cls, a):
+        print cls, a
+
+class Derived(Base):
+
+    @classmethod
+    def do(cls, a):
+        print 'In derived!'
+        # Base.do(cls, a) -- can't pass `cls`
+        Base.do.im_func(cls, a)
+
+if __name__ == '__main__':
+    d = Derived()
+    d.do('hello')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33785336)
+ That is because you are not calling https://docs.python.org/2/library/functions.html#super to properly inherit from your base class.   
+
+  Pet.wild('cat')
+  
+
+ . 
+
+ 
+
+  class Pet(object):
+    def __init__(self,animal):
+        self.animal = animal
+
+    @classmethod
+    def wild(cls,animal):
+        return cls('wild '+animal)
+
+class Cat(Pet):
+    def __init__(self):
+        super(Cat, self).__init__('cat')
+
+if __name__ == '__main__':
+    print Cat().animal
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10936250)
+ You must derive from the base class in subclass: 
+
+  class Derived(Base):
+    ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36247517)
+  from_ini_file  returns a new instance, so you have to call this method from your derived class also form a classmethod: 
+
+  class Derived(Base):
+    @classmethod
+    def from_default_ini(cls):
+        f = 'default.ini'
+        return cls.from_ini_file(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45264634)
+ I'm a beginner on this site, I have read all above answers, and got the information what I want. However, I don't have the right to upvote.  So I want to get my start on StackOverflow with the answer as I understand it. 
+
+ 
+  @staticmethod  doesn't need self or cls as the first parameter of the method 
+  @staticmethod  and  @classmethod  wrapped function could be called by instance or class variable 
+  @staticmethod  decorated function impact some kind 'immutable property' that subclass inheritance can't overwrite its base class function which is wrapped by a  @staticmethod  decorator.  
+  @classmethod  need cls (Class name, you could change the variable name if you want, but it's not advised) as the first parameter of function 
+  @classmethod  always used by subclass manner, subclass inheritance may change the effect of base class function, i.e.  @classmethod  wrapped base class function could be overwritten by different subclasses. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8133425)
+ The best explanation may be the source code itself : 
+
+  class classonlymethod(classmethod):
+    def __get__(self, instance, owner):
+        if instance is not None:
+            raise AttributeError("This method is available only on the view class.")
+        return super(classonlymethod, self).__get__(instance, owner)
+  
+
+ The difference is that a  classmethod  can be called on an instance, having the same effect as calling it on the class, but the  classonlymethod  can only be called on the class. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/47630494)
+ With the help of @AnttiHaapala the solution is simple. Instead of calling 
+
+  classmethod(cls.__load__)()
+  
+
+  
+
+  cls.__load__(cls)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42271929)
+ You are decorating the  bound class method ; it is this object that holds on to  Parent  and passes it into the original  shout  function when called; whatever  cls  is bound to in your  wrapper()  method is not passed in and ignored. 
+
+ Unwrap classmethods first, you can get to the underlying function object with the  __func__  attribute: 
+
+  def __call__(self, cls):
+    for name, method in inspect.getmembers(cls):
+        if name == 'shout':
+            decoratedMethod = self.__decorateMethod()(method.__func__)
+            setattr(cls, name, classmethod(decoratedMethod))
+    return cls
+  
+
+ You now have to take into account that your wrapper is handling an  unbound  function too, so pass on the  cls  argument or manually bind: 
+
+  # pass in cls explicitly:
+return method(cls, word, *args, **kwargs)
+
+# or bind the descriptor manually:
+return method.__get__(cls)(word, *args, **kwargs)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29791539)
+ You need to use this in addition to the  @classmethod  decorator. 
+
+  class Impl(Base):
+    @ClassProperty
+    @classmethod
+    def foo(cls):
+        return 5
+
+In [11]: Impl.foo
+Out[11]: 5
+  
+
+
+

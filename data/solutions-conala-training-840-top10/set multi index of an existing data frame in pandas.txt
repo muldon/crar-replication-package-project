@@ -1,0 +1,402 @@
+Query: set multi index of an existing data frame in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37338785)
+ IIUC you can add parameter  append=True  to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html: 
+
+  print (d2.set_index('Item', append=True))
+       other
+  Item      
+0 y       aa
+1 y       bb
+2 z       cc
+3 x       dd
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41274715)
+ You can make a new multi index based on the Cartesian product of the levels of the existing multi index. Then, re-index your data frame using the new index. 
+
+<pre class="lang-python prettyprint-override"> new_index = pd.MultiIndex.from_product(df.index.levels)
+new_df = df.reindex(new_index)
+
+# Optional: convert missing values to zero, and convert the data back
+# to integers. See explanation below.
+.fillna(0).astype(int)
+  
+
+ That's it! The new data frame has all the possible index values. The existing data is indexed correctly. 
+
+ Read on for a more detailed explanation. 
+
+ 
+
+ Explanation 
+
+ Set up sample data</h3>
+
+<pre class="lang-python prettyprint-override"> import pandas as pd
+
+df = pd.DataFrame({'A': ['loc_a'] * 12 + ['loc_b'],
+                   'B': ['group_a'] * 7 + ['group_b'] * 3 + ['group_c'] * 2 + ['group_a'],
+                   'Date': ["2013-06-11",
+                           "2013-07-02",
+                           "2013-07-09",
+                           "2013-07-30",
+                           "2013-08-06",
+                           "2013-09-03",
+                           "2013-10-01",
+                           "2013-07-09",
+                           "2013-08-06",
+                           "2013-09-03",
+                           "2013-07-09",
+                           "2013-09-03",
+                           "2013-10-01"],
+                    'Value': [22, 35, 14,  9,  4, 40, 18, 4, 2, 5, 1, 2, 3]})
+
+df.Date = pd.to_datetime(df.Date)
+
+df = df.set_index(['A', 'B', 'Date'])
+  
+
+ Here's what the sample data looks like 
+
+                            Value
+A     B       Date
+loc_a group_a 2013-06-11     22
+              2013-07-02     35
+              2013-07-09     14
+              2013-07-30      9
+              2013-08-06      4
+              2013-09-03     40
+              2013-10-01     18
+      group_b 2013-07-09      4
+              2013-08-06      2
+              2013-09-03      5
+      group_c 2013-07-09      1
+              2013-09-03      2
+loc_b group_a 2013-10-01      3
+  
+
+ Make new index</h3>
+
+ Using http://pandas.pydata.org/pandas-docs/stable/generated/pandas.MultiIndex.from_product.html we can make a new multi index. This new index is the https://en.wikipedia.org/wiki/Cartesian_product of all the values from all the levels of the old index. 
+
+  new_index = pd.MultiIndex.from_product(df.index.levels)
+  
+
+ Reindex</h3>
+
+ Use the new index to reindex the existing data frame. 
+
+  new_df = df.reindex(new_index)
+  
+
+ All the possible combinations are now present. The missing values are null (NaN). 
+
+ The expanded, re-indexed data frame looks like this: 
+
+                            Value
+loc_a group_a 2013-06-11   22.0
+              2013-07-02   35.0
+              2013-07-09   14.0
+              2013-07-30    9.0
+              2013-08-06    4.0
+              2013-09-03   40.0
+              2013-10-01   18.0
+      group_b 2013-06-11    NaN
+              2013-07-02    NaN
+              2013-07-09    4.0
+              2013-07-30    NaN
+              2013-08-06    2.0
+              2013-09-03    5.0
+              2013-10-01    NaN
+      group_c 2013-06-11    NaN
+              2013-07-02    NaN
+              2013-07-09    1.0
+              2013-07-30    NaN
+              2013-08-06    NaN
+              2013-09-03    2.0
+              2013-10-01    NaN
+loc_b group_a 2013-06-11    NaN
+              2013-07-02    NaN
+              2013-07-09    NaN
+              2013-07-30    NaN
+              2013-08-06    NaN
+              2013-09-03    NaN
+              2013-10-01    3.0
+      group_b 2013-06-11    NaN
+              2013-07-02    NaN
+              2013-07-09    NaN
+              2013-07-30    NaN
+              2013-08-06    NaN
+              2013-09-03    NaN
+              2013-10-01    NaN
+      group_c 2013-06-11    NaN
+              2013-07-02    NaN
+              2013-07-09    NaN
+              2013-07-30    NaN
+              2013-08-06    NaN
+              2013-09-03    NaN
+              2013-10-01    NaN
+  
+
+ Nulls in integer column</h3>
+
+ You can see that the data in the new data frame has been converted from ints to floats. http://pandas.pydata.org/pandas-docs/stable/gotchas.html#support-for-integer-na. Optionally, we can convert all the nulls to 0, and cast the data back to integers. 
+
+  .fillna(0).astype(int)
+  
+
+  
+
+                            Value
+loc_a group_a 2013-06-11     22
+              2013-07-02     35
+              2013-07-09     14
+              2013-07-30      9
+              2013-08-06      4
+              2013-09-03     40
+              2013-10-01     18
+      group_b 2013-06-11      0
+              2013-07-02      0
+              2013-07-09      4
+              2013-07-30      0
+              2013-08-06      2
+              2013-09-03      5
+              2013-10-01      0
+      group_c 2013-06-11      0
+              2013-07-02      0
+              2013-07-09      1
+              2013-07-30      0
+              2013-08-06      0
+              2013-09-03      2
+              2013-10-01      0
+loc_b group_a 2013-06-11      0
+              2013-07-02      0
+              2013-07-09      0
+              2013-07-30      0
+              2013-08-06      0
+              2013-09-03      0
+              2013-10-01      3
+      group_b 2013-06-11      0
+              2013-07-02      0
+              2013-07-09      0
+              2013-07-30      0
+              2013-08-06      0
+              2013-09-03      0
+              2013-10-01      0
+      group_c 2013-06-11      0
+              2013-07-02      0
+              2013-07-09      0
+              2013-07-30      0
+              2013-08-06      0
+              2013-09-03      0
+              2013-10-01      0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23365762)
+ Just set  append=True : 
+
+  df.set_index('Day',append=True)
+  
+
+ Example: 
+
+  In [31]:
+
+df = pd.DataFrame({'Year':np.random.randn(5), 'Month':np.random.randn(5), 'Day':np.random.randn(5), 'Week':np.random.randn(5), 'Data':np.random.randn(5)})
+df
+Out[31]:
+       Data       Day     Month      Week      Year
+0 -0.491396 -0.150413  1.384564  0.576275 -0.212781
+1  0.954844  0.513917  0.140124 -0.225570 -0.127357
+2 -0.147866  1.093051 -0.709818 -1.453956  0.977121
+3 -0.156877  0.252677 -1.045523 -2.242977 -0.313560
+4  0.823496  0.671079 -1.181015  0.472536  1.092560
+
+[5 rows x 5 columns]
+In [32]:
+
+df = df.set_index(['Year', 'Month', 'Week'])
+df
+Out[32]:
+                                   Data       Day
+Year      Month     Week                         
+-0.212781  1.384564  0.576275 -0.491396 -0.150413
+-0.127357  0.140124 -0.225570  0.954844  0.513917
+ 0.977121 -0.709818 -1.453956 -0.147866  1.093051
+-0.313560 -1.045523 -2.242977 -0.156877  0.252677
+ 1.092560 -1.181015  0.472536  0.823496  0.671079
+
+[5 rows x 2 columns]
+In [33]:
+
+df.set_index('Day',append=True)
+Out[33]:
+                                             Data
+Year      Month     Week      Day                
+-0.212781  1.384564  0.576275 -0.150413 -0.491396
+-0.127357  0.140124 -0.225570  0.513917  0.954844
+ 0.977121 -0.709818 -1.453956  1.093051 -0.147866
+-0.313560 -1.045523 -2.242977  0.252677 -0.156877
+ 1.092560 -1.181015  0.472536  0.671079  0.823496
+
+[5 rows x 1 columns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52403472)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.isin.html with  MultiIndex : 
+
+  df = df1[df1.index.isin(df2.set_index(['i1','i2']).index)]
+  
+
+ Alternative: 
+
+  df = df1[df1.index.isin(pd.MultiIndex.from_arrays([df2['i1'], df2['i2']]))]
+  
+
+ Or use  merge ,  join  - but necessary reset and set index: 
+
+  df = df1.reset_index().merge(df2).set_index(['i1', 'i2'])
+df = df2.join(df1, on=['i1', 'i2'], how='inner').set_index(['i1', 'i2'])
+  
+
+ 
+
+  print (df)
+       c
+i1 i2   
+a1 b1  1
+a3 b3  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41219802)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.MultiIndex.from_tuples.html: 
+
+  print (pd.MultiIndex.from_tuples([(x['a'], x['b']) for x in d], names=('a','b')))
+MultiIndex(levels=[[1], [1, 2]],
+           labels=[[0, 0], [0, 1]],
+           names=['a', 'b'])
+
+d = [{'a':1,'b':1,"c":2,'d':1},{'a':1,'b':2,"c":2,'d':2}]
+df= pd.DataFrame(d, 
+                 index = pd.MultiIndex.from_tuples([(x['a'], x['b']) for x in d], 
+                                                    names=('a','b')), 
+                 columns=('c', 'd'))
+print (df)
+     c  d
+a b      
+1 1  2  1
+  2  2  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49910269)
+ You can using  set_index  for creating the idx, then assign to your df 
+
+  idx=df1.set_index('category',append=True).index
+
+df.columns=idx
+
+df
+Out[1170]:
+current   X  Y     Z
+category  A  B  C  D
+0         1  2  1  4
+1         3  0  2  2
+2         1  5  3  1
+
+df.sum(axis=1,level=0)
+Out[1171]: 
+current  X  Y  Z
+0        1  3  4
+1        3  2  2
+2        1  8  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44056055)
+ I like this for speed 
+
+  i = df.AXIS.values
+c = np.array(list('ABCD'))
+v = np.column_stack([df[col].values for col in c])
+idx = pd.MultiIndex.from_arrays(
+    [i.repeat(c.size), np.tile(c, i.size)],
+    names=['One', 'Two']
+)
+# Or this for brevity
+# idx = pd.MultiIndex.from_product([i, c], names=['One', 'Two'])
+pd.DataFrame(v.ravel(), idx, ['Num'])
+
+         Num
+One Two     
+X   A    100
+    B    101
+    C    102
+    D    103
+Y   A    200
+    B    201
+    C    202
+    D    203
+Z   A    300
+    B    301
+    C    302
+    D    303
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43190913)
+ The problem is that you have an empty data frame which has zero columns, and you are trying to assign a four columns multi-index to it; If you create an empty data frame of four columns initially, the error will be gone: 
+
+  df = pd.DataFrame(pd.np.empty((0, 4)))    
+df.columns = pd.MultiIndex(levels = [['first', 'second'], ['a', 'b']], labels = [[0, 0, 1, 1], [0, 1, 0, 1]])
+  
+
+ Or you can create empty data frame with the multi-index as follows: 
+
+  multi_index = pd.MultiIndex(levels = [['first', 'second'], ['a', 'b']], labels = [[0, 0, 1, 1], [0, 1, 0, 1]])    
+df = pd.DataFrame(columns=multi_index)
+
+df
+#   first    second
+#  a    b   a     b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41208732)
+ I like @jezrael answer a lot, but just for completeness - you can also use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.pivot_table.html instead of  set_index  +  unstack : 
+
+  >>> df.pivot_table(index='number', columns='class').swaplevel(axis=1).sort_index(1)
+class        A            B     
+       english math english math
+number                          
+1           40   90      87   67
+2           21   20      89   89
+3           68   50      54   79
+4           89   30      21   45
+5           90   57      23   23
+  
+
+
+

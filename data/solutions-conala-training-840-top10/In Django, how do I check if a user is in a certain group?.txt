@@ -1,0 +1,228 @@
+Query: In Django, how do I check if a user is in a certain group?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15029952)
+ If you need the list of users that are in a group, you can do this instead: 
+
+  from django.contrib.auth.models import Group
+users_in_group = Group.objects.get(name="group name").user_set.all()
+  
+
+ and then check 
+
+   if user in users_in_group:
+     # do something
+  
+
+ to check if the user is in the group. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28156664)
+ You just need one line: 
+
+  from django.contrib.auth.decorators import user_passes_test  
+
+@user_passes_test(lambda u: u.groups.filter(name='companyGroup').exists())
+def you_view():
+    return HttpResponse("Since you're logged in, you can see this text!")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4789038)
+ You can access the groups simply through the  groups  attribute on  User . 
+
+  from django.contrib.auth.models import User, Group
+
+group = Group(name="Editor")
+group.save()                  # save this new group for this example
+user = User.objects.get(pk=1) # assuming, there is one initial user 
+user.groups.add(group)        # user is now in the "Editor" group
+  
+
+ then  user.groups.all()  returns  [<Group: Editor>]  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19345286)
+ Just in case if you wanna check user's group belongs to a predefined group list: 
+
+  def is_allowed(user):
+    allowed_group = set(['admin', 'lead', 'manager'])
+    usr = User.objects.get(username=user)
+    groups = [ x.name for x in usr.groups.all()]
+    if allowed_group.intersection(set(groups)):
+       return True
+    return False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32136319)
+ If you don't need the user instance on site (as I did), you can do it with 
+
+  User.objects.filter(pk=userId, groups__name='Editor').exists()
+  
+
+ This will produce only one request to the database and return a boolean. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20110261)
+ Your  User  object is linked to the  Group  object through a  ManyToMany  relationship. 
+
+ You can thereby apply the  filter  method to  user.groups . 
+
+ So, to check if a given User is in a certain group ("Member" for the example), just do this : 
+
+  def is_member(user):
+    return user.groups.filter(name='Member').exists()
+  
+
+ If you want to check if a given user belongs to more than one given groups, use the  __in  operator like so : 
+
+  def is_in_multiple_groups(user):
+    return user.groups.filter(name__in=['group1', 'group2']).exists()
+  
+
+ Note that those functions can be used with the  @user_passes_test  decorator to manage access to your views : 
+
+  from django.contrib.auth.decorators import login_required, user_passes_test
+@login_required
+@user_passes_test(is_member) # or @user_passes_test(is_in_multiple_groups)
+def myview(request):
+    # Do your processing
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32197405)
+ If a user belongs to a certain group or not, can be checked in django templates using: 
+
+  {% if group in request.user.groups.all %}  
+ "some action" 
+ {% endif %}  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/47437925)
+ I'd say that the best way is: 
+
+ yourapp/templatetags/templatetagname.py 
+
+  from django import template
+
+register = template.Library()
+
+@register.filter(name='has_group')
+def has_group(user, group_name):
+    return user.groups.filter(name=group_name).exists()
+  
+
+ yourapp/templates/yourapp/yourtemplate.html: 
+
+  {% load has_group %}
+
+{% if request.user|has_group:"mygroup" %} 
+     User belongs to my group 
+{% else %}
+     User doesn't belong to mygroup 
+{% endif %}
+  
+
+ EDIT: added line with template tag loading as was advised in comments. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43823513)
+ In your app create a folder 'templatetags'. In this folder create two files:  
+
+  __init__.py   
+
+  auth_extras.py  
+
+  from django import template
+from django.contrib.auth.models import Group 
+
+register = template.Library()
+
+@register.filter(name='has_group')
+def has_group(user, group_name): 
+    group = Group.objects.get(name=group_name) 
+    return True if group in user.groups.all() else False
+  
+
+  
+
+  app/
+    __init__.py
+    models.py
+    templatetags/
+        __init__.py
+        auth_extras.py
+    views.py
+  
+
+ 
+    After adding the templatetags module, you will need to restart your server before you can use the tags or filters in templates.  
+ 
+
+ In your  base.html  (template) use the following: 
+
+  {% load auth_extras %}
+  
+
+ and to check if the user is in group "moderator": 
+
+  {% if request.user|has_group:"moderator" %} 
+     moderator  
+{% endif %}
+  
+
+ Documentation: https://docs.djangoproject.com/en/1.11/howto/custom-template-tags/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46360225)
+ Watch out that you'll get an exception if the group does not exist in the DB. 
+
+ The custom template tag should be: 
+
+  from django import template
+from django.contrib.auth.models import Group
+
+register = template.Library()
+
+@register.filter(name='has_group')
+def has_group(user, group_name):
+    try:
+        group =  Group.objects.get(name=group_name)
+    except Group.DoesNotExist:
+        return False
+
+    return group in user.groups.all()
+  
+
+ Your template: 
+
+  {% if request.user|has_group:"mygroup" %} 
+     User belongs to my group 
+{% else %}
+     User doesn't belong to mygroup 
+{% endif %}
+  
+
+
+

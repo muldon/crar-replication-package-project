@@ -1,0 +1,284 @@
+Query: Remove final characters from string recursively - What's the best way to do this?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18799050)
+ Using http://docs.python.org/2/library/itertools.html#itertools.groupby: 
+
+  >>> foo = "SSYYNNOOPPSSIISS"
+>>> import itertools
+>>> ''.join(ch for ch, _ in itertools.groupby(foo))
+'SYNOPSIS'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39533040)
+ Not the direct answer to the question, but one alternative option would be to use  regular expressions  to remove the bad characters at the end of the string: 
+
+  >>> import re
+>>>
+>>> example_line = 'jkhasdkjashdasjkd|abbbabbababcbccc'
+>>> bad_chars = {'a', 'b', 'c'}
+>>>
+>>> re.sub(r'[%s]+$' % ''.join(bad_chars), '', example_line)
+'jkhasdkjashdasjkd|'
+  
+
+ The regular expression here is dynamically constructed from the set of "bad" characters. It would (or "could", since sets have no order) be  [abc]+$  in this case: 
+
+ 
+  [abc]  defines a "character class" - any of "a", "b" or "c" would be matched 
+  +  means 1 or more    
+  $  defines the end of the string 
+ 
+
+ (Note that, if "bad" characters can contain a character that may have a special meaning in the character class (like, for example,  [  or  ] ), it should be escaped with https://docs.python.org/2/library/re.html#re.escape). 
+
+ <sup>The last statement though may prove that https://softwareengineering.stackexchange.com/questions/223634/what-is-meant-by-now-you-have-two-problems about having more problems than initially. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39533365)
+ Another nearly fast approach to  re.sub  albeit more intuitive ( it sounds like the  pop  you're asking for ) is https://docs.python.org/2/library/itertools.html#itertools.dropwhile: 
+
+ 
+   Make an iterator that drops elements from the iterable as long as the
+  predicate is true; 
+ 
+
+  >>> ''.join(dropwhile(lambda x: x in bad_chars, example_line[::-1]))[::-1]
+'jkhasdkjashdasjkd|'
+  
+
+ However, it appears  rstrip  was made and more suited for a task as this. 
+
+ 
+
+ Some timings: 
+
+  In [4]: example_line = 'jkhasdkjashdasjkd|abbbabbababcbccc'
+
+In [5]: bad_chars = {'a', 'b', 'c'}
+  
+
+ 
+
+  In [6]: %%timeit
+   ...: re.sub(r'[%s]+$' % ''.join(bad_chars), '', example_line)
+   ...:
+100000 loops, best of 3: 5.24 µs per loop
+  
+
+ 
+
+  In [7]: %%timeit
+   ...: ''.join(dropwhile(lambda x: x in bad_chars, example_line[::-1]))[::-1]
+   ...:
+100000 loops, best of 3: 5.72 µs per loop
+  
+
+ 
+
+  In [10]: %%timeit
+   ....: remove_end_del(example_line, bad_chars)
+   ....:
+10000 loops, best of 3: 24.1 µs per loop
+  
+
+ 
+
+  In [11]: %%timeit
+   ....: example_line.rstrip('abc')
+   ....:
+1000000 loops, best of 3: 579 ns per loop
+  
+
+ 
+
+  In [14]: %%timeit
+   ....: remove_end_del_2(example_line, bad_chars)
+   ....:
+100000 loops, best of 3: 4.22 µs per loop
+  
+
+   rstrip  wins!  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52794778)
+ A shorter version, avoiding the manipulation of indices: 
+
+  def rm_even_duplicates(s):
+    ls = list(s) + [None]
+    tmp = [ls[0]]
+    out = []
+    for c in ls[1:]:
+        if c != tmp[0]:
+            if len(tmp) % 2 == 1:
+                out.extend(tmp)
+            tmp = []
+        tmp.append(c)
+    # The recursive part, if you want to do it that way;
+    # that could as well have been a while loop
+    if len(out) == len(s):
+        return ''.join(out)
+    else:
+        return rm_even_duplicates(out)
+  
+
+ Some examples and your test cases: 
+
+  print(rm_even_duplicates('aaabbcdddd'))
+# aaac
+print(rm_even_duplicates('aaabbccaaadda'))
+# aaaaaaa
+
+assert rm_even_duplicates('cbbbaaaabbbccc') == ''
+assert rm_even_duplicates('aabbc') == 'c'
+assert rm_even_duplicates('abbbccc') == 'abbbccc'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52799678)
+ I try to never miss an opportunity to throw an itertools  groupby  at a sequence counting problem: 
+
+  from itertools import groupby
+
+def remUtil(str_or_list):
+    characters = []
+    length = 0
+
+    for _, group in groupby(str_or_list):
+        sub_characters = list(group)
+        sub_length = len(sub_characters)
+
+        if sub_length % 2:
+            characters.extend(sub_characters)
+            length += sub_length
+
+    if length == len(str_or_list):
+        return str_or_list if isinstance(str_or_list, str) else ''.join(str_or_list)
+
+    return remUtil(characters)
+
+
+# Borrowing @ThierryLathuille's test cases (+1)
+
+print(remUtil('aaabbcdddd'))
+print(remUtil('aaabbccaaadda'))
+
+assert remUtil('cbbbaaaabbbccc') == ''
+assert remUtil('aabbc') == 'c'
+assert remUtil('abbbccc') == 'abbbccc'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43358965)
+ You can use this pattern, too, with  regex : 
+
+  import re
+a = '''hello? there A-Z-R_T(,**), world, welcome to python.
+this **should? the next line#followed- by@ an#other %million^ %%like $this.'''
+
+for k in a.split("\n"):
+    print(re.sub(r"[^a-zA-Z0-9]+", ' ', k))
+    # Or:
+    # final = " ".join(re.findall(r"[a-zA-Z0-9]+", k))
+    # print(final)
+  
+
+ Output: 
+
+  hello there A Z R T world welcome to python 
+this should the next line followed by an other million like this 
+  
+
+ Edit: 
+
+ Otherwise, you can store the final lines into a  list : 
+
+  final = [re.sub(r"[^a-zA-Z0-9]+", ' ', k) for k in a.split("\n")]
+print(final)
+  
+
+ Output: 
+
+  ['hello there A Z R T world welcome to python ', 'this should the next line followed by an other million like this ']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18799403)
+ This is a solution without importing  itertools:     
+
+  foo = "SSYYNNOOPPSSIISS"
+''.join([foo[i] for i in range(len(foo)-1) if foo[i+1]!= foo[i]]+[foo[-1]])
+
+Out[1]: 'SYNOPSIS'
+  
+
+ But it is slower than the others method! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14558491)
+ Having the "two problems" proverb in mind, I'd still say this is the job for a regular expression. Regexes compile to state machines which check all possible variants in parallel, not one-by-one. 
+
+ Here's an implementation that leverages that: 
+
+  import re
+
+def split_string(string, prefixes):
+    regex = re.compile('|'.join(map(re.escape, prefixes))) # (1)
+    while True:
+        match = regex.match(string)
+        if not match:
+            break
+        end = match.end()
+        yield string[:end]
+        string = string[end:]
+    if string:
+        yield string # (2)
+
+prefixes = ['over','under','re','un','co']
+assert (list(split_string('recouncoundo',prefixes))
+        == ['re','co','un','co','un','do'])
+  
+
+ Note how the regular expression is constructed in (1): 
+
+ 
+ the prefixes are escaped using  re.escape  so that special characters don't interfere 
+ the escaped prefixes are joined using the  |  (or) regex operator 
+ the whole thing gets compiled. 
+ 
+
+ The line (2) yields the final word, if any is left over after splitting prefixes. You might want to remove the  if string  check if you want the function to return an empty string if nothing remains after prefix stripping. 
+
+ Also note that  re.match  (contrary to  re.search ) only looks for the pattern at the beginning of the input string, so there's no need to append  ^  to the regex. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51759983)
+ If you want to remove all  \xXX  characters (non-printable ascii characters) the best way is probably like so 
+
+  import string
+
+def remove_non_printable(s):
+    return ''.join(c for c in s if c not in string.printable)
+  
+
+ Note this won't work with any non-ascii printable characters (like  é , which will be removed). 
+
+
+

@@ -1,0 +1,257 @@
+Query: Pandas DataFrame Groupby two columns and get counts
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42846606)
+  count  counts the number of non-null values.  In a  groupby  context, it counts the number of non-null values in each group.  When you  groupby  multiple columns at once,  groupby  creates a group for each unique combination.  So...  df.groupby(['A','B','C']).count()  counts the number of non-null values for each column for each unique combination of values in  ['A', 'B', 'C']  
+
+ Consider the sample dataframe  df  
+
+  df = pd.DataFrame(dict(
+        A=list('xxxxxxxxyyyyyyyyzzzzzzzz'),
+        B=list('111122221111222211112222'),
+        C=list('abababababababababababab'),
+        D=list(range(23)) + [np.nan]
+    ))
+  
+
+  
+
+  df.groupby(['A','B','C']).count()
+
+       D
+A B C   
+x 1 a  2
+    b  2
+  2 a  2
+    b  2
+y 1 a  2
+    b  2
+  2 a  2
+    b  2
+z 1 a  2
+    b  2
+  2 a  2
+    b  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52010513)
+ You can pass a dict to  agg  as follows: 
+
+  df.groupby(['1Country', '2City']).agg({'F1': 'value_counts', 'F2': 'value_counts'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52010499)
+ You could use  agg , something along these lines: 
+
+  df.groupby(['1Country','2City']).agg({i:'value_counts' for i in df.columns[2:]})
+
+               F1   F2   F3
+FR  Paris  A  2.0  1.0  2.0
+           B  1.0  1.0  NaN
+           C  NaN  1.0  1.0
+GER Berlin A  NaN  2.0  NaN
+           B  2.0  1.0  2.0
+           C  1.0  NaN  1.0
+IT  Rome   B  1.0  1.0  NaN
+           C  2.0  2.0  3.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22268908)
+ To get the counts by  group , you can use  dataframe.groupby('column').size() . 
+
+ Example: 
+
+  In [10]:df = pd.DataFrame({'id' : [123,512,'zhub1', 12354.3, 129, 753, 295, 610],
+                    'colour': ['black', 'white','white','white',
+                            'black', 'black', 'white', 'white'],
+                    'shape': ['round', 'triangular', 'triangular','triangular','square',
+                                        'triangular','round','triangular']
+                    },  columns= ['id','colour', 'shape'])
+
+In [11]:df
+Out[11]:
+     id    colour   shape
+0    123     black   round
+1    512     white   triangular
+2    zhub1   white   triangular
+3    12354.3 white   triangular
+4    129     black   square
+5    753     black   triangular
+6    295     white   round
+7    610     white   triangular
+
+
+In [12]:df.groupby('colour').size()
+Out[12]:
+        colour
+        black     3
+        white     5
+        dtype: int64
+
+In [13]:df.groupby('shape').size()
+Out[13]:
+        shape
+        round         2
+        square        1
+        triangular    5
+        dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47125795)
+ Idiomatic solution that uses only a single groupby 
+
+  df.groupby(['col5', 'col2']).size() \
+  .sort_values(ascending=False) \
+  .reset_index(name='count') \
+  .drop_duplicates(subset='col2')
+
+  col5 col2  count
+0    3    A      3
+1    1    D      3
+2    5    B      2
+6    3    C      1
+  
+
+  Explanation  
+
+ The result of the groupby  size  method is a Series with  col5  and  col2  in the index. From here, you can use another groupby method to find the maximum value of each value in   col2  but it is not necessary to do. You can simply sort all the values descendingly and then keep only the rows with the first occurrence of  col2  with the  drop_duplicates  method. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45161646)
+ You could work on aggregated data. 
+
+  In [387]: dff = df.groupby(['userId', 'tag'], as_index=False)['pageId'].count()
+
+In [388]: dff
+Out[388]:
+    userId  tag  pageId
+0  1234123    1       1
+1  1234123    4       2
+2  3122471    2       1
+3  3122471    6       2
+4  3122471   15       2
+5  3122471   18       3
+
+In [389]: dff.groupby('userId').apply(lambda x: x.tag[x.pageId.idxmax()])
+Out[389]:
+userId
+1234123     4
+3122471    18
+dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17679517)
+ You are looking for http://pandas.pydata.org/pandas-docs/stable/groupby.html#aggregation: 
+
+  In [11]: df.groupby(['col5', 'col2']).size()
+Out[11]:
+col5  col2
+1     A       1
+      D       3
+2     B       2
+3     A       3
+      C       1
+4     B       1
+5     B       2
+6     B       1
+dtype: int64
+  
+
+ 
+
+ To get the same answer as waitingkuo (the "second question"), but slightly cleaner, is to groupby the level: 
+
+  In [12]: df.groupby(['col5', 'col2']).size().groupby(level=1).max()
+Out[12]:
+col2
+A       3
+B       2
+C       1
+D       3
+dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44389866)
+ Should you want to add a new column (say 'count_column') containing the groups' counts into the dataframe: 
+
+  df.count_column=df.groupby(['col5','col2']).col5.transform('count')
+  
+
+ (I picked 'col5' as it contains no nan) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48768953)
+ You can do the groupby, and then map the counts of each country to a new column. 
+
+  g = df.groupby(['country', 'month'])['revenue', 'profit', 'ebit'].sum().reset_index()
+g['count'] = g['country'].map(df['country'].value_counts())
+g
+
+Out[3]:
+
+
+    country  month   revenue  profit  ebit  count
+0   Canada   201411  15       10      5     1
+1   UK       201410  20       10      5     1
+2   USA      201409  19       12      5     2
+  
+
+  Edit  
+
+ To get the counts per country and month, you can do another groupby, and then join the two DataFrames together. 
+
+  g = df.groupby(['country', 'month'])['revenue', 'profit', 'ebit'].sum()
+j = df.groupby(['country', 'month']).size().to_frame('count')
+pd.merge(g, j, left_index=True, right_index=True).reset_index()
+
+Out[6]:
+
+    country  month   revenue  profit  ebit  count
+0   Canada   201411  15       10      5     1
+1   UK       201410  20       10      5     1
+2   UK       201411  10       5       2     1
+3   USA      201409  19       12      5     2
+  
+
+ I added another record for the UK with a different date - notice how there are now two UK entries in the merged DataFrame, with the appropriate counts. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/17679980)
+ Followed by @Andy's answer, you can do following to solve your second question: 
+
+  In [56]: df.groupby(['col5','col2']).size().reset_index().groupby('col2')[[0]].max()
+Out[56]: 
+      0
+col2   
+A     3
+B     2
+C     1
+D     3
+  
+
+
+

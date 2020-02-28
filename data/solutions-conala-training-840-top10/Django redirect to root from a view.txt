@@ -1,0 +1,197 @@
+Query: Django redirect to root from a view
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15689238)
+ You can set the root to use your FE url patterns like this: 
+
+  urlpatterns = patterns('',
+    url(r'^', include('frontend.urls', namespace="frontend")),
+)
+  
+
+ If you wanna forcibly redirect to /frontend/ then you will need a view to handle the redirect. 
+
+ Maybe look at the Redirect Generic view: https://docs.djangoproject.com/en/1.1/ref/generic-views/#django-views-generic-simple-redirect-to 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7286631)
+ If you look at the https://docs.djangoproject.com/en/dev/topics/http/shortcuts/#redirect, there are several things you can pass to the function: 
+
+ 
+ A model 
+ A view name 
+ A URL 
+ 
+
+ In general, I think it's better to redirect to a view name rather than a URL. In your case, assuming your urls.py has an entry that looks something like: 
+
+  url(r'^$', 'Home.views.index'),
+  
+
+ I would instead use redirect like this: 
+
+  redirect('Home.views.index')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/26787124)
+ You don't redirect to a view method, you redirect to a URL. In your urls.py, you've given that URL a name, so that's what you need to use. 
+
+  return redirect('webadmin:create')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14549454)
+ You would use  django.views.generic.RedirectView  class based view as an alternative. 
+
+  from django.views.generic import RedirectView
+
+url(r'^accounts/signup/$',
+    RedirectView.as_view(url='/', permanent=False),
+    name='userena_signup'),
+  
+
+ Most of the generic method based views can be replaced with https://docs.djangoproject.com/en/1.4/ref/class-based-views/#generic-views. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3841632)
+ Depending on what you want (i.e. if you do not want to do any additional pre-processing), it is simpler to just use Django's  redirect_to  generic view: 
+
+  from django.views.generic.simple import redirect_to
+
+urlpatterns = patterns('',
+    (r'^one/$', redirect_to, {'url': '/another/'}),
+
+    #etc...
+)
+  
+
+ See https://docs.djangoproject.com/en/1.4/ref/generic-views/#django-views-generic-simple-redirect-to for more advanced examples. 
+
+ 
+
+ For Django 1.3+ use: 
+
+  from django.views.generic import RedirectView
+
+urlpatterns = patterns('',
+    (r'^one/$', RedirectView.as_view(url='/another/')),
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43819647)
+ If having class based views you should use  LoginRequiredMixins .
+This will check if the user is authenticated to access the page or not.
+If authenticated, then the page gets displayed otherwise you can redirect to the login page again. 
+
+ 
+ http://django-braces.readthedocs.io/en/latest/access.html#loginrequiredmixin 
+ 
+
+ Example :  
+
+  from django.contrib.auth.mixins import LoginRequiredMixin
+
+class home(LoginRequiredMixin,View):
+    login_url = "/"
+    def get(self,request):
+        user = request.user
+        s = Person.objects.get(pk=user.id)
+        return render(request,'chat/home.html',locals())
+  
+
+ in the above example,  login_url  is where you provide the link of  redirection  if the  user is not authenticated . Here I have redirected to the root i.e., the login page.
+You can define your views like this. 
+
+ For function-based views, you can use a  login_required decorator . 
+
+ You should also use Django sessions for security. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/10721550)
+ Non-staff members can't login through the admin view, so you can't. 
+
+ There is a Django view that does exactly what you need, however:  django.contrib.auth.views.login  
+
+ You can easily add it to your  urlconf : 
+
+  from django.contrib.auth.views import login
+
+urlpatterns = ('',
+    #snip
+    url(r'^login/$', login)
+)
+  
+
+ Check the documentation to see how you can customize its behavior: https://docs.djangoproject.com/en/dev/topics/auth/#limiting-access-to-logged-in-users 
+
+ You'll only need to define a template for the view to use, by default, it should be located at  registration/login.html , but that can be overriden. 
+
+  UPDATE  
+
+ 1) For django 1.11+ better use https://docs.djangoproject.com/en/2.0/topics/auth/default/#django.contrib.auth.views.LoginView (i.e.  from django.contrib.auth.views import LoginView ) since  login  code actually uses LoginView and the code of  login  even has a warning messge: 
+
+ 
+  warnings.warn(
+    'The login() view is superseded by the class-based LoginView().',
+    RemovedInDjango21Warning, stacklevel=2
+)
+  
+ 
+
+ 2) You may want to change the default header of admin's login page. That can be done by providing  site_header  in context. 
+
+ So updated version would look like this: 
+
+  from django.contrib.auth.views import LoginView
+
+urlpatterns = [
+   # your patterns here,
+    url(r'^login/$',
+        LoginView.as_view(
+            template_name='admin/login.html',
+            extra_context={
+                'site_header': 'My custom header',
+            })),
+]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24169110)
+ A URLconf needs to map regexes to views -- the  redirect  function doesn't return a view; rather, it returns an  HttpResponse . You can look at https://stackoverflow.com/questions/14959217/django-url-redirect for an example of how to define a redirect directly in the URLconf. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2277295)
+ You can wrap Django's login view and do the check for already authenticated users there: 
+
+  from django.contrib.auth.views import login
+from django.http import HttpResponseRedirect
+
+def mylogin(request, **kwargs):
+    if request.user.is_authenticated():
+        return HttpResponseRedirect('/')
+    else:
+        return login(request, **kwargs)
+  
+
+ Then simply use this view instead of  django.contrib.auth.views.login  in your  urls.py  
+
+
+

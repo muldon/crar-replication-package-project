@@ -1,0 +1,165 @@
+Query: How do I move a file in JDK 7?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27773662)
+  
+
+  oldFile.renameTo(new File(secondarydir+oldFile.getName()))
+  
+
+  
+
+  oldFile.renameTo(new File(secondarydir, oldFile.getName()))
+  
+
+ It's best not to use string concatenation to join path segments, as the proper way to do it may be platform-dependent. 
+
+  Edit:  If you can use JDK 1.7 APIs, you can use  Files.move()  instead of  File.renameTo()  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5451161)
+ See also the http://docs.oracle.com/javase/7/docs/api/java/nio/file/Files.html#move(java.nio.file.Path,%20java.nio.file.Path,%20java.nio.file.CopyOption...) method in JDK 7. 
+
+ An example: 
+
+  String fileName = "MyFile.txt";
+
+try {
+    Files.move(new File(fileName).toPath(), new File(fileName).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+} catch (IOException ex) {
+    Logger.getLogger(SomeClass.class.getName()).log(Level.SEVERE, null, ex);
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22803039)
+ I had a similar issue. File was copied rather moving on Windows but worked well on Linux. I fixed the issue by closing the opened fileInputStream before calling renameTo(). Tested on Windows XP. 
+
+  fis = new FileInputStream(originalFile);
+..
+..
+..
+fis.close();// <<<---- Fixed by adding this
+originalFile.renameTo(newDesitnationForOriginalFile);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5023767)
+ The following piece of code is NOT an 'alternative' but has reliably worked for me on both Windows and Linux environments: 
+
+  public static void renameFile(String oldName, String newName) throws IOException {
+    File srcFile = new File(oldName);
+    boolean bSucceeded = false;
+    try {
+        File destFile = new File(newName);
+        if (destFile.exists()) {
+            if (!destFile.delete()) {
+                throw new IOException(oldName + " was not successfully renamed to " + newName); 
+            }
+        }
+        if (!srcFile.renameTo(destFile))        {
+            throw new IOException(oldName + " was not successfully renamed to " + newName);
+        } else {
+                bSucceeded = true;
+        }
+    } finally {
+          if (bSucceeded) {
+                srcFile.delete();
+          }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13426024)
+ In my case, the error was in the path of the parent directory. Maybe a bug, I had to use the substring to get a correct path. 
+
+          try {
+            String n = f.getAbsolutePath();
+            **n = n.substring(0, n.lastIndexOf("\\"));**
+            File dest = new File(**n**, newName);
+            f.renameTo(dest);
+        } catch (Exception ex) {
+           ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14651647)
+ Java's  File.renameTo()  is problematic, especially on Windows, it seems. As the API documentation says: 
+
+ 
+   Many aspects of the behavior of this method are inherently
+  platform-dependent: The rename operation might not be able to move a
+  file from one filesystem to another, it might not be atomic, and it
+  might not succeed if a file with the destination abstract pathname
+  already exists. The return value should always be checked to make sure
+  that the rename operation was successful. 
+ 
+
+ You can use apache.commons.io library, which includes  FileUtils.moveFile()  or also the  Files.move()  method in JDK 7. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14123384)
+ In my case it seemed to be a dead object within my own application, which kept a handle to that file. So that solution worked for me: 
+
+  for (int i = 0; i < 20; i++) {
+    if (sourceFile.renameTo(backupFile))
+        break;
+    System.gc();
+    Thread.yield();
+}
+  
+
+ Advantage: it is pretty quick, as there is no Thread.sleep() with a specific hardcoded time. 
+
+ Disadvantage: that limit of 20 is some hardcoded number. In all my tests, i=1 is enough. But to be sure I left it at 20. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11373687)
+ Copy that jar file to: 
+
+ 
+   C:\Program Files\Java\jdk\jre\lib\ext  
+ 
+
+ and 
+
+ 
+   C:\Program Files\Java\jre\lib\ext 
+ 
+
+ You should be able to use it in Netbeans and in your manual imports, just like standard imports.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15674034)
+ Assuming you can find your jdk folder, You can move the .jar file into the jdk\jre\lib\ext folder, where other .jar files are placed. After doing so, NetBeans should be able to run files with access to the library 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/300570)
+ Check out:
+http://commons.apache.org/io/ 
+
+ It has copy, and as stated the JDK already has move. 
+
+ Don't implement your own copy method.  There are so many floating out there... 
+
+
+

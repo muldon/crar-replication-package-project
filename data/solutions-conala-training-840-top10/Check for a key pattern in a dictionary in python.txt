@@ -1,0 +1,214 @@
+Query: Check for a key pattern in a dictionary in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3735866)
+ . 
+
+ You can loop through the keys in the  dict  selecting keys using http://docs.python.org/library/stdtypes.html#str.startswith: 
+
+  >>> for key in dict1:
+...     if key.startswith("EMP$$"):
+...         print "Found",key
+...
+Found EMP$$1
+Found EMP$$2
+Found EMP$$3
+  
+
+ You can use a list comprehension to get all the values that match: 
+
+  >>> [value for key,value in dict1.items() if key.startswith("EMP$$")]
+[1, 2, 3]
+  
+
+ If you just want to know if a key matches you could use http://docs.python.org/library/functions.html#any: 
+
+  >>> any(key.startswith("EMP$$") for key in dict1)
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29952674)
+ You just iterate over your dictionary, and do a pattern match on the key. 
+
+  for key in dict:
+    if re.match(r'npi[0-9]+', key):
+        print(dict[key])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3736303)
+ You need to be a lot more specific with what you want to do. However, assuming the dictionary you gave: 
+
+   dict1={"EMP$$1":1, "EMP$$2":2, "EMP$$3":3}
+  
+
+ If you wanted to know if a specific key was present before trying to request it you could: 
+
+  dict1.has_key('EMP$$1') 
+True
+  
+
+ Returns  True  as  dict1  has the a key  EMP$$1 . 
+
+ You could also forget about checking for keys and rely on the default return value of  dict1.get() : 
+
+  dict1.get('EMP$$5',0)
+0
+  
+
+ Returns  0  as default given  dict1  doesn't have a key  EMP$$5 . 
+
+ In a similar way you could also use a `try/except/ structure to catch and handle missed keys: 
+
+  try:
+    dict1['EMP$$5']
+except KeyError, e:
+    # Code to deal w key error
+    print 'Trapped key error in dict1 looking for %s' % e
+  
+
+ The other answers to this question are also great, but we need more info to be more precise. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5654052)
+ Dictionaries have the  detdefault  method which does what you want, but not sure how much faster it'll be. 
+
+ So your new pattern can be: 
+
+  hash.setdefault(mer, []).append(i)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24523943)
+ This is a common pattern when working with dicts in python so there is a  defaultdict  in the  collections  module. This lets you specify a default value for keys that are not in the dictionary. e.g: 
+
+  from collections import defaultdict
+d = defaultdict(int)
+d[10] += 1
+
+In [19]: dict(d)
+Out[19]: {10: 1}
+  
+
+ As you see, you don't have to check if the key exists in the dict if you use defaultdict. 
+
+  d = defaultdict(int)
+for r in records:
+    d[r[0]] += r[1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50881787)
+ You can use a regular expression with alternations to check if any keyword is present in your input text. Just join the keywords with https://www.regular-expressions.info/alternation.html together. 
+
+  pattern = "|".join(r'{}'.format(word) for word in key_words)
+  
+
+ If you do not want substring matches, e.g. match omegaforce by omega, then you will need to add https://www.regular-expressions.info/wordboundaries.html: 
+
+  pattern = "|".join(r'\b{}\b'.format(word) for word in key_words)
+  
+
+ Sample Code: 
+
+  import re
+html = 'I have lots of deltas but no omegas'
+key_words = ['alpha', 'omega','delta']
+pattern = "|".join(r'{}'.format(word) for word in key_words)
+rx = re.compile(pattern)
+if rx.search(html):
+    # do something
+    print "found"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33343880)
+ You can use a  re.compile d pattern object as a dictionary key: 
+
+  >>> import re
+>>> regex = re.compile('a.*')
+>>> d = {regex: 'foo'}
+>>> d[re.compile('a.*')]
+'foo'
+  
+
+ Note that recompiling the same regex gives you an equal key (the same object, in fact:  re.compile('a.*') is d.keys()[0] ), so you can get back whatever you stored against it.  
+
+ However: 
+
+ 
+ As pointed out in the comments,  multiple regular expressions can match the same string ;  
+ Dictionaries aren't ordered, so you might get a different matching regex first each time you run the program; and  
+ There's no  O(1)  way to ask a dictionary  {regex: result, ...}  for a  result  value given a string that might match one or more  regex  keys.  
+ 
+
+ It's therefore difficult to see what utility you'd find for this. 
+
+ 
+
+ If you  can  come up with a way to ensure that no two keys can match the same string, you could create a https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping subclass that applies this check when you add new keys and implements  __getitem__  to scan through the key-value pairs and return the first value where the argument matches the key regex. Again, though, this would be  O(n) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38767914)
+ You could try something like: 
+
+  >>> text = r'start C:\work\l10n\. normal data maxwidth="0" something something ></target> end'
+>>> # sub_dict format: {'symbolic_group_name': ['pattern', 'replacement']}
+...
+>>> sub_dict = {'win_path': [r'C:\\work\\l10n\\.', r'/ae/l10n//'],
+...             'max_width': [r'maxwidth="0"', r'maxwidth="-1"'],
+...             'target': [r'></target>', r'>#####</target>']}
+>>> p = re.compile("|".join('(?P<{}>{})'.format(k, v[0]) for k, v in sub_dict.items()))
+>>> def replacement_function(match_object):
+...   for group_name, match_value in match_object.groupdict().items():
+...     if match_value:
+...       # based on how the pattern is compiled 1 group will be a match
+...       # when we find it, we return the replacement text
+...       return sub_dict[group_name][1]
+...
+>>> new_text = p.sub(replacement_function, text)
+>>> print(new_text)
+start /ae/l10n// normal data maxwidth="-1" something something >#####</target> end
+>>>
+  
+
+ Using named groups allows you to rely on a simple string for lookup in your replacement dictionary and won't require special handling for  \ . 
+
+ EDIT: 
+
+ About the change in regex pattern: I changed your a|b|c pattern to use named groups. A named capture group has the syntax  (?P<name>pattern) . Functionally it is the same as having  pattern , but having a named group allow to obtain data from the  Matcher  object using the group name (e.g.:  matcher.group('name')  vs  matcher.group(0) ) 
+
+ The  groupdict  method returns the named groups from the pattern and the value they matched. Because the pattern is  group1|group2|group3  only 1 group will actually have a match; the other 2 will have a  None  value in the dict returned by  groupdict  (in my words from the example:  match_value  will be != None only for the group that caused the match). 
+
+ The benefit is that the group name can be any plain string (preferably something simple and related to the purpose of the pattern) and it will not cause issues with  \  escaping. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20787042)
+ I would typically use the pattern 
+
+  foo = data.get("a",{}).get("b",{}).get("c",False)
+if foo:
+...
+  
+
+ This requires that the nesting is always the same depth and that data["a"]["b"]["c"] is not "falsy". 
+
+
+

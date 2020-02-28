@@ -1,0 +1,221 @@
+Query: plotting stacked barplots on a panda data frame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35593464)
+ First of all, you are not using subplots properly, see here: http://matplotlib.org/examples/pylab_examples/subplots_demo.html 
+
+ Second, it is possible to plot a stacked bar chart with pandas' basic plotting functionality: 
+
+  pd.DataFrame(data_counts).transpose().plot(kind='barh', stacked=True)
+  
+
+ Note that for the bars to be stacked, you have to transpose your data, and in order to transpose a pandas Series you need to convert it to a dataframe first. 
+
+ https://i.stack.imgur.com/CILFP.png 
+
+ Finally, if you absolutely want to use Seaborn, this link might help: http://randyzwitch.com/creating-stacked-bar-chart-seaborn/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43553180)
+ The guy who created Seaborn http://randyzwitch.com/creating-stacked-bar-chart-seaborn/ (but that link has a hack which uses Seaborn + Matplotlib to make them anyway).   
+
+ If you're willing to accept a grouped bar chart instead of a stacked one, here's one approach:  
+
+   # first some sample data
+ import numpy as np 
+ import pandas as pd
+ import seaborn as sns
+
+ N = 1000
+ mark = np.random.choice([True,False], N)
+ periods = np.random.choice(['BASELINE','WEEK 12', 'WEEK 24', 'WEEK 4'], N)
+
+ df = pd.DataFrame({'mark':mark,'period':periods})
+ ct = pd.crosstab(df.period, df.mark)
+
+ mark      False  True 
+ period                
+ BASELINE    118    111
+ WEEK 12     117    149
+ WEEK 24     117    130
+ WEEK 4      127    131
+
+ # now stack and reset
+ stacked = ct.stack().reset_index().rename(columns={0:'value'})
+
+ # plot grouped bar chart
+ sns.barplot(x=stacked.period, y=stacked.value, hue=stacked.mark)
+  
+
+ https://i.stack.imgur.com/UgClc.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40601249)
+ This isn't too bad to accomplish once you understand what the plotting methods you can call from a  DataFrame  object use for the axes and data.  The x-axis will be the index of the data frame and each column represents a series (each series has one value per x-value).  Assuming your data frame is called  df : 
+
+  # set the values for the x-axis that we want to plot,
+# in this case the time values in years
+df.set_index(['time'], inplace=True)
+
+# iterate through the list of countries, and create a plot
+for country in df.Country.unique():
+    # .plot.bar makes bar charts
+    ax = df[df.Country==country].plot.bar(stacked=True)
+    # make room for the legend, and sets in the upper right corner
+    ax.set_xlim(ax.get_xlim()[0],ax.get_xlim()[1]+1)
+    ax.legend(loc='upper right')
+    # add the country name to the top of the chart.
+    ax.set_title(country)
+  
+
+ You can save the image file on each iteration. 
+
+ https://i.stack.imgur.com/1lrUa.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49656810)
+ Firstly, the edges of the bar are black because you have set  edgecolor = "black"  in the call to  df.plot.barh . Removing this means that there will be no edgecolor. You will need to set the edgecolor of each bar to that of the bars facecolor 
+
+ You can do this by iterating through the rectangle patches (obtained using  ax.patches ) and setting the edgecolor to the facecolor using https://matplotlib.org/api/_as_gen/matplotlib.patches.Patch.html#matplotlib.patches.Patch.get_facecolor and https://matplotlib.org/api/_as_gen/matplotlib.patches.Patch.html#matplotlib.patches.Patch.set_edgecolor. 
+
+  test1 = np.array([51, 13.8, 15.5, np.NaN])
+test2 = np.array([40.3, 30.4, 13.8, 15.5])
+
+df = pd.DataFrame(dict(test1 = test1,
+                       test2 = test2),
+                  columns = ["test1","test2"]).T
+
+ax = df.plot.barh(stacked = True, cmap = "coolwarm", lw = 1.5, width = 0.8, figsize = (6,4))
+
+for rect in ax.patches:
+    facecolor = list(rect.get_facecolor())
+    rect.set_edgecolor(facecolor)
+
+    facecolor[-1] = 0.5  # reduce alpha value of facecolor, but not of edgecolor
+    rect.set_facecolor(facecolor)
+
+plt.show()
+  
+
+ Which gives: 
+
+ https://i.stack.imgur.com/Qb4bv.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53298294)
+ You can use: 
+
+  df['Freq'].cumsum().plot(drawstyle='steps')
+  
+
+ https://i.stack.imgur.com/WStBV.jpg 
+
+ And to fill under the curve: 
+
+  ax = df['Freq'].cumsum().plot(drawstyle='steps')
+ax.fill_between(df.index, 0, df['Freq'].cumsum(), step="pre")
+  
+
+ <a href="https://i.stack.imgur.com/7Y4DC.jpg"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35594130)
+ not the most elegant, but this will work: 
+
+  x = df.Names.value_counts()
+y = x.reset_index()
+y["name_of_column"] = ""
+y.pivot(index="name_of_column", columns="index", values=0).plot(kind="bar", stacked=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43553569)
+ As you said you can use pandas to create the stacked bar plot. The argument that you want to have a "seaborn plot" is irrelevant, since every seaborn plot and every pandas plot are in the end simply matplotlib objects, as the plotting tools of both libraries are merely matplotlib wrappers. 
+
+ So here is a complete solution (taking the datacreation from @andrew_reece's answer). 
+
+  import numpy as np 
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+n = 500
+mark = np.random.choice([True,False], n)
+periods = np.random.choice(['BASELINE','WEEK 12', 'WEEK 24', 'WEEK 4'], n)
+
+df = pd.DataFrame({'mark':mark,'period':periods})
+ct = pd.crosstab(df.period, df.mark)
+
+ct.plot.bar(stacked=True)
+plt.legend(title='mark')
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/EnjTZ.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10064444)
+ I've just implemented a stacked bar plot function in the git repository for pandas, will be part of the upcoming 0.7.3 release: 
+
+  In [7]: df
+Out[7]: 
+          a         b         c
+0  0.425199  0.564161  0.727342
+1  0.174849  0.071170  0.679178
+2  0.224619  0.331846  0.468959
+3  0.654766  0.189413  0.868011
+4  0.617331  0.715088  0.387540
+5  0.444001  0.069016  0.417990
+6  0.203908  0.689652  0.227135
+7  0.382930  0.874078  0.571042
+8  0.658687  0.493955  0.245392
+9  0.758986  0.385871  0.455357
+
+In [8]: df.plot(kind='barh', stacked=True)
+  
+
+   
+
+ It properly handles positive and negative values (stacking negative values below the origin and positive values above) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40978441)
+ Aside from cleaning up your data into a tidy format, you need to reformat the text data (percentages) into numeric data types. Since that has nothing to do with barplots, I'll assume you can take care of that on your own and focus on the plotting and data structures instead: 
+
+  df = pandas.DataFrame({
+    'Factor': ['Growth', 'Value'],
+    'Weight': [0.10, 0.20],
+    'Variance': [0.15, 0.35]
+})
+fig, ax1 = pyplot.subplots(figsize=(10, 10))
+tidy = (
+    df.set_index('Factor')
+      .stack()  # un-pivots the data 
+      .reset_index()  # moves all data out of the index
+      .rename(columns={'level_1': 'Variable', 0: 'Value'})
+)
+seaborn.barplot(x='Factor', y='Value', hue='Variable', data=tidy, ax=ax1)
+seaborn.despine(fig)
+  
+
+ https://i.stack.imgur.com/CR3qz.png 
+
+
+

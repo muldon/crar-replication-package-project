@@ -1,0 +1,378 @@
+Query: Python - read text file with weird utf-16 format
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31937629)
+ The issue is that the file is encoded in one format, but you are openning the file in a different format . Most probably, the file is  utf-8  , but you are openning in some ANSI format (I saw similar issue in notepad ++ , when I changed the encoding from UTF-8 to ANSI , for  £Latitude£  ). Example to show the same behavior - 
+
+ My  a.txt  - 
+
+  £Latitude£
+  
+
+ Code - 
+
+  >>> f = open('a.txt','r')
+>>> s = f.read()
+>>> s
+'\xc2£Latitude\xc2£'
+
+>>> f = open('a.txt','r',encoding='utf-8')
+>>> s = f.read()
+>>> s
+'£Latitude£'
+  
+
+ You need to open the file in correct encoding, by passing the encoding as argument to  open()  , like done above. 
+
+ 
+
+ From https://docs.python.org/3/library/functions.html#open - 
+
+ 
+    encoding  is the name of the encoding used to decode or encode the file. This should only be used in text mode. The default encoding is platform dependent (whatever https://docs.python.org/3/library/locale.html#locale.getpreferredencoding returns), but any text encoding supported by Python can be used. See the codecs module for the list of supported encodings. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42635375)
+ Instead of specifying the encoding when opening the file, use it to decode as you read. 
+
+  f = open("output.txt", "rb")
+text = f.read().decode(encoding="utf-8")
+print(text)
+f.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19328914)
+ I'm willing to bet this is a UTF-16-LE file, and you're reading it as whatever your default encoding is. 
+
+ In UTF-16, each character takes two bytes.* If your characters are all ASCII, this means the UTF-16 encoding looks like the ASCII encoding with an extra '\x00' after each character. 
+
+ To fix this, just decode the data: 
+
+  print line.decode('utf-16-le').split()
+  
+
+ Or do the same thing at the file level with the io or codecs module: 
+
+  file = io.open('data.txt','r', encoding='utf-16-le')
+  
+
+ 
+
+ * This is a bit of an oversimplification: Each BMP character takes two bytes; each non-BMP character is turned into a surrogate pair, with each of the two surrogates taking two bytes. But you probably didn't care about these details. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14868629)
+ To be frank, I have zero idea why you would possibly want to alter the default encoding for Python just to read and parse a single file (or even a great number of files, for that matter).  Python can quite easily parse and handle UTF-8 without such drastic measures.  Moreover, on this very site, there are some great methods to do so.  This issue is close to a duplicate of: https://stackoverflow.com/questions/491921/unicode-utf8-reading-and-writing-to-files-in-python  
+
+ On that line, the best answer is: https://stackoverflow.com/a/844443/678533, which basically relies on the Python http://docs.python.org/2/library/codecs.html#codecs.open module. 
+
+ Using this approach, you can do the following: 
+
+  import codecs
+with codecs.open("SomeFile", "rb", "utf-8") as inFile: 
+    text = inFile.read()
+# Do something with 'text' here
+with codecs.open("DifferentFile", "wb", "utf-8") as outFile:
+    outFile.write(text)
+  
+
+ This successfully reads a UTF-8 formatted file, then writes it back out as UTF-8.  The variable 'text' will be a unicode string in Python.  You can always write it back out as UTF-8 or UTF-16 or any compatible output format. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28852466)
+ For the sake of never being hurt by unicode errors ever again, switch to python3: 
+
+  % python3
+>>> with open('/tmp/foo', 'w') as f:
+...     value = "Bitte überprüfen"
+...     f.write(('"{}" = "{}";\n'.format('no_internet', value)))
+... 
+36
+>>> import sys
+>>> sys.exit(0)
+% cat /tmp/foo
+"no_internet" = "Bitte überprüfen";
+  
+
+ though if you're really tied to python2 and have no choice: 
+
+  % python2
+>>> with open('/tmp/foo2', 'w') as f:
+...   value = u"Bitte überprüfen"
+...   f.write(('"{}" = "{}";\n'.format('no_internet', value.encode('utf-8'))))
+... 
+>>> import sys
+>>> sys.exit(0)
+% cat /tmp/foo2
+"no_internet" = "Bitte überprüfen";
+  
+
+ And as @JuniorCompressor suggests, don't forget to add  # encoding: utf-8  at the start of your python2 file to tell python to read the source file in unicode, not in ASCII! 
+
+  
+
+  f.write(("\"%s\" = \"%s\";\n" % ("no_internet", value)).encode("utf-8"))
+  
+
+ is that you're encoding the whole formatted string into utf-8, whereas you shall encode the value string into utf-8  before  doing the format: 
+
+  >>> with open('/tmp/foo2', 'w') as f:
+...    value = u"Bitte überprüfen"
+...    f.write(('"{}" = "{}";\n'.format('no_internet', value).encode('utf-8')))
+... 
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+UnicodeEncodeError: 'ascii' codec can't encode character u'\xfc' in position 6: ordinal not in range(128)
+  
+
+ Which is because python needs to first decode the string into  utf-8 , so you have to use the  unicode  type (which is what  u""  does). Then you need to explicitly decode that value as unicode before feeding it to the format parser, to build the new string.  
+
+ As Karl says in his answer, Python2 is totally messy/buggy when using unicode strings, defeating the  Explicit is better than implicit  zen of python. And for more weird behaviour, the following works just fine in python2: 
+
+  >>> value = "Bitte überprüfen"
+>>> out = '"{}" = "{}";\n'.format('no_internet', value)
+>>> out
+'"no_internet" = "Bitte \xc3\xbcberpr\xc3\xbcfen";\n'
+>>> print(out)
+"no_internet" = "Bitte überprüfen";
+  
+
+ Still not convinced to switch to python3 ? :-) 
+
+ 
+
+ Update: 
+
+ This is the way to go to read and write an unicode string from a file to another file: 
+
+   % echo "Bitte überprüfen" > /tmp/foobar
+ % python2
+>>> with open('/tmp/foobar', 'r') as f:
+...     data = f.read().decode('utf-8').strip()
+... 
+>>> 
+>>> with open('/tmp/foo2', 'w') as f:
+...     f.write(('"{}" = "{}";\n'.format('no_internet', data.encode('utf-8'))))
+... 
+>>> import sys;sys.exit(0)
+ % cat /tmp/foo2
+"no_internet" = "Bitte überprüfen";
+  
+
+ 
+
+ Update: 
+
+ as a general rule: 
+
+ 
+ when you get a  DecodeError  you shall use the  .decode('utf-8')  on the string that contains  unicode  data and  
+ when you get an  EncodeError , you shall use the  .encode('utf-8')  on the string that contains  unicode  data 
+ 
+
+ 
+
+ Update: if you cannot update to python3, you can at least make your python2 behave like it is almost python3, using the following http://python-future.org/imports.html import statement: 
+
+  from __future__ import absolute_import, division, print_function, unicode_literals
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42654082)
+ With the help of the people answering my question, I have been able to get it to work. The solution is to change the way how to write to file: 
+
+       tweet = json.loads(data)
+     tweet_text = tweet['text'] #  content of the tweet
+     tweet_created_at = tweet['created_at'][0:19] #  tweet created at
+     tweet_user = tweet['user']['name']  # tweet created by
+     with open('output.txt', 'w', encoding='utf-8') as f:
+           f.write(tweet_text + '\n')
+           f.write(tweet_created_at+ '\n')
+           f.write(tweet_user+ '\n')
+  
+
+ Then read it like: 
+
+      f = open("output.txt", "r", encoding='utf-8')
+    tweettext = f.read()
+    print(text)
+    f.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19328904)
+ Looks like UTF-16 to me. 
+
+  >>> test_utf16 = '0\x00.\x000\x002\x000\x000\x001\x009\x007\x00'
+>>> test_utf16.decode('utf-16')
+u'0.0200197'
+  
+
+ You can work directly off the Unicode strings: 
+
+  >>> float(test_utf16)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ValueError: null byte in argument for float()
+>>> float(test_utf16.decode('utf-16'))
+0.020019700000000001
+  
+
+ Or encode them to something different, if you prefer: 
+
+  >>> float(test_utf16.decode('utf-16').encode('ascii'))
+0.020019700000000001
+  
+
+ Note that you need to do this as early as possible in your processing. As your comment noted,  split  will behave incorrectly on the utf-16 encoded form. The utf-16 representation of the space character  ' '  is  ' \x00' , so  split  removes the whitespace but leaves the null byte. 
+
+ The 2.6 and later  io  library can handle this for you, as can the older  codecs  library.  io  handles linefeeds better, so it's preferable if available. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52187065)
+ So, I'll assume that what you somehow get a raw ASCII string that contains escape sequences with UTF-16 code units that form surrogate pairs, and that you (for whatever reason) want to convert it to  \UXXXXXXXX -format. 
+
+ So, henceforth I assume that your input (bytes!)  
+
+  weirdInput = "hello \\ud83d\\ude04".encode("latin_1")
+  
+
+ Now you want to do the following: 
+
+ 
+ Interpret the bytes in a way that  \uXXXX  thingies are transformed into UTF-16 code units. There is  raw_unicode_escapes , but unfortunately it needs a separate pass to fix the surrogate pairs (I don't know why, to be honest) 
+ Fix the surrogate pairs, transform the data into valid UTF-16 
+ Decode as valid UTF-16 
+ Again, encode as "raw_unicode_escape" 
+ Decode back as good old  latin_1 , consisting only of good old ASCII with unicode escape sequences in format  \UXXXXXXXX . 
+ 
+
+  
+
+    output = (weirdInput
+    .decode("raw_unicode_escape")
+    .encode('utf-16', 'surrogatepass')
+    .decode('utf-16')
+    .encode("raw_unicode_escape")
+    .decode("latin_1")
+  )
+  
+
+ Now if you  print(output) , you get: 
+
+  hello \U0001f604
+  
+
+ Note that if you stop at an intermediate stage: 
+
+  smiley = (weirdInput
+  .decode("raw_unicode_escape")
+  .encode('utf-16', 'surrogatepass')
+  .decode('utf-16')
+)
+  
+
+ then you get a unicode-string with smileys: 
+
+  print(smiley)
+# hello 
+  
+
+ Full code: 
+
+  weirdInput = "hello \\ud83d\\ude04".encode("latin_1")
+
+output = (weirdInput
+  .decode("raw_unicode_escape")
+  .encode('utf-16', 'surrogatepass')
+  .decode('utf-16')
+  .encode("raw_unicode_escape")
+  .decode("latin_1")
+)
+
+
+smiley = (weirdInput
+  .decode("raw_unicode_escape")
+  .encode('utf-16', 'surrogatepass')
+  .decode('utf-16')
+)
+
+print(output)
+# hello \U0001f604
+
+print(smiley)
+# hello 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45889281)
+ That's UTF-8 encoded text. You open the file as UTF-8. 
+
+  with open(file, 'r', encoding='utf-8') as myfile:
+   ...
+  
+
+ 2. 
+
+  with codecs.open(file, 'r', encoding='utf-8') as myfile:
+   ...
+  
+
+ http://farmdev.com/talks/unicode/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3508045)
+ If your first byte is an ASCII character (as indicated by your example) and your second byte is '\x00', then you probably have data encoded as UTF-16LE.  
+
+ However it would be a good idea if you showed us unequivocably exactly what's in the first few bytes of your file.  
+
+  python -c "print(repr(open('myfile.txt', 'rb').read(20)))"
+  
+
+ and edit your question to show us the result. If any text is confidential, please retain the sense when editing it. 
+
+ We are especially interested to see if it starts with a UTF-16 BOM ( '\xff\xfe'  or  '\xfe\xff' ). 
+
+ For background, what platform (Windows or Linux) are you on? What produced the file? 
+
+  Update  I'm a bit puzzled by your statement """ I tried '40s' and 's' but it shows weird data, or only unpacks 1 character instead of 40. """ Examine the following examples: 
+
+  >>> data = "q\x00w\x00"
+>>> unpack("4s", data)
+('q\x00w\x00',) # weird? it's effectively tuple([data])
+>>> unpack("s", data)
+# doesn't produce a string of length 1
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+struct.error: unpack requires a string argument of length 1
+>>> unpack("ssss", data)
+('q', '\x00', 'w', '\x00') # this == tuple(data)
+>>>
+  
+
+ @pxh commented """ You're only getting a single character because those dots are being read as ASCII NULs (and so terminating the string). """ I doubt very much whether @pxh could actually demonstrate that struct.unpack's use of the  "s"  format depends in any way on the individual byte values in the data, whether  NUL  ( "\x00" ) or anything else. 
+
+
+

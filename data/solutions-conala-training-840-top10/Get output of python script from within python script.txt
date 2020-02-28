@@ -1,0 +1,209 @@
+Query: Get output of python script from within python script
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/45038133)
+ You can call it from python and get the output as a string by using `subprocess.check_output'  https://docs.python.org/2/library/subprocess.html#subprocess.check_output: 
+
+  >>> import subprocess
+>>> subprocess.check_output(["echo", "Hello World!"])
+    'Hello World!\n'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8217671)
+ The easiest way to get the output of a tool called through your Python script is to use the http://docs.python.org/library/subprocess.html module in the standard library. Have a look at <a href="http://docs.python.org/library/subprocess.html#subprocess.check_output".check_output . 
+
+  >>> subprocess.check_output("echo \"foo\"", shell=True)
+'foo\n'
+  
+
+ (If your tool gets input from untrusted sources, make sure not to use the  shell=True  argument.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48616385)
+ After some messing around I have found the answer. A simple pm2 jlist retrieves the output in JSON. 
+
+  subprocess.call(['pm2', 'jlist'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8220418)
+ This is a portable solution in pure python : 
+
+  import os
+import stat
+import time
+
+# pick a file you have ...
+file_name = 'll.py'
+file_stats = os.stat(file_name)
+
+# create a dictionary to hold file info
+file_info = {
+    'fname': file_name,
+    'fsize': file_stats [stat.ST_SIZE],
+    'f_lm': time.strftime("%m/%d/%Y %I:%M:%S %p",time.localtime(file_stats[stat.ST_MTIME])),
+}
+
+
+print("""
+Size: {} bytes
+Name: {}
+Time: {}
+ """
+).format(file_info['fsize'], file_info['fname'], file_info['f_lm'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8217752)
+ This is typically a subject for a bash script that you can run in python : 
+
+  #!/bin/bash
+# vim:ts=4:sw=4
+
+for arg; do
+    size=$(du -sh "$arg" | awk '{print $1}')
+    date=$(stat -c "%y" "$arg")
+    cat<<EOF
+Size: $size
+Name: ${arg##*/}
+Date: $date 
+EOF
+
+done
+  
+
+  Edit : How to use it  : open a pseuso-terminal, then copy-paste this : 
+
+  cd
+wget http://pastie.org/pastes/2900209/download -O info-files.bash
+  
+
+ In python2.4 :  
+
+  import os
+import sys
+
+myvar = ("/bin/bash ~/info-files.bash '{}'").format(sys.argv[1])
+myoutput = os.system(myvar) # myoutput variable contains the whole output from the shell
+print myoutput
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47269947)
+ Another way than mentioned, is by using the built-in funtion  exec  
+This function gets a string of python code and executes it 
+To use it on a script file, you can simply  read  it as a text file, as such: 
+
+  #dir is the directory of a.py
+#a.py, for example, contains the variable 'x=1'
+exec(open(dir+'\\a.py').read())
+print(x) #outputs 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8217646)
+ Use the subprocess module: 
+
+  import subprocess
+
+command = ['ls', '-l']
+p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.IGNORE)
+text = p.stdout.read()
+retcode = p.wait()
+  
+
+ Then you can do whatever you want with variable  text : regular expression, splitting, etc. 
+
+ The 2nd and 3rd parameters of  subprocess.Popen  are optional and can be removed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22521477)
+ In Automator arguments and variables can be passed using a special variable: 
+
+     $@
+  
+
+ To get output from a script or task running in Automator you can click on the results (recessed button) below the script to see any output. Additionally you could setup another bash script to pass the output to stdout or wherever else you choose. 
+
+ This example shows a python script sending output and variables to a bash script. You can pass input as arguments, or to stdin:  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37872005)
+ You can use the subprocess module and redirect its output through a pipe. 
+
+ For example, to get the list of file in current directory. 
+
+  import subprocess
+proc = subprocess.Popen(['ls'], stdout=subprocess.PIPE)
+print(proc.stdout.readlines())
+  
+
+ More details here https://stackoverflow.com/questions/3197509/redirecting-stdio-from-a-command-in-os-system-in-python 
+
+  Edit : if you are trying to pass arguments to subprocess.Popen each one gets its own set of quotes.  
+
+  proc = subprocess.Popen(['python','test.py','-b','-n'], stdout=subprocess.PIPE)
+  
+
+ And the doc https://docs.python.org/2/library/subprocess.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/30165768)
+ To call a Python script from another one using  subprocess  module and to pass it some input and to get its output: 
+
+  #!/usr/bin/env python3
+import os
+import sys
+from subprocess import check_output
+
+script_path = os.path.join(get_script_dir(), 'a.py')
+output = check_output([sys.executable, script_path],
+                      input='\n'.join(['query 1', 'query 2']),
+                      universal_newlines=True)
+  
+
+ where https://stackoverflow.com/a/22881871/4279. 
+
+ A more flexible alternative is to import module  a  and to call a function, to get the result (make sure  a.py  uses  if __name__=="__main__"  guard, to avoid running undesirable code on import): 
+
+  #!/usr/bin/env python
+import a # the dir with a.py should be in sys.path
+
+result = [a.search(query) for query in ['query 1', 'query 2']]
+  
+
+ You could use  mutliprocessing  to run each query in a separate process (if performing a query is CPU-intensive then it might improve time performance): 
+
+  #!/usr/bin/env python
+from multiprocessing import freeze_support, Pool
+import a
+
+if __name__ == "__main__":
+   freeze_support()
+   pool = Pool() # use all available CPUs
+   result = pool.map(a.search, ['query 1', 'query 2'])
+  
+
+
+

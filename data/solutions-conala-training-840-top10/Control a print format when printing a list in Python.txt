@@ -1,0 +1,188 @@
+Query: Control a print format when printing a list in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7351292)
+  In [4]: print ['%5.3f' % val for val in l]
+['8.364', '0.370', '0.093', '7.085', '0.469', '0.303', '9.470', '0.286', '0.229', '1.000', '9.414', '0.986', '0.534', '2.153']
+  
+
+ where  l  is your list. 
+
+  edit:  If the quotes are an issue, you could use 
+
+  In [5]: print '[' + ', '.join('%5.3f' % v for v in l) + ']'
+[8.364, 0.370, 0.093, 7.085, 0.469, 0.303, 9.470, 0.286, 0.229, 1.000, 9.414, 0.986, 0.534, 2.153]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7351353)
+ If you need this to work in nested structures, you should look into the  pprint  module. The following should do what you want, in this context: 
+
+  from pprint import PrettyPrinter
+class MyPrettyPrinter(PrettyPrinter):
+    def format(self, object, context, maxlevels, level):
+        if isinstance(object, float):
+            return ('%.2f' % object), True, False
+        else:
+            return PrettyPrinter.format(self, object, context,
+                                        maxlevels, level)
+print MyPrettyPrinter().pprint({1: [8, 1./3, [1./7]]})
+# displays {1: [8, 0.33, [0.14]]}
+  
+
+ For more details on  pprint , see: http://docs.python.org/library/pprint.html 
+
+ If it's just for a flat list, then aix's solution is good.  Or if you don't like the extra quotes, you could do: 
+
+  print '[%s]' % ', '.join('%.3f' % val for val in list)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7760935)
+ If you want complete control how the list gets rendered, you'll have to format it separately. 
+
+ In your case, the code would be something like: 
+
+  items = [1,0,0]
+name = 'V'
+formatted = '%s(%s)' % (
+    name,
+    ','.join(str(it) for it in items)
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7761040)
+ You can always subclass  list , then overwrite the  repr  function to print the  list  in whatever format you want, like so: 
+
+  In [1]: class MyList(list):
+            def repr(self):
+                return ", ".join(["%s" % s for s in self])
+
+In [2]: x = MyList([1, 2, 3, 4, 5])
+
+In [3]: x
+Out[3]: [1, 2, 3, 4, 5]
+
+In [4]: print x
+[1, 2, 3, 4, 5]
+
+In [5]: print "abc__ %s __def" % x
+abc__ [1, 2, 3, 4, 5] __def
+
+In [6]: y = MyList()
+
+In [7]: y.append(55)
+
+In [8]: y.append("abc")
+
+In [9]: y
+Out[9]: [55, 'abc']
+
+In [10]: print "ZZZ -- %s -- ZZZ" % y
+ZZZ -- [55, 'abc'] -- ZZZ
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49566718)
+ List comprehension is perfect and it's one of the reason we like Python XD. 
+
+  print("Candidate: " + ",".join([str(i) for i in my_list[::-1]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9052472)
+ Printing a list gives the  repr  of the items inside the list. 
+To get the  str  representation of the items, you have to explicitly call  str  on the items: 
+
+  In [6]: import datetime as dt
+
+In [7]: date_list = [dt.date(2011, 5, 31), dt.date(2011, 6, 15)]
+
+In [8]: print('[{}]'.format(', '.join(map(str,date_list))))
+[2011-05-31, 2011-06-15]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17757999)
+   .format  from Python 2.6 and higher. 
+
+  >>> print '{}{}{}{}'.format(*[7,7,7,7])
+7777
+>>> data = [7, 7, 7, 7] * 3
+>>> print ('{}'*len(data)).format(*data)
+777777777777777777777777
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45642658)
+  
+
+  with open("Forename") as f1, open("Surname") as f2, open("Date of birth") as f3:
+    for forename, surname, birthdate in zip(f1,f2,f3):
+        print("{} {} {}".format(forename.strip(' \t\n\r'), surname.strip(' \t\n\r'), birthdate.strip(' \t\n\r')))
+  
+
+   .strip(' \t\n\r')  removes leading and trailing tabs returns and spaces,   .format()  formats your string to print in a nice control-able way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32632103)
+ You can use the https://docs.python.org/3.5/library/stdtypes.html#str.join method. You can also use a list comprehension to format the strings so they are each 2 digits wide. 
+
+  >>> '/'.join('%02d' % i for i in [month, day, year])
+'01/02/03'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38406223)
+ When I do this, I like to have some control over the details of how the table is formatted. In particular, I want header cells to have a different format than body cells, and the table column widths to only be as wide as each one needs to be. Here's my solution: 
+
+  def format_matrix(header, matrix,
+                  top_format, left_format, cell_format, row_delim, col_delim):
+    table = [[''] + header] + [[name] + row for name, row in zip(header, matrix)]
+    table_format = [['{:^{}}'] + len(header) * [top_format]] \
+                 + len(matrix) * [[left_format] + len(header) * [cell_format]]
+    col_widths = [max(
+                      len(format.format(cell, 0))
+                      for format, cell in zip(col_format, col))
+                  for col_format, col in zip(zip(*table_format), zip(*table))]
+    return row_delim.join(
+               col_delim.join(
+                   format.format(cell, width)
+                   for format, cell, width in zip(row_format, row, col_widths))
+               for row_format, row in zip(table_format, table))
+
+print format_matrix(['Man Utd', 'Man City', 'T Hotspur', 'Really Long Column'],
+                    [[1, 2, 1, -1], [0, 1, 0, 5], [2, 4, 2, 2], [0, 1, 0, 6]],
+                    '{:^{}}', '{:<{}}', '{:>{}.3f}', '\n', ' | ')
+  
+
+ Here's the output: 
+
+                     | Man Utd | Man City | T Hotspur | Really Long Column
+Man Utd            |   1.000 |    2.000 |     1.000 |             -1.000
+Man City           |   0.000 |    1.000 |     0.000 |              5.000
+T Hotspur          |   2.000 |    4.000 |     2.000 |              2.000
+Really Long Column |   0.000 |    1.000 |     0.000 |              6.000
+  
+
+
+

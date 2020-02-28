@@ -1,0 +1,297 @@
+Query: How to set UTC offset for datetime?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18722887)
+ Using http://labix.org/python-dateutil: 
+
+  >>> import datetime
+>>> import dateutil.tz
+>>> datetime.datetime(2013, 9, 11, 0, 17, tzinfo=dateutil.tz.tzoffset(None, 9*60*60))
+datetime.datetime(2013, 9, 11, 0, 17, tzinfo=tzoffset(None, 32400))
+>>> datetime.datetime(2013, 9, 11, 0, 17, tzinfo=dateutil.tz.tzoffset('KST', 9*60*60))
+datetime.datetime(2013, 9, 11, 0, 17, tzinfo=tzoffset('KST', 32400))
+  
+
+ 
+
+  >>> dateutil.parser.parse('2013/09/11 00:17 +0900')
+datetime.datetime(2013, 9, 11, 0, 17, tzinfo=tzoffset(None, 32400))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10238908)
+ In  python3 : 
+
+  >>> import time
+>>> from datetime import datetime
+>>> tm = '22-01-2012 22:01:30 +0530'
+>>> fmt = '%d-%m-%Y %H:%M:%S %z'
+>>> time.asctime(datetime.strptime(tm, fmt).utctimetuple())
+'Sun Jan 22 16:31:30 2012'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12015245)
+ You can use the http://labix.org/python-dateutil/ module for this. To get the local timezone right now: 
+
+  >>> import dateutil.tz
+>>> import datetime
+>>> localtz = dateutil.tz.tzlocal()
+>>> localtz.tzname(datetime.datetime.now(localtz))
+'EDT'
+  
+
+ I am currently in Eastern Daylight Time. You can see it change back to EST in the future, after daylight savings switches back: 
+
+  >>> localtz.tzname(datetime.datetime.now(localtz) +
+                   datetime.timedelta(weeks=20))
+'EST'
+  
+
+ If you want the offset from UTC, you can use the utcoffset function. It returns a timedelta: 
+
+  >>> localtz.utcoffset(datetime.datetime.now(localtz))
+datetime.timedelta(-1, 72000)
+  
+
+ In this case, since I'm UTC-4, it returns -1 days + 20 hours. You can convert it to hours if that's what you need: 
+
+  >>> localoffset = localtz.utcoffset(datetime.datetime.now(localtz))
+>>> localoffset.total_seconds() / 3600
+-4.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3168394)
+ http://docs.python.org/library/time.html#time.timezone: 
+
+  import time
+
+print -time.timezone
+  
+
+ It prints UTC offset in seconds (to take into account Daylight Saving Time (DST) see http://docs.python.org/library/time.html#time.altzone: 
+
+  is_dst = time.daylight and time.localtime().tm_isdst > 0
+utc_offset = - (time.altzone if is_dst else time.timezone)
+  
+
+ where utc offset is defined via: "To get local time, add utc offset to utc time." 
+
+ In Python 3.3+ there is http://docs.python.org/3/library/time.html#time.struct_time if underlying C library supports it: 
+
+  utc_offset = time.localtime().tm_gmtoff
+  
+
+ Note:  time.daylight  may give a wrong result in http://bugs.python.org/issue1647654. 
+
+  tm_gmtoff  is used automatically by datetime if it is available on Python 3.3+: 
+
+  from datetime import datetime, timedelta, timezone
+
+d = datetime.now(timezone.utc).astimezone()
+utc_offset = d.utcoffset() // timedelta(seconds=1)
+  
+
+ To get the current UTC offset in a way that workarounds the  time.daylight  issue and that works even if  tm_gmtoff  is not available, https://stackoverflow.com/a/3168139/4279 to substruct the local and UTC time can be used: 
+
+  import time
+from datetime import datetime
+
+ts = time.time()
+utc_offset = (datetime.fromtimestamp(ts) -
+              datetime.utcfromtimestamp(ts)).total_seconds()
+  
+
+ To get UTC offset for past/future dates,  pytz  timezones could be used: 
+
+  from datetime import datetime
+from tzlocal import get_localzone # $ pip install tzlocal
+
+tz = get_localzone() # local timezone 
+d = datetime.now(tz) # or some other local date 
+utc_offset = d.utcoffset().total_seconds()
+  
+
+ It works during DST transitions, it works for past/future dates even if the local timezone had different UTC offset at the time e.g., Europe/Moscow timezone in 2010-2015 period. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35086476)
+ There could be   zero or more   (multiple) timezones that correspond to a   single UTC offset  . To find these timezones that have a given UTC offset now: 
+
+  #!/usr/bin/env python
+from datetime import datetime, timedelta
+import pytz  # $ pip install pytz
+
+utc_offset = timedelta(hours=5, minutes=30)  # +5:30
+now = datetime.now(pytz.utc)  # current time
+print({tz.zone for tz in map(pytz.timezone, pytz.all_timezones_set)
+       if now.astimezone(tz).utcoffset() == utc_offset})
+  
+
+ Output</h3>
+
+  set(['Asia/Colombo', 'Asia/Calcutta', 'Asia/Kolkata'])
+  
+
+ If you want to take historical data into account (timezones that had/will have a given utc offset at some date according to the current time zone rules): 
+
+  #!/usr/bin/env python
+from datetime import datetime, timedelta
+import pytz  # $ pip install pytz
+
+utc_offset = timedelta(hours=5, minutes=30)  # +5:30
+names = set()
+now = datetime.now(pytz.utc)
+for tz in map(pytz.timezone, pytz.all_timezones_set):
+    dt = now.astimezone(tz)
+    tzinfos = getattr(tz, '_tzinfos',
+                      [(dt.utcoffset(), dt.dst(), dt.tzname())])
+    if any(off == utc_offset for off, _, _ in tzinfos):
+        names.add(tz.zone)
+print("\n".join(sorted(names)))
+  
+
+ Output</h3>
+
+  Asia/Calcutta
+Asia/Colombo
+Asia/Dacca
+Asia/Dhaka
+Asia/Karachi
+Asia/Kathmandu
+Asia/Katmandu
+Asia/Kolkata
+Asia/Thimbu
+Asia/Thimphu
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28950133)
+ If your system uses http://en.wikipedia.org/wiki/Unix_time, which
+does not count leap seconds, then the conversion can be done as follows: 
+
+ Part 1: timestamp and offset to local date 
+
+  import datetime as DT
+import calendar
+
+timestamp = 1425508527
+offset = -6
+
+date = DT.datetime(1970,1,1) + DT.timedelta(seconds=timestamp)
+print(date)
+# 2015-03-04 22:35:27
+
+localdate = date + DT.timedelta(hours=offset)
+print(localdate)
+# 2015-03-04 16:35:27
+  
+
+ Part 2: local date and offset to timestamp  
+
+  utcdate = localdate - DT.timedelta(hours=offset)
+assert date == utcdate
+
+timetuple = utcdate.utctimetuple()
+timestamp2 = calendar.timegm(timetuple)
+print(timestamp2)
+# 1425508527
+assert timestamp == timestamp2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30139320)
+ You can get a set (  zero or more  ) of timezone abbreviations (as specified in http://en.wikipedia.org/wiki/Tz_database) that corresponds to the   given UTC offset   now: 
+
+  #!/usr/bin/env python
+from datetime import datetime, timedelta
+import pytz # $ pip install pytz
+
+utc_offset = timedelta(hours=5, minutes=30) # +5:30
+now = datetime.now(pytz.utc) # current time
+print({now.astimezone(tz).tzname() 
+       for tz in map(pytz.timezone, pytz.all_timezones_set)
+       if now.astimezone(tz).utcoffset() == utc_offset})
+  
+
+ Output</h3>
+
+  set(['IST'])
+  
+
+ If you want to get abbreviations including the historical data: 
+
+  #!/usr/bin/env python
+from datetime import datetime, timedelta
+import pytz # $ pip install pytz
+
+utc_offset = timedelta(hours=5, minutes=30) # +5:30
+abbr = set()
+now = datetime.now(pytz.utc)
+for tz in map(pytz.timezone, pytz.all_timezones_set):
+    dt = now.astimezone(tz)    
+    tzinfos = getattr(tz, '_tzinfos',
+                      [(dt.utcoffset(), dt.dst(), dt.tzname())])
+    abbr.update(tzname for off, _, tzname in tzinfos if off == utc_offset)
+print(abbr)
+  
+
+ Output</h3>
+
+  set(['IST'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5537943)
+ Have you tried using the http://pytz.sourceforge.net/ project and the http://pytz.sourceforge.net/#tzinfo-api? 
+
+ e.g. 
+
+  >>> import datetime
+>>> import pytz
+>>> pacific_now = datetime.datetime.now(pytz.timezone('US/Pacific'))
+>>> pacific_now.utcoffset().total_seconds()/60/60
+-7.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37034735)
+ You don't need  tz.localize  with utc timezone because it has a fixed utc offset (zero). If you have a https://stackoverflow.com/q/5802108/4279 datetime object (as its text representation suggests) then to convert it to  Europe/London  timezone: 
+
+  london_dt = aware_dt.astimezone(pytz.timezone('Europe/London'))
+  
+
+ that is all. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10237895)
+ I would use dateutil.parser from http://labix.org/python-dateutil#head-2f49784d6b27bae60cde1cff6a535663cf87497b.  Make sure to use the correct version for your version of python.  
+
+  import datetime
+import dateutil.parser
+import pytz
+loc_dt = dateutil.parser.parse('22-01-2012 22:01:30 +0530')
+loc_dt.astimezone(pytz.utc)
+  
+
+
+

@@ -1,0 +1,254 @@
+Query: How do I extract table data in pairs using BeautifulSoup?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8140033)
+ Here is small variation of Sean answer if you need exactly what you wrote in question, 
+
+  table = soup.find("table", id = "history")
+
+rows = table.findAll('tr')
+
+data = ['|'.join([td.findNext(text=True) for td in tr.findAll("td")]) for tr in rows]
+print data
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32021272)
+ That long string is https://en.wikipedia.org/wiki/JSON, which roughly maps to a python dictionary. You have key-value pairs, such as  "id"  and  "p_14062397399"  respectively.  
+
+ So I beautified the JSON https://gist.githubusercontent.com/xrisk/cd82c17eea833bf007ed/raw/79f5f9bfa33aadaa6beafecb32b74e878a8cd605/data.json and you can easily see the key-value pairs and the nested structure. To extract the name and address you would do: 
+
+  from bs4 import BeautifulSoup as bs
+from urllib import urlopen
+import json
+
+Soup = bs(urlopen('https://familysearch.org/pal:/MM9.1.1/KHR6-D6D').read())
+
+rawJ = Soup.find_all('script')
+J = str(rawJ[10])
+J1 = J.split('var person = ')
+J2 = J1[1].rsplit('var record =')
+J3 = J2[0].rsplit(';', 1)
+
+JsonText = J3[0].decode('utf-8')
+
+
+s = json.loads(JsonText)
+print s["personBestName"]
+for i in s["facts"]:
+    if i["type"] == "http://gedcomx.org/Census":
+        print i["place"]["fields"][0]["values"][0]["text"]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8139900)
+ List comprehension will make it easier: 
+
+  table = soup.find("table", id = "history")
+rows = table.findAll('tr')
+data = [[td.findChildren(text=True) for td in tr.findAll("td")] for tr in rows]
+# data now contains:
+[[u'Google', u'07/11/2001'],
+ [u'Apple', u'27/08/2001'],
+ [u'Microsoft', u'01/11/1991']]
+
+# If the data may contain extraneous whitespace you can clean it up
+# Additional processing could also be done - but once you hit much more
+# complex than this later maintainers, yourself included, will thank you
+# for using a series of for loops that call clearly named functions to perform
+# the work.
+data = [[u"".join(d).strip() for d in l] for l in data]
+
+# If you want to store it joined as name | company
+# then simply follow that up with:
+data = [u"|".join(d) for d in data]
+  
+
+ The list comprehension is basically a reverse  for  loop with aggregation: 
+
+  [[td.findNext(text=True) for td in tr.findAll("td")] for tr in rows]
+  
+
+ translates into<sup> * </sup>: 
+
+  final_list = []
+intermediate_list = []
+
+for tr in rows:
+    for td in tr.findAll("td")
+        intermediate_list.append(td.findNext(text=True))
+
+    final_list.append(intermediate_list)
+    intermediate_list = []
+
+data = final_list
+  
+
+ <sup> * </sup> Roughly - we are leaving out the awesomeness involving generators  not  building intermediate lists, since I can't add generators right now without cluttering the example.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41579120)
+ You should be using https://www.crummy.com/software/BeautifulSoup/bs4/doc/#get-text with  strip=True : 
+
+  for element in table_elements:
+    name, value = element.find_all("td")[:2]
+
+    element_dict = {
+        'element_name': name.get_text(strip=True),
+        'element_value': ' '.join(value.get_text(strip=True, separator=" ").split())
+    }
+    print(element_dict)
+  
+
+ Also, see how I've approached reading the cell values in the code above - using  find_all()  instead of  findChildren()  and unpacking the cells into name and value pairs. 
+
+ Note that one of values should be handled "manually" - the "Цена за кв. метр:" one has multiple spaces - we can https://stackoverflow.com/questions/1546226/a-simple-way-to-remove-multiple-spaces-in-a-string-in-python. 
+
+  
+
+  {'element_name': 'Район:', 'element_value': 'САО (МСК)'}
+{'element_name': 'Метро:', 'element_value': 'Речной Вокзал , Петровско-Разумовская'}
+{'element_name': 'До метро:', 'element_value': '5.9 км (18 мин на машине) (Посмотреть маршрут)'}
+{'element_name': 'Адрес:', 'element_value': 'Дмитровское шоссе, 107 (Посмотреть на карте)'}
+...
+{'element_name': 'Разрешение на строительство:', 'element_value': 'Есть'}
+{'element_name': 'Обновлено:', 'element_value': '19 Декабря 2016'}
+{'element_name': 'Особенности:', 'element_value': 'Квартира у воды , Зеленая зона'}
+  
+
+ 
+
+ As a side note, if you'll be dealing with tabular HTML structures more during the HTML parsing, see if loading them into http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.html#pandas.DataFrame objects with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_html.html would be more convenient than trying to manually parse the tables with  BeautifulSoup . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/23809707)
+ Get the  td  tag's http://www.crummy.com/software/BeautifulSoup/bs4/doc/#parent using http://www.crummy.com/software/BeautifulSoup/bs4/doc/#find-parents-and-find-parent: 
+
+  soup.find("td", {"class":"abc"}).find_parent('table')
+  
+
+  
+
+  >>> from bs4 import BeautifulSoup
+>>> data = """
+... <div>
+...     <table>
+...         <tr><td class="abc">This is ABC</td>
+...         </tr>
+...         <tr><td class="firstdata"> data1_xxx </td>
+...         </tr>
+...     </table>
+... 
+...     <table>
+...         <tr><td class="efg">This is EFG</td>
+...         </tr>
+...         <tr><td class="firstdata"> data1_xxx </td>
+...         </tr>
+...     </table>
+... </div>
+... """
+>>> soup = BeautifulSoup(data)
+>>> print soup.find("td", {"class":"abc"}).find_parent('table')
+<table>
+<tr><td class="abc">This is ABC</td>
+</tr>
+<tr><td class="firstdata"> data1_xxx </td>
+</tr>
+</table>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31554087)
+ You should iterate over  td  elements for each row: 
+
+  for row in soup.select("table#MainTable tr[id^=Row]"):
+    for cell in row.find_all("td"):
+        print cell.text
+  
+
+ Note that I'm using a http://www.crummy.com/software/BeautifulSoup/bs4/doc/#css-selectors to locate the table rows. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22746247)
+ Search just first  <td>  for each row in  tbody : 
+
+  # html should contain page content:
+[row.find('td').getText() for row in bs4.BeautifulSoup(html).find('tbody').find_all('tr')]
+  
+
+ or maybe more readable: 
+
+  rows = [row in bs4.BeautifulSoup(html).find('tbody').find_all('tr')]
+iplist = [row.find('td').getText() for row in rows]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52130149)
+ Using  requests  module in combination with  selectors  you can try like the following as well: 
+
+  import requests
+from bs4 import BeautifulSoup
+
+link = 'http://www.pythonscraping.com/pages/page3.html'
+
+soup = BeautifulSoup(requests.get(link).text, 'lxml')
+for table in soup.select('table#giftList tr')[1:]:
+    cell = table.select_one('td').get_text(strip=True)
+    print(cell)
+  
+
+ Output: 
+
+  Vegetable Basket
+Russian Nesting Dolls
+Fish Painting
+Dead Parrot
+Mystery Box
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47503359)
+ I think your current work makes a lot of sense, good job! 
+
+ To move ahead, we can leverage the structure of the  td  elements on the eBay page, and the fact that they come in two's with a  attrLabels  class on the header to extract the specific data. 
+
+ This gives you the data in the same order as it appears on the page: 
+
+  tds = attribute.findAll("td")
+ordered_data = []
+for i in range(0, len(tds), 2):
+    if tds[i].get('class') == ['attrLabels']:
+        key = tds[i].text.strip().strip(":")
+        value = tds[i+1].span.text
+        ordered_data.append({ key: value })
+  
+
+ And this gives you the same thing but in a dict with key-value pairs so that you can easily access each attribute: 
+
+  tds = attribute.findAll("td")
+searchable_data = {}
+for i in range(0, len(tds), 2):
+    if tds[i].get('class') == ['attrLabels']:
+        key = tds[i].text.strip().strip(":")
+        value = tds[i+1].span.text
+        searchable_data[key] = value
+  
+
+
+

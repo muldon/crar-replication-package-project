@@ -1,0 +1,278 @@
+Query: Sending post data from angularjs to django as JSON and not as raw content
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24856375)
+ I am using zope2 where I used https://github.com/simplejson/simplejson to decode the request json into python dictionary as: 
+
+  request_dict = simplejson.loads(request.get('BODY','')
+  
+
+ . In this way I am able to use angularjs default json request rather than converting it into form post. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18981965)
+ When calling ajax, you recieve encoded json string in request body, so you need to decode it using python's json module to get python dict: 
+
+  json.loads(request.body)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19710743)
+>In my case works something like 
+
+re> $http({
+    url: '/url/',
+    method: "POST",
+    data: $.param(params),
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+    }
+})
+  
+
+>Or more nice variant: 
+
+re> app.config ($httpProvider) ->
+    ...
+    $httpProvider.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded'
+  
+
+> 
+
+re> $scope.save_result = $http.post('/url/', $.param(params))
+  
+
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46422837)
+ For angular 4 and Django Rest Framework use  request.data  to get json object. 
+
+ like: 
+
+  posted_data = request.data
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26760879)
+ Actually, when we send data from AngularJs using $http's POST, it sends the data with the  content-type = "application/json"  to the server. And Django doesn't understand that format. And so you can't get the sent data. 
+
+ Solution is to change the content-type header by using following config: 
+
+      app.config(['$httpProvider', function ($httpProvider) {
+        $httpProvider.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
+}]);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23172266)
+  UPDATE  
+
+ After have a lot of problems with this, I solve using another Stackoverflow answer. So, I got this code: 
+
+  ANGULARJS  
+
+  $scope.doLogin = function(url, pass){
+    $http({
+      url: url,
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify(data)
+    }).success(function(data) {
+      console.log(data)
+    });
+ }
+  
+
+    
+
+  def view_of_test():
+    post = request.get_json()
+    param = post.get('param_name')
+  
+
+  OLD VERSION  
+
+ I just figured that I need to change my code to this: 
+
+ AngularJS: 
+
+  myApp.controller('LoginCtrl', function($scope, $http){
+  $scope.formData = {};
+
+  $scope.doLogin = function(url, pass){
+    $http({
+      url: url,
+      method: "POST",
+      data: $.param($scope.formData),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    }).success(function(data) {
+      console.log(data)
+    });
+  }
+});
+  
+
+ Just include the 'Content-Type' header. 
+
+  
+
+  def user_authenticate():
+    login = request.form.get('login')
+    password = request.form.get('password')
+    print login, password
+  
+
+ Instead of use request.args, use request.form. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38034420)
+ I improved mariodev's solution a bit by creating a decorator: 
+
+  # Must decode body of angular's JSON post requests
+def json_body_decoder(my_func):
+    def inner_func(request, *args, **kwargs):
+        body = request.body.decode("utf-8")
+        request.POST = json.loads(body)
+        return my_func(request, *args, **kwargs)
+    return inner_func
+
+ @json_body_decoder
+ def request_handler(request):
+     # request.POST is a dictionary containing the decoded body of the request
+  
+
+ Now I just add the  @json_body_decoder  decorator whenever I create a request handler that deals with post data in  application/json . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31775136)
+  DRF defines multiple parser classes for parsing the request content having different media types.  
+
+  request.data  will normally be a  QueryDict  or a normal dictionary depending on the parser used to parse the request content. 
+
+ 
+  JSONParser:  
+ 
+
+ It parses the JSON request content i.e. content with  .media_type  as  application/json . 
+
+ 
+  FormParser  
+ 
+
+ It parses the  HTML form content. Here,   request.data  is populated with a  QueryDict  of data.  These have  .media_type  as  application/x-www-form-urlencoded . 
+
+ 
+  MultiPartParser  
+ 
+
+ It parses multipart HTML form content, which supports file uploads. Here also, both   request.data  is populated with a  QueryDict  . These have 
+ .media_type  as  multipart/form-data . 
+
+ 
+  FileUploadParser  
+ 
+
+ It parses raw file upload content. The   request.data  property is a dictionary  with a single key  file  containing the uploaded file. 
+
+  How does DRF http://www.django-rest-framework.org/api-guide/parsers/#how-the-parser-is-determined the parser?  
+
+ When DRF accesses the  request.data , it examines the  Content-Type  header on the incoming request and then determines which parser to use to parse the request content. 
+
+ You will need to set the  Content-Type  header when sending the data otherwise it will use either a multipart or a form parser to parse the request content and give you a  QueryDict  in  request.data  instead of a dictionary. 
+
+ As per DRF docs, 
+
+ 
+   If you don't set the content type, most clients will default to using
+   'application/x-www-form-urlencoded' , which may not be what you wanted. 
+ 
+
+ So when sending json encoded data, also set the  Content-Type  header to  application/json  and then it will work as expected.  
+
+  Why request.data is sometimes  QueryDict  and sometimes  dict ?  
+
+ This is done because  different encodings have different datastructures and properties.  
+
+ For example, form data is an encoding that supports multiple keys of the same value, whereas json does not support that. 
+
+ Also in case of JSON data,  request.DATA  might not be a  dict  at all, it could be a list or any of the other json primitives. 
+
+ Check out this https://groups.google.com/forum/#!topic/django-rest-framework/_9cg6trvbAk about the same. 
+
+    
+
+ You can add  format='json'  in the tests when  POSTing  the data which will set the content-type as well as serialize the data correctly. 
+
+  client.post('url', format='json', data=dict(field_a=3))
+  
+
+ You can also send JSON-encoded content with  content-type  argument. 
+
+  client.post('url', json.dumps(dict(field_a=3)), content_type='application/json')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23021295)
+ You are using the wrong mimetype for JSON.  Rather than  application/x-www-form-urlencoded , it should be  application/json . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3020756)
+ If you are posting JSON to Django, I think you want  request.body  ( request.raw_post_data  on Django < 1.4). This will give you the raw JSON data sent via the post. . 
+
+ Here is an example using JavaScript, http://en.wikipedia.org/wiki/JQuery, jquery-json and Django. 
+
+ JavaScript: 
+
+  var myEvent = {id: calEvent.id, start: calEvent.start, end: calEvent.end,
+               allDay: calEvent.allDay };
+$.ajax({
+    url: '/event/save-json/',
+    type: 'POST',
+    contentType: 'application/json; charset=utf-8',
+    data: $.toJSON(myEvent),
+    dataType: 'text',
+    success: function(result) {
+        alert(result.Result);
+    }
+});
+  
+
+ Django: 
+
+  def save_events_json(request):
+    if request.is_ajax():
+        if request.method == 'POST':
+            print 'Raw Data: "%s"' % request.body   
+    return HttpResponse("OK")
+  
+
+ Django < 1.4: 
+
+    def save_events_json(request):
+    if request.is_ajax():
+        if request.method == 'POST':
+            print 'Raw Data: "%s"' % request.raw_post_data
+    return HttpResponse("OK")
+  
+
+
+

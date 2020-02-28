@@ -1,0 +1,273 @@
+Query: How can I parse a time string containing milliseconds in it with python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/698271)
+ To give the code that https://stackoverflow.com/questions/698223/how-can-i-parse-a-time-string-containing-milliseconds-in-it-with-python/698257#698257 refers to (from http://mail.python.org/pipermail/python-list/2006-June/562457.html): 
+
+  def timeparse(t, format):
+    """Parse a time string that might contain fractions of a second.
+
+    Fractional seconds are supported using a fragile, miserable hack.
+    Given a time string like '02:03:04.234234' and a format string of
+    '%H:%M:%S', time.strptime() will raise a ValueError with this
+    message: 'unconverted data remains: .234234'.  If %S is in the
+    format string and the ValueError matches as above, a datetime
+    object will be created from the part that matches and the
+    microseconds in the time string.
+    """
+    try:
+        return datetime.datetime(*time.strptime(t, format)[0:6]).time()
+    except ValueError, msg:
+        if "%S" in format:
+            msg = str(msg)
+            mat = re.match(r"unconverted data remains:"
+                           " \.([0-9]{1,6})$", msg)
+            if mat is not None:
+                # fractional seconds are present - this is the style
+                # used by datetime's isoformat() method
+                frac = "." + mat.group(1)
+                t = t[:-len(frac)]
+                t = datetime.datetime(*time.strptime(t, format)[0:6])
+                microsecond = int(float(frac)*1e6)
+                return t.replace(microsecond=microsecond)
+            else:
+                mat = re.match(r"unconverted data remains:"
+                               " \,([0-9]{3,3})$", msg)
+                if mat is not None:
+                    # fractional seconds are present - this is the style
+                    # used by the logging module
+                    frac = "." + mat.group(1)
+                    t = t[:-len(frac)]
+                    t = datetime.datetime(*time.strptime(t, format)[0:6])
+                    microsecond = int(float(frac)*1e6)
+                    return t.replace(microsecond=microsecond)
+
+        raise
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/698279)
+ Python 2.6 added a new strftime/strptime macro  %f , which does microseconds.  Not sure if this is documented anywhere.  But if you're using 2.6 or 3.0, you can do this: 
+
+  time.strptime('30/03/09 16:31:32.123', '%d/%m/%y %H:%M:%S.%f')
+  
+
+ Edit: I never really work with the  time  module, so I didn't notice this at first, but it appears that time.struct_time doesn't actually store milliseconds/microseconds.  You may be better off using  datetime , like this: 
+
+  >>> from datetime import datetime
+>>> a = datetime.strptime('30/03/09 16:31:32.123', '%d/%m/%y %H:%M:%S.%f')
+>>> a.microsecond
+123000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3916106)
+ I know this is an older question but I'm still using Python 2.4.3 and I needed to find a better way of converting the string of data to a datetime. 
+
+ The solution if datetime doesn't support %f and without needing a try/except is: 
+
+      (dt, mSecs) = row[5].strip().split(".") 
+    dt = datetime.datetime(*time.strptime(dt, "%Y-%m-%d %H:%M:%S")[0:6])
+    mSeconds = datetime.timedelta(microseconds = int(mSecs))
+    fullDateTime = dt + mSeconds 
+  
+
+ This works for the input string "2010-10-06 09:42:52.266000" 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41635888)
+ You need to parse your time format using https://docs.python.org/3/library/datetime.html#datetime.date.strftime. 
+
+  >>> import time
+>>> from datetime import datetime
+>>> ts, ms = '20.12.2016 09:38:42,76'.split(',')
+>>> ts
+'20.12.2016 09:38:42'
+>>> ms
+'76'
+>>> dt = datetime.strptime(ts, '%d.%m.%Y %H:%M:%S')
+>>> time.mktime(dt.timetuple())*1000 + int(ms)*10
+1482223122760.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30142956)
+ Use  %f  to grab the milliseconds part of the time string: 
+
+  >>> out = datetime.strptime(d1, "%Y-%m-%d %H:%M:%S.%f")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26689839)
+ For python 2 i did this 
+
+  print ( time.strftime("%H:%M:%S", time.localtime(time.time())) + "." + str(time.time()).split(".",1)[1])
+  
+
+ it prints time "%H:%M:%S" , splits the time.time() to two substrings (before and after the .) xxxxxxx.xx and since .xx are my milliseconds i add the second substring to my "%H:%M:%S" 
+
+ hope that makes sense :)
+Example output: 
+
+ 
+   13:31:21.72
+  Blink 01 
+  
+   
+ 
+
+ 13:31:21.81
+END OF BLINK 01 
+
+ 
+
+ 13:31:26.3
+Blink 01 
+
+ 
+
+ 13:31:26.39
+END OF BLINK 01 
+
+ 
+
+ 13:31:34.65
+Starting Lane 01 
+
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4898898)
+  %H:%M:%S.%f  is the format string to be used when parsing the times. See http://docs.python.org/library/datetime.html#strftime-strptime-behavior 
+
+  import datetime
+
+times = """
+09:50:08.650000
+09:50:08.665000
+09:50:08.820000
+09:50:08.877000
+09:50:09.897000
+09:50:09.907000
+09:50:09.953000
+09:50:10.662000
+09:50:10.662000
+""".split()
+
+# parse all times
+times = [datetime.datetime.strptime(x, "%H:%M:%S.%f") for x in times]
+for i in range(len(times) - 1):
+    # compute timedelta between current and next time in the list
+    print times[i + 1] - times[i]
+  
+
+ The result: 
+
+  0:00:00.015000
+0:00:00.155000
+0:00:00.057000
+0:00:01.020000
+0:00:00.010000
+0:00:00.046000
+0:00:00.709000
+0:00:00
+  
+
+ To output the difference in milliseconds: 
+
+  delta = times[i + 1] - times[i]
+print ((delta.days * 24 * 60 * 60 + delta.seconds) * 1000 + delta.microseconds / 1000)
+  
+
+ Note that http://docs.python.org/library/datetime.html#datetime.timedelta only stores days, seconds and microseconds internally. Other units are converted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5531351)
+ From string to milliseconds: 
+
+  s = "4:34.234"
+hours, minutes, seconds = (["0", "0"] + s.split(":"))[-3:]
+hours = int(hours)
+minutes = int(minutes)
+seconds = float(seconds)
+miliseconds = int(3600000 * hours + 60000 * minutes + 1000 * seconds)
+  
+
+ From milliseonds to string: 
+
+  hours, milliseconds = divmod(miliseconds, 3600000)
+minutes, milliseconds = divmod(miliseconds, 60000)
+seconds = float(milliseconds) / 1000
+s = "%i:%02i:%06.3f" % (hours, minutes, seconds)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19472896)
+ The  .000Z  is not recognized as a timezone offset. In fact, you have  milliseconds  and a timezone ( Z  is UTC), and  officially ,  time.strptime()  parser cannot handle milliseconds. On  some  platforms  %f  will parse the microsecond portion, then discard the information. 
+
+ The http://docs.python.org/2/library/datetime.html#datetime.datetime.strptime, however,  can , but  not  the timezone, however; parse the  Z  as a literal and it works: 
+
+  from datetime import datetime
+
+datetime.strptime(key.last_modified, '%Y-%m-%dT%H:%M:%S.%fZ')
+  
+
+  
+
+  >>> from datetime import datetime
+>>> import time
+>>> example = u'2013-10-20T00:41:32.000Z'
+>>> datetime.strptime(example, '%Y-%m-%dT%H:%M:%S.%fZ')
+datetime.datetime(2013, 10, 20, 0, 41, 32)
+>>> time.strptime(example, '%Y-%m-%dT%H:%M:%S.%fZ')
+time.struct_time(tm_year=2013, tm_mon=10, tm_mday=20, tm_hour=0, tm_min=41, tm_sec=32, tm_wday=6, tm_yday=293, tm_isdst=-1)
+  
+
+ Note that on my Mac OS X laptop,  %f  works for  time.strptime() ; it is not guaranteed to work everywhere, however. 
+
+ Converting a  datetime.datetime()  object to a time tuple can be done with the http://docs.python.org/2/library/datetime.html#datetime.datetime.timetuple. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/12184365)
+  import datetime, time
+def convert_enddate_to_seconds(self, ts):
+    """Takes ISO 8601 format(string) and converts into epoch time."""
+    dt = datetime.datetime.strptime(ts[:-7],'%Y-%m-%dT%H:%M:%S.%f')+\
+                datetime.timedelta(hours=int(ts[-5:-3]),
+                minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+    seconds = time.mktime(dt.timetuple()) + dt.microsecond/1000000.0
+    return seconds
+  
+
+ This also includes the milliseconds and time zone. 
+
+ If the time is '2012-09-30T15:31:50.262-08:00', this will convert into epoch time. 
+
+  >>> import datetime, time
+>>> ts = '2012-09-30T15:31:50.262-08:00'
+>>> dt = datetime.datetime.strptime(ts[:-7],'%Y-%m-%dT%H:%M:%S.%f')+ datetime.timedelta(hours=int(ts[-5:-3]), minutes=int(ts[-2:]))*int(ts[-6:-5]+'1')
+>>> seconds = time.mktime(dt.timetuple()) + dt.microsecond/1000000.0
+>>> seconds
+1348990310.26
+  
+
+
+

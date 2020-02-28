@@ -1,0 +1,305 @@
+Query: How do I connect to a MongoDB Database?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33819865)
+   
+
+  MongoClientURI mongoUri  = new MongoClientURI("mongodb://Dbuser:dbpass@ds047692.mongolab.com:47692");
+MongoClient mongoClient = new MongoClient(mongoUri);
+DB db = mongoClient.getDB("testdb");
+Set<String> collectionNames = db.getCollectionNames();
+  
+
+ First you need to convert the uri into MongoClientURI format.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44013018)
+ Tested with mongodb-3.4.2 and mongo-java-driver-3.4.2.jar 
+
+ (1) Use MongoCredential 
+
+  MongoCredential credential = MongoCredential.createCredential("user", "database", "passwd".toCharArray());
+MongoClient mongoClient = new MongoClient(new ServerAddress("localhost", 27017), Arrays.asList(credential));
+MongoDatabase db = mongoClient.getDatabase( "test" );
+MongoCollection collection = db.getCollection("mycol");
+FindIterable fi = collection.find();
+MongoCursor cursor = fi.iterator();
+  
+
+ (2) Use MongoClientURI 
+
+  MongoClientURI uri = new MongoClientURI("mongodb://user:passwd@localhost:27017/?authSource=test");
+MongoClient mongoClient = new MongoClient(uri);
+  
+
+ There are some variant forms for using MongoCredential and MongoClientURI for different authentication mechanisms, check http://mongodb.github.io/mongo-java-driver/3.0/driver/reference/connecting/authenticating/ for details 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43836279)
+ You need to start mongod process on your ps - https://docs.mongodb.com/manual/tutorial/manage-mongodb-processes/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12670603)
+ Here is an example: 
+
+  import com.mongodb.Mongo;
+import com.mongodb.DBCollection;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBCursor;
+import com.mongodb.DB;
+
+public class MongoTest {
+
+    public static void main(String[] args) throws Exception {
+
+        // connect to the local database server
+        Mongo m = new Mongo();
+
+        DB db = m.getDB( "test" );
+
+        DBCollection coll = db.getCollection("test");
+
+        // delete all the data from the 'test' collection
+        coll.drop();
+
+        // make a document
+        BasicDBObject doc = new BasicDBObject();
+
+        doc.put("id", 7);
+        doc.put("title", "test4");
+        doc.put("modified", "2012-09-27");
+
+        BasicDBObject status = new BasicDBObject();
+
+        status.put("id", "1");
+        status.put("name", "Expired");
+
+        doc.put("status", status);
+
+        // insert
+        coll.insert(doc);
+
+        BasicDBObject query = new BasicDBObject("status.name", "Expired");
+
+        //  run the query and print the results out
+        DBCursor cursor = coll.find(query);
+
+        try {
+            while (cursor.hasNext()) {
+                System.out.println(cursor.next());
+            }
+        } finally {
+            cursor.close();
+        }
+
+        m.close();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46935734)
+ According to the https://docs.mongodb.com/manual/reference/connection-string/ the connection string URI format is: 
+
+  mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][/[database][?options]]
+  
+
+ The  /database  part is described as: 
+
+ 
+   Optional. The name of the database to authenticate if the connection
+  string includes authentication credentials in the form of
+  username:password@. If /database is not specified and the connection
+  string includes credentials, the driver will authenticate to the admin
+  database. 
+ 
+
+ You have set up the URI like this: 
+
+  spring.data.mongodb.uri = mongodb://content_rw:<secret password>@a.mongo.db:27017,b.mongo.db:27017,c.mongo.db:27017/contenttest?wtimeoutMS=300&connectTimeoutMS=500&socketTimeoutMS=200
+  
+
+ In your logs we can see the line: 
+
+  Exception authenticating MongoCredential{mechanism=null, userName='content_rw', source='contenttest', password=<hidden>, mechanismProperties={}}
+  
+
+ In  MongoCredential.java  the  source  is described as: 
+
+ 
+   the source of the user name, typically the name of the database where
+  the user is defined 
+ 
+
+ So it looks like you have set up the authentication database as  /contenttest  and not as: 
+
+  spring.data.mongodb.authentication-database=admin
+  
+
+ I think you should remove the database name from the URI and probably  spring.data.mongodb.authentication-database  property, because  admin  database is used by default. 
+
+ Also, look at this: 
+
+ https://i.stack.imgur.com/uGKbG.png 
+
+ This line should be interesting in terms of setting up the application database: 
+
+  spring.data.mongodb.database=test # Database name.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33433492)
+ Here I am sharing the working code 
+
+  import com.mongodb.MongoClient;
+import com.mongodb.MongoException;
+import com.mongodb.WriteConcern;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBObject;
+import com.mongodb.DBCursor;
+import com.mongodb.ServerAddress;
+import java.util.Arrays;
+
+public class MongoDBCollection
+{
+
+public static void main(String args[])
+{
+try
+{
+//Connect to Database
+MongoClient mongoClient=new MongoClient("localhost",27017);
+DB db=mongoClient.getDB("analytics");
+System.out.println("Your connection to DB is ready for Use::"+db);
+
+//Create Collection
+
+DBCollection linked=db.createCollection("LinkedIn",new BasicDBObject()); 
+System.out.println("Collection created successfully");
+
+}
+
+catch(Exception e)
+{
+System.out.println(e.getClass().getName()+":"+e.getMessage());
+
+}
+
+}
+
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33686822)
+ Make sure you have added correct maven dependency in your pom.xml
+1. spring-data-mongodb (1.5.2.RELEASE)     2. mongo-java-driver (2.13.0)  
+
+ Just update your credential in following java code and it will work for you.  "$external"  in the below code represents that you are trying to connect database which is on Linux machine at remote location. 
+
+ Below code is working in standalone Java program. 
+
+  String database = "TestDev";
+    String username = "user@test.COM";
+    String pass = "XXXXX";
+    char[] password = pass.toCharArray();
+
+    try {
+
+        List<ServerAddress> serverAddresses = new ArrayList<ServerAddress>();
+        ServerAddress address = new ServerAddress("hostname", portnumber);
+        serverAddresses.add(address);
+        List<MongoCredential> credentials = new ArrayList<MongoCredential>();
+        MongoCredential credential = MongoCredential.createPlainCredential(username, "$external", password);
+        credentials.add(credential);
+        MongoClient mongoClient1 = new MongoClient(serverAddresses, credentials);
+        DB db = mongoClient1.getDB(database);
+        System.out.println(db.getCollectionNames());
+
+
+        System.out.println("Done");
+    } catch (UnknownHostException e) {
+        e.printStackTrace();
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35119442)
+ Here is xml version to connect MongoDB 3.0.7 with Spring (parameters are passed from a property file): 
+
+  <beans xmlns="http://www.springframework.org/schema/beans"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xmlns:context="http://www.springframework.org/schema/context"
+xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+xsi:schemaLocation="http://www.springframework.org/schema/context
+      http://www.springframework.org/schema/context/spring-context.xsd
+      http://www.springframework.org/schema/data/mongo
+      http://www.springframework.org/schema/data/mongo/spring-mongo.xsd
+      http://www.springframework.org/schema/beans
+      http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+<mongo:mongo-client host="${mongo.url}" port="${mongo.port}" credentials="${mongo.user}:${mongo.pass}@${mongo.dbname}">
+    <mongo:client-options write-concern="NORMAL" />
+</mongo:mongo-client>
+
+<bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+    <constructor-arg name="mongo" ref="mongo"/>
+    <constructor-arg name="databaseName" value="${mongo.dbname}"/>
+</bean>
+  
+
+  
+
+ Then in Java, you get mongoTemplate like this: 
+
+      @Autowired
+MongoTemplate mongoTemplate;
+
+public String mongoTest() {
+
+    DBCollection dc = mongoTemplate.getCollection("yourCollection");
+
+    logger.debug("--get collection name=" + dc.getFullName());
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31274932)
+  mongoTemplate.getDb().dropDatabase(); 
+can help if you will not use indexes. 
+
+ In case of using indexes through spring-data-mongodb, for example  @Index  annotation,  dropDatabase()  will drop indexes as well. 
+
+ My solution is cleaning up documents: 
+
+  private void cleanUp() {
+        for (String collectionName : mongoTemplate.getCollectionNames()) {
+            if (!collectionName.startsWith("system.")) {
+                mongoTemplate.getCollection(collectionName).remove(new BasicDBObject());
+            }
+        }
+}
+  
+
+
+

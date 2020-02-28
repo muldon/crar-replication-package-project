@@ -1,0 +1,302 @@
+Query: Terminate virtual machine using System class
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31479477)
+  System.exit()  should be used with care. The normal method of terminating a program is to terminate all user threads. 
+
+ Cases in which  System.exit()  is appropriate: 
+
+ 
+ utility scripts 
+ GUI applications, in which the event dispatch user thread is created in the background. 
+ 
+
+ The  System.exit()  method forces termination of all threads in the Java virtual machine. This is drastic.... System.exit()  should be reserved for a catastrophic error exit, or for cases when a program is intended for use as a utility in a command script that may depend on the program's exit code. 
+
+ You can call this static method as follows: 
+
+  System.exit(int status);
+  
+
+ where  status  - exit status.  
+
+ For example, if  status  =  1 , you'll get: 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31479675)
+  System.exit()  is used to terminate the currently running virtual machine (JVM).  
+
+ The code you provided, and similar code will work as long as the method call passed as the argument returns an integer  (0/1/-1)  as its result as these indicate if the process terminated normally or not.  
+
+  Because, in all the scenarios I can think of, the method call can always be made just before calling  System.exit(0);  
+
+  myMethod();
+System.exit(0);
+  
+
+  
+
+  System.exit(myMethod());
+  
+
+ As long as  myMethod()  returns the correct data type, ofcourse. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22453082)
+ Calling  System.exit(0)  (or any other value for that matter) causes the Java virtual machine to exit, terminating the current process.  The parameter you pass will be the return value that the  java  process will return to the operating system.  You can make this call from anywhere in your program - and the result will always be the same - JVM terminates.  As this is simply calling a static method in  System  class, the compiler does not know what it will do - and hence does not complain about unreachable code. 
+
+  return  statement simply aborts execution of the current method. It literally means  return the control to the calling method . If the method is declared as  void  (as in your example), then you do not need to specify a value, as you'd need to return  void .  If the method is declared to return a particular type, then you must specify the value to return - and this value must be of the specified type. 
+
+  return  would cause the program to exit only if it's inside the  main  method of the main class being execute.  If you try to put code after it, the compiler will complain about unreachable code, for example: 
+
+  public static void main(String... str) {
+    System.out.println(1);
+    return;
+    System.out.println(2);
+    System.exit(0);
+}
+  
+
+ will not compile with most compiler - producing  unreachable code  error pointing to the second  System.out.println  call. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11810813)
+ Why not rather add a  ShutdownHook  to your application?  
+
+ 
+   A shutdown hook is simply an initialized but unstarted thread. When
+  the virtual machine begins its shutdown sequence it will start all
+  registered shutdown hooks in some unspecified order and let them run
+  concurrently. When all the hooks have finished it will then run all
+  uninvoked finalizers if finalization-on-exit has been enabled.
+  Finally, the virtual machine will halt. Note that daemon threads will
+  continue to run during the shutdown sequence, as will non-daemon
+  threads if shutdown was initiated by invoking the exit method. 
+ 
+
+ This will allow your jar to terminate gracefully before being shutdown: 
+
+  public class ShutdownHookDemo {
+    public void start() {
+        System.out.println("Demo");
+        ShutdownHook shutdownHook = new ShutdownHook();
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+    }
+
+    public static void main(String[] args) {
+        ShutdownHookDemo demo = new ShutdownHookDemo();
+        demo.start();
+        try {
+            System.in.read();
+        }
+        catch(Exception e) {
+        }
+    }
+}
+
+class ShutdownHook extends Thread {
+    public void run() {
+        System.out.println("Shutting down");
+        //terminate all other stuff for the application before it exits
+    }
+
+}
+  
+
+ It is important to note  
+
+  The shutdown hook runs when:  
+
+ 
+ A program exists normally. For example, System.exit() is called, or the last non-daemon thread exits. 
+ the Virtual Machine is terminated. e.g. CTRL-C. This corresponds to kill -SIGTERM pid or  
+ kill -15 pid on Unix systems. 
+ 
+
+  The shutdown hook will not run when:  
+
+ 
+ The Virtual Machine aborts 
+ A SIGKILL signal is sent to the Virtual Machine process on Unix systems. e.g. kill -SIGKILL pid or kill -9 pid 
+ A TerminateProcess call is sent to the process on Windows systems. 
+ 
+
+ Alternatively if you must you can use this to call a method in a class: 
+
+  public class ReflectionDemo {
+
+  public void print(String str, int value) {
+    System.out.println(str);
+    System.out.println(value);
+  }
+
+  public static int getNumber() { return 42; }
+
+  public static void main(String[] args) throws Exception {
+    Class<?> clazz = ReflectionDemo.class;//class name goes here
+    // static call
+    Method getNumber = clazz.getMethod("getNumber");
+    int i = (Integer) getNumber.invoke(null /* static */);
+    // instance call
+    Constructor<?> ctor = clazz.getConstructor();
+    Object instance = ctor.newInstance();
+    Method print = clazz.getMethod("print", String.class, Integer.TYPE);
+    print.invoke(instance, "Hello, World!", i);
+  }
+}
+  
+
+ and to load a class dynamically:  
+
+  ClassLoader loader = URLClassLoader.newInstance(
+    new URL[] { yourURL },
+    getClass().getClassLoader()
+);
+Class<?> clazz = Class.forName("mypackage.MyClass", true, loader);
+Class<? extends Runnable> runClass = clazz.asSubclass(Runnable.class);
+  
+
+  References:  
+
+ 
+ http://onjava.com/onjava/2003/03/26/shutdownhook.html 
+ http://docs.oracle.com/javase/1.5.0/docs/api/java/lang/Runtime.html#addShutdownHook(java.lang.Thread) 
+ https://stackoverflow.com/questions/11310530/how-to-shutdown-java-application-correctly-from-c-sharp-one/11311498#11311498 
+ https://stackoverflow.com/questions/1319661/how-does-one-access-a-method-from-an-external-jar-at-runtime 
+ https://stackoverflow.com/questions/194698/how-to-load-a-jar-file-at-runtime 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8785119)
+ Consider using shutdown hook like this: 
+
+  Runtime.getRuntime().addShutdownHook(shutdownHook);
+  
+
+ to have your own code that runs whenever the JVM terminates under 1 of the following conditions: 
+
+ 
+ The program exits normally, such as when the last non-daemon thread exits or when the Runtime.exit() method is invoked. 
+ The virtual machine is terminated in response to a user interrupt, such as typing CTRL-C, or a system-wide event, such as user logoff or system shutdown (for example, the JVM receives one of the interrupt signals SIGHUP (Unix Only), SIGINT, or SIGTERM). 
+ 
+
+ You can refer to: http://www.ibm.com/developerworks/ibm/library/i-signalhandling/ for more details (Disclaimer: very old article pertains to JDK 1.3.1) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15654291)
+ From http://docs.oracle.com/javase/6/docs/api/java/lang/Thread.html documentation: 
+
+ 
+   When a Java Virtual Machine starts up, there is usually a single
+  non-daemon thread (which typically calls the method named main of some
+  designated class). The Java Virtual Machine continues to execute
+  threads until either of the following occurs: 
+  
+   
+   The exit method of class Runtime has been called and the security manager has permitted the exit operation to take place. 
+   All threads that are not daemon threads have died, either by returning from the call to the run method or by throwing an exception
+  that propagates beyond the run method. 
+   
+ 
+
+ So, yes, it will wait, but not for threads marked as daemon threads. 
+
+ You could see it working with the following code: 
+
+  public class ThreadTest {
+
+    public static void main(String[] args) {
+        Thread thread = new Thread(new Runnable() {
+            public void run() {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println("I'm still here!");
+            }
+        });
+        // uncomment following line to test with daemon thread
+        //thread.setDaemon(true);
+        thread.start();
+
+        System.out.println("Finished!");
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14039821)
+ 
+   Whether a virtual machine has a console is dependent upon the
+  underlying platform and also upon the manner in which the virtual
+  machine is invoked. If the virtual machine is started from an
+  interactive command line without redirecting the standard input and
+  output streams then its console will exist and will typically be
+  connected to the keyboard and display from which the virtual machine
+  was launched. If the virtual machine is started automatically, for
+  example by a background job scheduler, then it will typically not have
+  a console. 
+ 
+
+ https://stackoverflow.com/questions/4644415/how-to-get-input-from-console-class-in-java 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7174081)
+ You can terminate the Java Virtual Machine like that: 
+
+  System.exit(0);
+  
+
+ See the documentation http://download.oracle.com/javase/1,5.0/docs/api/java/lang/System.html#exit(int) 
+
+ http://download.oracle.com/javase/1,5.0/docs/api/java/util/Scanner.html you can also find a short explanation how a Scanner works. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4494291)
+ It depends on the thread where the exception is thrown, and on the other threads running on the same time in the application.  
+
+ An  uncaught  exception terminates the thread where it was thrown. If the rest of the threads are only daemon threads, then yes, the application will be terminated. 
+
+ According to http://docs.oracle.com/javase/6/docs/api/java/lang/Thread.html#setDaemon%28boolean%29 documentation: 
+
+ 
+   The Java Virtual Machine exits when the only threads running are all daemon threads.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/30898838)
+ The java.lang.System.exit() method terminates the currently running Java Virtual Machine. 
+
+ The argument serves as a status code; by convention, a nonzero status code indicates abnormal termination. 
+
+ Likewise, a 0 status code returns a normal termination; 
+
+  System.exit(0) //exit signaling the process terminated successfully
+
+System.exit(-1) //exit signaling the process did not terminate successfully
+  
+
+
+

@@ -1,0 +1,384 @@
+Query: How do I simulate a progress counter in a command line application in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2689262)
+ Here is an example for showing file read percentage: 
+
+  from sys import *
+import os
+import time
+
+Size=os.stat(argv[1])[6] #file size
+
+f=open(argv[1],"r");
+READED_BYTES=0
+
+for line in open(argv[1]): #Read every line from the file
+        READED_BYTES+=len(line)
+        done=str(int((float(READED_BYTES)/Size)*100))
+        stdout.write(" File read percentage: %s%%      %s"%(done,"\r"))
+        stdout.flush();
+        time.sleep(1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2689881)
+ Have a look at http://nadiana.com/animated-terminal-progress-bar-in-python by https://stackoverflow.com/users/97828/nadia-alramli 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16422380)
+ Use the  \r  carriage-return character with  sys.stdout.flush . 
+
+  import sys
+import time  # for invoking time.sleep(n_seconds) inside loop
+
+counter = 0
+while counter <= 100:
+    time.sleep(1)
+    counter += 1
+    sys.stdout.write("\rTesting (%ss elapsed)" % counter)
+    sys.stdout.flush()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2689324)
+  
+
+    import time
+  for i in range(10):
+    print "\r", i,
+    time.sleep(1)
+  
+
+ The trick is the print statement. The carriage return ("\r") sets the cursor back to the first column on the same line, without starting a new line. The trailing comma "," tells print not to produce a newline either. 
+
+ Depending on your output, you may want to pad the print statement with trailing spaces to ensure that fragments from longer previous lines do not interfere with your current print statement. Its probably best to assemble a string which has fixed length for any progress information. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16422442)
+ Use  \r  and add a  ,  at the end of your print statement to not automatically write a newline as in the code below. 
+
+ Also, see the http://code.google.com/p/python-progressbar/ library for some nice text implementations of progress bars. 
+
+  import time # Added to demonstrate effect
+
+test_count = 0
+
+while test_count <= 100:
+    print "\r%3d" % test_count,
+    time.sleep(0.1)
+    test_count +=1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45158414)
+ This is a very basic progress bar that only uses what is needed at the bare minimum. 
+
+ It would be wise to read this whole example to the end.
+ 
+
+  import sys
+import time
+
+from PyQt5.QtWidgets import (QApplication, QDialog,
+                             QProgressBar, QPushButton)
+
+TIME_LIMIT = 100
+
+class Actions(QDialog):
+    """
+    Simple dialog that consists of a Progress Bar and a Button.
+    Clicking on the button results in the start of a timer and
+    updates the progress bar.
+    """
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Progress Bar')
+        self.progress = QProgressBar(self)
+        self.progress.setGeometry(0, 0, 300, 25)
+        self.progress.setMaximum(100)
+        self.button = QPushButton('Start', self)
+        self.button.move(0, 30)
+        self.show()
+
+        self.button.clicked.connect(self.onButtonClick)
+
+    def onButtonClick(self):
+        count = 0
+        while count < TIME_LIMIT:
+            count += 1
+            time.sleep(1)
+            self.progress.setValue(count)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = Actions()
+    sys.exit(app.exec_())
+  
+
+ The progress bar is first imported like so  from PyQt5.QtWidgets import QProgressBar  
+
+ Then it is initialized like any other widget in  QtWidgets  
+
+ The line  self.progress.setGeometry(0, 0, 300, 25)  method defines the  x,y  positions on the dialog and width and height of the progress bar. 
+
+ We then move the button using  .move()  by  30px  downwards so that there will be a gap of  5px  between the two widgets. 
+
+ Here  self.progress.setValue(count)  is used to update the progress. Setting a maximum value using  .setMaximum()  will also automatically calculated the values for you. For example, if the maximum value is set as 50 then since  TIME_LIMIT  is 100 it will hop from 0 to 2 to 4 percent instead of 0 to 1 to 2 every second. You can also set a minimum value using  .setMinimum()  forcing the  progress bar to start from a given value.  
+
+ Executing this program will produce a GUI similar to this. 
+
+ https://i.stack.imgur.com/vQWzR.png 
+
+ As you can see, the GUI will most definitely freeze and be unresponsive until the counter meets the  TIME_LIMIT  condition. This is because  time.sleep  causes the OS to believe that program has become stuck in an infinite loop. 
+
+  QThread  
+
+ So how do we overcome this issue ? We can use the threading class that PyQt5 provides. 
+
+<pre class="lang-py prettyprint-override"> import sys
+import time
+
+from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtWidgets import (QApplication, QDialog,
+                             QProgressBar, QPushButton)
+
+TIME_LIMIT = 100
+
+class External(QThread):
+    """
+    Runs a counter thread.
+    """
+    countChanged = pyqtSignal(int)
+
+    def run(self):
+        count = 0
+        while count < TIME_LIMIT:
+            count +=1
+            time.sleep(1)
+            self.countChanged.emit(count)
+
+class Actions(QDialog):
+    """
+    Simple dialog that consists of a Progress Bar and a Button.
+    Clicking on the button results in the start of a timer and
+    updates the progress bar.
+    """
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Progress Bar')
+        self.progress = QProgressBar(self)
+        self.progress.setGeometry(0, 0, 300, 25)
+        self.progress.setMaximum(100)
+        self.button = QPushButton('Start', self)
+        self.button.move(0, 30)
+        self.show()
+
+        self.button.clicked.connect(self.onButtonClick)
+
+    def onButtonClick(self):
+        self.calc = External()
+        self.calc.countChanged.connect(self.onCountChanged)
+        self.calc.start()
+
+    def onCountChanged(self, value):
+        self.progress.setValue(value)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = Actions()
+    sys.exit(app.exec_())
+  
+
+ Let's break down these modifications.
+ 
+
+  from PyQt5.QtCore import QThread, pyqtSignal
+  
+
+ This line imports  Qthread  which is a  PyQt5  implementation to divide and run some parts(eg: functions, classes) of a program in the background(also know as multi-threading). These parts are also called threads. All  PyQt5  programs by default have a main thread and the others(worker threads) are used to offload extra time consuming and process intensive tasks into the background while still keeping the main program functioning. 
+
+ The second import  pyqtSignal  is used to send data(signals) between worker and main threads. In this instance we will be using it to tell the main thread to update the progress bar. 
+
+ Now we have moved the while loop for the counter into a separate class called  External .
+ 
+
+  class External(QThread):
+    """
+    Runs a counter thread.
+    """
+    countChanged = pyqtSignal(int)
+
+    def run(self):
+        count = 0
+        while count < TIME_LIMIT:
+            count +=1
+            time.sleep(1)
+            self.countChanged.emit(count)
+  
+
+ By sub-classing  QThread  we are essentially converting  External  into a class that can be run in a separate thread. Threads can also be started or stopped at any time adding to it's benefits. 
+
+ Here  countChanged  is the current progress and  pyqtSignal(int)  tells the worker thread that signal being sent is of type  int . While,  self.countChanged.emit(count)  simply sends the signal to any connections in the main thread(normally it can used to  communicate with other worker threads as well).
+ 
+
+  def onButtonClick(self):
+        self.calc = External()
+        self.calc.countChanged.connect(self.onCountChanged)
+        self.calc.start()
+
+def onCountChanged(self, value):
+    self.progress.setValue(value)
+  
+
+ When the button is clicked the  self.onButtonClick  will run and also start the thread. The thread is started with  .start() . It should also be noted that we connected the signal  self.calc.countChanged  we created earlier to the method used to update the progress bar value. Every time  External::run::count  is updated the  int  value is also sent to  onCountChanged . 
+
+ This is how the GUI could look after making these changes. 
+
+ <a href="https://i.stack.imgur.com/D9e2a.png"  
+
+ It should also feel much more responsive and will not freeze. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5668200)
+ There is no need to access private attributes of the result set: 
+
+  from __future__ import division
+import sys
+
+for i, _ in enumerate(p.imap_unordered(do_work, xrange(num_tasks)), 1):
+    sys.stderr.write('\rdone {0:%}'.format(i/num_tasks))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40140793)
+ Make the  process_files  function a generator function that  yields  a value (the progress value) and pass it as a callback to a method in your  Window  class that updates the progress bar value. I have added a  time.sleep  call in your function so you can observe the progress: 
+
+  import time
+from worker import process_files
+
+class Window(QtGui.QMainWindow):
+    def __init__(self):
+        ...
+
+    def observe_process(self, func=None):
+        try:
+            for prog in func():
+                self.progress.setValue(prog)
+        except TypeError:
+            print('callback function must be a generator function that yields integer values')
+            raise
+
+
+app = QtGui.QApplication(sys.argv)
+GUI = Window()
+# process files and report progress using .setValue(percent)
+GUI.observe_process(process_files)
+sys.exit(app.exec_())
+  
+
+  worker.py  
+
+  def process_files():
+    file_list = ['file1', 'file2', 'file3']
+    counter = 0
+    for file in file_list:
+        counter += 1
+        percent = 100 * counter / len(file_list)
+        time.sleep(1)
+        yield percent
+  
+
+ 
+
+  Result : 
+
+ After processing  file2  
+
+ https://i.stack.imgur.com/10LSf.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5425102)
+  import sys, time
+while True:
+    for i in range( 4 ):
+        sys.stdout.write( '\r' + ( '.' * i ) + '   ' )
+        sys.stdout.flush()
+        time.sleep( 0.5 )
+  
+
+ That does the animation on the command line. There should be enough examples on threading in Python here. 
+
+ edit:</h3>
+
+ Possible solution with threading; don't know if writing a real thread would be more efficient as I don't thread with python much..
+from threading import Timer
+import sys, time 
+
+  def animation ( i = 0 ):
+    sys.stdout.write( '\r' + ( '.' * i ) + '   ' )
+    sys.stdout.flush()
+    Timer( 0.5, animation, ( 0 if i == 3 else i + 1, ) ).start()
+
+animation()
+print( 'started!' )
+
+while True:
+    pass
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/37034244)
+ Here is one simple answer: 
+
+  #!/usr/bin/python
+
+import sys
+import time
+
+def wait(n):
+    time_counter = 0
+    while True:
+        time_counter += 1
+        if time_counter <= n:
+            time.sleep(1)
+            sys.stdout.write("*")
+            sys.stdout.flush()
+        else:
+            break
+    sys.stdout.write("\n")
+wait(10)
+
+Output:
+
+**********
+  
+
+ You can modify the way you want. 
+
+
+

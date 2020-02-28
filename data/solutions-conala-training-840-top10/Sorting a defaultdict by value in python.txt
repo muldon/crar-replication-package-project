@@ -1,0 +1,325 @@
+Query: Sorting a defaultdict by value in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10194770)
+ A  defaultdict  doesn't hold order. You might need to use a http://docs.python.org/library/collections.html, or sort the keys each time as a list. 
+
+ E.g: 
+
+    from operator import itemgetter
+  sorted_city_pop = OrderedDict(sorted(cityPopulation.items()))
+  
+
+ Edit: If you just want to print the order, simply use the  sorted  builtin: 
+
+  for key, value in sorted(cityPopulation.items()):
+    print(key, value)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40932193)
+ In Python 3.5. 
+
+ Say you have this  defaultdict : 
+
+  >>> d
+defaultdict(<type 'int'>, {'ciao': 17, 'bye': 14, 'hello': 23})
+  
+
+ If you want to sort based on the values, not in the keys, use  u.items()  and set the key with  lambda(k,v):v  so that it picks the value. 
+
+  >>> sorted(d.items(), key=lambda(k,v): v)
+[('bye', 14), ('ciao', 17), ('hello', 23)]
+  
+
+ Finally use  reverse=True  if you want the bigger numbers to come first: 
+
+  >>> sorted(d.items(), key=lambda(k,v): v, reverse=True)
+[('hello', 23), ('ciao', 17), ('bye', 14)]
+  
+
+ Note that  key=lambda(k,v): v  is a clearer (to me) way to say  key=lambda(v): v[1] : 
+
+  >>> sorted(u.items(), key=lambda(v): v[1])
+[('bye', 14), ('ciao', 17), ('hello', 23)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10194976)
+  >>> sorted(cityPopulation.iteritems(),key=lambda (k,v): v[0],reverse=True) #1990
+[('C', [30, 10, 20]), ('B', [20, 30, 10]), ('A', [10, 20, 30])]
+>>> sorted(cityPopulation.iteritems(),key=lambda (k,v): v[2],reverse=True) #2010
+[('A', [10, 20, 30]), ('C', [30, 10, 20]), ('B', [20, 30, 10])]
+  
+
+ Note in python 3 you can't automagically unpack lambda arguments so you would have to change the code 
+
+  sorted(cityPopulation.items(), key=lambda k_v: k_v[1][2], reverse=True) #2010
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37739884)
+ Here is my one-liner using dict generator approach: 
+
+  dict((k,sorted(v)) for k, v in d.items())
+  
+
+  Output:  
+
+  d = {'one': ['1a', '3f', '2z'], 'two': ['6x', '9d', '2q']}
+dict((k,sorted(v)) for k, v in d.items())
+Out[81]: {'one': ['1a', '2z', '3f'], 'two': ['2q', '6x', '9d']}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16425797)
+ A dict comprehension can be used if both key and value have a direct one-on-one relationship with the items in the sequence. 
+
+ However, your output values are based on multiple entries in the input sequence. Unless you can  group  the items into a sequence per second value in the tuple key, you have to use a  defaultdict  setup. 
+
+ Grouping is certainly possible with  itertools.groupby()  but that would require sorting, making that less performant compared to a  defaultdict  plus loop solution. 
+
+ Using  itertools.groupby : 
+
+  from itertools import groupby
+
+user = lambda item: item[0][1]
+
+{user: {key[0]: value for key, value in grouped}
+    for user, grouped in groupby(sorted(my_dict.items(), key=user), key=user)}
+  
+
+ Output demo: 
+
+  >>> {user: {key[0]: value for key, value in grouped}
+...     for user, grouped in groupby(sorted(my_dict.items(), key=user), key=user)}
+{'user2': {'name': 'bat', 'user': 'baz'}, 'user1': {'name': 'foo', 'user': 'bar'}}
+  
+
+ This is a O(n log n) solution, versus the O(n) complexity of a  defaultdict  solution: 
+
+  from collections import defaultdict
+
+output = defaultdict(dict)
+
+for (key, user), value in my_dict.iteritems():
+    output[user][key] = value
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14489370)
+ You can use the same principle, by using the first three elements as a key, and using  int  as the default value factory for the  defaultdict  (so you get  0  as the initial value): 
+
+  from collections import defaultdict
+
+a_list = [['apple', 50, 60, 7],
+          ['orange', 70, 50, 8],
+          ['apple', 50, 60, 12]]
+
+d = defaultdict(int)
+for sub_list in a_list:
+    key = tuple(sub_list[:3])
+    d[key] += sub_list[-1]
+
+new_data = [list(k) + [v] for k, v in d.iteritems()]
+  
+
+ If you are using Python 3, you can simplify this to: 
+
+  d = defaultdict(int)
+for *key, v in a_list:
+    d[tuple(key)] += v
+
+new_data = [list(k) + [v] for k, v in d.items()]
+  
+
+ because you can use a http://docs.python.org/3/reference/simple_stmts.html#assignment-statements to take all 'remaining' values from a list, so each sublist is assigned mostly to  key  and the last value is assigned to  v , making the loop just that little simpler (and there is no  .iteritems()  method on a dict in Python 3, because  .items()  is an iterator already). 
+
+ So, we use a  defaultdict  that uses  0  as the default value, then for each key generated from the first 3 values (as a tuple so you can use it as a dictionary key) sum the last value. 
+
+ 
+  So for the first item  ['apple', 50, 60, 7]  we create a key  ('apple', 50, 60) , look that up in  d  (where it doesn't exist, but  defaultdict  will then use  int()  to create a new value of  0 ), and add the  7  from that first item.  
+  Do the same for the  ('orange', 70, 50)  key and value  8 .  
+  for the 3rd item we get the  ('apple', 50, 60)  key again and add  12  to the pre-existing  7  in  d[('apple', 50, 60)] . for a total of 19.  
+ 
+
+ Then we turn the (key, value) pairs back into lists and you are done. This results in: 
+
+  >>> new_data
+[['apple', 50, 60, 19], ['orange', 70, 50, 8]]
+  
+
+ An alternative implementation that requires sorting the data uses  itertools.groupby : 
+
+  from itertools import groupby
+from operator import itemgetter
+
+a_list = [['apple', 50, 60, 7],
+          ['orange', 70, 50, 8],
+          ['apple', 50, 60, 12]]
+
+newlist = [list(key) + [sum(i[-1] for i in sublists)] 
+    for key, sublists in groupby(sorted(a_list), key=itemgetter(0, 1, 2))]
+  
+
+ for the same output. This is going to be slower if your data isn't sorted, but it's good to know of different approaches. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/15906338)
+ You can use a http://docs.python.org/2/library/collections.html#collections.defaultdict here: 
+
+  In [15]: from collections import defaultdict
+
+In [16]: dic=defaultdict(list)
+
+In [17]: for _ in xrange(4):
+   ....:     h,j=map(int,raw_input().split())
+   ....:     dic[h].append(j)
+   ....:     
+1 10
+1 20
+2 30
+3 5
+
+In [18]: dic
+Out[18]: defaultdict(<type 'list'>, {1: [10, 20], 2: [30], 3: [5]})
+  
+
+ or use a simple dict and use  dict.setdefault : 
+
+  In [19]: dic={}  #use {} for declaring a new dict
+
+In [20]: for _ in xrange(4):
+   ....:     h,j=map(int,raw_input().split())
+   ....:     dic.setdefault(h,[]).append(j)
+   ....:     
+1 10
+1 20
+2 30
+3 5
+
+In [21]: dic
+Out[21]: {1: [10, 20], 2: [30], 3: [5]}
+  
+
+ Sorting a dictionary: 
+
+ Dictionaries can't be sorted, but we can get a list of sorted  key,value  pairs or just  keys  or just  values  using  sorted : 
+
+  In [25]: dic={1: [10, 30], 2: [30], 3: [5,50]}
+
+In [26]: sorted(dic.items(),key=lambda x:sum(x[1])) #sort based on sum of lists
+Out[26]: [(2, [30]), (1, [10, 30]), (3, [5, 50])]
+  
+
+ Now you can create an  orderedDict  from this previous list using  collections.OrderedDict , as it preserves the order in which the keys were inserted: 
+
+  In [27]: from collections import OrderedDict
+
+In [30]: od=OrderedDict(sorted(dic.items(),key=lambda x:sum(x[1])))
+
+In [31]: od
+Out[31]: OrderedDict([(2, [30]), (1, [10, 30]), (3, [5, 50])])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54228305)
+  from collections import defaultdict
+
+data = [
+    {"seller_id": 3, "item": {"product_id": 4, "amount": 1, "id": 9}},
+    {"seller_id": 1, "item": {"product_id": 1, "amount": 2, "id": 10}},
+    {"seller_id": 3, "item": {"product_id": 3, "amount": 2, "id": 11}},
+    {"seller_id": 1, "item": {"product_id": 2, "amount": 2, "id": 12}}
+]
+
+grouped = defaultdict(list)
+flattened = []
+
+for item in data:
+    grouped[item['seller_id']].append(item['item'])
+
+for k, v in grouped.items():
+    flattened.append({'seller_id': k, 'list_item': v})
+
+print(flattened)
+  
+
+ Another option is to use  defaultdict  and then flatten it with the necessary format. 
+
+ Does not require preliminary sorting. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36549535)
+ Using  defaultdict : 
+
+  from collections import defaultdict
+D = defaultdict(list)
+[D[v].append(i) for i, v in enumerate(A)]
+  
+
+ Using  setdefault : 
+
+  D = {}
+[D.setdefault(v, []).append(i) for i, v in enumerate(A)]
+  
+
+ I can't figure any mean to use a dictionnary comprehension without sorting the data: 
+
+  from itertools import groupby
+from operator import itemgetter
+{v: ids for v, ids in groupby(enumerate(sorted(A)), itemgetter(1))}
+  
+
+  
+
+  from collections import defaultdict
+from itertools import groupby
+from operator import itemgetter
+from random import randint
+
+A = tuple(randint(0, 100) for _ in range(1000))
+
+def one():
+    D = defaultdict(list)
+    [D[v].append(i) for i, v in enumerate(A)]
+
+def two():
+    D = {}
+    [D.setdefault(v, []).append(i) for i, v in enumerate(A)]
+
+def three():
+    {v: ids for v, ids in groupby(enumerate(sorted(A)), itemgetter(1))}
+
+
+from timeit import timeit
+
+for func in (one, two, three):
+    print(func.__name__ + ':', timeit(func, number=1000))
+  
+
+ Results (as always, the simplest win): 
+
+  one: 0.25547646999984863
+two: 0.3754340969971963
+three: 0.5032370890003222
+  
+
+
+

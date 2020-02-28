@@ -1,0 +1,263 @@
+Query: Efficient computation of the least-squares algorithm in NumPy
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32415230)
+ If you don't mind the dependency on  scipy , you can use functions from the http://docs.scipy.org/doc/scipy/reference/spatial.distance.html library: 
+
+  In [17]: from scipy.spatial.distance import pdist, squareform
+
+In [18]: a = np.array([[ 4,  2,  3], [-1, -5,  4], [ 2,  1,  4], [-5, -1,  4], [6, -3,  3]])
+
+In [19]: d = pdist(a.T, metric='sqeuclidean')
+
+In [20]: d
+Out[20]: array([ 118.,  120.,  152.])
+
+In [21]: squareform(d)
+Out[21]: 
+array([[   0.,  118.,  120.],
+       [ 118.,    0.,  152.],
+       [ 120.,  152.,    0.]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44681302)
+ You could combine http://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.euclidean_distances.html with  numpy 's boolean indexing to do the computation: 
+
+  >>> from sklearn.metrics import euclidean_distances
+>>> import numpy as np
+>>> centerList = np.array(centerList)
+>>> distances = euclidean_distances(centerList)
+>>> distances[distances<20]
+array([  0.        ,   0.        ,   0.        ,   0.        ,
+         0.        ,   0.        ,  15.55634919,  15.55634919,   0.        ])
+  
+
+ The computation of the distances uses numpy's matrix algebra developed in high-speed C. The docs also emphasize the efficiency of the underlying math technique: 
+
+ 
+   For efficiency reasons, the euclidean distance between a pair of row
+  vector x and y is computed as: 
+
+  dist(x, y) = sqrt(dot(x, x) - 2 * dot(x, y) + dot(y, y))
+  
+  
+   This formulation has two advantages over other ways of computing
+  distances. First, it is computationally efficient when dealing with
+  sparse data. Second, if one argument varies but the other remains
+  unchanged, then dot(x, x) and/or dot(y, y) can be pre-computed. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47483738)
+ The error is in the plotting line, which should be  
+
+  plot(arr(N), arr(N)**2 * theta[2] + arr(N) * theta[1] + theta[0], y)
+  
+
+ .     
+
+ Also; I suppose  you did the computation of least-square solution this way for expository reasons, but in practice, linear least squares fit would be  obtained with  np.linalg.lstsq  as follows, with much shorter and more efficient code: 
+
+  N = 20
+x = np.arange(1, N+1)
+y = x**2 + 3
+basis = np.vstack((x**0, x**1, x**2)).T  # basis for the space of quadratic polynomials 
+theta = np.linalg.lstsq(basis, y)[0]   # least squares approximation to y in this basis
+plt.plot(x, y, 'ro')                   # original points
+plt.plot(x, basis.dot(theta))          # best fit
+plt.show()
+  
+
+ https://i.stack.imgur.com/OahEV.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13336443)
+ Using numpy arrays instead of lists seems to make quite a bit of difference timewise, at least in a trivial example: 
+
+  $ python -mtimeit -s"from scipy.optimize import nnls; m = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]; b=[1, 2, 3]" "nnls(m, b)"
+10000 loops, best of 3: 38.5 usec per loop
+
+$ python -mtimeit -s"import numpy as np; from scipy.optimize import nnls; m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]); b=[1, 2, 3]" "nnls(m, b)"
+100000 loops, best of 3: 20 usec per loop
+
+$ python -mtimeit -s"import numpy as np; from scipy.optimize import nnls; m = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]); b=np.array([1, 2, 3])" "nnls(m, b)"
+100000 loops, best of 3: 11.4 usec per loop
+  
+
+ I'd expect that numpy arrays would have smaller memory footprint as well. If your input is reasonably sparse, and if the performance is still not satisfactory, it might be worth investigating if  nnls  accepts sparse matrices. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/990553)
+ I think you will need to use numpy to hold such a big matrix efficiently , not just computation. You have ~5e6 items of 4/8 bytes means 20/40 Mb in pure C already, several times of that in python without an efficient data structure (a list of rows, each row a list). 
+
+ Now, concerning your question: 
+
+  import numpy as np
+a = np.empty((1234, 5678), dtype=np.int)
+a[:] = np.linspace(1, 5678, 5678)
+  
+
+ You first create an array of the requested size, with type int (I assume you know you want 4 bytes integer, which is what np.int will give you on most platforms). The 3rd line uses broadcasting so that each row (a[0], a[1], ... a[1233]) is assigned the values of the np.linspace line (which gives you an array of [1, ....., 5678]). If you want F storage, that is column major: 
+
+  a = np.empty((1234, 4567), dtype=np.int, order='F')
+...
+  
+
+ The matrix a will takes only a tiny amount of memory more than an array in C, and for computation at least, the indexing capabilities of arrays are much better than python lists. 
+
+ A nitpick: numeric is the name of the old numerical package for python - the recommended name is numpy. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32415108)
+  
+
+  In [48]: ((a - a.swapaxes(1,2))**2).sum(axis=0)
+Out[48]: 
+array([[  0, 118, 120],
+       [118,   0, 152],
+       [120, 152,   0]])
+  
+
+ Note that if  a  has shape  (N, 1, M)  then  (a - a.swapaxes(1,2))  has shape  (N, M, M) . Make sure you have enough RAM to accommodate an array of this size. Page swapping can also slow the calculation to a crawl. 
+
+ If you do have too little memory, you will have to break up the calculation in chunks: 
+
+  m, _, n = a.shape
+chunksize = 10**4
+d = np.zeros((n,n))
+for i in range(0, m, chunksize):
+    b = a[i:i+chunksize]
+    d += ((b - b.swapaxes(1,2))**2).sum(axis=0)
+  
+
+ This is a compromise between performing the calculation on the entire array and
+calculating row-by-row. If there are a million rows, and the chunksize is 10**4, then there will be only 100 iterations of the loop instead of a million.
+Thus, it should be significantly faster than calculating row-by-row. Choose the largest value of chunksize you can which allows the calculation to be performed in RAM. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41653702)
+ The routine https://docs.scipy.org/doc/numpy/reference/generated/numpy.linalg.lstsq.html handles any systems: over-determined, under-determined, or well-determined. Its output is what you'd get from pinv(a)*b but it is faster than computing the pseudoinverse. Here's why:  
+
+ General advice:  do not compute the inverse matrix unless you actually need it . Solving a system for a particular right hand side is faster than inverting its matrix.   
+
+ Yet, your approach via solving a<sup>T</sup>a = a<sup>T</sup>b is faster, even though you  are inverting a matrix.  The thing is, inverting a<sup>T</sup>a is only valid when a has full column rank. So you've restricted the problem to this particular situation, and gained in speed as a trade off for less generality and, as I show below, for less safety.   
+
+ But inverting a matrix is still inefficient. If you know that a has full column rank, the following is faster than any of your three attempts:  
+
+  np.linalg.solve(np.dot(a.T, a), np.dot(a.T, b))
+  
+
+ 
+
+ That said,   lstsq  is still preferable to the above when dealing with poorly conditioned matrices. Forming the product a<sup>T</sup>a basically squares the condition number, so you are more likely to get meaningless results. Here is a cautionary example, using SciPy's linalg module (which is essentially equivalent to NumPy's but has more methods): 
+
+  import numpy as np
+import scipy.linalg as sl
+a = sl.hilbert(10)    # a poorly conditioned square matrix of size 10
+b = np.arange(10)     # right hand side
+sol1 = sl.solve(a, b)
+sol2 = sl.lstsq(a, b)[0]
+sol3 = sl.solve(np.dot(a.T, a), np.dot(a.T, b))
+  
+
+ Here  lstsq  gives almost the same output as  solve  (the unique solution of this system). Yet,  sol3  is totally wrong because of numeric issues (which you won't even be warned about). 
+
+ sol1: 
+
+    [ -9.89821788e+02,   9.70047434e+04,  -2.30439738e+06,
+     2.30601241e+07,  -1.19805858e+08,   3.55637424e+08,
+    -6.25523002e+08,   6.44058066e+08,  -3.58346765e+08,
+     8.31333426e+07]
+  
+
+ sol2:  
+
+    [ -9.89864366e+02,   9.70082635e+04,  -2.30446978e+06,
+     2.30607638e+07,  -1.19808838e+08,   3.55645452e+08,
+    -6.25535946e+08,   6.44070387e+08,  -3.58353147e+08,
+     8.31347297e+07]
+  
+
+ sol3:  
+
+    [  1.06913852e+03,  -4.61691763e+04,   4.83968833e+05,
+    -2.08929571e+06,   4.55280530e+06,  -5.88433943e+06,
+     5.92025910e+06,  -5.56507455e+06,   3.62262620e+06,
+    -9.94523917e+05]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44446338)
+ As the https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.newton_krylov.html explains, it finds a root of a function  F(x) .  The function  F  must accept a one-dimensional array, and return a one-dimensional array of the same size as the input.  If, for example,  x  has length 3,  F(x)  must return an array with length 3. In that case,  newton_krylov  attempts to solve  F(x) = [0, 0, 0] . 
+
+ The error that you got is the result of  newton_krylov  attempting to use the numerically computed https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant of  F  with a function that expects the matrix to be square.  Your function  F  has a Jacobian matrix with shape (40, 6), because the input has length 6 and the output has length 40. 
+
+ By itself,  newton_krylov  is not the right function to use for solving a least-squares problem.  A least-squares problem is a minimization problem, not a root-finding problem.  (A solver such as  newton_krylov  might be used to implement a minimization algorithm, but I assume you are interested in using an existing solution rather than writing your own.) 
+
+ You say you want to solve a least-squares problem, but then you say "i.e. finding x such that (Ax - b)**2 = 0."  I assume that was just a bit a sloppiness in your description, because that is not the least-squares problem. The least-squares problem is to find  x  such that  sum((Ax - b)**2)  is minimized.  (In general, there won't be an  x  that makes the sum of squares  equal  to zero.) 
+
+ So, assuming you really want to find  x  such that  sum((Ax - b)**2)  is minimized, you can use https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.lstsq.html. 
+
+ For example: 
+
+  In [54]: from scipy.linalg import lstsq
+
+In [55]: A = np.random.uniform(0, 1, (40,6))
+
+In [56]: b = np.arange(40)
+
+In [57]: x, res, rank, s = lstsq(A, b)
+
+In [58]: x
+Out[58]: 
+array([  5.07513787,   1.83858547,  18.07818853,   9.28805475,
+         6.13019155,  -0.7045539 ])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2366023)
+ For those who wish to solve large sparse least squares problems: 
+
+ I have added the LSQR algorithm to SciPy.   
+
+  from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import lsqr
+import numpy as np
+
+A = csr_matrix([[0., 1], [0, 1], [1, 0]])
+b = np.array([[2.], [2.], [1.]])
+
+lsqr(A, b)
+  
+
+ which returns the answer  [1, 2] . 
+
+ If you'd like to use this new functionality without upgrading SciPy, you may download  lsqr.py  from the code repository at 
+
+ http://projects.scipy.org/scipy/browser/trunk/scipy/sparse/linalg/isolve/lsqr.py 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/7787997)
+ Note that if you're serious about your comment that you require your solution vector to be integer, then you're looking for something called the "integer least squares problem". Which is believed to be NP-hard. There are some heuristic solvers, but it all gets very complicated. 
+
+
+

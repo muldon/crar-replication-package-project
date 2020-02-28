@@ -1,0 +1,215 @@
+Query: Changing the referrer URL in python requests
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20838143)
+ According to http://docs.python-requests.org/en/latest/user/advanced/#session-objects , you should be able to do: 
+
+  s = requests.Session()
+s.headers.update({'referer': my_referer})
+s.get(url)
+  
+
+  
+
+  requests.get(url, headers={'referer': my_referer})
+  
+
+ Your  headers  dict will be merged with the default/session headers. From the http://docs.python-requests.org/en/latest/user/advanced/: 
+
+ 
+   Any dictionaries that you pass to a request method will be merged with
+  the session-level values that are set. The method-level parameters
+  override session parameters. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52273210)
+ Probably, you have to set cookies. 
+
+ To make your requests more genuine, you should set other headers such as  Host  and  Referer . However, the  Cookies  header should change every time. You can get them in this way: 
+
+<pre class="lang-py prettyprint-override"> from requests import Session
+
+with Session() as session:
+    # Send request to get cookies.
+    response = session.get('your_url', headers=your_headers, proxies=proxies)  # eventually add params keyword
+    cookies = response.cookies.get_dict()
+
+    response = session.get('your_url', headers=your_headers, cookies=cookies, proxy=proxy)
+  
+
+ Or maybe, the site is scanning for bots in some way. 
+
+ In this case, you could try to add a delay between requests with  time.sleep() . You can see timings in Dev Tools on your browser. Alternatively, you could emulate  all  the requests you send when you connect to the site on your browser, such as  ajax scripts , etc. 
+
+ In my experience, using requests or using Selenium webdrivers doesn't make much difference in terms of detection, because you can't access headers and even request and response data. Also, note that Phantom Js is no longer supported. It's preferred to use headless Chrome instead. 
+
+ If none of requests approach doesn't work, I suggest using https://pypi.org/project/selenium-wire/ or https://github.com/rafpyprog/Mobilenium, modified versions of Selenium, that allow accessing requests and response data. 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13569789)
+ If you are going to set the referrer header, then for that specific site you need to set the referrer to the same URL as the login page: 
+
+  import sys
+import requests
+
+URL = 'https://portal.bitcasa.com/login'
+
+client = requests.session()
+
+# Retrieve the CSRF token first
+client.get(URL)  # sets cookie
+if 'csrftoken' in client.cookies:
+    # Django 1.6 and up
+    csrftoken = client.cookies['csrftoken']
+else:
+    # older versions
+    csrftoken = client.cookies['csrf']
+
+login_data = dict(username=EMAIL, password=PASSWORD, csrfmiddlewaretoken=csrftoken, next='/')
+r = client.post(URL, data=login_data, headers=dict(Referer=URL))
+  
+
+ When using unsecured  http , the  Referer  header is often filtered out and otherwise easily spoofable anyway, so most sites no longer require the header to be set. However, when using an SSL connection and if it is set, it does make sense for the site to validate that it at least references something that could logically have initiated the request. Django does this when the connection is encrypted (uses  https:// ), and actively requires it then. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31356067)
+ You can create a  RejectSpambotRequestsMiddleware  class which will reject the requests if the  referer  of the request is from a specific referrer. 
+
+ It should return either  None  or an  HttpResponse  object. If it returns  None , Django will continue processing this request, executing any other  process_request()  middlewares, then,  process_view()  middleware, and finally, the appropriate view. Normally, a  403 Forbidden  response is sent to the user if an incoming request fails the checks performed by the middleware. 
+
+  from django.http import HttpResponseForbidden    
+
+class RejectSpambotRequestsMiddleware(object):  
+
+    def process_request(self, request):  
+        referer = request.META.get('HTTP_REFERER')
+        if referer == 'spambot_site_referer':
+            return HttpResponseForbidden() # reject the request and return 403 forbidden response
+
+        return # return None in case of a valid request
+  
+
+ Then add your middleware to the  MIDDLEWARE_CLASSES  in your  settings.py  file.   
+
+  MIDDLEWARE_CLASSES = (
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    ...
+    ...
+    # your custom middleware here
+    'my_project.middlewares.RejectSpambotRequestsMiddleware',
+)
+  
+
+  Note:  Here,  RejectSpambotRequestsMiddleware  will be run at the end as Django applies middleware in the order it’s defined in  MIDDLEWARE_CLASSES , top-down. You can change the order of  MIDDLEWARE_CLASSES  as per your need. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47784381)
+ Okay, after consuming 9 cups of coffee and banging my head on the wall for 20 hours, I was able to fix the issue. It's so simple I'm almost ashamed to post it here, but here goes nothing;  
+
+ When I first got the error yesterday, I tried decoding the referrer like this 
+
+      referring_url = response.request.headers.get('Referer')
+    item["referring_url"] = referring_url.decode('utf-8')
+  
+
+ It didn't work... Until I change it to this; 
+
+      referring_url = response.request.headers.get('Referer').decode('utf-8')
+    item["referring_url"] = referring_url
+  
+
+ .  
+
+ Huge thanks to @alecxe and @furas for pushing me in the right direction. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2098655)
+  import urllib2
+req = urllib2.Request('http://www.example.com/')
+req.add_header('Referer', 'http://www.python.org/')
+r = urllib2.urlopen(req)
+  
+
+ adopted from http://docs.python.org/library/urllib2.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54665499)
+ The values for the page need javascript to run. That should be clear if you inspect the response (at least with requests). I show an example using selenium so that javascript has time to run. You could convert this to using a function when returning data from a page navigated to during scraping session. 
+
+  from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--headless')
+
+driver = webdriver.Chrome(chrome_options=chrome_options) 
+driver.get("http://biggestbook.com/ui/catalog.html#/search?cr=1&rs=12&st=BM&category=1")
+links = WebDriverWait(driver,10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".ess-product-brand + [href]")))
+results = [link.get_attribute('href') for link in links]
+print(results)
+  
+
+ There is an API called, with query string parameters, which returns the data in a json format. You have to pass the referrer and a token. If you are able to grab the token, or pass the token in a session (and it remains valid), and can decipher the query string parameters, then that might be the way to go with requests based approach. . 
+
+ https://api.essendant.com/digital/digitalservices/search/v1/search?cr=1&fc=1&listKey=I:D2F9CC81D2919D8712B61A3176A518622A2764B16287CA6576B9CF0C9B5&listKey=I:A81AAA8BD639792D923386B93AC32AC535673530AFBB7A25CAB5AB2E933EAD1&rs=12&st=BM&vc=n 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37533008)
+ Your error is as per the comments to this answer from using an ancient version of requestes  1.1.0  from 2013, so  pip install -U requests  will fix that.  
+
+ To do the post you don't need to hardcode anything, you create a session and get whatever you need i.e the csrf token and requests will take care of the rest: 
+
+  import requests   
+
+
+headers = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:46.0) Gecko/20100101 Firefox/46.0',
+           'X-Requested-With': 'XMLHttpRequest', "referer": "https://www.hackerearth.com/challenges/"}
+
+with requests.Session() as s:
+    s.get("https://www.hackerearth.com")
+    headers["X-CSRFToken"] = s.cookies["csrftoken"]
+    r = s.post("https://www.hackerearth.com/AJAX/filter-challenges/?modern=true", headers=headers,
+               files={'submit': (None, 'True')})
+    print(r.json())
+  
+
+ The three necessary things were,  X-Requested-With  as it has to be an ajax request, the  referer  and the  csrf  token. 
+
+ To access the raw request data, you can access the attributes on  r.request : 
+
+  print(r.request.body)
+print(r.request.headers)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14232936)
+ You can pass  REFERER  manually to each http://doc.scrapy.org/en/latest/topics/request-response.html#scrapy.http.Request using  headers  argument: 
+
+  yield Request(parse=..., headers={'referer':...})
+  
+
+ RefererMiddleware https://github.com/scrapy/scrapy/blob/master/scrapy/contrib/spidermiddleware/referer.py, automatically taking the referrer url from the previous response. 
+
+
+

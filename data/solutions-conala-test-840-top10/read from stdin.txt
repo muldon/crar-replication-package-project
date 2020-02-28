@@ -1,0 +1,200 @@
+Query: read from stdin
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18470058)
+  
+
+  import sys
+
+print sys.stdin.read().upper()
+  
+
+ and check it with: 
+
+  $ echo "Hello World" | python myFile.py
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47071016)
+ The problem I have with solution 
+
+  import sys
+
+for line in sys.stdin:
+    print(line)
+  
+
+ is that if you don't pass any data to stdin, it will block forever. That's why I love https://stackoverflow.com/a/3763257/909579: check if there is some data on stdin first, and then read it. This is what I ended up doing: 
+
+  import sys
+import select
+
+# select(files to read from, files to write to, magic, timeout)
+# timeout=0.0 is essential b/c we want to know the asnwer right away
+if select.select([sys.stdin], [], [], 0.0)[0]:
+    help_file_fragment = sys.stdin.read()
+else:
+    print("No data passed to stdin", file=sys.stderr)
+    sys.exit(2)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34990251)
+ The following chip of code will help you (it will read all of stdin blocking unto  EOF , into one string): 
+
+  import sys
+input_str = sys.stdin.read()
+print input_str.split()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38939362)
+ Read from  sys.stdin , but to  read binary data on Windows , you need to be extra careful, because  sys.stdin  there is opened in text mode and it will corrupt  \r\n  replacing them with  \n . 
+
+ The solution is to set mode to binary if Windows + Python 2 is detected, and on Python 3 use  sys.stdin.buffer . 
+
+  import sys
+
+PY3K = sys.version_info >= (3, 0)
+
+if PY3K:
+    source = sys.stdin.buffer
+else:
+    # Python 2 on Windows opens sys.stdin in text mode, and
+    # binary data that read from it becomes corrupted on \r\n
+    if sys.platform == "win32":
+        # set sys.stdin to binary mode
+        import os, msvcrt
+        msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+    source = sys.stdin
+
+b = source.read()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24855121)
+ You can read from stdin and then store inputs into  "data"  as follows: 
+
+  data = ""
+for line in sys.stdin:
+    data += line
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46676510)
+ The trick is to use  tty.setcbreak(sys.stdin.fileno(), termios.TCSANOW)  and before that store the terminal attributes via  termios.getattr  in variable to restore the default behavior. With  cbreak  set,  sys.stdin.read(1)  is unbuffered. This also suppress the ansi controll code response from the terminal. 
+
+  def getpos():
+
+    buf = ""
+    stdin = sys.stdin.fileno()
+    tattr = termios.tcgetattr(stdin)
+
+    try:
+        tty.setcbreak(stdin, termios.TCSANOW)
+        sys.stdout.write("\x1b[6n")
+        sys.stdout.flush()
+
+        while True:
+            buf += sys.stdin.read(1)
+            if buf[-1] == "R":
+                break
+
+    finally:
+        termios.tcsetattr(stdin, termios.TCSANOW, tattr)
+
+    # reading the actual values, but what if a keystroke appears while reading
+    # from stdin? As dirty work around, getpos() returns if this fails: None
+    try:
+        matches = re.match(r"^\x1b\[(\d*);(\d*)R", buf)
+        groups = matches.groups()
+    except AttributeError:
+        return None
+
+    return (int(groups[0]), int(groups[1]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32282458)
+ In Python 3, if you want to read binary data from  stdin , you need to use its  buffer  attribute: 
+
+  import sys
+
+data = sys.stdin.buffer.read()
+  
+
+ On Python 2,  sys.stdin.read()  already returns a byte string; there is no need to use  buffer . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11887913)
+ This will echo standard input to standard output: 
+
+  import sys
+line = sys.stdin.readline()
+while line:
+    print line,
+    line = sys.stdin.readline()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/323902)
+ In some rare situations, you might care what stdin is connected to.  Mostly, you don't care -- you just read stdin. 
+
+ In  someprocess | python myprogram.py , stdin is connected to a pipe; in this case, the stdout of the previous process.  You simply read from  sys.stdin  and you're reading from the other process.  [Note that in Windows, however, there's still (potentially) a "CON" device with a keyboard.  It just won't be  sys.stdin .] 
+
+ In  python myprogram.py <someFile , stdin is connected to a file.  You simply read from  sys.stdin  and you're reading from the file. 
+
+ In  python myprogram.py , stdin is left connected to the console ( /dev/ttyxx  in *nix).  You simple read from  sys.stdin  and you're reading from the keyboard. 
+
+ Note the common theme in the above three cases.  You simply read from  sys.stdin  and your program's environment defines everything for you.  You don't check "to see if data is available on stdin for reading".  . 
+
+ Sometimes, you want a keyboard interrupt (or other shenanigans).  Python, BTW, has a keyboard interrupt as a first-class feature of the I/O elements.  Control-C raises an interrupt during I/O (it won't break into a tight loop, but it will signal a program that prints periodically.) 
+
+ Sometimes you need to find out what kind of file  stdin  is connected to. 
+
+ Something like  os.isatty( sys.stdin.fileno() )   If  sys.stdin  is a TTY, you're program was left connected to the windows "CON" (the keyboard).  If  sys.stdin  is not a TTY, it's connected to a file or a pipe. 
+
+ 
+
+ Example 
+
+  Microsoft Windows XP [Version 5.1.2600]
+(C) Copyright 1985-2001 Microsoft Corp.
+
+C:\Documents and Settings\slott>python
+Python 2.5.2 (r252:60911, Feb 21 2008, 13:11:45) [MSC v.1310 32 bit (Intel)] on
+win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import os
+>>> import sys
+>>> os.isatty( sys.stdin.fileno() )
+True
+>>>
+  
+
+ The value of  True  tells me Python is running without a file or pipe attached.   sys.stdin  is the keyboard.  Using windows  kbhit  is needless. 
+
+ A value of  False  tells me Python is running with a file or pipe attached.   sys.stdin  is NOT the keyboard.  Checking  kbhit  might be meaningful.  Also, I could open the  CON:  device and read the keyboard directly, separate from  sys.stdin . 
+
+ 
+
+ I'm not sure why you need "to see if data is available on stdin for reading".  It might help to update your question with additional details of what you're trying to accomplish. 
+
+
+

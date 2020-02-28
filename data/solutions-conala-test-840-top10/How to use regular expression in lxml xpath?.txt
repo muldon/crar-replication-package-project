@@ -1,0 +1,264 @@
+Query: How to use regular expression in lxml xpath?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2755959)
+ You can use the http://www.w3schools.com/xpath/xpath_functions.asp#string function: 
+
+  doc.xpath("//a[starts-with(text(),'some text')]")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2756994)
+ You can do this (although you don't need regular expressions for the example). Lxml supports regular expressions from the http://www.exslt.org/regexp/index.html extension functions. (see the lxml docs for the http://codespeak.net/lxml/xpathxslt.html#the-xpath-class, but it also works for the  xpath()  method) 
+
+  doc.xpath("//a[re:match(text(), 'some text')]", 
+        namespaces={"re": "http://exslt.org/regular-expressions"})
+  
+
+ Note that you need to give the namespace mapping, so that it knows what the "re" prefix in the xpath expression stands for. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34505126)
+ In your case, the expression would be: 
+
+  //a[re:test(@id, "^hypProduct_[0-9]+$")]
+  
+
+  
+
+  >>> from lxml.html import fromstring
+>>> 
+>>> data = '<a id="hypProduct_10">link1 '
+>>> tree = fromstring(data)
+>>> tree.xpath('//a[re:test(@id, "^hypProduct_[0-9]+$")]', namespaces={'re': "http://exslt.org/regular-expressions"})[0].attrib["id"]
+'hypProduct_10'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34122378)
+ You could use   contains  : 
+
+  from lxml import html
+
+HTML = """<div class="title_dep1">Hi Dervin</div>
+<div class="title_dep2">This is the way to grab</div>
+<div class="title_dep3">Different divs with the same prefix in @class attribute</div>"""
+
+data = html.fromstring(HTML)
+print data.xpath('//div[contains(@class,"title_dep")]/text()')
+  
+
+ Or you could use   re   (regular expression) inside your XPath: 
+
+  print data.xpath('//div[re:match(@class, "title_dep\d+")]/text()', namespaces={"re": "http://exslt.org/regular-expressions"})
+  
+
+ 
+   You need to give the namespace mapping, so that it knows what the  "re"  prefix in the xpath expression stands for. 
+ 
+
+  Output is the same for both:  
+
+  ['Hi Dervin', 'This is the way to grab', 'Different divs with the same prefix in @class attribute']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20534243)
+  ends-with  is a function defined for XPath 2.0, XQuery 1.0 and XSLT 2.0 while lxml only supports XPath 1.0, XSLT 1.0 and the EXSLT extensions. So you couldn't use this function. The doc is http://www.w3schools.com/xpath/xpath_functions.asp and <a href="http://lxml.de/xpathxslt.html#regular-expressions-in-xpath" . 
+
+ You could use regular expressions in XPATH. The following is a sample code which returns nodes matching the regular expressions:   
+
+  regexpNS = 'http://exslt.org/regular-expressions'
+tree.xpath("//a[re:test(@href, '(png|bmp|jpg|exe)$')]", namespaces={'re':regexpNS}")
+  
+
+ Here is a similar question https://stackoverflow.com/questions/4329147/python-xpath-find-all-links-to-images and  http://lxml.de/xpathxslt.html#regular-expressions-in-xpath 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42621213)
+ You can use https://www.w3.org/TR/xpath/#corelib to find the comments as you suggested: 
+
+  comments = doc.xpath('.//div[starts-with(@id, "comment-")]')
+  
+
+ But, for more complex matching, you could use  regular expressions : with lxml, XPath supports regular expressions in the EXSLT namespace. See the official documentation http://lxml.de/xpathxslt.html#regular-expressions-in-xpath. 
+
+ Here is a demo: 
+
+  from lxml import etree
+
+content = """\
+<body>
+<div id="comment-1">
+  TEXT
+</div>
+
+<div id="comment-2">
+  TEXT
+</div>
+
+<div id="comment-3">
+  TEXT
+</div>
+
+<div id="note-4">
+  not matched
+</div>
+</body>
+"""
+
+doc = etree.XML(content)
+
+# You must give the namespace to use EXSLT RegEx
+REGEX_NS = "http://exslt.org/regular-expressions"
+
+comments = doc.xpath(r'.//div[re:test(@id, "^comment-\d+$")]',
+                          namespaces={'re': REGEX_NS})
+  
+
+ To see the result, you can "dump" the matched nodes: 
+
+  for comment in comments:
+    print("---")
+    etree.dump(comment)
+  
+
+  
+
+  ---
+<div id="comment-1">
+      TEXT
+    </div>
+
+
+---
+<div id="comment-2">
+      TEXT
+    </div>
+
+
+---
+<div id="comment-3">
+      TEXT
+    </div>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38810731)
+ Unfortunately, things like  contains()  and  starts-with()  are not supported by  xml.etree.ElementTree  built-in library. You can manually check the attribute, finding all  waitingJobs  and using https://docs.python.org/3/library/xml.etree.elementtree.html#xml.etree.ElementTree.Element.attrib to get to the  idList  value: 
+
+  import xml.etree.ElementTree as ET
+
+data = """<jobs>
+    <waitingJobs idList="J03ac2db8 J03ac2fb0"/>
+</jobs>
+"""
+
+root = ET.fromstring(data)
+value = 'J03ac2db8'
+print([elm for elm in root.findall(".//waitingJobs[@idList]") 
+       if value in elm.attrib["idList"]])
+  
+
+ With  lxml.etree , you can use  xpath()  method and  contains()  function: 
+
+  import lxml.etree as ET
+
+data = """<jobs>
+    <waitingJobs idList="J03ac2db8 J03ac2fb0"/>
+</jobs>
+"""
+
+root = ET.fromstring(data)
+
+value = 'J03ac2db8'
+print(root.xpath(".//waitingJobs[contains(@idList, '%s')]" % value))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10836343)
+ AFAIK ElementTree does not support XPath.  
+
+ Anyway, you can use http://lxml.de and the following XPath expression: 
+
+  import lxml.etree
+doc = lxml.etree.parse('t.xml')
+print doc.xpath('//element[text()="A"]')[0].text
+print doc.xpath('//element[text()="A"]')[0].tag
+  
+
+ The result will be: 
+
+  A
+element
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24502358)
+ 
+   How can I do this in the XPath? 
+ 
+
+ You can use http://www.w3schools.com/xpath/xpath_functions.asp#string here. 
+
+  >>> from lxml import etree
+>>> html = '<TD><FONT FACE="Arial,helvetica" SIZE="-2">V1068078</FONT></TD>'
+>>> tree = etree.fromstring(html)
+>>> mls  = tree.xpath("//TD/FONT[starts-with(text(),'V')]")[0].text
+'V1068078'
+  
+
+ Or you can use a regular expression 
+
+  >>> from lxml import etree
+>>> html = '<TD><FONT FACE="Arial,helvetica" SIZE="-2">V1068078</FONT></TD>'
+>>> tree = etree.fromstring(html)
+>>> mls  = tree.xpath("//TD/FONT[re:match(text(), 'V\d{7,}')]", 
+           namespaces={'re': 'http://exslt.org/regular-expressions'})[0].text
+'V1068078'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16935525)
+  http://www.w3.org/TR/xpath does not support regular expressions , i.e. the function  starts-with  does not support regular expressions. 
+
+ Lxml does not support XPath 2.0. You have the following three options: 
+
+ 
+  Switch to a processor who is able to handle XPath 2.0. You can then use the http://www.w3.org/TR/xpath-functions/#func-matches function.  
+  Use a XPath 1.0 compliant solution. This is rather ugly, but it works and may in some circumstances be the easiest solution. However, this is not a general solution! It will replace the numbers in  @id  with a  -  and match against this. So this would also deliver true if the original  id  was something like  post-- . Use a character which you know will not occur at this position.  
+ 
+
+ 
+tree.xpath("//div[starts-with(translate(@id, '0123456789', '----------'), 'post--')]")
+ 
+
+ 
+ lxml supports the http://www.exslt.org/regexp/functions/test/index.html and you can use the regex functions from there. In my opinion this is the best solution. 
+ 
+
+ 
+regexpNS = "http://exslt.org/regular-expressions"
+r = tree.xpath("//div[re:test(@id, '^post-[0-9]')]", namespaces={'re': regexpNS})
+ 
+
+
+

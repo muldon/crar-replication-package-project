@@ -1,0 +1,406 @@
+Query: how to write a unicode csv in Python 2.7
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17245651)
+ There is an example at the end of the http://docs.python.org/2.7/library/csv.html that demonstrates how to deal with Unicode.  Below is copied directly from that http://docs.python.org/2.7/library/csv.html#examples.  Note that the strings read or written will be Unicode strings.  Don't pass a byte string to  UnicodeWriter.writerows , for example. 
+
+  import csv,codecs,cStringIO
+
+class UTF8Recoder:
+    def __init__(self, f, encoding):
+        self.reader = codecs.getreader(encoding)(f)
+    def __iter__(self):
+        return self
+    def next(self):
+        return self.reader.next().encode("utf-8")
+
+class UnicodeReader:
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8-sig", **kwds):
+        f = UTF8Recoder(f, encoding)
+        self.reader = csv.reader(f, dialect=dialect, **kwds)
+    def next(self):
+        '''next() -> unicode
+        This function reads and returns the next line as a Unicode string.
+        '''
+        row = self.reader.next()
+        return [unicode(s, "utf-8") for s in row]
+    def __iter__(self):
+        return self
+
+class UnicodeWriter:
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8-sig", **kwds):
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+    def writerow(self, row):
+        '''writerow(unicode) -> None
+        This function takes a Unicode string and encodes it to the output.
+        '''
+        self.writer.writerow([s.encode("utf-8") for s in row])
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        data = self.encoder.encode(data)
+        self.stream.write(data)
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+with open('xxx.csv','rb') as fin, open('lll.csv','wb') as fout:
+    reader = UnicodeReader(fin)
+    writer = UnicodeWriter(fout,quoting=csv.QUOTE_ALL)
+    for line in reader:
+        writer.writerow(line)
+  
+
+ Input (UTF-8 encoded): 
+
+  American,美国人
+French,法国人
+German,德国人
+  
+
+ Output: 
+
+  "American","美国人"
+"French","法国人"
+"German","德国人"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17246997)
+ Make sure you encode and decode as appropriate. 
+
+ This example will roundtrip some example text in utf-8 to a csv file and back out to demonstrate: 
+
+  # -*- coding: utf-8 -*-
+import csv
+
+tests={'German': [u'Straße',u'auslösen',u'zerstören'], 
+       'French': [u'français',u'américaine',u'épais'], 
+       'Chinese': [u'中國的',u'英語',u'美國人']}
+
+with open('/tmp/utf.csv','w') as fout:
+    writer=csv.writer(fout)    
+    writer.writerows([tests.keys()])
+    for row in zip(*tests.values()):
+        row=[s.encode('utf-8') for s in row]
+        writer.writerows([row])
+
+with open('/tmp/utf.csv','r') as fin:
+    reader=csv.reader(fin)
+    for row in reader:
+        temp=list(row)
+        fmt=u'{:<15}'*len(temp)
+        print fmt.format(*[s.decode('utf-8') for s in temp])
+  
+
+  
+
+  German         Chinese        French         
+Straße         中國的            français       
+auslösen       英語             américaine     
+zerstören      美國人            épais  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24035677)
+ Another alternative:  
+
+ Use the code from the unicodecsv package ... 
+
+ https://pypi.python.org/pypi/unicodecsv/ 
+
+  >>> import unicodecsv as csv
+>>> from io import BytesIO
+>>> f = BytesIO()
+>>> w = csv.writer(f, encoding='utf-8')
+>>> _ = w.writerow((u'é', u'ñ'))
+>>> _ = f.seek(0)
+>>> r = csv.reader(f, encoding='utf-8')
+>>> next(r) == [u'é', u'ñ']
+True
+  
+
+ This module is API compatible with the STDLIB csv module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51913913)
+ Because  str  in python2 is  bytes  actually. So if want to write  unicode  to csv, you must encode  unicode  to  str  using  utf-8  encoding. 
+
+  def py2_unicode_to_str(u):
+    # unicode is only exist in python2
+    assert isinstance(u, unicode)
+    return u.encode('utf-8')
+  
+
+ Use  class csv.DictWriter(csvfile, fieldnames, restval='', extrasaction='raise', dialect='excel', *args, **kwds) : 
+
+ 
+ py2
+
+ 
+ The  csvfile :  open(fp, 'w')  
+ pass key and value in  bytes  which are encoded with  utf-8 
+
+ 
+  writer.writerow({py2_unicode_to_str(k): py2_unicode_to_str(v) for k,v in row.items()})  
+  
+  
+ py3
+
+ 
+ The  csvfile :  open(fp, 'w')  
+ pass normal dict contains  str  as  row  to  writer.writerow(row)  
+  
+ 
+
+ Finally code 
+
+  import sys
+
+is_py2 = sys.version_info[0] == 2
+
+def py2_unicode_to_str(u):
+    # unicode is only exist in python2
+    assert isinstance(u, unicode)
+    return u.encode('utf-8')
+
+with open('file.csv', 'w') as f:
+    if is_py2:
+        data = {u'Python中国': u'Python中国', u'Python中国2': u'Python中国2'}
+
+        # just one more line to handle this
+        data = {py2_unicode_to_str(k): py2_unicode_to_str(v) for k, v in data.items()}
+
+        fields = list(data[0])
+        writer = csv.DictWriter(f, fieldnames=fields)
+
+        for row in data:
+            writer.writerow(row)
+    else:
+        data = {'Python中国': 'Python中国', 'Python中国2': 'Python中国2'}
+
+        fields = list(data[0])
+        writer = csv.DictWriter(f, fieldnames=fields)
+
+        for row in data:
+            writer.writerow(row)
+  
+
+ Conclusion 
+
+ In python3, just use the unicode  str . 
+
+ In python2, use  unicode  handle text, use  str  when I/O occurs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32870175)
+ First of all you don't need to use a list comprehension for write in csv file, secondly if you are using  python 2.X  you can use  codecs  module to open your file with a proper encoding and if you are using python 3.X you can use  encoding  argument in https://docs.python.org/3/library/functions.html#open function. 
+
+ Also note that since the  write  method used your default encoding if still you got unicode error you can use  str.encode()  method in  write  method. 
+
+ Python 2. 
+
+  import codecs
+with codecs.open(filename, 'w', encoding='utf-8') as csvfile:
+     writer = csv.writer(csvfile)
+     for r in table:
+         writer.writerow(r.encode('utf-8'))
+  
+
+ Python 3.X : 
+
+  with open(filename, 'wb', encoding='utf-8') as csvfile:
+     writer = csv.writer(csvfile)
+     for r in table:
+         writer.writerow(r.encode('utf-8'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36066799)
+ Python doesn't magically skip records unless you explicitly code that.  Assuming the data is of type  unicode  you have to encode it before writing it to the file.  UTF-8 is a safe bet because that encoding can encode all possible characters in  unicode  strings. 
+
+  #!/usr/bin/env python
+# coding: utf-8
+import csv
+
+
+def main():
+    data = [[u'Simeon Miller ✪', 42], [u'Roger Rabbit', 4711]]
+    with open('test.csv', 'wb') as csv_file:
+        writer = csv.writer(csv_file)
+        for name, number in data:
+            writer.writerow([name.encode('utf-8'), str(number)])
+
+
+if __name__ == '__main__':
+    main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46451433)
+ For me the  UnicodeWriter  class from Python 2 CSV module documentation didn't really work as it breaks the  csv.writer.write_row()  interface. 
+
+ For example:
+ 
+
+  csv_writer = csv.writer(csv_file)
+row = ['The meaning', 42]
+csv_writer.writerow(row)
+  
+
+ 
+ 
+
+  csv_writer = UnicodeWriter(csv_file)
+row = ['The meaning', 42]
+csv_writer.writerow(row)
+  
+
+ will throw  AttributeError: 'int' object has no attribute 'encode' . 
+
+ As  UnicodeWriter  obviously expects all column values to be strings, we can convert the values ourselves and just use the default CSV module: 
+
+<pre class="lang-python prettyprint-override"> def to_utf8(lst):
+    return [unicode(elem).encode('utf-8') for elem in lst]
+
+...
+csv_writer.writerow(to_utf8(row))
+  
+
+ Or we can even monkey-patch csv_writer to add a  write_utf8_row  function - the exercise is left to the reader. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31191635)
+ I couldn't respond to Mark above, but I just made one modification which fixed the error which was caused if data in the cells was not unicode, i.e. float or int data.  I replaced this line into the UnicodeWriter function: "self.writer.writerow([s.encode("utf-8") if type(s)==types.UnicodeType else s for s in row])" so that it became: 
+
+  class UnicodeWriter:
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8-sig", **kwds):
+       self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+    def writerow(self, row):
+        '''writerow(unicode) -> None
+        This function takes a Unicode string and encodes it to the output.
+        '''
+        self.writer.writerow([s.encode("utf-8") if type(s)==types.UnicodeType else s for s in row])
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        data = self.encoder.encode(data)
+        self.stream.write(data)
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+  
+
+ You will also need to "import types". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43083531)
+ Three ways on Python 2.7.  Note that to open the files in Excel that program likes a UTF-8 BOM encoded at the start of the file.  I write it manually in the brute force method, but the  utf-8-sig  codec will handle it for you otherwise.  Skip the BOM signature if you aren't dealing with lame editors (Windows Notepad) or Excel. 
+
+  import csv
+import codecs
+import cStringIO
+
+title = u'\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440 \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442-\u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0430'
+print(title)
+
+# Brute force
+
+with open('avito.csv','wb') as f:
+    f.write(u'\ufeff'.encode('utf8')) # writes "byte order mark" UTF-8 signature
+    writer=csv.writer(f)
+    writer.writerow([title.encode('utf8')])
+
+# Example from the documentation for csv module
+
+class UnicodeWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8-sig", **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        self.writer.writerow([s.encode("utf-8") for s in row])
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+with open('avito2.csv','wb') as f:
+    w = UnicodeWriter(f)
+    w.writerow([title])
+
+# 3rd party module, install from pip
+
+import unicodecsv
+with open('avito3.csv','wb') as f:
+    w = unicodecsv.writer(f,encoding='utf-8-sig')
+    w.writerow([title])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22734072)
+ You are passing bytestrings containing non-ASCII data in, and these are being decoded to Unicode using the default codec at this line: 
+
+  self.writer.writerow([unicode(s).encode("utf-8") for s in row])
+  
+
+  unicode(bytestring)  with data that cannot be decoded as ASCII fails: 
+
+  >>> unicode('\xef\xbb\xbft_11651497')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xef in position 0: ordinal not in range(128)
+  
+
+ Decode the data to Unicode before passing it to the writer: 
+
+  row = [v.decode('utf8') if isinstance(v, str) else v for v in row]
+  
+
+ This assumes that your bytestring values contain UTF-8 data instead. If you have a mix of encodings, try to decode to Unicode at the point of origin; where your program first sourced the data. You really want to do so anyway, regardless of where the data came from or if it already was encoded to UTF-8 as well. 
+
+
+

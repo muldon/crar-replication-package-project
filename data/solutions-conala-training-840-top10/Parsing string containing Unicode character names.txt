@@ -1,0 +1,177 @@
+Query: Parsing string containing Unicode character names
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30747727)
+ You can use https://docs.python.org/2/library/codecs.html#python-specific-encodings: 
+
+ In Python 2. 
+
+  >>> u'M\\N{AMPERSAND}M\\N{APOSTROPHE}s'.decode('unicode-escape')
+u"M&M's"
+  
+
+ In Python 3. 
+
+  >>> u'M\\N{AMPERSAND}M\\N{APOSTROPHE}s'.encode().decode('unicode-escape')
+"M&M's"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30747864)
+ Seeing your  print  command I assume you are working in Python 2.
+You can use  decode()  with an input which is the encoding you are using i.e. in this case  'unicode-escape'  
+
+  >>> s
+u'M\\N{AMPERSAND}M\\N{APOSTROPHE}s'
+>>>s.decode('unicode-escape')
+>>> print s
+"M&M's"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22615366)
+ This is not utf-8: 
+
+  print txt.decode('iso8859-1')
+Out[14]: médico
+  
+
+ If you want utf-8 string, use: 
+
+  txt.decode('iso8859-1').encode('utf-8')
+Out[15]: 'm\xc3\xa9dico'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45338192)
+  u"\u2022"  (your  s ) is a Unicode string (type  unicode ) containing the bullet character. 
+
+  "\xe2\x80\xa2"  (your  ss ) is a byte string (type  str ) containing the three bytes used to encode the bullet character as UTF-8. 
+
+ You can convert one to the other using  str.decode  and  unicode.decode : 
+
+  >>> s_encode = s.encode("UTF-8")
+>>> s_encode == ss
+True
+
+>>> ss_decode = ss.decode("UTF-8")
+>>> ss_decode == s
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5387966)
+ You can print Unicode  objects as well, you don't need to do str() around it. 
+
+ Assuming you really want a str: 
+
+ When you do str(u'\u2013') you are trying to convert the Unicode string to a 8-bit string. To do this you need to use an encoding, a mapping between Unicode data to 8-bit data. What str() does is that is uses the system default encoding, which under Python 2 is ASCII. ASCII contains only the 127 first code points of Unicode, that is \u0000 to \u007F1. The result is that you get the above error, the ASCII codec just doesn't know what \u2013 is (it's a long dash, btw). 
+
+ You therefore need to specify which encoding you want to use. Common ones are ISO-8859-1, most commonly known as Latin-1, which contains the 256 first code points; UTF-8, which can encode all code-points by using variable length encoding, CP1252 that is common on Windows, and various Chinese and Japanese encodings. 
+
+ You use them like this: 
+
+  u'\u2013'.encode('utf8')
+  
+
+ The result is a str containing a sequence of bytes that is the uTF8 representation of the character in question: 
+
+  '\xe2\x80\x93'
+  
+
+  
+
+  >>> print '\xe2\x80\x93'
+–
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27775902)
+ As here  str(u'\u2013')  is causing error so use  isinstance(foo,basestring)  to check for unicode/string,  if not of type base string convert it into Unicode and then apply encode 
+
+  if isinstance(foo,basestring):
+    foo.encode('utf8')
+else:
+    unicode(foo).encode('utf8')
+  
+
+ https://stackoverflow.com/questions/1979004/what-is-the-difference-between-isinstanceaaa-basestring-and-isinstanceaaa/1979107#1979107 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11636416)
+ There isn't "a unicode character" here. You have a list containing unicode strings which you want to output as json. You need to encode the unicode string (an abstract representation of text) as a byte string (a sequence of bytes). The way you do that is: 
+
+  u'12.23.21.23'.encode('utf8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/13838041)
+ In strings (or Unicode objects in Python 2),  \u  has a special meaning, namely saying, "here comes a Unicode character specified by it's Unicode ID". Hence  u"\u0432"  will result in the character в. 
+
+ The  b''  prefix tells you this is a sequence of 8-bit bytes, and bytes object has no Unicode characters, so the  \u  code has no special meaning. Hence,  b"\u0432"  is just the sequence of the bytes  \ , u , 0 , 4 , 3  and  2 . 
+
+ Essentially you have an 8-bit string containing not a Unicode character, but the specification of a Unicode character. 
+
+ You can convert this specification using the unicode escape encoder. 
+
+  >>> c.decode('unicode_escape')
+'в'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16073981)
+ Where are you using your decoding methods? 
+
+ I had this error in the past and had to decode the raw.   
+
+  data = response.read()
+#closes file
+response.close()
+#decode
+data.encode("us-ascii")
+  
+
+ That is if it is in fact ascii.  My point being make sure you are encoding/decoding the raw results while it is still in a string format, before you call parseString on it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33701194)
+ There are  two  errors and two issues: 
+
+ 
+ UnicodeEncodeError:'charmap' with 'Ö','Ç' etc 
+ 'ascii' codec can't encode character u'\xd6' in position 0: ordinal not in range(128) 
+ 
+
+ If  type(tmpDict[0]['NAME']) == unicode  then the second issue can be reproduced easily: 
+
+  >>> u'\xd6'.decode('utf-8') #XXX BROKEN, DO NOT DO IT!!!
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  ...
+UnicodeEncodeError: 'ascii' codec can't encode character u'\xd6' in position 0: ordinal not in range(128)
+  
+
+ What happens is that  u'\xd6'  is already a Unicode string and therefore before decoding it, it has to be converted to bytes first and Python uses the default encoding ( 'ascii' ) to do it. The correct solution is to  drop  .decode('utf-8')   --  do not decode Unicode  strings (it is fixed in Python 3, you get  AttributeError  there if you try to decode a Unicode string). 
+
+ The first issue  "UnicodeEncodeError:'charmap'"  is likely due to printing Unicode to Windows console. To reproduce, run  print u'\xd6' . To fix it, https://stackoverflow.com/a/32176732/4279. 
+
+
+

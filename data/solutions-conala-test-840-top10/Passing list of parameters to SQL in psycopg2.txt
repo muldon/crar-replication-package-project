@@ -1,0 +1,212 @@
+Query: Passing list of parameters to SQL in psycopg2
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8671854)
+ Python tuples are converted to sql lists in psycopg2: 
+
+  cur.mogrify("SELECT * FROM table WHERE column IN %s;", ((1,2,3),))
+  
+
+ would output 
+
+  'SELECT * FROM table WHERE column IN (1,2,3);'
+  
+
+ For Python newcomers: It is unfortunately important to use a tuple, not a list here. Here's a second example: 
+
+  cur.mogrify("SELECT * FROM table WHERE column IN %s;", 
+    tuple([row[0] for row in rows]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37943486)
+ You are passing a list of tuples. A tuple is adapted by Psycopg to a record. You need to pass a list of lists as a list is adapted to an array: 
+
+  vector = list(map(lambda x:list(x[2:]),res))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43920991)
+ http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.AsIs andhttp://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.quote_ident 
+
+  from psycopg2.extensions import AsIs, quote_ident
+
+cur.execute("""
+    INSERT INTO %s
+    VALUES (%s, %s, %s, NULL, %s, %s, NULL);
+""", (
+    AsIs(quote_ident(database_name, cur)),
+    str(i),
+    str(j),
+    float(tempPrice),
+    datetime.date.today(),
+    now
+))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14512626)
+ This is an unusual format supported only by some DBAPIs, in that it renders a tuple of items as individual SQL expressions, including that it renders the comma and such in between parameters, so a statement like  execute("select * from table where value in %s", (somelist, ))  expands out at the database level into  select * from table where value in (1, 2, 3) . 
+
+ SQLAlchemy is not expecting this format - it already does some inspection of the incoming parameters as it is concerned with routing the parameters into either the DBAPI  execute()  or  executemany()  methods, and also accepts a few different styles, and the outcome of this conversion is that the tuple here gets flattened out.  You can sneak your tuple past this parsing by adding one more tuple: 
+
+  from sqlalchemy import create_engine
+
+engine = create_engine("postgresql://scott:tiger@localhost/test", echo=True)
+
+with engine.connect() as conn:
+    trans = conn.begin()
+
+
+    conn.execute("create table test (data integer)")
+    conn.execute(
+            "insert into test (data) values (%s)",
+            [(1, ), (2, ), (3, ), (4, ), (5, )]
+        )
+
+    result = conn.execute(
+                "select * from test where data in %s",
+                (
+                    ((1, 2, 3),),
+                )
+            )
+
+    print result.fetchall()
+  
+
+ The above style only works for some DBAPIs.  A quick test confirms it works for psycopg2 and MySQLdb, but not on sqlite3.  It has more to do with the underlying system which the DBAPI uses to send bound parameters to the database; psycopg2 and MySQLdb both do Python string interpolation and their own escaping, but systems like cx_oracle will pass the parameters individually to OCI, so this kind of thing wouldn't work in that case. 
+
+ SQLAlchemy of course offers the http://docs.sqlalchemy.org/en/rel_0_8/core/expression_api.html#sqlalchemy.sql.operators.ColumnOperators.in_ operator when using SQL expression constructs but this doesn't apply to straight strings. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29462889)
+ Something along these lines should do it: 
+
+  song = dict()
+song['title'] = 'song 1'
+song['artist'] = 'artist 1'
+
+cols=song.keys();
+
+vals = [song[x] for x in cols]
+vals_str_list = ["%s"] * len(vals)
+vals_str = ", ".join(vals_str_list)
+
+cursor.execute("INSERT INTO song_table ({cols}) VALUES ({vals_str})".format(
+               cols = cols, vals_str = vals_str), vals)
+  
+
+ The key part is the generated string of  %s  elements, and using that in  format , with the list passed directly to the  execute  call, so that  psycopg2  can interpolate each item in the  vals  list (thus preventing possible  SQL Injection ). 
+
+ Another variation, passing the  dict  to  execute , would be to use these lines instead of  vals ,  vals_str_list  and  vals_str  from above: 
+
+  vals_str2 = ", ".join(["%({0})s".format(x) for x in cols])
+
+cursor.execute("INSERT INTO song_table ({cols}) VALUES ({vals_str})".format(
+               cols = cols, vals_str = vals_str2), song)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/22084792)
+ Turns out I only need one % in front of each 's' when building the parameter markers for my query. It's a bit confusing, because the old string formatting method in Python used % signs as well, but not the same way Psycopg2 does. See the working code below (only change is in the 'parameters' variable): 
+
+ ps.cur = psycopg_cursor 
+
+  def load_lists(list_of_lists, table):
+    # Get number of columns in table
+    sql = """
+          SELECT column_name FROM information_schema.columns
+          WHERE table_schema = 'public'
+          AND table_name = '{}'
+          """.format(table)
+    ps.cur.execute(sql)
+    columns_list = [i[0] for i in ps.cur.fetchall()]
+    # Insert list of lists into table
+    columns = '(' + ','.join(columns_list) + ')'
+    parameters = '(' + ','.join(['%s' for i in columns_list]) + ')' # <--- THIS LINE
+    for i in list_of_lists:
+        sql = """
+              INSERT INTO {} {}
+              VALUES {}
+              """.format(table, columns, parameters)
+        values = tuple([j for j in i])
+        ps.cur.execute(sql, values)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28593246)
+ Per https://stackoverflow.com/a/13891511/1956065 you can do it as so: 
+
+  import psycopg2
+from psycopg2.extensions import AsIs
+
+#Create your connection and cursor...
+
+cursor.execute("SELECT * FROM %(table)s", {"table": AsIs("my_awesome_table")})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30677656)
+ Use the AsIs extension 
+
+  import psycopg2
+from psycopg2.extensions import AsIs
+
+column_list = ['id','name']
+columns = ', '.join(column_list)
+
+cursor.execute("SELECT %s FROM table", (AsIs(columns),))
+  
+
+ And mogrify will show that it is not quoting the column names and passing them in as is. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50141806)
+ Pass a  tuple  to expand the IN list: 
+
+  sql = 'SELECT * FROM Compressor WHERE site_id IN %(sites)s'
+cur.execute(sql, { 'sites': tuple(sites.keys()), })
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27290006)
+ You cannot use SQL parameters for  SQL object names . SQL parameters quote values explicitly so that they cannot be interpreted as such; that is one of the major reasons to use SQL parameters  otherwise . 
+
+ You'll have to use string interpolation here. Be  extremely careful  that you are not using user input to produce  c  here: 
+
+  for c in row1:
+    cur.execute("ALTER TABLE HHV2PUB ADD COLUMN %s text" % c)
+  
+
+ Psycopg2 does give you a method to mark parameters as 'already escaped' with http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.AsIs, but the intention is for this to be used on already escaped  data  instead. 
+
+ A much better idea is to use the http://initd.org/psycopg/docs/sql.html to manage correct identifier escaping: 
+
+  from psycopg2 import sql
+
+for c in row1:
+    cur.execute(
+        sql.SQL("ALTER TABLE HHV2PUB ADD COLUMN {} text").format(
+            sql.Identifier(c)))
+  
+
+
+

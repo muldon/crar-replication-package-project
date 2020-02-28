@@ -1,0 +1,129 @@
+Query: Apply variable transparency to an image
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26918760)
+ Create a second  BufferedImage  of type  TYPE_INT_RGB ... 
+
+  BufferedImage copy = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_RGB);
+  
+
+ Paint the original to the copy... 
+
+  Graphics2D g2d = copy.createGraphics();
+g2d.setColor(Color.WHITE); // Or what ever fill color you want...
+g2d.fillRect(0, 0, copy.getWidth(), copy.getHeight());
+g2d.drawImage(img, 0, 0, null);
+g2d.dispose();
+  
+
+ You now have a non transparent version of the image... 
+
+ To save the image, take a look at http://docs.oracle.com/javase/tutorial/2d/images/saveimage.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2319251)
+ Just create a new BufferedImage with transparency, then paint the other two images (with full or semi-transparency) on it.
+This is how it will look like: 
+
+ https://i.stack.imgur.com/6jZ4V.png 
+
+ Sample code (images are called 'image.png' and 'overlay.png'): 
+
+  File path = ... // base path of the images
+
+// load source images
+BufferedImage image = ImageIO.read(new File(path, "image.png"));
+BufferedImage overlay = ImageIO.read(new File(path, "overlay.png"));
+
+// create the new image, canvas size is the max. of both image sizes
+int w = Math.max(image.getWidth(), overlay.getWidth());
+int h = Math.max(image.getHeight(), overlay.getHeight());
+BufferedImage combined = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+
+// paint both images, preserving the alpha channels
+Graphics g = combined.getGraphics();
+g.drawImage(image, 0, 0, null);
+g.drawImage(overlay, 0, 0, null);
+
+// Save as new image
+ImageIO.write(combined, "PNG", new File(path, "combined.png"));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7391771)
+ I think your design is way off and that is why things are not working. I'm not quite sure how your non-abstract JPanels work, but consider making your parent JPanel something more along these lines: 
+
+  import java.awt.*;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import javax.swing.*;
+
+public class MyPanel extends JPanel {
+   private GraphicsEnvironment ge;
+   private GraphicsDevice gs;
+   private GraphicsConfiguration gc;
+   private BufferedImage offScreen;
+
+   public MyPanel(boolean visible) {
+      super();
+      this.setLayout(new BorderLayout(640, 416)); // strange constants for this layout.
+      this.setOpaque(false);
+      this.setVisible(visible);
+      ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+      gs = ge.getDefaultScreenDevice();
+      gc = gs.getDefaultConfiguration();
+
+      addComponentListener(new ComponentAdapter() {
+         @Override
+         public void componentResized(ComponentEvent e) {
+            setUp();
+         }
+      });
+   }
+
+   @Override
+   // don't make this public. Keep it protected like the super's
+   // just draw in this method. Don't call other methods that create buffers
+   // or draw to buffers.
+   protected void paintComponent(Graphics g) {
+      super.paintComponent(g);
+      if (offScreen != null) {
+         g.drawImage(offScreen, 0, 0, null);
+      }
+   }
+
+   private void setUp() {
+      offScreen = gc.createCompatibleImage(getSize().width, getSize().height,
+            Transparency.TRANSLUCENT);
+   }
+
+   // draw to the buffer outside of the paintComponent
+   // and then call repaint() when done
+   public void upDateOffScreen() {
+      // ?? offScreen.flush(); // I've never used this before, 
+                  // so am not sure if you need this here
+      Graphics2D osGraphics = offScreen.createGraphics();
+      // TODO: do drawing with osGraphics object here
+      osGraphics.dispose();
+      repaint();
+   }
+}
+  
+
+ Also and again, 
+
+ 
+ Do all long processing methods off of the EDT (Event Dispatch Thread). 
+ Never call Thread.sleep(...) on the EDT. 
+ Consider using Swing Timers instead of using Thread.sleep for the animations. 
+ It's OK to call repaint on your JPanel off of the EDT, but for the most part that's about it.  
+ All other Swing methods should be called on the EDT. 
+ Read, re-read, and study the 2D and Swing graphics tutorials. 
+ 
+
+
+

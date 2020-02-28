@@ -1,0 +1,399 @@
+Query: Custom sorting in pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13838744)
+  import pandas as pd
+custom_dict = {'March':0,'April':1,'Dec':3}
+
+df = pd.DataFrame(...) # with columns April, March, Dec (probably alphabetically)
+
+df = pd.DataFrame(df, columns=sorted(custom_dict, key=custom_dict.get))
+  
+
+ returns a DataFrame with columns March, April, Dec 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52790608)
+ Use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html and https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_index.html 
+
+  df.sort_values(df.columns.tolist()).sort_index(level=1, ascending=False, 
+                                                        sort_remaining=False)
+
+              col1  col2
+s   am   cat        
+1   sea  i    0.33  0.55
+         o    0.22  0.44
+    cap  i    0.55  0.77
+         o    0.44  0.66
+  
+
+ Convert the index to https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Categorical.html to get the custom order. 
+
+  data = {'s':[1,1,1,1], 
+            'am':['cap', 'cap', 'sea', 'sea'], 
+            'cat':['i', 'j', 'k', 'l'],
+            'col1':[.55, .44, .33, .22],
+            'col2':[.77, .66, .55, .44]}
+
+df = pd.DataFrame(data=data)
+df.set_index(['s', 'am', 'cat'], inplace=True)
+
+idx = pd.Categorical(df.index.get_level_values(2).values,
+          categories=['j','i','k','l'],
+          ordered=True)
+
+df.index.set_levels(idx, level='cat', inplace=True)
+
+df.reset_index().sort_values('cat').set_index(['s','am','cat'])
+
+             col1   col2
+s   am  cat     
+1   cap  j   0.44   0.66
+         i   0.55   0.77
+    sea  k   0.33   0.55
+         l   0.22   0.44
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23279342)
+ One approach would be to use a custom dict to create a 'rank' column, we then use to sort with and then drop the column after sorting: 
+
+  In [17]:
+custom_dict = {'Critical':0, 'High':1, 'Medium':2, 'Low':3}  
+df['rank'] = df['Criticality'].map(custom_dict)
+df
+
+Out[17]:
+
+  Name Criticality  rank
+0  baz        High     1
+1  foo    Critical     0
+2  baz         Low     3
+3  foo      Medium     2
+4  bar        High     1
+5  bar         Low     3
+6  bar      Medium     2
+
+[7 rows x 3 columns]
+
+In [19]:
+# now sort by 'Name' and 'rank', it will first sort by 'Name' column first and then 'rank'
+df.sort(columns=['Name', 'rank'],inplace=True)
+df
+
+Out[19]:
+
+  Name Criticality  rank
+4  bar        High     1
+6  bar      Medium     2
+5  bar         Low     3
+0  baz        High     1
+2  baz         Low     3
+1  foo    Critical     0
+3  foo      Medium     2
+
+[7 rows x 3 columns]
+
+In [21]:
+# now drop the 'rank' column
+df.drop(labels=['rank'],axis=1)
+
+Out[21]:
+
+  Name Criticality
+4  bar        High
+6  bar      Medium
+5  bar         Low
+0  baz        High
+2  baz         Low
+1  foo    Critical
+3  foo      Medium
+
+[7 rows x 2 columns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27255567)
+ I just discovered that with pandas 15.1 it is possible to use categorical series (http://pandas.pydata.org/pandas-docs/stable/10min.html#categoricals) 
+
+ As for your example, lets define the same data-frame and sorter: 
+
+  import pandas as pd
+
+# Create DataFrame
+df = pd.DataFrame(
+{'id':[2967, 5335, 13950, 6141, 6169],\
+ 'Player': ['Cedric Hunter', 'Maurice Baker' ,\
+            'Ratko Varda' ,'Ryan Bowen' ,'Adrian Caldwell'],\
+ 'Year': [1991 ,2004 ,2001 ,2009 ,1997],\
+ 'Age': [27 ,25 ,22 ,34 ,31],\
+ 'Tm':['CHH' ,'VAN' ,'TOT' ,'OKC' ,'DAL'],\
+ 'G':[6 ,7 ,60 ,52 ,81]})
+
+# Define the sorter
+sorter = ['TOT', 'ATL', 'BOS', 'BRK', 'CHA', 'CHH', 'CHI', 'CLE', 'DAL','DEN',\
+          'DET', 'GSW', 'HOU', 'IND', 'LAC', 'LAL', 'MEM', 'MIA', 'MIL',\
+          'MIN', 'NJN', 'NOH', 'NOK', 'NOP', 'NYK', 'OKC', 'ORL', 'PHI',\
+          'PHO', 'POR', 'SAC', 'SAS', 'SEA', 'TOR', 'UTA', 'VAN',\
+          'WAS', 'WSB']
+  
+
+ With the data-frame and sorter, which is a category-order, we can do the following in pandas 15.1: 
+
+  # Convert Tm-column to category and in set the sorter as categories hierarchy
+# Youc could also do both lines in one just appending the cat.set_categories()
+df.Tm = df.Tm.astype("category")
+df.Tm.cat.set_categories(sorter, inplace=True)
+
+print(df.Tm)
+Out[48]: 
+0    CHH
+1    VAN
+2    TOT
+3    OKC
+4    DAL
+Name: Tm, dtype: category
+Categories (38, object): [TOT < ATL < BOS < BRK ... UTA < VAN < WAS < WSB]
+
+df.sort_values(["Tm"])  ## 'sort' changed to 'sort_values'
+Out[49]: 
+   Age   G           Player   Tm  Year     id
+2   22  60      Ratko Varda  TOT  2001  13950
+0   27   6    Cedric Hunter  CHH  1991   2967
+4   31  81  Adrian Caldwell  DAL  1997   6169
+3   34  52       Ryan Bowen  OKC  2009   6141
+1   25   7    Maurice Baker  VAN  2004   5335
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/23483221)
+ Below is an example that performs lexicographic sort on a dataframe.
+The idea is to create an numerical index based on the specific sort.
+Then to perform a numerical sort based on the index.
+A column is added to the dataframe to do so, and is then removed. 
+
+  import pandas as pd
+
+# Create DataFrame
+df = pd.DataFrame(
+{'id':[2967, 5335, 13950, 6141, 6169],\
+ 'Player': ['Cedric Hunter', 'Maurice Baker' ,\
+            'Ratko Varda' ,'Ryan Bowen' ,'Adrian Caldwell'],\
+ 'Year': [1991 ,2004 ,2001 ,2009 ,1997],\
+ 'Age': [27 ,25 ,22 ,34 ,31],\
+ 'Tm':['CHH' ,'VAN' ,'TOT' ,'OKC' ,'DAL'],\
+ 'G':[6 ,7 ,60 ,52 ,81]})
+
+# Define the sorter
+sorter = ['TOT', 'ATL', 'BOS', 'BRK', 'CHA', 'CHH', 'CHI', 'CLE', 'DAL','DEN',\
+          'DET', 'GSW', 'HOU', 'IND', 'LAC', 'LAL', 'MEM', 'MIA', 'MIL',\
+          'MIN', 'NJN', 'NOH', 'NOK', 'NOP', 'NYK', 'OKC', 'ORL', 'PHI',\
+          'PHO', 'POR', 'SAC', 'SAS', 'SEA', 'TOR', 'UTA', 'VAN',\
+          'WAS', 'WSB']
+
+# Create the dictionary that defines the order for sorting
+sorterIndex = dict(zip(sorter,range(len(sorter))))
+
+# Generate a rank column that will be used to sort
+# the dataframe numerically
+df['Tm_Rank'] = df['Tm'].map(sorterIndex)
+
+# Here is the result asked with the lexicographic sort
+# Result may be hard to analyze, so a second sorting is
+# proposed next
+## NOTE: 
+## Newer versions of pandas use 'sort_value' instead of 'sort'
+df.sort(['Player', 'Year', 'Tm_Rank'], \
+        ascending = [True, True, True], inplace = True)
+df.drop('Tm_Rank', 1, inplace = True)
+print(df)
+
+# Here is an example where 'Tm' is sorted first, that will 
+# give the first row of the DataFrame df to contain TOT as 'Tm'
+df['Tm_Rank'] = df['Tm'].map(sorterIndex)
+## NOTE: 
+## Newer versions of pandas use 'sort_value' instead of 'sort'
+df.sort(['Tm_Rank', 'Player', 'Year'], \
+        ascending = [True , True, True], inplace = True)
+df.drop('Tm_Rank', 1, inplace = True)
+print(df)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48626948)
+ By using  natsort   sort by index list then  reindex   
+
+  df=pd.DataFrame({'v':[1,2,3]},index=['b1','b11','b2'])
+
+from natsort import natsorted, ns
+
+
+df.reindex(natsorted(df.index.tolist(), alg=ns.IGNORECASE))
+
+Out[795]: 
+     v
+b1   1
+b2   3
+b11  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43510998)
+ It seems you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html: 
+
+  df = df.sort_values('System')
+print (df)
+         r1     Angle1        r2         Angle        Res System
+0  1.250590   5.156790  5.724081  7.712978e+06   8.874775   #EN1
+2  1.250148   5.205040  5.700498  3.564115e+02   8.865881   #EN1
+4  1.247089   5.556371  5.718326  9.315014e+04   8.813084   #EN1
+8  1.037451  39.403842  1.340242  2.438089e+04  14.509603   #EN1
+1  1.246085   5.678428  5.720825  3.353667e+04   8.813887   #EN2
+5  1.854719   0.936551  1.186143  1.853106e+01   8.669692   #EN2
+7  1.251378   5.072078  5.756885  1.449325e+01   8.893499   #EN2
+3  1.241692   6.256054  5.708635  8.518839e+06   8.828826   #EN3
+6  1.260329   4.225127  5.687622  5.435705e+01   9.223529   #EN3
+  
+
+ But if need custom sort by  dict  use http://pandas.pydata.org/pandas-docs/stable/categorical.html#sorting-and-order: 
+
+  custom_dict = {'#EN1':0, '#EN2':2,'#EN3':1}
+#get order by sorted values of dict
+cat = sorted(custom_dict, key=custom_dict.get)
+print (cat)
+['#EN1', '#EN3', '#EN2']
+
+df['System'] = df['System'].astype('category', categories=cat, ordered=True)
+df = df.sort_values('System')
+print (df)
+         r1     Angle1        r2         Angle        Res System
+0  1.250590   5.156790  5.724081  7.712978e+06   8.874775   #EN1
+2  1.250148   5.205040  5.700498  3.564115e+02   8.865881   #EN1
+4  1.247089   5.556371  5.718326  9.315014e+04   8.813084   #EN1
+8  1.037451  39.403842  1.340242  2.438089e+04  14.509603   #EN1
+3  1.241692   6.256054  5.708635  8.518839e+06   8.828826   #EN3
+6  1.260329   4.225127  5.687622  5.435705e+01   9.223529   #EN3
+1  1.246085   5.678428  5.720825  3.353667e+04   8.813887   #EN2
+5  1.854719   0.936551  1.186143  1.853106e+01   8.669692   #EN2
+7  1.251378   5.072078  5.756885  1.449325e+01   8.893499   #EN2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48626951)
+ You can use sorted and reindex i.e  
+
+  df = pd.DataFrame([1,2,3,4,5,6,7,8],index=['a12','a10','a11','a15','a5','a6','b11','b12'])
+
+import re
+df.reindex(sorted(df.index,key=lambda x: re.sub('[A-z]','',x)))
+
+
+    0
+a10  2
+a11  3
+b11  7
+a12  1
+b12  8
+a15  4
+a5   5
+a6   6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23814873)
+  You can do a custom sort of your data.
+ 
+
+  group = df.groupby(['value_group'])['value_group'].count()
+sortd= group.reindex_axis(sorted(group.index, key=lambda x: int(x.split("-")[0])))
+  
+
+ And then if you plot the sortd series it works.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27009771)
+ A bit late to the game, but here's a way to create a function that sorts pandas Series, DataFrame, and multiindex DataFrame objects using arbitrary functions. 
+
+ I make use of the  df.iloc[index]  method, which references a row in a Series/DataFrame by position (compared to  df.loc , which references by value). Using this, we just have to have a function that returns a series of positional arguments: 
+
+  def sort_pd(key=None,reverse=False,cmp=None):
+    def sorter(series):
+        series_list = list(series)
+        return [series_list.index(i) 
+           for i in sorted(series_list,key=key,reverse=reverse,cmp=cmp)]
+    return sorter
+  
+
+ You can use this to create custom sorting functions. This works on the dataframe used in Andy Hayden's answer: 
+
+  df = pd.DataFrame([
+    [1, 2, 'March'],
+    [5, 6, 'Dec'],
+    [3, 4, 'April']], 
+  columns=['a','b','m'])
+
+custom_dict = {'March':0, 'April':1, 'Dec':3}
+sort_by_custom_dict = sort_pd(key=custom_dict.get)
+
+In [6]: df.iloc[sort_by_custom_dict(df['m'])]
+Out[6]:
+   a  b  m
+0  1  2  March
+2  3  4  April
+1  5  6  Dec
+  
+
+ This also works on multiindex DataFrames and Series objects: 
+
+  months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+df = pd.DataFrame([
+    ['New York','Mar',12714],
+    ['New York','Apr',89238],
+    ['Atlanta','Jan',8161],
+    ['Atlanta','Sep',5885],
+  ],columns=['location','month','sales']).set_index(['location','month'])
+
+sort_by_month = sort_pd(key=months.index)
+
+In [10]: df.iloc[sort_by_month(df.index.get_level_values('month'))]
+Out[10]:
+                 sales
+location  month  
+Atlanta   Jan    8161
+New York  Mar    12714
+          Apr    89238
+Atlanta   Sep    5885
+
+sort_by_last_digit = sort_pd(key=lambda x: x%10)
+
+In [12]: pd.Series(list(df['sales'])).iloc[sort_by_last_digit(df['sales'])]
+Out[12]:
+2    8161
+0   12714
+3    5885
+1   89238
+  
+
+ To me this feels clean, but it uses python operations heavily rather than relying on optimized pandas operations. I haven't done any stress testing but I'd imagine this could get slow on very large DataFrames. Not sure how the performance compares to adding, sorting, then deleting a column. Any tips on speeding up the code would be appreciated! 
+
+
+

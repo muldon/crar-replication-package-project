@@ -1,0 +1,214 @@
+Query: Python - Sum 4D Array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24841317)
+  import numpy as np
+l = np.array([[[[ 4,  1],
+                [ 2,  1]],
+               [[ 8,  2],
+                [ 4,  2]]],
+              [[[ 8,  2],
+                [ 4,  2]],
+               [[12,  3],
+                [ 6,  3]]]])
+sum(sum(l))
+  
+
+ Output 
+
+  array([[32,  8],
+       [16,  8]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24841677)
+ By far the simplest in recent numpy (version 1.7 or newer) is to do: 
+
+  np.sum(M, axis=(0, 1))
+  
+
+ This will not build an intermediate array, as a duplicate call to  np.sum  would. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52841573)
+ This sort of issue is very easily solved with  pandas , and more code-intensive if you want a pure python or  numpy  solution.  
+
+  import pandas as pd
+
+df = pd.DataFrame(arr, columns=['A','X','Y','Z'])
+
+new_df = df.groupby(['X','Y','Z'],as_index=False).sum()
+
+new_arr = new_df[['A','X','Y','Z']].values
+
+>>> new_arr
+array([[ 6.2     , -0.47827 , -0.61492 , -6.8341  ],
+       [10.9     , -0.47827 , -0.47827 , -7.4221  ],
+       [ 2.6     , -0.47827 , -0.34162 , -7.9249  ],
+       [10.4     , -0.47827 , -0.34162 , -6.9302  ],
+       [10.1     ,  0.614923, -0.47827 , -6.8341  ]])
+
+# All in one line, without saving intermediate steps to memory:
+
+# new_arr pd.DataFrame(arr).groupby([1,2,3],as_index=False).sum()[[0,1,2,3]].values
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24841363)
+ You could use http://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html: 
+
+  In [21]: np.einsum('ijkl->kl', M)
+Out[21]: 
+array([[32,  8],
+       [16,  8]])
+  
+
+ 
+
+ Other options include reshaping the first two axes into one axis, and then calling  sum : 
+
+  In [24]: M.reshape(-1, 2, 2).sum(axis=0)
+Out[24]: 
+array([[32,  8],
+       [16,  8]])
+  
+
+ or calling the sum method twice: 
+
+  In [26]: M.sum(axis=0).sum(axis=0)
+Out[26]: 
+array([[32,  8],
+       [16,  8]])
+  
+
+ But using  np.einsum  is faster: 
+
+  In [22]: %timeit np.einsum('ijkl->kl', M)
+100000 loops, best of 3: 2.42 µs per loop
+
+In [25]: %timeit M.reshape(-1, 2, 2).sum(axis=0)
+100000 loops, best of 3: 5.69 µs per loop
+
+In [43]: %timeit np.sum(M, axis=(0,1))
+100000 loops, best of 3: 6.08 µs per loop
+
+In [33]: %timeit sum(sum(M))
+100000 loops, best of 3: 8.18 µs per loop
+
+In [27]: %timeit M.sum(axis=0).sum(axis=0)
+100000 loops, best of 3: 9.83 µs per loop
+  
+
+ 
+
+ Caveat: timeit benchmarks can vary significantly due to many factors (OS, NumPy version, NumPy libraries, hardware, etc). The relative performance of various methods can sometimes also depend on the size of M. So it pays to do your own benchmarks on an M which is closer to your actual use case. 
+
+ For example, for slightly larger arrays  M , calling the  sum  method twice may be fastest: 
+
+  In [34]: M = np.random.random((100,100,2,2))
+
+In [37]: %timeit M.sum(axis=0).sum(axis=0)
+10000 loops, best of 3: 59.9 µs per loop
+
+In [39]: %timeit np.einsum('ijkl->kl', M)
+10000 loops, best of 3: 99 µs per loop
+
+In [40]: %timeit np.sum(M, axis=(0,1))
+10000 loops, best of 3: 182 µs per loop
+
+In [36]: %timeit M.reshape(-1, 2, 2).sum(axis=0)
+10000 loops, best of 3: 184 µs per loop
+
+In [38]: %timeit sum(sum(M))
+1000 loops, best of 3: 202 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33957715)
+ You need to swap the second and third axes first, and then reshape: 
+
+  >>> a.swapaxes(1, 2).reshape(4, 4)
+array([[ 1,  2,  5,  6],
+       [ 3,  4,  7,  8],
+       [11, 12, 15, 16],
+       [13, 14, 17, 18]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38353996)
+ For a generic ndarray, you could reshape into a 2D array, keeping the number of elements along the first axis same and  merging  all of the remaining axes as the second axis and finally sum along that axis, like so - 
+
+  data.reshape(data.shape[0],-1).sum(axis=1)
+  
+
+ For a  4D  array, you could include the axes along which the summation is to be performed. So, to solve our case, we would have - 
+
+  data.sum(axis=(1,2,3))
+  
+
+ This could be extended to make it work for generic ndarrays by creating a tuple of appropriate axis IDs and thus avoid reshaping, like so - 
+
+  data.sum(axis=tuple(np.arange(1,data.ndim)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31274312)
+ You can use http://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html: 
+
+  C = np.einsum('ia,jb->abij', M.conj(), M)
+  
+
+ Or, since there is no actual sum being computed (i.e. this is a form of an outer product), you can use numpy broadcasting with regular array multiplication after reshaping the input matrix  M  appropriately: 
+
+  nrows, ncols = M.shape
+C = M.T.reshape(1, ncols, 1, nrows) * M.T.conj().reshape(ncols, 1, nrows, 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42633772)
+ You can firstly reshape the array to a 4d array, swap the second and third axises and then reshape it to 27 X 27: 
+
+  a.reshape(3,3,9,9).transpose((0,2,1,3)).reshape(27,27)
+
+#array([[  0,   1,   2,   3,   4,   5,   6,   7,   8,  81,  82,  83,  84,
+#         85,  86,  87,  88,  89, 162, 163, 164, 165, 166, 167, 168, 169,
+#        170],
+#       [  9,  10,  11,  12,  13,  14,  15,  16,  17,  90,  91,  92,  93,
+#         94,  95,  96,  97,  98, 171, 172, 173, 174, 175, 176, 177, 178,
+#        179],
+#  ... 
+#       [558, 559, 560, 561, 562, 563, 564, 565, 566, 639, 640, 641, 642,
+#        643, 644, 645, 646, 647, 720, 721, 722, 723, 724, 725, 726, 727,
+#        728]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21744566)
+ When you need to multiply element-wise, then reduce with addition, think  np.dot  or  np.einsum : 
+
+  from numpy.lib.stride_tricks import as_strided
+arr = np.random.rand(256, 256)
+mask = np.random.rand(3, 3)
+arr_view = as_strided(arr, shape=(254, 254, 3, 3), strides=arr.strides*2)
+
+arr[1:-1, 1:-1] = np.einsum('ijkl,kl->ij', arr_view, mask)
+  
+
+
+

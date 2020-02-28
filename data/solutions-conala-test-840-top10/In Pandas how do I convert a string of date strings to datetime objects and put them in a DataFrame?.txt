@@ -1,0 +1,281 @@
+Query: In Pandas how do I convert a string of date strings to datetime objects and put them in a DataFrame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17690868)
+  In [46]: pd.to_datetime(pd.Series(date_stngs))
+Out[46]: 
+0   2008-12-20 00:00:00
+1   2008-12-21 00:00:00
+2   2008-12-22 00:00:00
+3   2008-12-23 00:00:00
+dtype: datetime64[ns]
+  
+
+ Update: benchmark 
+
+  In [43]: dates = [(dt.datetime(1960, 1, 1)+dt.timedelta(days=i)).date().isoformat() for i in range(20000)]
+
+In [44]: timeit pd.Series([pd.to_datetime(date) for date in dates])
+1 loops, best of 3: 1.71 s per loop
+
+In [45]: timeit pd.to_datetime(pd.Series(dates))
+100 loops, best of 3: 5.71 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17690795)
+  >>> import pandas as pd
+>>> date_stngs = ('2008-12-20','2008-12-21','2008-12-22','2008-12-23')
+>>> a = pd.Series([pd.to_datetime(date) for date in date_stngs])
+>>> a
+0    2008-12-20 00:00:00
+1    2008-12-21 00:00:00
+2    2008-12-22 00:00:00
+3    2008-12-23 00:00:00
+  
+
+  UPDATE  
+
+ Use pandas.to_datetime(pd.Series(... It's concise and much faster than above code. 
+
+  >>> pd.to_datetime(pd.Series(date_stngs
+0   2008-12-20 00:00:00
+1   2008-12-21 00:00:00
+2   2008-12-22 00:00:00
+3   2008-12-23 00:00:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45018210)
+ You can check http://strftime.org/ and use: 
+
+  df['date'] = pd.to_datetime(df['STARTDATE'],format='%d %b %Y %H:%M:%S:%f')
+  
+
+  
+
+  df = pd.DataFrame({'STARTDATE':['06 Feb 2014 12:09:42:000','06 Mar 2014 12:09:42:000']})
+print (df)
+                  STARTDATE
+0  06 Feb 2014 12:09:42:000
+1  06 Mar 2014 12:09:42:000
+
+df['date'] = pd.to_datetime(df['STARTDATE'],format='%d %b %Y %H:%M:%S:%f')
+print (df)
+                  STARTDATE                date
+0  06 Feb 2014 12:09:42:000 2014-02-06 12:09:42
+1  06 Mar 2014 12:09:42:000 2014-03-06 12:09:42
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53328800)
+ You can convert to  datetime  and then use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.strftime.html. The below logic also ensures non-date columns remain unchanged. 
+
+  df = pd.DataFrame(columns=['Aug 2018(P&I Applied)', 'Jul 2018(P&I Applied)',
+                           'Jun 2018(P&I Applied)', 'Paystring as of cut off as if 10.31'])
+
+dates = pd.Series(pd.to_datetime(df.columns.str[:8], errors='coerce'))
+
+df.columns = dates.dt.strftime('%m/%y').mask(dates.isnull(), pd.Series(df.columns))
+
+print(df.columns)
+
+# Index(['08/18', '07/18', '06/18', 'Paystring as of cut off as if 10.31'], dtype='object')
+
+print(dates.dt.month)
+
+# 0    8.0
+# 1    7.0
+# 2    6.0
+# 3    NaN
+# dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36699433)
+  
+
+  import datetime as dt
+
+vals = [1, 2, 3, 4]
+dates = [dt.date(2016,1,n) for n in range(1, 5)]
+vals_2 = [1, 1, 2, 2]
+dates_2 = [dt.date(2016,1,n) for n in range(3, 7)]
+
+df1 = pd.DataFrame({'date': dates, 'vals': vals})
+df2 = pd.DataFrame({'date': dates_2, 'vals': vals_2})
+
+>>> df1.merge(df2, on='date', suffixes=['_1', '_2'])
+
+         date  vals_1  vals_2
+0  2016-01-03       3       1
+1  2016-01-04       4       1
+  
+
+ You can also convert the dates into Timestamps and then do the comparison, which should be slightly faster: 
+
+  df1['date'] = pd.to_datetime(df1.date)
+df2['date'] = pd.to_datetime(df2.date)
+  
+
+  Timings with 40k records  
+
+ Pandas using datetime objects. 
+
+  %timeit df1.merge(df2, on='date', suffixes=['_1', '_2'])
+1 loops, best of 3: 10.2 s per loop
+  
+
+ Pandas using timestamps. 
+
+  %timeit df1.merge(df2, on='date', suffixes=['_1', '_2'])
+1 loops, best of 3: 9.1 s per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47142267)
+ A simple solution involves the Series constructor. You can simply pass the data type to the  dtype  parameter. Also, the  to_datetime  function can take a sequence of strings now. 
+
+  Create Data  
+
+  date_strings = ('2008-12-20','2008-12-21','2008-12-22','2008-12-23')
+  
+
+ All three produce the same thing</h3>
+
+  pd.Series(date_strings, dtype='datetime64[ns]')
+pd.Series(pd.to_datetime(date_strings))
+pd.to_datetime(pd.Series(date_strings))
+  
+
+ Benchmarks 
+
+ The benchmarks provided by @waitingkuo are wrong. The first method is a bit slower than the other two, which have the same performance. 
+
+  import datetime as dt
+dates = [(dt.datetime(1960, 1, 1)+dt.timedelta(days=i)).date().isoformat() 
+         for i in range(20000)] * 100
+
+%timeit pd.Series(dates, dtype='datetime64[ns]')
+730 ms ± 9.06 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+
+%timeit pd.Series(pd.to_datetime(dates))
+426 ms ± 3.45 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+%timeit pd.to_datetime(pd.Series(dates))
+430 ms ± 5.7 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44741635)
+ Use  astype  
+
+  >>> import pandas as pd
+>>> df = pd.to_datetime(pd.Series(['Jul 31, 2009', '2010-01-10', None])) 
+>>> df.astype(str)
+0    2009-07-31
+1    2010-01-10
+2           NaT
+dtype: object
+  
+
+ returns an array of strings  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43978104)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_datetime.html + http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.strftime.html: 
+
+  df['GMT'] = pd.to_datetime(df['GMT'], format='%d %b %Y%H:%M %p')
+
+df['Date'] = df['GMT'].dt.strftime('%d %b %Y')
+df['Time'] = df['GMT'].dt.strftime('%H:%M %p')
+print (df)
+                  GMT         Date      Time
+0 2008-02-13 09:30:00  13 Feb 2008  09:30 AM
+1 2009-04-22 08:30:00  22 Apr 2009  08:30 AM
+2 2010-07-14 08:30:00  14 Jul 2010  08:30 AM
+3 2011-01-01 08:30:00  01 Jan 2011  08:30 AM
+  
+
+ And for datetime objects use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.date.html and 
+http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.time.html: 
+
+  df['GMT'] = pd.to_datetime(df['GMT'], format='%d %b %Y%H:%M %p')
+df['Date'] = df['GMT'].dt.date
+df['Time'] = df['GMT'].dt.time
+print (df)
+                  GMT        Date      Time
+0 2008-02-13 09:30:00  2008-02-13  09:30:00
+1 2009-04-22 08:30:00  2009-04-22  08:30:00
+2 2010-07-14 08:30:00  2010-07-14  08:30:00
+3 2011-01-01 08:30:00  2011-01-01  08:30:00
+  
+
+ For formats check http://strftime.org/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19754325)
+ If you have string values 'nan' in your dataframe: 
+
+  >>> df = pd.DataFrame({'input_date':['01/01/2003', '02/29/2012', 'nan', '03/01/1995']})
+>>> df
+   input_date
+0  01/01/2003
+1  02/29/2012
+2         nan
+3  03/01/1995
+  
+
+ you can convert it to NaN before converting to date: 
+
+  >>> df.ix[df['input_date'] == 'nan', 'input_date'] = np.NaN
+>>> df
+   input_date
+0  01/01/2003
+1  02/29/2012
+2         NaN
+3  03/01/1995
+  
+
+ And then you can do your conversion. But easier way would be to use vectorized operation http://pandas.pydata.org/pandas-docs/dev/generated/pandas.tseries.tools.to_datetime.html to convert strings to datetime: 
+
+  >>> df = pd.DataFrame({'input_date':['01/01/2003', '02/29/2012', 'nan', '03/01/1995']})
+>>> pd.to_datetime(df['input_date'])
+0   2003-01-01 00:00:00
+1   2012-02-29 00:00:00
+2                   NaT
+3   1995-03-01 00:00:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25354034)
+ You can use the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.convert_objects.html#pandas.DataFrame.convert_objects method to convert strings to your desired dtypes. 
+
+ Normally the  read_  methods will have some date handling param and these can handle most formats. 
+
+ In your case, seeing as  convert_objects  doesn't quite do everything you want you can call the pandas method  to_datetime  to convert the column also like so: 
+
+  df['time_col'] = pd.to_datetime(df['time_col'])
+  
+
+
+

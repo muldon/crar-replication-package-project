@@ -1,0 +1,185 @@
+Query: Find rows with non zero values in a subset of columns in pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39187821)
+ assume your dataframe is  df  
+
+  df.loc[(df.loc[:, df.dtypes != object] != 0).any(1)]
+  
+
+ https://i.stack.imgur.com/A6MMx.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39190492)
+ Here is an alternative solution which uses http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.select_dtypes.html method: 
+
+  In [41]: df[(df.select_dtypes(include=['number']) != 0).any(1)]
+Out[41]:
+        0          1   2  3  4  5  6  7
+1  manwra     akriti  T5  0  0  1  0  K
+2    awma   prabrtih  B6  0  1  1  0  S
+  
+
+  
+
+  In [42]: df.select_dtypes(include=['number']) != 0
+Out[42]:
+       3      4      5      6
+0  False  False  False  False
+1  False  False   True  False
+2  False   True   True  False
+
+In [43]: (df.select_dtypes(include=['number']) != 0).any(1)
+Out[43]:
+0    False
+1     True
+2     True
+dtype: bool
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50586307)
+ Here's the longwinded way, which should be faster if your non-zero values tend to occur near the start of large arrays: 
+
+  import pandas as pd
+
+df = pd.DataFrame([[0, 0, 0],[0, 10, 0],[4, 0, 0],[1, 2, 3]],
+                  columns=['first', 'second', 'third'])
+
+res = [next(((j, i) for i, j in enumerate(df[col]) if j != 0), (0, 0)) for col in df]
+
+df_res = pd.DataFrame(res, columns=['value', 'position'], index=df.columns)
+
+print(df_res)
+
+        value  position
+first       4         2
+second     10         1
+third       3         3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46171201)
+  Setup    
+
+ Consider the dataframe  df  
+
+  df = pd.DataFrame(dict(
+    col0=[1, 2, 3, 0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 9],
+    col1=[1, 2, 3, 0, 0, 4, 0, 1, 2, 3, 4, 0, 0, 0, 1, 2, 0, 0, 2, 0, 4, 8, 9]
+))
+  
+
+      
+
+  def max_zeros(c):
+    v = c.values != 0
+    d = np.diff(np.flatnonzero(np.diff(np.concatenate([[True], v]))))
+    return d[::2].max()
+
+df.apply(max_zeros)
+
+col0    6
+col1    3
+dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46171324)
+ If you have a dataframe like  
+
+  df = pd.DataFrame([[1, 2, 4, 5, 6, 2, 3, 0, 0, 0 ,0, 1, 2],[1, 0, 0, 2, 0, 2, 0, 0, 0, 0 ,0, 1, 2]])
+  
+
+ You can use itertools groupby  
+
+  from itertools import groupby
+def get_conti(a):
+    m = []
+    for group in groupby(range(len(a)), lambda x: a[x]):
+        if group[0]==0:
+            zero=list(group[1])
+            m.append(len(zero))
+    return max(m)
+
+df['max'] = df.apply(get_conti,1)
+  
+
+ Output: 
+
+ 
+  0  1  2  3  4  5  6  7  8  9  10  11  12  max
+0  1  2  4  5  6  2  3  0  0  0   0   1   2    4
+1  1  0  0  2  0  2  0  0  0  0   0   1   2    5
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51755772)
+ Try the following: 
+
+  column_groups = [A, B, C]
+masks = [(df[cols] != 0).any(axis=1) for cols in column_groups]
+full_mask = np.logical_and.reduce(masks)
+full_df = df[full_mask]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43906075)
+    pandas    
+ I  drop   TOTAl  and  sum  the number of non-zeros for each row  
+
+  df[df.drop('TOTAL', 1).ne(0).sum(1).gt(2)]
+
+year    2001  2002  2003  2004  2005  2006  2007  TOTAL
+player                                                 
+Emma       0     0     0     0     3     4     5     12
+Josh       1     2     4     1     2     1     0     11
+  
+
+    numpy    
+ faster solution    
+
+  v = df.values
+m = (v[:, :-1] != 0).sum(1) > 2
+pd.DataFrame(v[m], df.index[m], df.columns)
+
+year    2001  2002  2003  2004  2005  2006  2007  TOTAL
+player                                                 
+Emma       0     0     0     0     3     4     5     12
+Josh       1     2     4     1     2     1     0     11
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44333675)
+ it seems that you are calculating the absoluate difference between the last two columns, no matter the values are 0 or non-zero. If this is the case, you can do this: 
+
+  df['new'] = df.iloc[:,[-2,-1]].apply(lambda (x,y):abs(x-y), axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52007440)
+ Use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.div.html:  
+
+  df= pd.DataFrame({"ID": ['1', '2', '3', '4'], "A": [1, 0, 10, 0], "B": [4, 0, 30, 0]})
+df.set_index("ID", inplace=True)
+df.div(df.sum(axis=1), axis=0).fillna(0)
+  
+
+
+

@@ -1,0 +1,379 @@
+Query: How to iterate over time periods in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26662900)
+ In your  df  initialization  periods  must be a number not a string. 
+
+ I guess approach on how to handle this will depend on how many periods to you want to have. 
+
+ There are at least couple of ways: 
+
+ Setup periods: 
+
+  from datetime import time
+
+morning_start = time(7)
+morning_end = time(12)
+evening_start = time(18)
+evening_end = time(22)
+
+periods = {'morning':[morning_start, morning_end], 'evening':[evening_start, evening_end]}
+  
+
+ Approach 1. 
+
+  def f(x, periods=periods):
+    for k, v in periods.items():
+        if x.hour >= v[0].hour and x.hour < v[1].hour:
+            return k
+    return 'unknown_period'
+  
+
+ Approach 2. 
+
+  for k, v in periods.items():
+    df['periods'] = np.where(((v[0].hour <= df.t.apply(lambda x: x.hour)) & (df.t.apply(lambda x: x.hour) <= v[1].hour)), k, 'unknown_period')
+  
+
+ With the two periods that are defined 1st approach works faster: 
+
+  1000 loops, best of 3: 658 µs per loop
+  
+
+ vs. 2nd: 
+
+  100 loops, best of 3: 3.31 ms per loop
+  
+
+ In both cases with only two periods you could make it one-line expression (without the need to loop through the  periods ): 
+
+  df['periods'] = np.where((morning_start.hour <= df.t.apply(lambda x: x.hour)) & (df.t.apply(lambda x: x.hour) <= morning_end.hour), 'morning', 'evening')     
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29110533)
+ I think this is what you are looking for 
+
+ Construct a series of a frequency. Using 1 for clarify here. 
+
+  In [77]: i = pd.date_range('20110101','20150101',freq='B')
+
+In [78]: s = Series(1,index=i)
+
+In [79]: s
+Out[79]: 
+2011-01-03    1
+2011-01-04    1
+2011-01-05    1
+2011-01-06    1
+2011-01-07    1
+             ..
+2014-12-26    1
+2014-12-29    1
+2014-12-30    1
+2014-12-31    1
+2015-01-01    1
+Freq: B, dtype: int64
+
+In [80]: len(s)
+Out[80]: 1044
+  
+
+ Conform the index to another frequency. This makes every index element be the end-of-month here. 
+
+  In [81]: s.index = s.index.to_period('M').to_timestamp('M')
+
+In [82]: s
+Out[82]: 
+2011-01-31    1
+2011-01-31    1
+2011-01-31    1
+2011-01-31    1
+2011-01-31    1
+             ..
+2014-12-31    1
+2014-12-31    1
+2014-12-31    1
+2014-12-31    1
+2015-01-31    1
+dtype: int64
+  
+
+ Then its straightforward to resample to another frequency. This gives you the number of business days in the period in this case. 
+
+  In [83]: s.resample('3M',how='sum')
+Out[83]: 
+2011-01-31    21
+2011-04-30    64
+2011-07-31    65
+2011-10-31    66
+2012-01-31    66
+              ..
+2014-01-31    66
+2014-04-30    63
+2014-07-31    66
+2014-10-31    66
+2015-01-31    44
+Freq: 3M, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47485612)
+ Create helper  Series  by compare http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.shift.htmled  START  column per group and use it for  groupby : 
+
+  s = df.loc[df.groupby('KEY')['START'].shift(-1) == df['END'], 'END']
+s = s.combine_first(df['START'])
+print (s)
+0   2017-01-01
+1   2017-01-23
+2   2017-01-23
+3   2017-02-02
+4   2017-02-02
+Name: END, dtype: datetime64[ns]
+
+df = df.groupby(['KEY', s], as_index=False).agg({'START':'first','END':'last','VALUE':'sum'})
+print (df)
+  KEY  VALUE      START        END
+0   A    2.1 2017-01-01 2017-01-16
+1   A    5.0 2017-01-28 2017-03-01
+2   B    6.0 2017-01-01 2017-02-10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39713581)
+ This is the raison d'ȇtre for  pandas.date_range() : 
+
+  import pandas as pd
+
+test = pd.DataFrame({'TIME': pd.date_range(start='2016-09-20',
+                                           freq='10ms', periods=20)})
+print(test)
+  
+
+ Output: 
+
+<pre class="lang-none prettyprint-override">                       TIME
+0  2016-09-20 00:00:00.000
+1  2016-09-20 00:00:00.010
+2  2016-09-20 00:00:00.020
+3  2016-09-20 00:00:00.030
+4  2016-09-20 00:00:00.040
+5  2016-09-20 00:00:00.050
+6  2016-09-20 00:00:00.060
+7  2016-09-20 00:00:00.070
+8  2016-09-20 00:00:00.080
+9  2016-09-20 00:00:00.090
+10 2016-09-20 00:00:00.100
+11 2016-09-20 00:00:00.110
+12 2016-09-20 00:00:00.120
+13 2016-09-20 00:00:00.130
+14 2016-09-20 00:00:00.140
+15 2016-09-20 00:00:00.150
+16 2016-09-20 00:00:00.160
+17 2016-09-20 00:00:00.170
+18 2016-09-20 00:00:00.180
+19 2016-09-20 00:00:00.190
+  
+
+ (Substitute  periods=20  for  periods=172800000 ) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53841396)
+ Try using  cumsum  and boolean test condition with  groupby : 
+
+  df.groupby(['id',
+           (df['timestamp'].diff() > pd.Timedelta(minutes=2)).cumsum()], 
+           as_index=False)['value'].sum()
+  
+
+ Output: 
+
+         id  value
+0  00b0f3     19
+1  00b0f3     24
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29102566)
+ This solution provides a one liner using list comprehension.  Starting from the left of the time series and iterating forward (backward iteration could also be done), the iteration returns a subset of the index equal to the loopback window and jumps in a step size equal to the frequency.  Note that the very last period is likely a stub with a length less than the lookback window. 
+
+ This method uses days rather than month or week offsets. 
+
+  freq = 30      # Days
+lookback = 60  # Days
+
+idx = pd.date_range('2010-01-01', '2015-01-01')
+[idx[(freq * n):(lookback + freq * n)] for n in range(int(len(idx) / freq))]
+
+Out[86]: 
+[<class 'pandas.tseries.index.DatetimeIndex'>
+ [2010-01-01, ..., 2010-03-01]
+ Length: 60, Freq: D, Timezone: None,
+ <class 'pandas.tseries.index.DatetimeIndex'>
+ [2010-01-31, ..., 2010-03-31]
+ Length: 60, Freq: D, Timezone: None,
+...
+ Length: 60, Freq: D, Timezone: None,
+ <class 'pandas.tseries.index.DatetimeIndex'>
+ [2014-11-06, ..., 2015-01-01]
+ Length: 57, Freq: D, Timezone: None]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50116357)
+ If I understood you correctly, this should work: 
+
+  def f(x):
+    return df.iloc[0,1]+(df.iloc[2,1]-df.iloc[0,1])*((df.iloc[1,0]-df.iloc[0,0])/(df.iloc[2,0]-df.iloc[0,0]))
+  
+
+ Here you apply rolling with a  window=3  and  min_periods=1  with a step of 3 using  [[::3]]   
+
+  a = df.rolling(window=3, min_periods=1).apply(f)[::3].reset_index(drop=True)
+  
+
+ After you save the strings of the column  measurement  to a list  s  
+
+  s = list(i for i in df['measure'] if isinstance(i, basestring))
+  
+
+ And assign  s  as key of the dictionary  d  
+
+  d = a.T.to_dict('list')
+for index, k in enumerate(list(s)):
+    d[k] = d[index]
+    del d[index]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38038189)
+ I think you need function  lambda : 
+
+  data['maSlow_std']=data['Last'].groupby(pd.TimeGrouper('d'))
+                               .apply(lambda x: pd.rolling_mean(x, window=60) + 
+                                             2* pd.rolling_std(x, 20, min_periods=20))
+  
+
+ If  pandas  version  0.18.0+ : 
+
+  data['maSlow_std1']=data['Last'].groupby(pd.TimeGrouper('d'))
+                                .apply(lambda x: x.rolling(window=60,center=False).mean() + 
+                                              2* x.rolling(window=20,min_periods=20).std()) 
+  
+
+ Sample with  window=10  and  min_periods=5 : 
+
+  data['maSlow_std1']=data['Last'].groupby(pd.TimeGrouper('d'))
+                                .apply(lambda x: x.rolling(window=10,center=False).mean() + 
+                                              2* x.rolling(window=10,min_periods=5).std()) 
+
+print (data)
+
+                        Open     High      Low     Last  Volume  maSlow_std1
+Timestamp                                                                   
+2014-03-04 09:30:00  1783.50  1784.50  1783.50  1784.50     171          NaN
+2014-03-04 09:31:00  1784.75  1785.75  1784.50  1785.25      28          NaN
+2014-03-04 09:32:00  1785.00  1786.50  1785.00  1786.50      81          NaN
+2014-03-04 09:33:00  1786.00  1786.00  1785.25  1785.25      41          NaN
+2014-03-04 09:34:00  1785.00  1785.25  1784.75  1785.25      11          NaN
+2014-03-04 09:35:00  1785.50  1786.75  1785.50  1785.75      49          NaN
+2014-03-04 09:36:00  1786.00  1786.00  1785.25  1785.75      12          NaN
+2014-03-04 09:37:00  1786.00  1786.25  1785.25  1785.25      15          NaN
+2014-03-04 09:38:00  1785.50  1785.50  1784.75  1785.25      24          NaN
+2014-03-04 09:39:00  1785.50  1786.00  1785.25  1785.25      13  1786.432796
+2014-03-04 09:40:00  1786.00  1786.25  1783.50  1783.75      28  1786.700379
+2014-03-04 09:41:00  1784.00  1785.00  1784.00  1784.25      12  1786.760687
+2014-03-04 09:42:00  1784.25  1784.75  1784.00  1784.25      18  1786.354006
+2014-03-04 09:43:00  1784.75  1785.00  1784.50  1784.50      10  1786.300379
+2014-03-04 09:44:00  1784.25  1784.25  1783.75  1784.00      32  1786.268181
+2014-03-04 09:45:00  1784.50  1784.75  1784.50  1784.75      11  1786.008094
+2014-03-04 09:46:00  1785.00  1785.00  1784.50  1784.50      11  1785.656409
+2014-03-04 09:47:00  1785.00  1785.75  1784.75  1785.75      20  1785.877775
+2014-03-04 09:48:00  1785.75  1786.00  1785.75  1786.00      17  1786.186981
+2014-03-04 09:49:00  1786.00  1786.50  1785.75  1786.00      13  1786.449150
+2014-03-04 09:50:00  1786.50  1788.75  1786.25  1788.50     307  1787.988613
+2014-03-04 09:51:00  1788.25  1788.25  1787.75  1787.75      17  1788.647768
+2014-03-04 09:52:00  1787.75  1787.75  1787.25  1787.25      11  1788.947768
+2014-03-04 09:53:00  1787.25  1787.50  1787.25  1787.25      11  1789.156890
+2014-03-04 09:54:00  1787.00  1787.50  1786.75  1786.75      26  1789.019047
+2014-03-04 09:55:00  1787.25  1788.25  1787.25  1788.00      11  1789.206849
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53841512)
+ You can use  groupby  and  pd.Grouper  as follows: 
+
+  df = df.groupby(["id",pd.Grouper(key="timestamp", freq='2min')]).sum()
+  
+
+ The result would be: 
+
+  >>> df
+                            value
+id     timestamp                 
+00b0f3 2018-05-21 05:36:00     19
+       2018-05-21 21:54:00     24
+  
+
+ If you want to have  id  as a separate column you can run below code line: 
+
+  df.reset_index(inplace=True)
+  
+
+ And the resulting  DataFrame  would be then: 
+
+  >>> df
+       id           timestamp  value
+0  00b0f3 2018-05-21 05:36:00     19
+1  00b0f3 2018-05-21 21:54:00     24
+  
+
+ Note 
+
+ I pasted your data to a  csv  file and then imported it and created the  DataFrame  as follows: 
+
+  import pandas as pd
+
+df = pd.read_csv("D:/tmp/data.csv")
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25518040)
+ Perhaps you can use  numpy.searchsorted : 
+
+  >>> idx
+<class 'pandas.tseries.index.DatetimeIndex'>
+[2014-08-26 22:20:34.580486, ..., 2014-08-29 05:20:34.581053]
+Length: 12, Freq: None, Timezone: None
+>>> idx.hour
+array([22,  3,  8, 13, 18, 23,  4,  9, 14, 19,  0,  5], dtype=int32)
+
+>>> p = np.array(['00am-06am', '06am-12pm', '12pm-07pm', '07pm-00am'])
+>>> p[np.searchsorted([6, 12, 19, 24], idx.hour)]
+array(['07pm-00am', '00am-06am', '06am-12pm', '12pm-07pm', '12pm-07pm',
+       '07pm-00am', '00am-06am', '06am-12pm', '12pm-07pm', '12pm-07pm',
+       '00am-06am', '00am-06am'], 
+      dtype='<U9')
+  
+
+
+

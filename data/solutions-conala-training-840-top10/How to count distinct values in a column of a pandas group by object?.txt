@@ -1,0 +1,245 @@
+Query: How to count distinct values in a column of a pandas group by object?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31349216)
+ Question 2:  Why does  df1['size']  have dtype  object ?  
+
+  groupby/transform  returns a DataFrame with a https://github.com/pydata/pandas/blob/master/pandas/core/groupby.py#L2463 with both the original column's dtype and the result of the transformation. Since  Name  has dtype object,  
+
+  df1.groupby(['City']).transform(np.size)
+  
+
+ is converted to dtype object as well. 
+
+ I'm not sure why  transform  is coded to work like this; there might be some usecase which demands this to ensure correctness in some sense. 
+
+ 
+
+ Questions 1 & 3:  Why do I get  ValueError: Length mismatch  and how can I avoid it  
+
+ There are probably NaNs in the column being grouped. For example, suppose we change one of the values in  City  to  NaN : 
+
+  df2 = pd.DataFrame( { 
+    "Name" : ["Alice", "Bob", "Mallory", "Mallory", "Bob" , "Mallory"] , 
+    "City" : [np.nan, "Seattle", "Baires", "Caracas", "Baires", "Caracas"] })
+grouped = df2.groupby(['City'])
+  
+
+   
+
+  In [86]: df2.groupby(['City']).transform(np.size)
+ValueError: Length mismatch: Expected axis has 5 elements, new values have 6 elements
+  
+
+ Groupby does not group the NaNs: 
+
+  In [88]: [city for city, grp in  df2.groupby(['City'])]
+Out[88]: ['Baires', 'Caracas', 'Seattle']
+  
+
+ To work around this, use  groupby/agg : 
+
+  countcity = grouped.agg('count').rename(columns={'Name':'countcity'})
+#          countcity
+# City              
+# Baires           2
+# Caracas          2
+# Seattle          1
+  
+
+ and  merge the result back into  df2 : 
+
+  result = pd.merge(df2, countcity, left_on=['City'], right_index=True, how='outer')
+print(result)
+  
+
+  
+
+        City     Name  countcity
+0      NaN    Alice        NaN
+1  Seattle      Bob          1
+2   Baires  Mallory          2
+4   Baires      Bob          2
+3  Caracas  Mallory          2
+5  Caracas  Mallory          2
+  
+
+ 
+
+ Question 4: Do you mean  what is the Pandas equivalent of the SQL  select distinct  statement?  
+
+ If so, perhaps you are looking for
+http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.unique.html
+or perhaps iterate through the keys in the Groupby object, as was done in 
+
+  [city for city, grp in df2.groupby(['City'])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18554949)
+ How about either of: 
+
+  >>> df
+         date  duration user_id
+0  2013-04-01        30    0001
+1  2013-04-01        15    0001
+2  2013-04-01        20    0002
+3  2013-04-02        15    0002
+4  2013-04-02        30    0002
+>>> df.groupby("date").agg({"duration": np.sum, "user_id": pd.Series.nunique})
+            duration  user_id
+date                         
+2013-04-01        65        2
+2013-04-02        45        1
+>>> df.groupby("date").agg({"duration": np.sum, "user_id": lambda x: x.nunique()})
+            duration  user_id
+date                         
+2013-04-01        65        2
+2013-04-02        45        1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54413755)
+ Try this: 
+- first, group the data frame by  park  and  date  
+- aggregate  to_count  by its number of unique values 
+
+  df = pd.DataFrame({
+    'park': ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'B'],
+    'date': ['2019-01-01', '2019-01-03', '2019-01-05', '2019-01-05',
+             '2019-01-01', '2019-01-08', '2019-01-08', '2019-01-10'],
+    'to_count': ['Honda', 'Lexus', 'BMW', 'Lexus', 'BMW', 'Lexus', 'Lexus', 'Ford']
+})
+
+agg_df = df.groupby(by=['park', 'date']).agg({'to_count': pd.Series.nunique}).reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45044756)
+ 'nunique' is now an option for . 
+
+  df.groupby('date').agg({'duration': 'sum', 'user_id': 'nunique'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40805967)
+ If you do not want to concatenate columns, you can apply a function that counts the number of non-duplicates: 
+
+  df.groupby(['a','b'])[['c','d']].apply(lambda g: len(g) - g.duplicated().sum())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42613834)
+ You can use http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing first, then  groupby  with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.SeriesGroupBy.nunique.html and last http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.join.html: 
+
+  base_data = pd.DataFrame({"DEPT": ["a", "a", "b", "b"],
+                   "CLAS":['d','d','d','d'],
+                   "STOCK": [-1, 1, 2,2],
+                   "DATE":pd.to_datetime(['2001-10-10','2001-10-10',
+                                          '2001-10-10','2001-10-10']),
+                   "ITEM":[1,2,3,4]})
+
+print (base_data)
+  CLAS       DATE DEPT  ITEM  STOCK
+0    d 2001-10-10    a     1     -1
+1    d 2001-10-10    a     2      1
+2    d 2001-10-10    b     3      2
+3    d 2001-10-10    b     4      2
+
+assort_size = base_data[(base_data['STOCK'] > 0)]\
+.groupby(['DEPT','CLAS','DATE'])['ITEM'].nunique().rename('n_item')
+print (assort_size)
+DEPT  CLAS  DATE      
+a     d     2001-10-10    1
+b     d     2001-10-10    2
+Name: n_item, dtype: int64
+
+print (base_data.join(assort_size, on=['DEPT','CLAS','DATE']))
+  CLAS       DATE DEPT  ITEM  STOCK  n_item
+0    d 2001-10-10    a     1     -1       1
+1    d 2001-10-10    a     2      1       1
+2    d 2001-10-10    b     3      2       2
+3    d 2001-10-10    b     4      2       2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36137905)
+ There's a way to do this count of distinct elements of each group using the function  countDistinct : 
+
+  import pyspark.sql.functions as func
+from pyspark.sql.types import TimestampType
+from datetime import datetime
+
+df_y = sqlContext.read.json("/user/test.json")
+udf_dt = func.udf(lambda x: datetime.strptime(x, '%Y%m%d%H%M%S'), TimestampType())
+df = df_y.withColumn('datetime', udf_dt(df_y.date))
+df_g = df_y.groupby(func.hour(df_y.date))    
+df_y.groupby(df_y.name).agg(func.countDistinct('address')).show()
+
++----+--------------+
+|name|count(address)|
++----+--------------+
+| Yan|             1|
+| Yun|             1|
+| Yin|             2|
+| Yen|             1|
+| Yln|             1|
++----+--------------+
+  
+
+ The docs are available [here](https://spark.apache.org/docs/1.6.0/api/java/org/apache/spark/sql/functions.html#countDistinct(org.apache.spark.sql.Column, org.apache.spark.sql.Column...)). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43723309)
+  
+
+  #for join values convert values to string
+df['SUB_NUM'] = df['SUB_NUM'].astype(str)
+#create mapping dict by dict comprehension
+L = ['1','2']
+d = {x: ','.join(L) for x in L}
+print (d)
+{'2': '1,2', '1': '1,2'}
+
+#replace values by dict
+a = df['SUB_NUM'].replace(d)
+print (a)
+0    1,2
+1    1,2
+2    1,2
+3      4
+4      6
+5      6
+Name: SUB_NUM, dtype: object
+
+
+#groupby by mapping column and aggregating `first` and `size`
+print (df.groupby(a)
+         .agg({'ID':'first', 'ELAPSED_TIME':'size'})
+         .rename(columns={'ELAPSED_TIME':'Count'})
+         .reset_index())
+
+  SUB_NUM  ID  Count
+0     1,2   1      3
+1       4   4      1
+2       6   5      2
+  
+
+ https://stackoverflow.com/questions/33346591/what-is-the-difference-between-size-and-count-in-pandas 
+
+
+

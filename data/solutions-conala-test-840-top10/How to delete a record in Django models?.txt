@@ -1,0 +1,302 @@
+Query: How to delete a record in Django models?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3805981)
+ There are a couple of ways: 
+
+ To delete it directly: 
+
+  SomeModel.objects.filter(id=id).delete()
+  
+
+ To delete it from an instance: 
+
+  instance = SomeModel.objects.get(id=id)
+instance.delete()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41448844)
+ What is weird is you remove rows from 3 different models based on a same given id, is it intended? 
+
+ You should have a relation between your three models.
+Probably a OneToOneField for each other models. 
+
+ Check this : https://docs.djangoproject.com/en/1.10/topics/db/examples/one_to_one/ 
+
+ Then you can configure your oneToOneField so that when you delete the row, it also deletes the other object of the relation : 
+
+  class Place(models.Model):
+    name = models.CharField(max_length=50)
+    address = models.CharField(max_length=80)
+
+    def __str__(self):              # __unicode__ on Python 2
+        return "%s the place" % self.name
+
+class Restaurant(models.Model):
+    place = models.OneToOneField(
+        Place,
+        on_delete=models.CASCADE, # deleting a place will delete the associated restaurant
+        primary_key=True,
+    )
+    serves_hot_dogs = models.BooleanField(default=False)
+    serves_pizza = models.BooleanField(default=False)
+
+    def __str__(self):              # __unicode__ on Python 2
+        return "%s the restaurant" % self.place.name
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35105499)
+ Here's an alternative to using signals: override the  delete  method of your model. 
+
+ Example: 
+
+  class StoreSegments01(models.Model):
+    segment = models.FileField(upload_to=content_file_name)
+    segmentID = models.TextField(max_length=100, default=11)
+
+    def delete(self, *args, **kwargs):
+        # first, delete the file
+        self.segment.delete(save=False)
+
+        # now, delete the object
+        super(StoreSegments01, self).delete(*args, **kwargs)
+  
+
+ For Python 3, call  super  like this:  super().delete(*args, **kwargs)  
+
+  Heads up! :  This works if you delete individual objects. But if you delete objects in bulk, the associated files aren't deleted. Because deleting a single object calls  model.delete()  method but deleting in bulk calls  queryset.delete()  method. Thanks to https://stackoverflow.com/users/1977847/ who pointed this out in a comment below. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47931818)
+ FYI, the on_delete parameter in models is backwards from what it sounds like.  You put "on_delete" on a Foreign Key (FK) on a model to tell django what to do if the FK entry that you are pointing to on your record is deleted.  The options our shop have used the most are PROTECT, CASCADE, and SET_NULL. Here are the basic rules I have figured out:  
+
+ 
+ Use PROTECT when your FK is pointing to a look-up table that really shouldn't be changing and that  certainly  should not cause your table to change.  If anyone tries to delete an entry on that look-up table, PROTECT prevents them from deleting it if it is tied to any records.  It also prevents django from deleting  your  record just because it deleted an entry on a look-up table.  This last part is critical.   If someone were to delete the gender "Female" from my Gender table, I CERTAINLY would NOT want that to instantly delete any and all people I had in my Person table who had that gender.  
+ Use CASCADE when your FK is pointing to a "parent" record.  So, if a Person can have many PersonEthnicity entries (he/she can be American Indian, Black, and White), and that Person  is  deleted, I really  would  want any "child" PersonEthnicity entries to be deleted.  They are irrelevant without the Person. 
+ Use SET_NULL when you  do  want people to be allowed to delete an entry on a look-up table, but you still want to preserve your record.  For example, if a Person can have a HighSchool, but it doesn't really matter to me if that high-school goes away on my look-up table, I would say "on_delete=SET_NULL."  This would leave my Person record out there; it just would just set the high-school FK on my Person to null.  Obviously, you will have to allow null=True on that FK. 
+ 
+
+ Here is an example of a model that does all three things: 
+
+  class PurchPurchaseAccount(models.Model):
+    id = models.AutoField(primary_key=True)
+    purchase = models.ForeignKey(PurchPurchase, null=True, db_column='purchase', blank=True, on_delete=models.CASCADE) # If "parent" rec gone, delete "child" rec!!!
+    paid_from_acct = models.ForeignKey(PurchPaidFromAcct, null=True, db_column='paid_from_acct', blank=True, on_delete=models.PROTECT) # Disallow lookup deletion & do not delete this rec.
+    _updated = models.DateTimeField()
+    _updatedby = models.ForeignKey(Person, null=True, db_column='_updatedby', blank=True, related_name='acctupdated_by', on_delete=models.SET_NULL) # Person records shouldn't be deleted, but if they are, preserve this PurchPurchaseAccount entry, and just set this person to null.
+
+    def __unicode__(self):
+        return str(self.paid_from_acct.display)
+    class Meta:
+        db_table = u'purch_purchase_account'
+  
+
+ As a last tidbit, did you know that if you  don't  specify on_delete (or didn't), the default behavior is CASCADE?  This means that if someone deleted a gender entry on your Gender table, any Person records with that gender were also deleted! 
+
+ I would say, "If in doubt, set on_delete=models.PROTECT."  Then go test your application.  You will quickly figure out which FKs should be labeled the other values without endangering any of your data. 
+
+ Also, it is worth noting that on_delete=CASCADE is actually not added to any of your migrations, if that is the behavior you are selecting.  I guess this is because it is the default, so putting on_delete=CASCADE is the same thing as putting nothing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49938569)
+ if you should use django on legacy database, you can't modify db_schema 
+
+ there is a workaround (ugly) method to fix this issue 
+
+  override  the models save or delete function 
+
+ 
+   use raw sql statement to save or delete object 
+ 
+
+ class BaseModel(models.Model): 
+
+  def get_max_length_unique_key(self):
+    max_len_unique_key = []
+    for unique_key in self._meta.unique_together:
+        if len(unique_key) > len(max_len_unique_key):
+            max_len_unique_key = unique_key
+    return max_len_unique_key
+
+def get_db_conn(self):
+    db_cnn = DbManage(db_ip, db_port, DATABASES_USER, DATABASES_PASSWORD, self._meta.db_table)
+    db_cnn.connect()
+    return db_cnn
+
+def save(self, *args, **kwargs):
+    self.delete()
+    cnn, databasename = self.get_db_conn()
+    update_tables = self._meta.db_table
+    key_list = ""
+    values_list = ""
+    for field in self._meta.fields:
+        key_list += "%s," % field.name
+        values_list += "\'%s\'," % str(getattr(self, field.name))
+
+    key_list = key_list[:len(key_list) - 1]
+    values_list = values_list[:len(values_list) - 1]
+
+    sql = "insert into %s(%s) values(%s)" % (update_tables, key_list, values_list)
+    logger.info("insert new record to %s" % databasename)
+    cnn.excute_sql(sql)
+    cnn.close()
+
+def delete(self, *args, **kwargs):
+    cnn = self.get_db_conn()
+    update_tables = self._meta.db_table
+    sql = "delete from %s where " % update_tables
+    for uk in self.get_max_length_unique_key():
+        sql += "%s=\'%s\' and " % (uk, getattr(self, uk))
+    sql = sql[:len(sql) - 4]
+
+    logger.info("delete record from %s" % update_tables)
+    cnn.excute_sql(sql)
+    cnn.close()
+    pass
+
+class Meta:
+    abstract = True
+  
+
+ class ImageList(BaseModel): 
+
+  field1 = models.CharField(primary_key=True, max_length=30)
+field2 = models.CharField(primary_key=True, max_length=30)
+field3 = models.CharField(primary_key=True, max_length=30)
+body = models.CharField(max_length=2000, blank=True, null=True)
+updated_on = models.DateTimeField(blank=True, null=True)
+
+class Meta:
+    managed = True
+    db_table = 'image_list'
+    unique_together = (('field1', 'field2', 'field3'),)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10233235)
+ By checking code in  delete()  inside  django/db/models/deletion.py , I found the  QuerySet.delete  deletes collected instances in batch and   THEN   trigger  post_delete  for those deleted instances. If you delete  Bar()  in the first  post_delete  calling for the first deleted  Foo()  instance, later  post_delete  of   Foo()  instances will be failed because the  Bar()  which they point to has already been deleted. 
+
+ The key here is that  Foo() s having same bar does not point to the same  Bar()  instance, and the bar gets deleted too early. Then we could  
+
+ 
+  straightly  try...except  the lookup of  instance.bar  
+
+  def garbage_collect(sender, instance, **kwargs):
+    try:
+        if instance.bar.foo_set.exists():
+            instance.bar.delete()
+    except Bar.DoesNotExist:
+        pass
+   
+  preload  Bar()  for each instances to avoid the above exception  
+
+  def test_queryset_post_delete(self):
+    Foo.objects.select_related('bar').delete()        
+
+def garbage_collect(sender, instance, **kwargs):
+    if instance.bar.foo_set.exists():
+        instance.bar.delete()
+   
+ 
+
+ Both of above solutions do extra  SELECT  queries. The more graceful ways could be 
+
+ 
+  Do the deletion of  Bar  always in  garbage_collect  or manually later, if you can: 
+
+  Bar.objects.filter(foo__isnull=True).delete()
+   
+  In  garbage_collect , record the deletion plan for  Bar()  instead of deleting, to some ref-count flag or queued tasks.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28062899)
+ It is MUCH safer to do post_delete. If something goes wrong you will start missing S3 files and you wont notice it because your DB records are intact. post_delete will be safer since it is less likely that S3 delete operation would fail after you have deleted your db record. Furthermore even if file delete fails you will be left with a bunch of unreferenced S3 file which are harmless and can be easily cleaned up.  
+
+  @receiver(models.signals.post_delete, sender=Picture)
+def remove_file_from_s3(sender, instance, using, **kwargs):
+    instance.img.delete(save=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37999247)
+ You can directly query the database for more than 8 days old  tweets  using  lte  and delete the resultant  tweets . There is no need of iterating over the results and then individually deleting all of them. 
+
+  @shared_task(name='cleanup')
+def cleanup():
+    # filter and delete more than 8 days old tweets
+    Tweet.objects.filter(tweet_date__lte=datetime.now()-timedelta(days=8)).delete()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33424547)
+ Personally, I think the best option is to avoid the cascaded deletion. 
+
+ Declaring the foreign keys in the related models with the proper Django option, e.g. 
+
+  on_delete=models.SET_NULL
+  
+
+ . 
+
+ Borrowing the sample models from @Joseph's answer: 
+
+  class Foo(models.Model):
+   name = models.CharField(max_length=10)
+
+class Bar(models.Model):
+   descr = models.CharField(max_length=100)
+   foo = models.ForeignKey(Foo, blank=True, null=True, on_delete=models.SET_NULL))
+  
+
+ As described in the official https://docs.djangoproject.com/en/1.8/ref/models/fields/#django.db.models.ForeignKey.on_delete, here are the predefined behaviours you can use and experiment with: 
+
+ 
+  SET_NULL: Set the ForeignKey null; this is only possible if null is
+True.  
+  SET_DEFAULT: Set the ForeignKey to its default value; a default for
+the ForeignKey must be set.  
+  SET(): Set the ForeignKey to the value passed to SET(), or if a
+callable is passed in, the result of calling it. In most cases, passing a callable will be necessary to avoid executing queries at the time your models.py is imported:  
+ 
+
+ 
+  from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db import models
+
+def get_sentinel_user():
+    return get_user_model().objects.get_or_create(username='deleted')[0]
+
+class MyModel(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,
+                             on_delete=models.SET(get_sentinel_user))
+  
+ 
+
+ 
+ DO_NOTHING: Take no action. If your database backend enforces
+referential integrity, this will cause an IntegrityError unless you
+manually add an SQL ON DELETE constraint to the database field 
+ 
+
+
+

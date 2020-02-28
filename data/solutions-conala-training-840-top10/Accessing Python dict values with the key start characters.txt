@@ -1,0 +1,297 @@
+Query: Accessing Python dict values with the key start characters
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27518478)
+  >>> my_dict = {'name': 'Klauss', 'age': 26, 'Date of birth': '15th july'}
+>>> next(v for k,v in my_dict.items() if 'Date' in k)
+'15th july'
+
+
+>>> [ v for k,v in my_dict.items() if 'Date' in k]
+['15th july']
+
+
+>>> next( v for k,v in my_dict.items() if k.startswith('Date'))
+'15th july'
+>>> [ v for k,v in my_dict.items() if k.startswith('Date')]
+['15th july']
+  
+
+ if i use the above given method i am getting StopIteration exception  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17107380)
+ not the best solution, can be improved (overide  getitem ) 
+
+  class mydict(dict):
+    def __getitem__(self, value):
+        keys = [k for k in self.keys() if value in k]
+        key = keys[0] if keys else None
+        return self.get(key)
+
+
+my_dict = mydict({'name': 'Klauss', 'age': 26, 'Date of birth': '15th july'})
+print(my_dict['Date'])# returns 15th july
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17106842)
+ You can't do such directly with  dict[keyword] , you've to iterate through the dict and match each key against the keyword and return the corresponding value if the keyword is found.
+This is going to be an  O(N)  operation. 
+
+  >>> my_dict = {'name': 'Klauss', 'age': 26, 'Date of birth': '15th july'}
+>>> next(v for k,v in my_dict.items() if 'Date' in k)
+'15th july'
+  
+
+ To get all such values use a list comprehension:  
+
+  >>> [ v for k,v in my_dict.items() if 'Date' in k]
+['15th july']
+  
+
+ use  str.startswith  if you want only those values whose keys starts with 'Date': 
+
+  >>> next( v for k,v in my_dict.items() if k.startswith('Date'))
+'15th july'
+>>> [ v for k,v in my_dict.items() if k.startswith('Date')]
+['15th july']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17106852)
+  
+
+  print next(val for key, val in my_dict.iteritems() if key.startswith('Date'))
+  
+
+ but this incurs a full scan through the dictionary. It only finds the  first  such matching key (where 'first' is arbitrary) and raises  StopIteration  instead of  KeyError  if no keys match. 
+
+ To get closer to what you are thinking of, it's better to write this as a function: 
+
+  def value_by_key_prefix(d, partial):
+    matches = [val for key, val in d.iteritems() if key.startswith(partial)]
+    if not matches:
+        raise KeyError(partial)
+    if len(matches) > 1:
+        raise ValueError('{} matches more than one key'.format(partial))
+    return matches[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48265938)
+ Dictionaries (like all built-in containers) are represented with their contents shown as representations, essentially using the https://docs.python.org/3/library/functions.html#repr on each. For strings, those are meant to be as helpful as possible in that they are shown as  string literals  that can simply be copied and pasted to recreate their value. That means they also show unprintable characters or characters with special meaning as  escape sequences . Your newline characters are just such characters. 
+
+ In other words, you can't do what you want just by inserting  \n  characters in the string values. 
+
+ Instead, you need to do your  own  formatting if you really want to show your dictionary that way. Just print out the keys and values yourself: 
+
+  def represent_dict(d):
+    print('{', end='')  # no newline
+    first = True
+    for key, value in d.items():
+        # newline at the start, not end, with commas
+        print('{}\n{!r}: {!r}'.format('' if first else ',', key, value), end='')
+        first = False
+    print('}')  # closing with a brace and a newline
+  
+
+ Remove the  \n  addition in your reading code; it can be simplified to just produce the dictionary directly with a dictionary comprehension: 
+
+  def read_dictionary():
+    with open("text.tsv") as tsvfile:
+        tsvreader = csv.reader(tsvfile, delimiter = "\t")
+        return {row[0]: row[1:] for row in tsvreader}
+
+represent_dict(read_dictionary())
+  
+
+ You generally should keep  presentation  and  data structure  separate. Those newlines in the keys can easily cause issues elsewhere, and they are only there for the presentation output. 
+
+ Demo of the output: 
+
+  >>> dictionary = {"string1":["a","b","c"], "string2":["d","e","f"],
+...               "string3":["g","h","i"], "string4":["j","k","l"]}
+>>> represent_dict(dictionary)
+{
+'string1': ['a', 'b', 'c'],
+'string2': ['d', 'e', 'f'],
+'string3': ['g', 'h', 'i'],
+'string4': ['j', 'k', 'l']}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13694031)
+ https://docs.djangoproject.com/en/dev/ref/templates/api/#variables--lookups that you can't have a variable start with an underscore: 
+
+ 
+   Variable names must consist of any letter (A-Z), any digit (0-9), an underscore (but they must not start with an underscore) or a dot. 
+ 
+
+ but you can easily write a https://docs.djangoproject.com/en/dev/howto/custom-template-tags/#writing-custom-template-filters to mimic the dictionary's http://docs.python.org/2/library/stdtypes.html#dict.get method:  
+
+  @register.filter(name='get')
+def get(d, k):
+    return d.get(k, None)
+  
+
+  
+
+  {{ my_dict|get:"_my_key" }}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36651771)
+ You need to create the nested dictionary before accessing it: 
+
+  for sub_dict_key, sub_dict in some_dict.items():
+    new_dict[sub_dict_key] = {} # Add this line
+
+    for key, value in sub_dict.items():
+        # no changes
+  
+
+  (In order for  new_dict[sub_dict_key][key]  to work,  new_dict  must be a dictionary, &  new_dict[sub_dict_key]  also has to be a dictionary.)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50548747)
+ Let's use  re.findall  here: 
+
+  >>> import re
+>>> dict(re.findall(r'(?=\S|^)(.+?): (\S+)', text))
+{'Date': '07/14/1995', 'Subject text': 'Something-cool', 'Time': '11:31:50'}
+  
+
+ Or, if you insist on the format, 
+
+  >>> {k : [v] for k, v in re.findall(r'(?=\S|^)(.+?): (\S+)', text)}
+{
+   'Date'        : ['07/14/1995'],
+   'Subject text': ['Something-cool'],
+   'Time'        : ['11:31:50']
+}
+  
+
+  
+
+    
+
+  (?=   # lookahead 
+\S    # anything that isn't a space
+|     # OR
+^     # start of line
+) 
+(.+?) # 1st capture group - 1 or more characters, until...
+:     # ...a colon
+\s    # space
+(\S+) # 2nd capture group - one or more characters that are not wsp 
+  
+
+ Semantically, this regex means "get me all pairs of items that follow this particular pattern of something followed by a colon and whitespace and a bunch of characters that are not whitespace". The lookahead at the start is so that the groups are not captured with a leading whitespace (and lookbehinds support only fixed-width assertions, so). 
+
+  Note: This will fail if your values have spaces in them.  
+
+ 
+
+ If you're doing this for multiple lines in a text file, let's build on this regex and use a  defaultdict : 
+
+  from collections import defaultdict
+d = defaultdict(list)
+
+with open(file) as f:
+    for text in file:
+        for k, v in re.findall(r'(?=\S|^)(.+?): (\S+)', text.rstrip()):
+            d[k].append(v)
+  
+
+ This will add one or more values to your dictionary for a given key. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27368830)
+ With String's  replace()  function you can do something like: 
+
+  x = "thójlà"                  
+>>> x
+'thójlà'
+>>> x = x.replace('ó','o')
+'thojlà'
+>>> x = x.replace('à','a')
+'thojla'
+  
+
+  
+
+  # -*- coding: utf-8 -*-
+
+replace_dict = {
+    'á':'a',
+    'à':'a',
+    'é':'e',
+    'í':'i',
+    'ó':'o',
+    'ù':'u',
+    'ú':'u'
+}
+
+str1 = "thójlà"
+
+for key in replace_dict:
+    str1 = str1.replace(key, replace_dict[key])
+
+print(str1) #prints 'thojla'
+  
+
+ A third way, if your list of character mappings is getting too large: 
+
+  # -*- coding: utf-8 -*-
+
+replace_dict = {
+    'a':['á','à'],
+    'e':['é'],
+    'i':['í'],
+    'o':['ó'],
+    'u':['ù','ú']
+}
+
+str1 = "thójlà"
+
+for key, values in replace_dict.items():
+    for character in values:
+        str1 = str1.replace(character, key)
+
+print(str1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25330911)
+ Using https://docs.python.org/2/library/stdtypes.html#str.format and accessing each dict's values 
+
+  ["{}={}".format(d.values()[1],d.values()[0]) for d in my_list]
+['Apple=Fruit', 'Car=Automobile', 'Dog=Animal', 'Bolt=Runner']
+  
+
+  
+
+  ["{}={}".format(d["Key"],d["Value"]) for d in my_list]
+  
+
+
+

@@ -1,0 +1,472 @@
+Query: Pandas how to apply multiple functions to dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36321137)
+ In the general case where you have arbitrary functions and column names, you could do this: 
+
+  df.apply(lambda r: pd.Series({'mean': r.mean(), 'std': r.std()})).transpose()
+
+         mean       std
+one  5.366303  2.612738
+two  4.858691  2.986567
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22128316)
+ For Pandas 0.20.0 or newer, use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.agg.html (thanks to ayhan for https://stackoverflow.com/questions/22128218/pandas-how-to-apply-multiple-functions-to-dataframe/22128316?noredirect=1#comment85010010_22128316): 
+
+  In [11]: df.agg(['mean', 'std'])
+Out[11]: 
+           one       two
+mean  5.147471  4.964100
+std   2.971106  2.753578
+  
+
+ For older versions, you could use 
+
+  In [61]: df.groupby(lambda idx: 0).agg(['mean','std'])
+Out[61]: 
+        one               two          
+       mean       std    mean       std
+0  5.147471  2.971106  4.9641  2.753578
+  
+
+ Another way would be: 
+
+  In [68]: pd.DataFrame({col: [getattr(df[col], func)() for func in ('mean', 'std')] for col in df}, index=('mean', 'std'))
+Out[68]: 
+           one       two
+mean  5.147471  4.964100
+std   2.971106  2.753578
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44864946)
+ There are two versions of agg (short for aggregate) and apply: The first is defined on groupby objects and the second one is defined on DataFrames.  
+
+ If you consider  groupby.agg   and  groupby.apply , the main difference would be that the apply is flexible (http://pandas.pydata.org/pandas-docs/stable/groupby.html#flexible-apply): 
+
+ 
+   Some operations on the grouped data might not fit into either the
+  aggregate or transform categories. Or, you may simply want GroupBy to
+  infer how to combine the results. For these, use the apply function,
+  which can be substituted for both aggregate and transform in many
+  standard use cases. 
+  
+   Note: apply can act as a reducer, transformer, or filter function,
+  depending on exactly what is passed to apply. So depending on the path
+  taken, and exactly what you are grouping. Thus the grouped columns(s)
+  may be included in the output as well as set the indices. 
+ 
+
+ See https://stackoverflow.com/questions/38902042/python-pandas-how-to-return-grouped-lists-in-a-column-as-a-dict for example for an illustration of how the returning type is automatically changed. 
+
+  groupby.agg , on the other hand, is very good for applying cython optimized functions (i.e. being able to calculate  'sum' ,  'mean' ,  'std'  etc. very fast). It also allows calculating multiple (different) functions on different columns. For example, 
+
+  df.groupby('some_column').agg({'first_column': ['mean', 'std'],
+                               'second_column': ['sum', 'sem']}
+  
+
+ calculates the mean and the standard deviation on the first column and sum and standard error of the mean on the second column. See https://stackoverflow.com/questions/38935541/dplyr-summarize-equivalent-in-pandas/38935669 for more examples.  
+
+ These differences are also summarized in https://stackoverflow.com/questions/21828398/what-is-the-difference-between-pandas-agg-and-apply-function But that one focuses on the differences between  groupby.agg  and  groupby.apply .  
+
+  DataFrame.agg  is new in version 0.20. Earlier, we weren't able to apply multiple different functions to different columns because it was only possible with groupby objects. Now, you can summarize a DataFrame by calculating multiple different functions on its columns. Example from https://stackoverflow.com/questions/37209908/is-there-a-pandas-equivalent-of-dplyrsummarise: 
+
+  iris.agg({'sepal_width': 'min', 'petal_width': 'max'})
+
+petal_width    2.5
+sepal_width    2.0
+dtype: float64
+
+iris.agg({'sepal_width': ['min', 'median'], 'sepal_length': ['min', 'mean']})
+
+        sepal_length  sepal_width
+mean        5.843333          NaN
+median           NaN          3.0
+min         4.300000          2.0
+  
+
+ This is not possible with  DataFrame.apply . It either goes column by column or row by row and executes the same function on that column/row. For a single function like  lambda x: x**2  they produce the same results but their intended usage is very different. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40533516)
+ I think you can avoid  agg  or  apply  and rather first multiple by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.mul.html, then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.div.html and last use  groupby  by  index  with  aggregating  http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.sum.html: 
+
+  lasts = pd.DataFrame({'user':['a','s','d','d'],
+                   'elapsed_time':[40000,50000,60000,90000],
+                   'running_time':[30000,20000,30000,15000],
+                   'num_cores':[7,8,9,4]})
+
+print (lasts)
+   elapsed_time  num_cores  running_time user
+0         40000          7         30000    a
+1         50000          8         20000    s
+2         60000          9         30000    d
+3         90000          4         15000    d
+  
+
+
+
+  by_user = lasts.groupby('user')
+elapsed_days = by_user.apply(lambda x: (x.elapsed_time * x.num_cores).sum() / 86400)
+print (elapsed_days)
+running_days = by_user.apply(lambda x: (x.running_time * x.num_cores).sum() / 86400)
+user_df = elapsed_days.to_frame('elapsed_days').join(running_days.to_frame('running_days'))
+print (user_df)
+      elapsed_days  running_days
+user                            
+a         3.240741      2.430556
+d        10.416667      3.819444
+s         4.629630      1.851852
+  
+
+
+
+  lasts = lasts.set_index('user')
+print (lasts[['elapsed_time','running_time']].mul(lasts['num_cores'], axis=0)
+                                             .div(86400)
+                                             .groupby(level=0)
+                                             .sum())
+      elapsed_time  running_time
+user                            
+a         3.240741      2.430556
+d        10.416667      3.819444
+s         4.629630      1.851852   
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43417403)
+ Consider the following approach: 
+
+  funcs = {
+  'running_time': {'rt_med':'median', 'rt_min':'min'},
+  'num_cores': {'nc_avg':'mean'},
+  'elapsed_time': {'et_max':'max'}
+}
+
+x = lasts.groupby('user').agg(funcs)
+x.columns = x.columns.droplevel(0)
+
+formulas = """
+custom_column_1 = rt_med - nc_avg
+custom_column_2 = et_max - rt_min
+
+"""
+
+res = x.eval(formulas, inplace=False).drop(x.columns, 1).reset_index()
+  
+
+  
+
+  In [145]: res
+Out[145]:
+  user  custom_column_1  custom_column_2
+0    a          29993.0            10000
+1    d          22493.5            75000
+2    s          19992.0            30000
+  
+
+  Explanation (step by step):  
+
+  In [146]: x = lasts.groupby('user').agg(funcs)
+
+In [147]: x
+Out[147]:
+     running_time        num_cores elapsed_time
+           rt_med rt_min    nc_avg       et_max
+user
+a           30000  30000       7.0        40000
+d           22500  15000       6.5        90000
+s           20000  20000       8.0        50000
+
+In [148]: x.columns = x.columns.droplevel(0)
+
+In [149]: x
+Out[149]:
+      rt_med  rt_min  nc_avg  et_max
+user
+a      30000   30000     7.0   40000
+d      22500   15000     6.5   90000
+s      20000   20000     8.0   50000
+
+In [150]: x.eval(formulas, inplace=False)
+Out[150]:
+      rt_med  rt_min  nc_avg  et_max  custom_column_1  custom_column_2
+user
+a      30000   30000     7.0   40000          29993.0            10000
+d      22500   15000     6.5   90000          22493.5            75000
+s      20000   20000     8.0   50000          19992.0            30000
+
+In [151]: x.eval(formulas, inplace=False).drop(x.columns, 1)
+Out[151]:
+      custom_column_1  custom_column_2
+user
+a             29993.0            10000
+d             22493.5            75000
+s             19992.0            30000
+
+In [152]: x.eval(formulas, inplace=False).drop(x.columns, 1).reset_index()
+Out[152]:
+  user  custom_column_1  custom_column_2
+0    a          29993.0            10000
+1    d          22493.5            75000
+2    s          19992.0            30000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50293399)
+  pd.DataFrame.groupby  is used to aggregate data, not to apply a function to multiple columns. 
+
+ For simple functions, you should look for a vectorised solution. For example: 
+
+  # set up simple dataframe
+df = pd.DataFrame({'id': [1, 2, 1], 'name': ['A', 'B', 'A'],
+                   'col1': [5, 6, 8], 'col2': [9, 4, 5]})
+
+# apply logic in a vectorised way on multiple columns
+df[['col1', 'col2']] = df[['col1', 'col2']].values * 100 / 3600
+  
+
+ If you wish to set your index as multiple columns, and are keen to use  pd.DataFrame.apply , this is possible as two separate steps. For example: 
+
+  df = df.set_index(['id', 'name'])
+df[['col1', 'col2']] = df[['col1', 'col2']].apply(lambda x: x * 100 / 3600)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43454150)
+ To use the  agg  method on a  groupby  object by using data from other columns of the same dataframe you could do the following: 
+
+ 
+  Define your functions ( lambda  functions or not) that take as an input a  Series , and get the data from other column(s) using the  df.loc[series.index, col]  syntax. With this example: 
+
+  ed = lambda x: (x * lasts.loc[x.index, "num_cores"]).sum() / 86400. 
+rd = lambda x: (x * lasts.loc[x.index, "num_cores"]).sum() / 86400.
+  
+
+ where  lasts  is the main DataFrame, and we access the data in the column  num_cores  thanks to the  .loc  method.  
+  Create a dictionary with these functions and the name for the newly created columns. The keys are the name of the columns on which to apply each function, and the value is another dictionary where the key is the name of the function and the value is the function. 
+
+  my_func = {"elapsed_time" : {"elapsed_day" : ed},
+           "running_time" : {"running_days" : rd}}
+   
+   
+
+  user_df = lasts.groupby("user").agg(my_func)
+user_df
+     elapsed_time running_time
+      elapsed_day running_days
+user                          
+a        3.240741     2.430556
+d       10.416667     3.819444
+s        4.629630     1.851852
+   
+  If you want to remove the old column names: 
+
+   user_df.columns = user_df.columns.droplevel(0)
+ user_df
+      elapsed_day  running_days
+user                           
+a        3.240741      2.430556
+d       10.416667      3.819444
+s        4.629630      1.851852
+   
+ 
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34659809)
+ Python and Pandas can only do one thing at a time. Your functions does a lot of things though and you could build them together to one function. But that is not actually your problem here. 
+
+ Applying functions with  axis=1  is super heavy, because you are iterating over the whole dataframe. 
+
+ You are using pandas, but you are not  using  pandas. 
+
+ You should rewrite the functions you apply into vectorized operations. 
+
+ It looks like the http://pandas.pydata.org/pandas-docs/stable/indexing.html#different-choices-for-indexing could help you out a lot 
+
+ Index your dataframe on anything you are using in the if statements 
+
+  df.set_index(['spr_spo_code', 'ctt_type_1', 'ccn_activation_dt'], inplace=True)
+  
+
+ . 
+
+ Then you can use the  .loc , but first you should create a column where you want the result. 
+
+  df['Contract_renewed'] = 'N'
+df.loc['PCC', 'NORMAL', None ..., 'Contract_renewed'] = 'Y'
+  
+
+ And this will be crazy much faster than your current way of operation. 
+
+ Tiny example</h3>
+
+  >>> df = pd.DataFrame({'foo':[1,2,3], 'bar':['baz','boo','bee'], 'baz':['N']*3})
+>>> df.set_index(['bar', 'foo'], inplace=True)
+>>> df.loc[('baz', 1), 'baz'] = 'Y'
+>>> df
+        baz
+bar foo    
+baz 1     Y
+boo 2     N
+bee 3     N
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48872281)
+ Here is a small example that you can build upon: 
+
+ Basically,  lambda x: x..  is the short one-liner of a function. What apply really asks for is a function which you can easily recreate yourself. 
+
+  import pandas as pd
+
+# Recreate the dataframe
+data = dict(Size=[80000,8000000,800000000])
+df = pd.DataFrame(data)
+
+# Create a function that returns desired values
+# You only need to check upper bound as the next elif-statement will catch the value
+def func(x):
+    if x < 1e6:
+        return "<1m"
+    elif x < 1e7:
+        return "1-10m"
+    elif x < 5e7:
+        return "10-50m"
+    else:
+        return 'N/A'
+    # Add elif statements....
+
+df['Classification'] = df['Size'].apply(func)
+
+print(df)
+  
+
+ Returns: 
+
+          Size Classification
+0      80000            <1m
+1    8000000          1-10m
+2  800000000            N/A
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44334760)
+ This is a good opportunity to highlight one of the changes in pandas 0.20 
+
+ 
+   http://pandas.pydata.org/pandas-docs/version/0.20/whatsnew.html#deprecate-groupby-agg-with-a-dictionary-when-renaming 
+ 
+
+ What does this mean? 
+Consider the dataframe  df  
+
+  df = pd.DataFrame(dict(
+        A=np.tile([1, 2], 2).repeat(2),
+        B=np.repeat([1, 2], 2).repeat(2),
+        C=np.arange(8)
+    ))
+df
+
+   A  B  C
+0  1  1  0
+1  1  1  1
+2  2  1  2
+3  2  1  3
+4  1  2  4
+5  1  2  5
+6  2  2  6
+7  2  2  7
+  
+
+  
+
+  df.groupby(['A', 'B']).C.agg(dict(f1=lambda x: x.size, f2=lambda x: x.max()))
+
+     f1  f2
+A B        
+1 1   2   1
+  2   2   5
+2 1   2   3
+  2   2   7
+  
+
+ And our names  'f1'  and  'f2'  were placed as column headers.  However, with pandas 0.20 I get this 
+
+ 
+  //anaconda/envs/3.6/lib/python3.6/site-packages/ipykernel/__main__.py:1: FutureWarning: using a dict on a Series for aggregation
+is deprecated and will be removed in a future version
+  if __name__ == '__main__':
+  
+ 
+
+   What if I do two  lambdas  without the naming dictionary? 
+
+  df.groupby(['A', 'B']).C.agg([lambda x: x.size, lambda x: x.max()])
+
+---------------------------------------------------------------------------
+SpecificationError                        Traceback (most recent call last)
+<ipython-input-398-fc26cf466812> in <module>()
+----> 1 print(df.groupby(['A', 'B']).C.agg([lambda x: x.size, lambda x: x.max()]))
+
+//anaconda/envs/3.6/lib/python3.6/site-packages/pandas/core/groupby.py in aggregate(self, func_or_funcs, *args, **kwargs)
+   2798         if hasattr(func_or_funcs, '__iter__'):
+   2799             ret = self._aggregate_multiple_funcs(func_or_funcs,
+-> 2800                                                  (_level or 0) + 1)
+   2801         else:
+   2802             cyfunc = self._is_cython_func(func_or_funcs)
+
+//anaconda/envs/3.6/lib/python3.6/site-packages/pandas/core/groupby.py in _aggregate_multiple_funcs(self, arg, _level)
+   2863             if name in results:
+   2864                 raise SpecificationError('Function names must be unique, '
+-> 2865                                          'found multiple named %s' % name)
+   2866 
+   2867             # reset the cache so that we
+
+SpecificationError: Function names must be unique, found multiple named <lambda>
+  
+
+ pandas errors on multiple columns named  '<lambda>'  
+
+ Solution: Name your functions 
+
+  def f1(x):
+    return x.size
+
+def f2(x):
+    return x.max()
+
+df.groupby(['A', 'B']).C.agg([f1, f2])
+
+     f1  f2
+A B        
+1 1   2   1
+  2   2   5
+2 1   2   3
+  2   2   7
+  
+
+
+

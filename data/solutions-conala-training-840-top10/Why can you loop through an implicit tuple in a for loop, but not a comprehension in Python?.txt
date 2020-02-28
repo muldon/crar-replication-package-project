@@ -1,0 +1,295 @@
+Query: Why can you loop through an implicit tuple in a for loop, but not a comprehension in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51803511)
+ You could use  numpy , and the only loops used will be implicit, and fast. But also less readable: 
+
+  import numpy as np
+
+>>> np.stack(np.array(list1)[:,0])[:,0]
+
+array([100, 200, 300, 400])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32209722)
+ You can use a nested list comprehension: 
+
+  a = [[float(i) for i in line.split()] for line in contents]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48592299)
+ As another poster  macm  mentioned , the fastest way to create a tuple from a generator is  tuple([generator]) . 
+
+ 
+
+ Performance Comparison 
+
+ 
+  List comprehension: 
+
+  $ python3 -m timeit "a = [i for i in range(1000)]"
+10000 loops, best of 3: 27.4 usec per loop
+   
+  Tuple from list comprehension: 
+
+  $ python3 -m timeit "a = tuple([i for i in range(1000)])"
+10000 loops, best of 3: 30.2 usec per loop
+   
+  Tuple from generator: 
+
+  $ python3 -m timeit "a = tuple(i for i in range(1000))"
+10000 loops, best of 3: 50.4 usec per loop
+   
+  Tuple from unpacking: 
+
+  $ python3 -m timeit "a = *(i for i in range(1000)),"
+10000 loops, best of 3: 52.7 usec per loop
+   
+ 
+
+  My version of python : 
+
+  $ python3 --version
+Python 3.6.3
+  
+
+ 
+
+ So you should always create a tuple from a list comprehension unless performance is not an issue. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41127997)
+ Because the  for i in  in the first code is a different syntactical construction than the  for i in  in the second code. 
+
+ The first case is https://docs.python.org/3/reference/compound_stmts.html#the-for-statement: 
+
+  for_stmt ::=  "for" target_list "in" expression_list ":" suite
+             ["else" ":" suite]
+  
+
+  'a', 'b', 'c'  is most definitely an https://docs.python.org/3/reference/expressions.html#grammar-token-expression_list, so that works out. 
+
+ In the second case, however, the inline  for  inside square brackets forces the code to be interpreted as a list comprehension, and in Python 3, https://docs.python.org/3/reference/expressions.html#displays-for-lists-sets-and-dictionaries: 
+
+  comprehension ::=  expression comp_for
+comp_for      ::=  "for" target_list "in" or_test [comp_iter]
+comp_iter     ::=  comp_for | comp_if
+comp_if       ::=  "if" expression_nocond [comp_iter]
+  
+
+ Note that the part after the  in  must be an  or_test , yet comma-delimited expressions create https://docs.python.org/3/reference/expressions.html#expression-lists, and an expression list cannot be an  or_test  --- or, put another way,  or  has higher precedence than comma.  Python thus thinks the comprehension ends at the comma, so that the three elements of the list are: 
+
+  i for i in 'a'
+'b'
+'c'
+  
+
+ which (unless you put the  i for i in 'a'  in parentheses) is obviously invalid. 
+
+ As to why this works in Python 2 ... I'm still looking. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8731252)
+ The canonical data structure for this type of queries is a dictionary: 
+
+  In [1]: t = (
+   ...:     ('P', 'Shtg1'),
+   ...:     ('R', u'Shtg2'),
+   ...:     ('D', 'Shtg3'),
+   ...: )
+
+In [2]: d = dict(t)
+
+In [3]: d['P']
+Out[3]: 'Shtg1'
+  
+
+ If you use a tuple, there is no way to avoid looping (either explicit or implicit). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51803498)
+ List comprehension, really same as loop. 
+
+  [i[0][0] for i in list1]
+  
+
+ Or, you can use pandas. 
+
+  import pandas as pd
+
+pd.Series(list1).str[0].str[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41128011)
+ This changed in Python3, mainly in order to make list comprehensions more consistent with generator expressions. 
+
+ With for-loops and list comprehensions, there is no ambiguity when using a tuple with no parentheses, because the former is always terminated by a colon, and the latter by either a closing bracket or a  for/if  keyword. 
+
+ However, part of the design of generator expressions requires that they can be used "bare" as function arguments: 
+
+  >>> list(i for i in range(3))
+[0, 1, 2]
+  
+
+ which creates some ambiguity for unparenthesized tuples, because any commas may introduce a new argument: 
+
+  >>> list(i for i in 0, 1, 2)
+  File "<stdin>", line 1
+SyntaxError: Generator expression must be parenthesized if not sole argument
+  
+
+ So tuples must always be parenthesized in generator expressions, and the same restriction now also applies to list comprehensions in order to preserve consistency. 
+
+ PS: 
+
+ Guido van Rossum wrote a article that spells out all the details on this subject in his History of Python blog: 
+
+ 
+ https://python-history.blogspot.co.uk/2010/06/from-list-comprehensions-to-generator.html 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19395424)
+ It is an unusual python thing. The implicit creation of tuple.  
+
+ Here, you create an anonymous tuple at the right 
+
+  x,y,z = [1,2,3], [4,5,6], [7,8,9]
+  
+
+ This is a similar code: 
+
+  a, b = 1, 2
+  
+
+ that is the same: 
+
+  a, b =  (1, 2)
+  
+
+   
+
+     a = 1
+   b = 2
+  
+
+ It allows a common python trick (idiom). You can swap values without an tempary variable: 
+
+  a, b = b, a
+  
+
+ The same happens interacting the key and values of a dictionary: 
+
+  f i, j in  my_dict.items():
+   print i, j
+  
+
+ In your code, the another tempary tuple is being created in the f loop: 
+
+  f a,b,c in (x,y,z):
+    print(a,b,c)
+  
+
+ That means: 
+
+  f a, b,c in ([1,2,3], [4,5,6], [7,8,9]):
+    print(a,b,c)
+  
+
+ In other wds: rewrite this code f something me legible. Python isn't following its own mantra:  Explicit is better than implicit. .  
+
+ BTW, see the fun Python Zen typing  impt this  in a Python shell. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15274980)
+ From http://docs.python.org/2/tutorial/datastructures.html#list-comprehensions, a list comprehension can be read as 
+
+ 
+   "brackets containing an expression followed by a for clause, then zero
+  or more for or if clauses. The result will be a new list resulting
+  from evaluating the expression in the context of the for and if
+  clauses which follow it." 
+ 
+
+  [list(ueberdata).index(i) for i in order]
+  
+
+ is, in a sense, similar to 
+
+  ind=[]
+for i in order:
+  ind.append(list(ueberdata).index(i))
+  
+
+ It does not depend on the size of the lists, answering your first question. 
+
+ For getting all indexes, I would use a auxiliar function, with something like 
+
+  lambda value : [x for x in range(len(ueberdata)) if ueberdata[x] == value]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36461506)
+ This returns the result of  foo.get()  in the return value of bar.get(). Is this what you are asking for? 
+
+  class bar:
+    ...
+    def get(self):
+        return {'foos':[foo.get() for foo in self.foos]}
+  
+
+ Breaking down the  return  statement, 
+
+  return (            # you know what this keyword does
+    {               # create a dict
+        'foos':     # with a key of "foos",
+        [           # and a value that is a list
+                    # (in this case, built from a list comprehension)
+            x.get() # each element is the result of calling .get()
+            for x in self.foos  # on each element of the "foos" list
+        ]           # end of list comprehension
+    }               # end of dict
+)                   # end of return expression
+  
+
+ So, the return statement returns a  dict  with exactly one key-value pair. The key is the literal string  "foos" . The value is a list composed of the result of calling  .get()  on each of the members of the  self.foos  list. (I changed the name of the loop variable and added parentheses to make life less confusing.) 
+
+ And here is the result: 
+
+  {'x': 1, 'z': 3, 'y': 2}
+{'x': 4, 'z': 6, 'y': 5}
+{'foos': [{'x': 1, 'z': 3, 'y': 2}, {'x': 4, 'z': 6, 'y': 5}]}
+  
+
+ A perfectly equivalent implementation of  bar.get()  could use an explicit  for  loop, as shown below. I only use the list comprehension because I find that code easier to read. If you find the below easier, use it instead. 
+
+  def get(self):
+    result = []
+    for x in self.foos:
+        result.append(x.get())
+    return result
+  
+
+
+

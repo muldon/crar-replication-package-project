@@ -1,0 +1,346 @@
+Query: How do I remove identical items from a list and sort it in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22760177)
+ Placing the items into a set and then sorting is going to be efficient, but it does rely on the items being hashable: 
+
+  def sorted_set(a_list):
+    return sorted(set(a_list))
+
+timeit sorted_set(my_list)
+100000 loops, best of 3: 3.19 µs per loop
+  
+
+ The classic way to get a sorted list of unique elements is first to sort, then to perform a second pass over the list, eliminating identical elements (which are guaranteed to be adjacent after the sort): 
+
+  def sorted_unique(a_list):
+    l = sorted(a_list)
+    return l[:1] + [b for a, b in zip(l, l[1:]) if a != b]
+  
+
+ This is not too bad compared to using  set : 
+
+  timeit sorted_unique(my_list)
+100000 loops, best of 3: 6.6 µs per loop
+  
+
+ We can actually do better using  itertools.groupby : 
+
+  def sorted_group(a_list):
+    return [k for k, _ in groupby(sorted(a_list))]
+
+timeit sorted_group(my_list)
+100000 loops, best of 3: 5.3 µs per loop
+  
+
+ Finally, if the items are primitive values it's worth considering numpy; in this case (on a small list) the overheads outweigh any benefit, but it performs well on larger problem sets: 
+
+  def sorted_np(a_list):
+    return np.unique(np.sort(a_list))
+
+timeit sorted_np(my_list)
+10000 loops, best of 3: 42 µs per loop
+
+my_list = [random.randint(0, 10**6) for _ in range(10**6)]
+
+timeit sorted_set(my_list)
+1 loops, best of 3: 454 ms per loop
+
+timeit sorted_np(my_list)
+1 loops, best of 3: 333 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22741178)
+ It is one two simple functions in python: 
+
+  my_list = ['a', 'a', 'b', 'c', 'd', 'a', 'e', 'd', 'f', 'e']
+print sorted(set(my_list))
+  
+
+ and you get what you want ;) 
+
+ if you want more info regarding sets look http://docs.python.org/2/library/sets.html, and about sorting in python have a look <a href="http://docs.python.org/2/howto/sorting.html" . 
+
+ hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4294174)
+ You can't achieve this with list(d).sort(function), because you'll get a list with dictionary keys. You can achieve your objective with alternative approach: 
+
+  l1 = sorted(d.items(), key=lambda x: (x[1], x[0]))
+l2 = sorted(l1, key=lambda x: x[1], reverse=True)
+result = [x[0] for x in l2]
+  
+
+ This approach converts dictionary to list of (key, value) tuples. Then l1 is sorted by values and l2 is sorted by keys. Since python has a stable sorting algorithm, the order of values is preserved for identical keys. 
+
+ Edit: Ignacio Vazquez-Abrar's approach is similar, but more elegant, because the list need to be sorted only once. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21592530)
+ The sorting is happening lexicographically, i.e. alphabetically, one character at a time. Change your sort function to remove the dollar sign and convert to float: 
+
+  keyList.sort(key=lambda x:float(x[1:]))
+  
+
+ Or better yet, remove the  "$"  from the key, leaving the key a float, and only add the  "$"  when printing 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35025516)
+ Have your  key  function return a list of items. The sort is lexicographic in that case. 
+
+  l = [ '1.0.0.0.py', '0.0.0.0.py', '1.1.0.0.py',]
+s = sorted(l, key = lambda x: [int(y) for y in x.replace('.py','').split('.')])
+print s
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10549408)
+ It's producing an identical list as  b  contains no elements at run-time.
+ 
+
+  >>> a = [1, 2, 3, 3, 5, 9, 6, 2, 8, 5, 2, 3, 5, 7, 3, 5, 8]
+>>> b = []
+>>> [b.append(item) for item in a if item not in b]
+[None, None, None, None, None, None, None, None]
+>>> b
+[1, 2, 3, 5, 9, 6, 8, 7]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28128170)
+ Alongside the  most_common  that is the pythonic way as an alternative you can use  sorted   
+
+  >>> d={'2' 2,'3.' 1,'3?' 1,'New' 1,'Python' 5,'Read' 1,'and' 1,'between' 1,'choosing' 1,'or' 2,'to' 1} 
+>>> print sorted(d.items(),key=lambda x x[1])[-3]
+
+>>> [('2', 2), ('or', 2), ('Python', 5)]
+  
+
+ Or use  heapq.nlargest . But note that the  nlargest()  function is most appropriate if you are trying to find a relatively small number of items.  
+
+  import heapq
+print heapq.nlargest(3, d.items(),key=lambda x x[1])
+[('Python', 5), ('2', 2), ('or', 2)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22741069)
+ The best way to remove redundant elements from a list is to cast it as a set, and since sorted accepts any iterable and returns a list, this is far more efficient than doing this piecewise. 
+
+  my_list = ['a', 'a', 'b', 'c', 'd', 'a', 'e', 'd', 'f', 'e']
+
+def sorted_set(a_list):
+    return sorted(set(a_list))
+
+new_list = sorted_set(my_list)
+  
+
+ and new_list is: 
+
+  ['a', 'b', 'c', 'd', 'e', 'f']
+  
+
+ The downside of this approach is that elements given to set must be hashable, so if the elements are unhashable, you'll get an error: 
+
+  >>> my_list = [['a'], ['a'], ['b'], ['c']]
+>>> sorted(set(my_list))
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: unhashable type: 'list'
+  
+
+ This trivial case could be addressed by casting the sublists as tuples, which may be more performant than the solution in the answer, which could mean more expensive tests for equality: 
+
+  >>> my_list = [tuple(i) for i in my_list]
+>>> sorted(set(my_list))
+[('a',), ('b',), ('c',)]
+  
+
+ But other cases would need to find different workarounds. This would not be necessary with the other solution (but again, may be much more computationally expensive): 
+
+  def remove_extras_and_sort(my_list):
+    for item in my_list[:]:
+        count = my_list.count(item)
+        if count > 1:
+            for _ in range(count-1):
+                my_list.remove(item)
+    my_list.sort()
+    return my_list
+  
+
+ Which works for sublists: 
+
+  >>> my_list = [['a'], ['a'], ['b'], ['c']]
+>>> remove_extras_and_sort(my_list)
+[['a'], ['b'], ['c']]
+  
+
+ 
+
+ To compare performance: 
+
+  import timeit
+
+setup = '''
+my_list = ['a', 'a', 'b', 'c', 'd', 'a', 'e', 'd', 'f', 'e']
+def remove_extras_and_sort(my_list):
+    for item in my_list[:]:
+        count = my_list.count(item)
+        if count > 1:
+            for _ in range(count-1):
+                my_list.remove(item)
+    my_list.sort()
+    return my_list
+
+def sorted_set(a_list):
+    return sorted(set(a_list))
+'''
+
+timeit.timeit('sorted_set(my_list[:])', setup=setup)
+timeit.timeit('remove_extras_and_sort(my_list[:])', setup=setup)
+  
+
+ Which returns times as I measure them on my system, respectively: 
+
+  1.5562372207641602
+4.558010101318359
+  
+
+ Which means that the method given in the question likely takes more than 3 times as long to compute, given the necessary overhead for copying the lists each time (if we don't copy the lists, we'll just be sorting a list that's already been sorted, since the setup only runs once). 
+
+ 
+
+ We can disassemble each function: 
+
+  import dis
+
+def remove_extras_and_sort(my_list):
+    for item in my_list[:]:
+        count = my_list.count(item)
+        if count > 1:
+            for _ in range(count-1):
+                my_list.remove(item)
+    my_list.sort()
+    return my_list
+
+def sorted_set(a_list):
+    return sorted(set(a_list))
+  
+
+ And just by looking at the output, we see that the bytecode for the first function is more than six times as long: 
+
+  >>> dis.dis(remove_extras_and_sort)
+  2           0 SETUP_LOOP              85 (to 88)
+              3 LOAD_FAST                0 (my_list)
+              6 SLICE+0             
+              7 GET_ITER            
+        >>    8 FOR_ITER                76 (to 87)
+             11 STORE_FAST               1 (item)
+
+  3          14 LOAD_FAST                0 (my_list)
+             17 LOAD_ATTR                0 (count)
+             20 LOAD_FAST                1 (item)
+             23 CALL_FUNCTION            1
+             26 STORE_FAST               2 (count)
+
+  4          29 LOAD_FAST                2 (count)
+             32 LOAD_CONST               1 (1)
+             35 COMPARE_OP               4 (>)
+             38 POP_JUMP_IF_FALSE        8
+
+  5          41 SETUP_LOOP              40 (to 84)
+             44 LOAD_GLOBAL              1 (range)
+             47 LOAD_FAST                2 (count)
+             50 LOAD_CONST               1 (1)
+             53 BINARY_SUBTRACT     
+             54 CALL_FUNCTION            1
+             57 GET_ITER            
+        >>   58 FOR_ITER                19 (to 80)
+             61 STORE_FAST               3 (_)
+
+  6          64 LOAD_FAST                0 (my_list)
+             67 LOAD_ATTR                2 (remove)
+             70 LOAD_FAST                1 (item)
+             73 CALL_FUNCTION            1
+             76 POP_TOP             
+             77 JUMP_ABSOLUTE           58
+        >>   80 POP_BLOCK           
+             81 JUMP_ABSOLUTE            8
+        >>   84 JUMP_ABSOLUTE            8
+        >>   87 POP_BLOCK           
+
+  7     >>   88 LOAD_FAST                0 (my_list)
+             91 LOAD_ATTR                3 (sort)
+             94 CALL_FUNCTION            0
+             97 POP_TOP             
+
+  8          98 LOAD_FAST                0 (my_list)
+            101 RETURN_VALUE        
+  
+
+ And the recommended way has much shorter bytecode: 
+
+  >>> dis.dis(sorted_set)
+  2           0 LOAD_GLOBAL              0 (sorted)
+              3 LOAD_GLOBAL              1 (set)
+              6 LOAD_FAST                0 (a_list)
+              9 CALL_FUNCTION            1
+             12 CALL_FUNCTION            1
+             15 RETURN_VALUE        
+  
+
+ So we see that using the builtin functionality of Python is much more effective and efficient than trying to reinvent the wheel. 
+
+ 
+
+ Addendum: other options that need to be more fully explored: 
+
+  def groupby_sorted(my_list):
+    """if items in my_list are unhashable"""
+    from itertools import groupby
+    return [e for e, g in groupby(sorted(my_list))]
+
+def preserve_order_encountered(my_list):
+    """elements in argument must be hashable - preserves order encountered"""
+    from collections import OrderedDict
+    return list(OrderedDict.fromkeys(my_list))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36269020)
+ 
+   But what if I don't know the indices of the items I want to remove? 
+ 
+
+  .remove but to get the first index corresponding to a value use .index(value): 
+
+  ind=item_list.index('item')
+  
+
+  .pop to remove the corresponding value: 
+
+  item_list.pop(ind)
+  
+
+ .index(value) gets the first occurrence of value, and .remove(value) removes the first occurrence of value 
+
+
+

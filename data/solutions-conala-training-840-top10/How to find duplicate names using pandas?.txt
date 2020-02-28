@@ -1,0 +1,190 @@
+Query: How to find duplicate names using pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15248239)
+ If you want to find the rows with duplicated name (except the first time we see that), you can try this 
+
+  In [16]: import pandas as pd
+In [17]: p1 = {'name': 'willy', 'age': 10}
+In [18]: p2 = {'name': 'willy', 'age': 11}
+In [19]: p3 = {'name': 'zoe', 'age': 10}
+In [20]: df = pd.DataFrame([p1, p2, p3])
+
+In [21]: df
+Out[21]: 
+   age   name
+0   10  willy
+1   11  willy
+2   10    zoe
+
+In [22]: df.duplicated('name')
+Out[22]: 
+0    False
+1     True
+2    False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37803074)
+ Another one liner can be: 
+
+  (df.name).drop_duplicates()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20199749)
+ I had a similar problem and came across this answer. 
+
+ I guess this also works: 
+
+  counts = df.groupby('name').size()
+df2 = pd.DataFrame(counts, columns = ['size'])
+df2 = df2[df2.size>1]
+  
+
+ and  df2.index  will give you a list of names with duplicates 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39563541)
+ http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html will give you the number of duplicates as well. 
+
+  names = df.name.value_counts()
+names[names > 1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20312816)
+ A one liner can be: 
+
+  x.set_index('name').index.get_duplicates()
+  
+
+ the index contains a method for finding duplicates, columns does not seem to have a similar method..  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51165793)
+ Another more direct way to test if two numeric columns are duplicated with each other is to test the correlation matrix,  which test all pairs of columns.  Here is the code: 
+
+  import pandas as pd
+
+df = pd.DataFrame([[1,0,1,1], [2,0,2,2]], columns=['A', 'B', 'C', 'D'])
+
+# compute the correlation matrix
+cm = df.corr()
+cm
+  
+
+ https://i.stack.imgur.com/Uv7G7.png 
+
+ This shows a matrix of the correlation of all columns to each other column (including itself).  If a column is 1:1 with another column, then the value is 1.0. 
+
+ To find all columns that are duplicates of A,  then : 
+
+  cm['A']
+
+A    1.0
+B    NaN 
+C    1.0
+D    1.0
+  
+
+ If you have categorical (string objects) and not numeric,  you could make a cross correlation table. 
+
+ Hope this helps!  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40216304)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html by column names and aggregate http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.sum.html: 
+
+  print (df.groupby(level= 0, axis=1).sum())
+   col1  col2   id
+0     2     0  'a'
+1     1     1  'b'
+2     1     0  'c'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54259644)
+ Not sure why you want duplicate  columns  , but you can using  concat   
+
+  Newdf=pd.concat([df1.set_index(['key1',  'key2']),df2.set_index(['key1',  'key2'] )],axis=1).\
+        reset_index()
+Newdf
+Out[711]: 
+  key1 key2  valueX  valueY  valueX  valueY
+0    A   a1     1.0     4.0     7.0    10.0
+1    B   b1     2.0     5.0     NaN     NaN
+2    B   b2     NaN     NaN     8.0    11.0
+3    C   c1     3.0     6.0     9.0    12.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51470114)
+ The problem is with your indexing, when you transpose your DataFrame you will get duplicate column names which are messing it up.  
+
+  dict1 = [{'var0': 0, 'var1': 0, 'var2': 2},
+         {'var0': 0, 'var1': 0, 'var2': 4},
+         {'var0': 0, 'var1': 0, 'var2': 8},
+         {'var0':0, 'var1': 0, 'var2': 12},]
+df = pd.DataFrame(dict1, index=['s1', 's2','s1','s2'])
+df.reset_index().T.drop_duplicates().T.set_index('index')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16939512)
+ It's probably easiest to use a groupby (assuming they have duplicate names too): 
+
+  In [11]: df
+Out[11]:
+   A  B  B
+0  a  4  4
+1  b  4  4
+2  c  4  4
+
+In [12]: df.T.groupby(level=0).first().T
+Out[12]:
+   A  B
+0  a  4
+1  b  4
+2  c  4
+  
+
+ If they have different  names  you can  drop_duplicates  on the transpose: 
+
+  In [21]: df
+Out[21]:
+   A  B  C
+0  a  4  4
+1  b  4  4
+2  c  4  4
+
+In [22]: df.T.drop_duplicates().T
+Out[22]:
+   A  B
+0  a  4
+1  b  4
+2  c  4
+  
+
+  Usually  read_csv  will usually ensure they have different names...  
+
+
+

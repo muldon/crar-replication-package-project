@@ -1,0 +1,299 @@
+Query: Getting a request parameter in Jinja2
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16875941)
+ I'm a bit late with this answer, but the other solutions don't really account for your use of Flask. 
+
+ The fact that you're using Flask with Jinja2 makes your situation a bit different from other frameworks. Flask actually makes some global variables available to you in all Jinja2 templates without requiring you to pass them to the template explicitly.  
+
+ To quote a part of the Flask documentation at http://flask.pocoo.org/docs/templating/#standard-context: 
+
+ 
+   The following global variables are available within Jinja2 templates by default: 
+  
+   ... 
+  
+   request
+  The current request object (flask.request) 
+  
+   ... 
+ 
+
+ So for example to show the request parameter 'a' in the template: 
+
+  {{ request.args.get('a') }}
+  
+
+ The documentation link also lists the other global variables you can access in a similar way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13781652)
+ In webapp2, you can get the host part of a request and pass it as argument in a jinja template as follows:  
+
+  class YourHandler(webapp2.RequestHandler):
+  def get(self):
+    params = {'url':self.request.host}
+    template = jinja_environment.get_template('your_template.html')
+    self.response.write(template.render(params))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12996127)
+ You can use http://jinja.pocoo.org/docs/api/#jinja2.DebugUndefined, which keeps the failed lookups, as your http://jinja.pocoo.org/docs/api/#undefined-types for the  undefined  parameter of the  Template  environment: 
+
+  >>> from jinja2 import Template, DebugUndefined
+>>> template = Template("{{ var1 }}-{{ var2 }}", undefined=DebugUndefined)
+>>> rendered1 = template.render(var1=5) # "5-{{ var2 }}"
+>>> print(rendered1)
+5-{{ var2 }}
+>>> rendered2 = Template(rendered1).render(var2=6) # "5-6"
+>>> print(rendered2)
+5-6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10843610)
+  If you're using webapp2...  
+
+ The query parameters can be fetched easily if you use webapp2.request like a dictionary. 
+
+  webapp2.request.get('[parameter]', '[optionalDefaultValue]')
+  
+
+ To apply your sample (http://foo.bar?a=1&b=2&c=true): 
+
+  a = webapp2.request.get('a') # a = 1
+b = webapp2.request.get('b') # b = 2
+c = webapp2.request.get('c') # c = true, may need further parsing to make it bool
+  
+
+ If you just want the un-parsed querystring just call: 
+
+  qstring = webapp2.request.query_string 
+# qstring = '?a=1&b=2&c=true
+  
+
+ Once you have collected your variables just pass them into the jinja2.render_template() method the same as you would anything else. 
+
+ . 
+
+  Update:  
+
+ I have a pretty unique way to manage parameters but I'll try to explain the simple version. 
+
+ Assuming the following querystring 
+
+  http://foo.bar?a=1&b=2&c=true
+  
+
+ Here's how I'd write the GET handler: 
+
+  class BaseHandler(webapp2.RequestHandler): 
+  def jinja2(self):
+    return jinja2.get_jinja2(app=self.app)
+
+  def render_template(self, template, **context):
+    self.response.write(self.jinja2.render_template(template, **context))
+
+  def get(self, **params):
+    context = {}    
+    context['a'] = webapp2.request.get('a')
+    context['b'] = webapp2.request.get('b')
+    context['c'] = webapp2.request.get('c')
+    self.render_template([template], **context)
+  
+
+ So, the implementation I use is a little different. I also stack on a _defaults parameter that gets passed in through the router, and a _meta (ie title/description/url) parameter that is created by doing a uri lookup on a custom urls structure. 
+
+ In my base handler, I setup jinja and wrap the instance in a method that's easier to call (ie render_template). I didn't come up with this idea, I think I got it from the webapp2 docs but I digress. 
+
+ The important part is the 'context' parameter. That's where you stack in all the data you want to send to the template. Now, any value that is available in that object will now be available in the template. 
+
+ For instance you could print the value for 'a' using: 
+
+  {{ a }}
+  
+
+ If you pass in an array of values as one of the parameters you can also enumerate through them and call specific properties directly using dot notation. 
+
+ How your handlers are structured is completely up to you. Unlike a lot of frameworks, GAE provides a lot of flexibility in this aspect. The way I do it involves a lot of inheritance so I don't have to repeat much. It's a little difficult to explain in better detail without pasting my whole handlers.py but this is the gist of my base handler that all the rest of my handlers inherit from. The only notable difference is I define context as self.context so the child classes can access it. It seems pretty convoluted in the code but once everything is wired up, it's almost effortless to add additional pages/routes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7081653)
+ You must set  uri_for  as a global variable. One way to do it is to set an initializer for global variables and filters: 
+
+  import webapp2
+from webapp2_extras import jinja2
+
+def jinja2_factory(app):
+    j = jinja2.Jinja2(app)
+    j.environment.filters.update({
+        # Set filters.
+        # ...
+    })
+    j.environment.globals.update({
+        # Set global variables.
+        'uri_for': webapp2.uri_for,
+        # ...
+    })
+    return j
+
+class BaseHandler(webapp2.RequestHandler):
+
+    @webapp2.cached_property
+    def jinja2(self):
+        # Returns a Jinja2 renderer cached in the app registry.
+        return jinja2.get_jinja2(factory=jinja2_factory)
+
+    def render_response(self, _template, **context):
+        # Renders a template and writes the result to the response.
+        rv = self.jinja2.render_template(_template, **context)
+        self.response.write(rv)
+  
+
+ Edit: changed example to use a RequestHandler. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11015407)
+ You should probably be using the  jinja2  version that's included in  webapp2_extras . 
+
+ The example of getting this set up is here: http://webapp-improved.appspot.com/api/webapp2_extras/jinja2.html#webapp2_extras.jinja2.Jinja2 
+
+ The key difference is that instead of setting up the  jinja2.Environment  yourself, you do... 
+
+  from webapp2_extras import jinja2
+jinja = jinja2.get_jinja2(app=self.app)
+jinja.render_template("index.html")
+  
+
+ You will also likely need to include  jinja2  in your  libraries  section of  app.yaml : 
+
+  libraries:                                                                      
+- name: jinja2                                                                  
+  version: "2.6" 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44608405)
+ I see your HTML a href link is correct. But in your  quiz  function route url construction is wrong, It should be... 
+
+  @app.route('/quiz/<category>/<int:id>/<type>')
+def quiz(category, id, type):
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28355542)
+ Martin's answer gives a good explanation of  why  this error occurs. 
+
+ The accepted answer fixes the problem posed but it's certainly not the only way. In my case I had something more like: 
+
+  import threading
+
+from flask import Flask, render_template
+
+app = Flask("myapp")
+
+app.route('/')
+def get_thing(thing_id):
+    thing = cache.get(thing_id)
+    if thing is None:
+        # Handle cache miss...
+    elif is_old(thing):
+        # We'll serve the stale content but let's
+        # update the cache in a background thread
+        t = threading.Thread(
+            target=get_thing_from_datastore_render_and_cache_it,
+            args=(thing_id,)
+        )
+        t.start()
+    return thing
+
+def get_thing_from_datastore_render_and_cache_it(thing_id):
+    thing = datastore.get(thing_id)
+    cache.set(render_template(thing))
+  
+
+ But when  get_thing_from_datastore_render_and_cache_it  was run in the background thread outside the Flask request cycle I was getting the error shown above because that thread did not have access to a request context. 
+
+ The error occurs because Flask offers a developer shortcut to allow accessing request variables in the template automagically - put another way, it is caused by the decisions Flask made about how to wrap Jinja2's functionality, not Jinja2 itself. My approach to solving this was just to use Jinja2's rendering directly: 
+
+  import jinja2
+
+def render_without_request(template_name, **template_vars):
+    """
+    Usage is the same as flask.render_template:
+
+    render_without_request('my_template.html', var1='foo', var2='bar')
+    """
+    env = jinja2.Environment(
+        loader=jinja2.PackageLoader('name.ofmy.package','templates')
+    )
+    template = env.get_template(template_name)
+    return template.render(**template_vars)
+  
+
+ That function assumes that your Flask app has the traditional templates subfolder. Specifically, the project structure here would be 
+
+  .
+└── name/
+    ├── ofmy/
+    |   ├── package/
+    |   |   ├── __init__.py <--- Where your Flask application object is defined
+    |   |   └── templates/
+    |   |       └── my_template.html
+    |   └── __init__.py
+    └── __init__.py
+  
+
+ If you have a subdirectory structure under  templates/ , you just pass the relative path from the root of the templates folder the same as you would when using Flask's  render_template . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20121694)
+  jinja2.Environment  constructor accepts  undefined  parameter, to control the behaviour in this case. By default it is http://jinja.pocoo.org/docs/api/#jinja2.Undefined which outputs nothing, but you could also use http://jinja.pocoo.org/docs/api/#jinja2.DebugUndefined or write your own implementation. 
+
+ For example: 
+
+  env = jinja2.Environment(undefined=jinja2.DebugUndefined)
+t = env.from_string("{{foo}}{{bar}}")
+t.render(foo=123)  # will print u'123{{ bar }}'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22484879)
+ Here's the easier solution.. ;-) i have... many people already might know this but works great. 
+
+  env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(root_path),
+    extensions=['jinja2.ext.autoescape',
+        'jinja2.ext.i18n',
+        CompilerExtension],
+    variable_start_string='[[',
+    variable_end_string=']]',
+    autoescape=True)
+env.globals = {
+    'uri_for': webapp2.uri_for
+}
+  
+
+ env.globals is the key :-) 
+
+
+

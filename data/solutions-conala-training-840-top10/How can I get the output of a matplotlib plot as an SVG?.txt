@@ -1,0 +1,294 @@
+Query: How can I get the output of a matplotlib plot as an SVG?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24534503)
+ Depending on the backend you use (I tested on TkAgg and Agg) it should be as easy as specifying it within the savefig() call: 
+
+  import matplotlib.pyplot as plt                                                                                                                                                               
+import numpy as np
+x = np.arange(0,100,0.00001)
+y = x*np.sin(2*np.pi*x)
+plt.plot(y)
+plt.savefig("test.svg", format="svg")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24535532)
+ You will most probably want to fix the image size and get rid of all sorts of backgrounds and axis markers: 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+plt.figure(figsize=[6, 6])
+x = np.arange(0, 100, 0.00001)
+y = x*np.sin(2* np.pi * x)
+plt.plot(y)
+plt.axis('off')
+plt.gca().set_position([0, 0, 1, 1])
+plt.savefig("test.svg")
+  
+
+ The resulting SVG file contains only one extra element, as  savefig  really wants to save the figure background. The color of this background is easy to change to 'none', but it does not seem to get rid of it. Anyway, the SVG is very clean otherwise and in the correct scale (1/72" per unit). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45664729)
+ From whatI understand from reading about matplotlib backends, nbagg, which is called using  %matplotlib notebook  uses the Agg (Anti-Grain Geometry) render which is not capable of rendering vector graphics. Unfortunately this is the only out of the box way of using an <b>interactive</b> inline backend for Jupyter. 
+
+ Docs Link https://matplotlib.org/faq/usage_faq.html#what-is-interactive-mode
+ 
+Similar Answer https://stackoverflow.com/questions/37594446/how-to-make-matplotlibs-nbagg-backend-generate-svgs 
+
+ If you don't need the interactivity just keep use 
+
+  import pandas as pd
+from IPython.display import SVG, display
+from numpy import ndarray
+
+def svg_add(chart, size=(4,4), dpi=100):
+    """Takes a chart, optional tuple of ints for size, int for dpi
+    default is 4 by 4 inches with 100 dpi"""
+
+    if type(chart) == ndarray:
+        fig = chart[0].get_figure()
+        fig.set_size_inches(size)
+        fig.savefig("mybar.svg", dpi=dpi)
+        display(SVG(filename='mybar.svg'))
+    else:
+        fig = chart.get_figure()
+        fig.set_size_inches(size)
+        fig.savefig("mybar.svg", dpi=dpi)
+        display(SVG(filename='mybar.svg'))
+  
+
+  
+
+  df = pd.DataFrame([[2,5]],columns=['a','b'])
+bar_chart = df.plot(subplots=False, kind='bar')
+svg_add(chart=bar_chart,size=(3,3),dpi=100)
+#or
+#svg_add(bar_chart,(3,3),100)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41924687)
+ Maybe what you are looking for is https://pypi.python.org/pypi/svgutils  
+
+  import svgutils.compose as sc
+from IPython.display import SVG # /!\ note the 'SVG' function also in svgutils.compose
+import numpy as np
+
+# drawing a random figure on top of your SVG
+fig, ax = plt.subplots(1, figsize=(4,4))
+ax.plot(np.sin(np.linspace(0,2.*np.pi)), np.cos(np.linspace(0,2.*np.pi)), 'k--', lw=2.)
+ax.plot(np.random.randn(20)*.3, np.random.randn(20)*.3, 'ro', label='random sampling')
+ax.legend()
+ax2 = plt.axes([.2, .2, .2, .2])
+ax2.bar([0,1], [70,30])
+plt.xticks([0.5,1.5], ['water  ', ' ground'])
+plt.yticks([0,50])
+plt.title('ratio (%)')
+fig.savefig('cover.svg', transparent=True)
+# here starts the assembling using svgutils 
+sc.Figure("8cm", "8cm", 
+    sc.Panel(sc.SVG("./Worldmap_northern.svg").scale(0.405).move(36,29)),
+    sc.Panel(sc.SVG("cover.svg"))
+    ).save("compose.svg")
+SVG('compose.svg')
+  
+
+ Output: 
+
+ https://i.stack.imgur.com/ckXg5.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16866115)
+ Use  pcolormesh  where you're using  imshow  if you want vector output.   
+
+ When using  pcolor  or  pcolormesh  you can't interpolate the image, however.  On the other hand, you probably don't want interpolation if you're wanting vector output. 
+
+ That's basically the reason for the difference between  imshow  and  pcolor / pcolormesh .  imshow  produces a raster, while  pcolormesh  and  pcolor  produce rectangular patches. 
+
+ You'll also need to slightly change the way you pass in the extent of the image. As an example based on yours: 
+
+  import numpy as np
+import numpy.random
+import matplotlib.pyplot as plt
+
+# Generate some test data
+x = np.random.randn(8873)
+y = np.random.randn(8873)
+
+heatmap, xedges, yedges = np.histogram2d(x, y, bins=50)
+
+surf = plt.pcolormesh(xedges, yedges, heatmap)
+plt.axis('image')
+plt.colorbar(surf, shrink=0.75, aspect=5)
+plt.show()
+  
+
+   
+
+ When you save as an svg, the output will be vector patches. E.g. 
+
+  ...
+   <g id="QuadMesh_1">
+    <defs>
+     <path d="
+M75.9063 -43.2
+L82.9705 -43.2
+L82.9705 -50.112
+L75.9063 -50.112
+L75.9063 -43.2" id="C0_0_9d1ab33858"/>
+     <path d="
+M82.9705 -43.2
+L90.0348 -43.2
+L90.0348 -50.112
+L82.9705 -50.112
+L82.9705 -43.2" id="C0_1_d828245e6a"/>
+...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15915473)
+ I too have the same problem. One workaround I have found is to save plots as  .svg  and then use a program like http://inkscape.org/%20Inkscape to convert to eps. I used to be able to save in  .eps  without any issues and then lost the ability after an update. 
+
+  Update  I was able to solve this problem for my specific setup by changing a few lines in my  .matplotlibrc , so I will post the relevant lines here in the hope that it may be helpful to you as well. Note this requires that you have  xpdf  and  ghostscript  already installed. 
+
+ For me the important one was 
+
+  ##Saving Figures
+ps.usedistiller : xpdf
+  
+
+  
+
+  path.simplify : True 
+savefig.format : eps
+  
+
+   .eps  and include them in LaTeX'ed journal articles... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39539384)
+ This parameter is defined as  'stroke-miterlimit': '100000'  and is hard-set in backend_svg.py. There is no such parameter in matplotlibrc, so customizing with style sheet is unlikely to be possible. 
+
+ I used the following code to fix this issue: 
+
+  def fixmiterlimit(svgdata, miterlimit = 10):
+    # miterlimit variable sets the desired miterlimit
+    mlfound = False
+    svgout = ""
+    for line in svgdata:
+        if not mlfound:
+             # searches the stroke-miterlimit within the current line and changes its value
+             mlstring = re.subn(r'stroke-miterlimit:([0-9]+)', "stroke-miterlimit:" + str(miterlimit), line)
+        if mlstring[1]: # use number of changes made to the line to check whether anything was found
+            mlfound = True
+            svgout += mlstring[0] + '\n'
+        else:
+            svgout += line + '\n'
+    else:
+        svgout += line + '\n'
+return svgout
+  
+
+ And then call it like this (with the trick from this https://stackoverflow.com/questions/5453375/matplotlib-svg-as-string-and-not-a-file?rq=1): 
+
+  import StringIO
+...
+imgdata = StringIO.StringIO() # initiate StringIO to write figure data to
+# the same you would use to save your figure to svg, but instead of filename use StringIO object
+plt.savefig(imgdata, format='svg',  dpi=90, bbox_inches='tight')
+imgdata.seek(0)  # rewind the data
+svg_dta = imgdata.buf  # this is svg data
+
+svgoutdata = fixmiter(re.split(r'\n', svg_dta)) # pass as an array of lines
+svgfh = open('figure1.svg', 'w')
+svgfh.write(svgoutdata)
+svgfh.close()
+  
+
+ The code basically changes the stroke-miterlimit parameter in SVG output before writing it to file. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5453692)
+ Try using  StringIO  to avoid writing any file-like object to disk. 
+
+  import matplotlib.pyplot as plt
+import StringIO
+from matplotlib import numpy as np
+
+x = np.arange(0,np.pi*3,.1)
+y = np.sin(x)
+
+fig = plt.figure()
+plt.plot(x,y)
+
+imgdata = StringIO.StringIO()
+fig.savefig(imgdata, format='svg')
+imgdata.seek(0)  # rewind the data
+
+svg_dta = imgdata.buf  # this is svg data
+
+file('test.htm', 'w').write(svg_dta)  # test it
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39870761)
+ You can save your graph as svg for a lossless quality: 
+
+  import matplotlib.pylab as plt
+
+x = range(10)
+
+plt.figure()
+plt.plot(x,x)
+plt.savefig("graph.svg")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/34961896)
+ I have saved my plots in SVG format for similar purpose, 
+
+  import six
+
+fig = plt.figure()
+# plot some data
+tmp = six.StringIO()
+fig.savefig(tmp, format='svg', bbox_inches='tight')
+
+template = loader.get_template('path_to_/template.html')
+c = Context({ 'svg': tmp.getvalue() })
+return HttpResponse(template.render(c))
+  
+
+  
+
+  {% if svg %}
+<div style="width:60em;height:46em">
+  {% autoescape off %}
+  {{ svg }}
+  {% endautoescape %}
+</div>
+  
+
+
+

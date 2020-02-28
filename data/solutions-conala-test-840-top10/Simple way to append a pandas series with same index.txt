@@ -1,0 +1,290 @@
+Query: Simple way to append a pandas series with same index
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20400370)
+ you can also use  concat  with  ignore_index=True :  (see http://pandas.pydata.org/pandas-docs/stable/generated/pandas.tools.merge.concat.html ) 
+
+  pd.concat([a, b], ignore_index=True)
+  
+
+  edit : my tests with larger  a  and  b : 
+
+  a = pd.Series(pd.np.random.randn(100000))
+b = pd.Series(pd.np.random.randn(100000))
+
+%timeit pd.Series(np.concatenate([a,b]))
+1000 loops, best of 3: 1.05 ms per loop
+
+%timeit pd.concat([a, b], ignore_index=True)
+1000 loops, best of 3: 1.07 ms per loop
+
+%timeit a.append(b).reset_index(drop=True)
+100 loops, best of 3: 5.11 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20400477)
+ I think @runnerup answer is the way to go, but you can also create new Series explicitly: 
+
+  >>> pd.Series(np.concatenate([a,b]))
+0   -0.200403
+1   -0.921215
+2   -1.338854
+3    1.093929
+4   -0.879571
+5   -0.810333
+6    1.654075
+7    0.360978
+8   -0.472407
+9    0.123393
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20400262)
+ One option is to use  reset_index : 
+
+  >>> a.append(b).reset_index(drop=True)
+0   -0.370406
+1    0.963356
+2   -0.147239
+3   -0.468802
+4    0.057374
+5   -1.113767
+6    1.255247
+7    1.207368
+8   -0.460326
+9   -0.685425
+dtype: float64
+  
+
+ For the sake of justice, https://stackoverflow.com/users/1744834/roman-pekar method is fastest: 
+
+  >>> timeit('from __main__ import np, pd, a, b; pd.Series(np.concatenate([a,b]))', number = 10000)
+0.6133969540821536
+>>> timeit('from __main__ import np, pd, a, b; pd.concat([a, b], ignore_index=True)', number = 10000)
+1.020389742271714
+>>> timeit('from __main__ import np, pd, a, b; a.append(b).reset_index(drop=True)', number = 10000)
+2.2282133623128075
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39302544)
+ If you want to add a Series and use the Series' index as columns of the DataFrame, you only need to append the Series between brackets: 
+
+  In [1]: import pandas as pd
+
+In [2]: df = pd.DataFrame()
+
+In [3]: row=pd.Series([1,2,3],["A","B","C"])
+
+In [4]: row
+Out[4]: 
+A    1
+B    2
+C    3
+dtype: int64
+
+In [5]: df.append([row],ignore_index=True)
+Out[5]: 
+   A  B  C
+0  1  2  3
+
+[1 rows x 3 columns]
+  
+
+ Whitout the  ignore_index=True  you don't get proper index. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53923030)
+ Either assign in-place with  loc : 
+
+  df.loc['two'] = [4, 5, 6]
+# df.loc['two', :] = [4, 5, 6]
+df
+     A  B  C
+one  1  2  3
+two  4  5  6
+  
+
+ Or, use  df.append  with the second argument being a  Series  object having appropriate index and name: 
+
+  s = pd.Series(dict(zip(df.columns, [4, 5, 6])).rename('two'))
+df2 = df.append(s)
+
+df2
+     A  B  C
+one  1  2  3
+two  4  5  6
+  
+
+ 
+
+ If you are appending to a DataFrame without an index (i.e., having a numeric index), you can use  loc  after finding the max of the index and incrementing by 1: 
+
+  df4 = pd.DataFrame(np.array([1,2,3]).reshape(1,3), columns=list('ABC'))
+df4
+
+   A  B  C
+0  1  2  3
+
+df4.loc[df4.index.max() + 1, :] = [4, 5, 6]
+df4
+     A    B    C
+0  1.0  2.0  3.0
+1  4.0  5.0  6.0
+  
+
+ Or, using  append  with  ignore_index=True : 
+
+  df4.append(pd.Series(dict(zip(df4.columns, [4, 5, 6]))), ignore_index=True)
+
+   A  B  C
+0  1  2  3
+1  4  5  6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26311118)
+ Here's a simple and dumb solution: 
+
+  >>> import pandas as pd
+>>> df = pd.DataFrame()
+>>> df = df.append({'foo':1, 'bar':2}, ignore_index=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34476837)
+ You are indexing into the DataFrame into column t with  df[t] . I think you would like to index into it by row instead. 
+
+ From the looks of it though, it appears a Series may be better suited since you are updating by a time index. 
+
+  import pandas as pd
+import time
+
+series = pd.Series()
+
+for i in range(5):
+    time.sleep(2)
+    t = pd.datetime.now()
+    series[t] = 5 + i
+
+print series
+
+
+import pandas as pd
+import time
+  
+
+ In the case that a dataframe is needed, it can be appended using  df.ix[row_index] : 
+
+  df = pd.DataFrame(columns = ['col1', 'col2'])
+
+for i in range(5):
+    time.sleep(2)
+    t = pd.datetime.now() # Generate row index
+    df.ix[t] = {'col1': 5 + i, 'col2': 20 + i}
+
+
+print df
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33094152)
+ Maybe an easier way would be to add the  pandas.Series  into the  pandas.DataFrame  with  ignore_index=True  argument to  DataFrame.append() . Example - 
+
+  DF = DataFrame()
+for sample,data in D_sample_data.items():
+    SR_row = pd.Series(data.D_key_value)
+    DF = DF.append(SR_row,ignore_index=True)
+  
+
+  
+
+  In [1]: import pandas as pd
+
+In [2]: df = pd.DataFrame([[1,2],[3,4]],columns=['A','B'])
+
+In [3]: df
+Out[3]:
+   A  B
+0  1  2
+1  3  4
+
+In [5]: s = pd.Series([5,6],index=['A','B'])
+
+In [6]: s
+Out[6]:
+A    5
+B    6
+dtype: int64
+
+In [36]: df.append(s,ignore_index=True)
+Out[36]:
+   A  B
+0  1  2
+1  3  4
+2  5  6
+  
+
+ 
+
+ Another issue in your code is that http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.append.html is not in-place, it returns the appended dataframe, you would need to assign it back to your original dataframe for it to work. Example - 
+
+  DF = DF.append(SR_row,ignore_index=True)
+  
+
+ 
+
+ To preserve the labels, you can use your solution to include name for the series along with assigning the appended DataFrame back to  DF . Example - 
+
+  DF = DataFrame()
+for sample,data in D_sample_data.items():
+    SR_row = pd.Series(data.D_key_value,name=sample)
+    DF = DF.append(SR_row)
+DF.head()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26310294)
+ Could you do something like this? 
+
+  >>> import pandas as pd
+>>> df = pd.DataFrame(columns=['col1', 'col2'])
+>>> df = df.append(pd.Series(['a', 'b'], index=['col1','col2']), ignore_index=True)
+>>> df = df.append(pd.Series(['d', 'e'], index=['col1','col2']), ignore_index=True) 
+>>> df
+  col1 col2
+0    a    b
+1    d    e
+  
+
+ Does anyone have a more elegant solution? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/13456432)
+ You can use the append function to add another element to it. Only, make a series of the new element, before you append it: 
+
+  test.append(pd.Series(200, index=[101]))
+  
+
+
+

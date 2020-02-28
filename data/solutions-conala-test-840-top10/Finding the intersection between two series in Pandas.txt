@@ -1,0 +1,232 @@
+Query: Finding the intersection between two series in Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18080142)
+ If you are using Pandas, I assume you are also using NumPy. Numpy has a function  intersect1d  that will work with a Pandas series.  
+
+ Example: 
+
+  pd.Series(np.intersect1d(pd.Series([1,2,3,5,42]), pd.Series([4,5,6,20,42])))
+  
+
+ will return a Series with the values 5 and 42. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32214034)
+  
+
+  s1 = pd.Series([4,5,6,20,42])
+s2 = pd.Series([1,2,3,5,42])
+
+s1[s1.isin(s2)]
+  
+
+  
+
+  s1  <- c(4,5,6,20,42)
+s2 <- c(1,2,3,5,42)
+
+s1[s1 %in% s2]
+  
+
+  Edit:  Doesn't handle dupes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/26326581)
+ Pandas indexes have an http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.intersection.html which you can use. If you have two Series,  s1  and  s2 , then 
+
+  s1.index.intersection(s2.index)
+  
+
+  
+
+  s1.index & s2.index
+  
+
+ gives you the index values which are in both  s1  and  s2 . 
+
+ You can then use this list of indexes to view the corresponding elements of a series. For example: 
+
+  >>> ixs = s1.index.intersection(s2.index)
+>>> s1.loc[ixs]
+# subset of s1 with only the indexes also found in s2 appears here
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40075325)
+ Could use merge operator like follows 
+
+  pd.merge(df1, df2, how='inner')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51827183)
+ Assuming your series consists of strings, you can use  set.intersection  ( & ): 
+
+  L = ['A', 'B']
+
+s = pd.Series(['A, B', 'A, B, C', 'E, D, F'])
+
+res = s.str.split(', ').map(set) & set(L)
+
+print(res)
+
+0     True
+1     True
+2    False
+dtype: bool
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21175114)
+  
+
+  s1 = pd.Series([4,5,6,20,42])
+s2 = pd.Series([1,2,3,5,42])
+  
+
+  
+
+  %%timeit
+pd.Series(list(set(s1).intersection(set(s2))))
+10000 loops, best of 3: 57.7 µs per loop
+
+%%timeit
+pd.Series(np.intersect1d(s1,s2))
+1000 loops, best of 3: 659 µs per loop
+
+%%timeit
+pd.Series(np.intersect1d(s1.values,s2.values))
+10000 loops, best of 3: 64.7 µs per loop
+  
+
+ So the numpy solution can be comparable to the set solution even for small series, if one uses the  values  explicitely. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42127482)
+ Consider the list of series  los  
+
+  los = [
+    pd.Series([1, 2, 3], [0, 2, 4], name='A'),
+    pd.Series([1, 2, 3], [1, 2, 4], name='B'),
+    pd.Series([1, 2, 3], [4, 3, 2], name='C')
+]
+  
+
+ Using  pd.concat  with parameter  join='inner'  
+ 'inner'  is required to get the intersection of indices 
+
+  pd.concat(los, axis=1, join='inner')
+
+   A  B  C
+4  3  3  1
+2  2  2  3
+  
+
+ 
+
+ Had we not used  join='inner'  
+
+  pd.concat(los, axis=1)
+
+     A    B    C
+0  1.0  NaN  NaN
+1  NaN  1.0  NaN
+2  2.0  2.0  3.0
+3  NaN  NaN  2.0
+4  3.0  3.0  1.0
+  
+
+ Which is   not   the intersection 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42125063)
+ The command  pd.concat  is intended specifically for this. Note that, in my example, the indexes are all the same but  pd.concat  will intersect indexes automatically.  
+
+  ## generate data
+series_list = [pd.Series(np.random.randn(10)) for x in range(10)]
+
+## output example
+In [13]: pd.concat(series_list, axis=1)
+Out[13]:
+          0         1         2         3         4         5         6  \
+0  0.859256 -2.283672  0.539067 -0.745864 -2.658162  0.353576  0.482614
+1  0.999823  0.155528 -0.579598  0.356863 -0.135860 -0.406351  0.888127
+2 -0.727666 -1.571515  0.639486  0.394803  0.478038  0.244531 -1.422910
+3  0.582662  1.469884 -3.337026 -0.407253 -2.351327 -0.676233  0.018020
+4  1.173179  0.211506 -0.360274 -0.299976 -0.479131  1.735279  0.549555
+5 -1.589117 -2.037131 -1.843098  0.066606  0.166258 -1.444472  1.534016
+6 -0.275819 -0.978669  2.299632  0.807746 -1.358762  1.190374 -0.668204
+7  0.933350 -0.536032  1.285759  0.677269 -0.385078 -0.357661  2.085237
+8  0.167977  0.090950  1.220945  1.085571 -0.486978  0.848816 -0.559023
+9 -1.006001 -0.168631  1.501675 -0.351409  1.719402  0.337982 -0.776788
+
+          7         8         9
+0  0.015773  2.356775 -1.288013
+1  1.292615  1.272147  0.347335
+2  1.410002 -0.364822 -0.372589
+3 -2.306940 -0.816853  2.565389
+4 -1.815764 -1.547376  1.104517
+5 -1.561681 -0.373882  0.582264
+6 -1.272563 -0.317298 -0.446855
+7  1.179011 -1.402293  0.424124
+8 -1.839095  1.278204 -1.166991
+9  0.950620  0.681596 -1.908053
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18079695)
+ Place both series in Python's https://docs.python.org/2/library/stdtypes.html#set then use the set intersection method: 
+
+  s1.intersection(s2)
+  
+
+ and then transform back to list if needed. 
+
+ Just noticed pandas in the tag.  
+
+  pd.Series(list(set(s1).intersection(set(s2))))
+  
+
+ From comments I have changed this to a more Pythonic expression, which is shorter and easier to read: 
+
+  Series(list(set(s1) & set(s2)))
+  
+
+ should do the trick, except if the index data is also important to you. 
+
+ Have added the  list(...)  to translate the set before going to pd.Series as pandas does not accept a set as direct input for a Series. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/28691519)
+ The problem is that your lists contain sublists so they cannot be converted to sets.  
+
+  A=[['11@N3'], ['23@N0'], ['62@N0'], ['99@N0'], ['47@N7']]
+B=[['23@N0'], ['12@N1']]
+
+C = [item for sublist in A for item in sublist]
+D = [item for sublist in B for item in sublist]
+
+print set(C).intersection(set(D))
+  
+
+
+

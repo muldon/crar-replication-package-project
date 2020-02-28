@@ -1,0 +1,337 @@
+Query: do a try-except without handling the exception
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7735712)
+ 
+   When you just want to do a try catch without handling the exception,
+  how do you do it in Python? 
+ 
+
+ This will help you to print what the exception is:( i.e. try catch without handling the exception and print the exception.) 
+
+  import sys
+try:
+    doSomething()
+except:
+    print "Unexpected error:", sys.exc_info()[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/730806)
+ 
+   When you just want to do a try catch without handling the exception, how do you do it in Python? 
+ 
+
+ It depends on what you mean by "handling." 
+
+ If you mean to catch it without taking any action, the code you posted will work. 
+
+ If you mean that you want to take action on an exception without stopping the exception from going up the stack, then you want something like this: 
+
+  try:
+    do_something()
+except:
+    handle_exception()
+    raise  #re-raise the exact same exception that was thrown
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10900819)
+ Don't use  except  without an Exception class, so  sys.exit  will just work fine without triggering the exception handling: 
+
+  >>> import sys
+>>> try:
+...     sys.exit()
+... except Exception:
+...     print 'oops'
+... 
+$ 
+  
+
+ There are other exceptions which are triggered with a plain except clause (and in general shouldn't), especially  KeyboardInterrupt . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28881549)
+ I'd offer this as an improvement on the accepted answer. 
+
+  try:
+    dosomestuff()
+except MySpecialException:
+    ttype, value, traceback = sys.exc_info()
+    raise ttype, value, traceback
+except Exception as e:
+    mse = convert_to_myspecialexception_with_local_context(e, context)
+    raise mse
+  
+
+ This approach improves on the accepted answer by maintaining the original stacktrace when MySpecialException is caught, so when your top-level exception handler logs the exception you'll get a traceback that points to where the original exception was thrown. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/730778)
+  try:
+  doSomething()
+except: 
+  pass
+  
+
+  
+
+  try:
+  doSomething()
+except Exception: 
+  pass
+  
+
+ The difference is, that the first one will also catch  KeyboardInterrupt ,  SystemExit  and stuff like that, which are derived directly from  exceptions.BaseException , not  exceptions.Exception .  See documentation f details: 
+
+ 
+ try statement &mdash; http://docs.python.g/reference/compound_stmts.html#try 
+ exceptions &mdash; http://docs.python.g/library/exceptions 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18188660)
+ You can store the exception type, value, and traceback in local variables and use the http://docs.python.org/2.7/reference/simple_stmts.html#the-raise-statement: 
+
+  try:
+    something()
+except SomeError:
+    t, v, tb = sys.exc_info()
+    try:
+        plan_B()
+    except AlsoFailsError:
+        raise t, v, tb
+  
+
+ In Python 3 the traceback is stored in the exception, so  raise e  will do the (mostly) right thing: 
+
+  try:
+    something()
+except SomeError as e:
+    try:
+        plan_B()
+    except AlsoFailsError:
+        raise e
+  
+
+ The only problem with the above is that it will produce a slightly misleading traceback that tells you that  SomeError  occurred while handling  AlsoFailsError  (because of  raise e  inside  Except AlsoFailsError ), where in fact the almost exact opposite occurred - we handled  AlsoFailsError  while trying to recover from  SomeError . To disable this behavior and get a traceback that never mentions  AlsoFailsError , replace  raise e  with  raise e from None . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1767077)
+  try:
+      doSomething()
+except Exception: 
+    pass
+else:
+      stuffDoneIf()
+      TryClauseSucceeds()
+  
+
+ FYI the else clause can go after all exceptions and will only be run if the code in the try doesn't cause an exception.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16123643)
+ The answer is to simply do a bare  raise : 
+
+  try:
+    ...
+except NoChildException:
+    # optionally, do some stuff here and then ...
+    raise
+except Exception:
+    # handling
+  
+
+ This will re-raise the last thrown exception, with original stack trace intact (even if it's been handled!).  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19283393)
+ One solution would be to call http://docs.python.org/2/library/sys.html#sys.exc_info after an exception has been handled: 
+
+  import sys
+
+class MyErr(Exception):
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+        self.context = sys.exc_info()[1]
+    def __str__(self):
+        return repr(self.args) + ' from ' + repr(self.context)
+
+try:
+    print xxx
+except Exception as e:
+    # exception handled
+    sys.exc_clear()
+
+raise MyErr('look out')
+  
+
+  
+
+  Traceback (most recent call last):
+  File "test.py", line 18, in <module>
+    raise MyErr('look out')`
+__main__.MyErr: ('look out',) from None
+  
+
+ If there is not many places that handle an exception without raising  MyErr  then it might be more suitable then modifying calls to  MyErr  providing some constructor argument, or even explicitly handling traceback preservation as in https://stackoverflow.com/questions/1350671/inner-exception-with-traceback-in-python/1350981#1350981. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/28081414)
+ 
+   How to properly ignore Exceptions? 
+ 
+
+ There are several ways of doing this.  
+
+ However, the choice of example has a simple solution that does not cover the general case. 
+
+ Specific to the example: 
+
+ Instead of  
+
+  try:
+    shutil.rmtree(path)
+except:
+    pass
+  
+
+  
+
+  shutil.rmtree(path, ignore_errors=True)
+  
+
+ This is an argument specific to  shutil.rmtree . You can see the help on it by doing the following, and you'll see it can also allow for functionality on errors as well. 
+
+  >>> import shutil
+>>> help(shutil.rmtree)
+  
+
+ Since this only covers the narrow case of the example, I'll further demonstrate how to handle this if those keyword arguments didn't exist. 
+
+ General approach 
+
+ Since the above only covers the narrow case of the example, I'll further demonstrate how to handle this if those keyword arguments didn't exist. 
+
+ New in Python 3.4: 
+
+ You can import the  suppress  context manager: 
+
+  from contextlib import suppress
+  
+
+ But only suppress the most specific exception: 
+
+  with suppress(FileNotFoundError):
+    shutil.rmtree(path)
+  
+
+ You will silently ignore a  FileNotFoundError : 
+
+  >>> with suppress(FileNotFoundError):
+...     shutil.rmtree('bajkjbkdlsjfljsf')
+... 
+>>> 
+  
+
+ From the https://docs.python.org/3/library/contextlib.html#contextlib.suppress: 
+
+ 
+   As with any other mechanism that completely suppresses exceptions,
+  this context manager should be used only to cover very specific errors
+  where silently continuing with program execution is known to be the
+  right thing to do. 
+ 
+
+ Note that  suppress  and  FileNotFoundError  are only available in Python 3. 
+
+ If you want your code to work in Python 2 as well, see the next section: 
+
+ Python 2 & 3: 
+
+ 
+   When you just want to do a try/except without handling the exception,
+  how do you do it in Python? 
+  
+   Is the following the right way to do it? 
+
+  try :
+    shutil.rmtree ( path )
+except :
+    pass
+  
+ 
+
+ For Python 2 compatible code,  pass  is the correct way to have a statement that's a no-op. But when you do a bare  except: , that's the same as doing  except BaseException:  which includes  GeneratorExit ,  KeyboardInterrupt , and  SystemExit , and in general, you don't want to catch those things.  
+
+ In fact, you should be as specific in naming the exception as you can.  
+
+ Here's part of the Python (2) https://docs.python.org/2/library/exceptions.html#exception-hierarchy, and as you can see, if you catch more general Exceptions, you can hide problems you did not expect: 
+
+  BaseException
+ +-- SystemExit
+ +-- KeyboardInterrupt
+ +-- GeneratorExit
+ +-- Exception
+      +-- StopIteration
+      +-- StandardError
+      |    +-- BufferError
+      |    +-- ArithmeticError
+      |    |    +-- FloatingPointError
+      |    |    +-- OverflowError
+      |    |    +-- ZeroDivisionError
+      |    +-- AssertionError
+      |    +-- AttributeError
+      |    +-- EnvironmentError
+      |    |    +-- IOError
+      |    |    +-- OSError
+      |    |         +-- WindowsError (Windows)
+      |    |         +-- VMSError (VMS)
+      |    +-- EOFError
+... and so on
+  
+
+ You probably want to catch an OSError here, and maybe the exception you don't care about is if there is no directory.  
+
+ We can get  that  specific error number from the  errno  library, and reraise if we don't have that: 
+
+  import errno
+
+try:
+    shutil.rmtree(path)
+except OSError as error:
+    if error.errno == errno.ENOENT: # no such file or directory
+        pass
+    else: # we had an OSError we didn't expect, so reraise it
+        raise 
+  
+
+ Note, a bare raise raises the original exception, which is probably what you want in this case. Written more concisely, as we don't really need to explicitly  pass  with code in the exception handling: 
+
+  try:
+    shutil.rmtree(path)
+except OSError as error:
+    if error.errno != errno.ENOENT: # no such file or directory
+        raise 
+  
+
+
+

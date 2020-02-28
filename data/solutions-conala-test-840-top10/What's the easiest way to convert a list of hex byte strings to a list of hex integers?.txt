@@ -1,0 +1,229 @@
+Query: What's the easiest way to convert a list of hex byte strings to a list of hex integers?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2398100)
+ Depending on the fmat in the text file, it may be easier to convert directly 
+
+  >>> b=bytearray('BBA7F69E'.decode('hex'))
+  
+
+  
+
+  >>> b=bytearray('BB A7 F6 9E'.replace(' ','').decode('hex'))
+>>> b
+bytearray(b'\xbb\xa7\xf6\x9e')
+>>> b[0]
+187
+>>> hex(b[0])
+'0xbb'
+>>> 
+  
+
+ a bytearray is easily converted to a list 
+
+  >>> list(b) == [0xBB, 0xA7, 0xF6, 0x9E]
+True
+
+>>> list(b)
+[187, 167, 246, 158]
+  
+
+ If you want to change the way the list is  displayed  you'll need to make your own list class 
+
+  >>> class MyList(list):
+...  def __repr__(self):
+...   return '['+', '.join("0x%X"%x if type(x) is int else repr(x) f x in self)+']'
+... 
+>>> MyList(b)
+[0xBB, 0xA7, 0xF6, 0x9E]
+>>> str(MyList(b))
+'[0xBB, 0xA7, 0xF6, 0x9E]'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2397698)
+  [0xBB, 0xA7, 0xF6, 0x9E]  is the same as  [187, 167, 158] . So there's no special 'hex integer' form or the like. 
+
+ But you can convert your hex strings to ints: 
+
+  >>> [int(x, 16) for x in ['BB', 'A7', 'F6', '9E']]
+[187, 167, 246, 158]
+  
+
+ See also https://stackoverflow.com/questions/209513/convert-hex-string-to-int-in-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22204173)
+ Concatenate your hex numbers into one string: 
+
+  '0x' + ''.join([format(int(c, 16), '02X') for c in reversed(inputlist)])
+  
+
+ This does include the  00  byte explicitly in the output: 
+
+  >>> inputlist = ['0xe1', '0xd7', '0x7', '0x0']
+>>> '0x' + ''.join([format(int(c, 16), '02X') for c in reversed(inputlist)])
+'0x0007D7E1'
+  
+
+ However, I'd look into reading your binary file format better; using  struct  for example to unpack bytes directly from the file into proper integers in the right byte order: 
+
+  >>> import struct
+>>> bytes = ''.join([chr(int(c, 16)) for c in inputlist])
+>>> value = struct.unpack('<I', bytes)[0]
+>>> print hex(value)
+0x7d7e1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5085142)
+ You easiest bet is to http://docs.python.org/library/pickle.html the whole list to a string and then use  binascii.a2b_hex()  to convert this string to hex digits: 
+
+  a = ["Hello", 42, 3.1415]
+s = binascii.b2a_hex(pickle.dumps(a, 2))
+print s
+# 80025d710028550548656c6c6f71014b2a47400921cac083126f652e
+print pickle.loads(binascii.a2b_hex(s))
+# ['Hello', 42, 3.1415]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52003649)
+  l = [0x1A, 0xF3, 0x74, 0xA3]
+
+merged = ''.join([str(hex(el))[2:] for el in l])
+  
+
+ If you need the hex you can get it as: 
+
+  hex(int(merged, 16)) --> 0x1af374a3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8382167)
+  hexstrings = ["DE", "AD", "BE", "EF"]   # big-endian 0xDEADBEEF
+
+bytes = bytearray(int(x, 16) for x in hexstrings)
+bytes = bytearray.fromhex("".join(hexstrings))     # Python 2.6 may need u""
+  
+
+ If you've got a lot of 'em, it might be worthwhile to see which of those is fastest. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54016121)
+ If can accept tuples of integers, you can use: 
+
+  x = ['1-1-1','1-1-2', '1-2-1', '1-2-2', '1-3-1']
+y3 = [tuple(map(int,a.split('-'))) for a in x]
+y2 = set(a[:2] for a in y3)
+y1 = set(a[0] for a in y2)
+
+d = {}
+for k1 in y1:
+    d1 = {}
+    d[k1] = d1
+    for k2 in (z for z in y2 if z[0]==k1):
+        a2 = []
+        d1[k2] = a2
+        for a in (z for z in y3 if z[0]==k1 and z[1]==k2[1]):
+            a2.append(a)
+  
+
+ But if you really need strings, you can simply join the keys via: 
+
+  x = ['1-1-1','1-1-2', '1-2-1', '1-2-2', '1-3-1']
+y3 = [tuple(a.split('-')) for a in x]
+y2 = set(a[:2] for a in y3)
+y1 = set(a[0] for a in y2)
+
+
+d = {}
+for k1 in y1:
+    d1 = {}
+    d[k1] = d1
+    for k2 in (z for z in y2 if z[0]==k1):
+        a2 = []
+        d1['-'.join(k2)] = a2
+        for a in (z for z in y3 if z[0]==k1 and z[1]==k2[1]):
+            a2.append('-'.join(a))
+
+d
+# returns:
+{'1': {'1-1': ['1-1-1', '1-1-2'], '1-2': ['1-2-1', '1-2-2'], '1-3': ['1-3-1']}}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/53861912)
+ The byte string is actually just a series of numbers from 0 to 255.   
+
+  list(b'\x02\x0cj@Y[\x05\x0cN@>GAYRBV\x0fD=GP\x16@')
+# returns:
+[2,
+ 12,
+ 106,
+ 64,
+ 89,
+ 91,
+ 5,
+ 12,
+ 78,
+ 64,
+ 62,
+ 71,
+ 65,
+ 89,
+ 82,
+ 66,
+ 86,
+ 15,
+ 68,
+ 61,
+ 71,
+ 80,
+ 22,
+ 64]
+  
+
+ You can convert the byte string to a sequence of hex digits of length 2 via: 
+
+  ''.join(f'{b:0>2x}' for b in b'\x02\x0cj@Y[\x05\x0cN@>GAYRBV\x0fD=GP\x16@')
+# returns:
+'020c6a40595b050c4e403e4741595242560f443d47501640'
+  
+
+ This uses a format-string (f-string) to convert each byte  b  to a hex value ( f'{:x}' ), but also pads the string to length 2 with a leading 0 ( f'{:0>2}' ).   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15869139)
+ It sounds like you want a list of the byte values as integers.  
+
+  >>> import struct
+>>> x = struct.pack("@L",1000)
+>>> map(ord, x)
+[232, 3, 0, 0]
+  
+
+ If you really want hex strings: 
+
+  >>> map(hex, map(ord, x))
+['0xe8', '0x3', '0x0', '0x0']
+  
+
+
+

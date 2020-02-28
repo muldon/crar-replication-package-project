@@ -1,0 +1,158 @@
+Query: case sensitive string replacement in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3009124)
+ Here's a method using regular expressions. The key point is that when it finds a match it first modifies the replacement string to match the casing of the matched string. This works because  re.sub  can take a function as a replacement instead of just a string. 
+
+  import re
+
+def case_sensitive_replace(s, before, after):
+    regex = re.compile(re.escape(before), re.I)
+    return regex.sub(lambda x: ''.join(d.upper() if c.isupper() else d.lower()
+                                       for c,d in zip(x.group(), after)), s)
+
+test = '''
+abc -> def
+Abc -> Def
+aBc -> dEf
+abC -> deF
+'''
+
+result = case_sensitive_replace(a, 'abc', 'def')
+print(result)
+  
+
+ Result: 
+
+ 
+def -> def
+Def -> Def
+dEf -> dEf
+deF -> deF
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17729686)
+ Expanding on Mark Byers' answer, Here's a solution which works for replacement text of any length.  
+The trick is to send a function to http://docs.python.org/2/library/re.html#re.sub. 
+
+  import re
+def case_sensitive_replace(string, old, new):
+    """ replace occurrences of old with new, within string
+        replacements will match the case of the text it replaces
+    """
+    def repl(match):
+        current = match.group()
+        result = ''
+        all_upper=True
+        for i,c in enumerate(current):
+            if i >= len(new):
+                break
+            if c.isupper():
+                result += new[i].upper()
+            else:
+                result += new[i].lower()
+                all_upper=False
+        #append any remaining characters from new
+        if all_upper:
+            result += new[i+1:].upper()
+        else:
+            result += new[i+1:].lower()
+        return result
+
+    regex = re.compile(re.escape(old), re.I)
+    return regex.sub(repl, string)
+
+print case_sensitive_replace("abc Abc aBc abC ABC",'abc','de')
+print case_sensitive_replace("abc Abc aBc abC ABC",'abc','def')
+print case_sensitive_replace("abc Abc aBc abC ABC",'abc','defg')
+  
+
+  
+
+  de De dE de DE
+def Def dEf deF DEF
+defg Defg dEfg deFg DEFG
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4145495)
+ You can't change case in a replacement string. You would need a replacement function: 
+
+  >>> def replacement(match):
+...     return match.group(1).lower()
+... 
+>>> re.sub(r'([A-Z])\1', replacement, 'start TT end')
+'start t end'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14456271)
+  >>> s = 'ABC'
+>>> s.lower()
+'abc'
+>>>
+  
+
+ After you could use any pattern for matching. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3009327)
+ Long time lurker, thought I'd post a suggestion here as some of these seem fairly convoluted. 
+
+  print map(lambda a, b: b.lower() if a.islower() else b.upper(), "aBc", "def")
+  
+
+ It does assume both strings are the same length, however you could easily replace the lambda with a proper function and check for None on the first input. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37669896)
+ "combinations" is an order-insensitive term; if you have  113 , then you don't need  131  or  311 , because all of them are the same "combination" (if the input sequence to  combinations_with_replacement  is unique, you could view the outputs as being all unique values after converting to  collections.Counter ; regardless of order, two  1 s and a  3  is just  collections.Counter({1: 2, 3:1}) ). 
+
+ If you want an order sensitive version of  combinations_with_replacement  (so  113 ,  131  and  311  are all separate outputs), use https://docs.python.org/3/library/itertools.html#itertools.product with the  repeat  argument ( repeat  must be passed by keyword due to design of  product , where it takes variable length positional arguments): 
+
+  sCharacters = '123'
+for iCombinationLength in range(0, len(sCharacters)+1):
+  for aCombination in itertools.product(sCharacters, repeat=iCombinationLength):
+    print(''.join(aCombination))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14817425)
+ Use the http://docs.python.org/2/library/re.html, here is a brief example for "black": 
+
+  >>> import re
+>>> s = "Back in BLACK, I hit the sAck, I've been too LOng I'm glad to be back."
+>>> regex = re.compile(r'black', flags=re.IGNORECASE)
+>>> regex.sub('b***', s)
+"Back in b***, I hit the sAck, I've been too LOng I'm glad to be back."
+  
+
+ To keep the case of the first letter, capture it and use a back reference in the replacement: 
+
+  >>> regex = re.compile(r'(b)lack', flags=re.IGNORECASE)
+>>> regex.sub(r'\1***', s)
+"Back in B***, I hit the sAck, I've been too LOng I'm glad to be back."
+  
+
+ To do all the replacements in one pass: 
+
+  >>> regex = re.compile(r'(?=(.))(?:black|sack|long|glad)', flags=re.IGNORECASE)
+>>> regex.sub(r'\1***', s)
+"Back in B***, I hit the s***, I've been too L*** I'm g*** to be back."
+  
+
+
+

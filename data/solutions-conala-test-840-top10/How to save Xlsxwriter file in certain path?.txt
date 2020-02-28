@@ -1,0 +1,212 @@
+Query: How to save Xlsxwriter file in certain path?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22905865)
+ The file it's self is saved to your local directory (where you run the file from) for example, I am using Python 2.7.6, and when I run this: 
+
+  workbook = xlsxwriter.Workbook('demo.xlsx')
+  
+
+ The file is saved in the same folder as my Python file, you can also specify a full path like so: 
+
+  workbook = xlsxwriter.Workbook('C:/Users/Steven/Documents/demo.xlsx')
+  
+
+ And this will save my demo.xlsx file in my documents folder (assuming you are on windows)
+Make sure all of your paths are correct (case sensitive, and none corrupted) and it should work, the final example that should be a copy and paste for you is: 
+
+  workbook = xlsxwriter.Workbook('app/smth1/smth2/Expenses01.xlsx')
+  
+
+ Notice the starting "/" is not needed and may be causing your errors (at least on Windows, I can't say for sure on Mac/Linux). 
+Examples can be found http://xlsxwriter.readthedocs.org/en/latest/example_demo.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51058893)
+ use  ./path/to/file  to declare a local path 
+
+ UPDATE 
+
+ alternatively you can define the path in settings.py and then import it to any django file as  
+
+ Settings.py: 
+
+  BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+  
+
+  
+
+  from django.conf import settings
+def write_to_excel(dataFrame, sheetName): 
+writer = pd.ExcelWriter(settings.BASE_DIR, engine='xlsxwriter')
+dataFrame.to_excel(writer, sheetName='Sheet1')
+writer.save()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54913125)
+ Make sure the writer.save() is outside of the loop. Also be aware of the character limit on sheetnames, so if the file names are the same up to a certain point, you run the risk of writing over a sheetname that way as well.  
+
+  import xlwt, csv, os
+from openpyxl import load_workbook
+import pandas as pd
+from pandas import ExcelWriter
+
+csv_folder = r'C:\Users\Me\Desktop\Test_Folder\\'
+writer = pd.ExcelWriter('condensed_output.xlsx', engine = 'xlsxwriter')
+for fil in os.listdir(csv_folder):
+
+    if '.xlsx' not in fil:
+        continue
+    else:
+        pass
+
+    df = pd.read_excel(csv_folder+fil, encoding = 'utf8')
+
+    file_name = fil.replace('.xlsx','')
+
+
+    df.to_excel(writer, sheet_name = file_name) 
+
+writer.save() #make sure this is outside of the loop. 
+  
+
+ ETA: establish the writer outside of the loop as well 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49651420)
+ Still, if you want to use  XLSXwriter  
+
+  from xlsxwriter.workbook import Workbook
+...
+book = Workbook('file/path')
+sheet = book.add_worksheet('worksheet_name')
+
+# Add separate format for unlocked cells
+unlocked = book.add_format({'locked': 0})
+# Protect all cells in your sheet by default
+sheet.protect()
+...
+# Write cell, locked by default
+sheet.write(row_number, column_number, data)
+# Write another cell, unlock it
+sheet.write(row_number, column_number, data, unlocked)
+...
+book.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45186027)
+ You are trying to use the built in function  open  to open an object. It requires a string as its first argument (which represents a file path). More information on the  open  function can be found in the https://docs.python.org/3/library/functions.html#open.  
+
+ The https://github.com/pandas-dev/pandas/blob/2e24a8f8886a1481af8324d44224cddb2ee1b53c/pandas/io/excel.py#L754 for pandas ExcelWriter shows it stores the filename you pass to it in  .path . So renaming your variables to better represent what they are and using the  .path  attribute of the ExcelWriter instance: 
+
+  excel_file = pd.ExcelWriter('myfile.xlsx', engine='xlsxwriter')
+actions.to_excel(excel_file, sheet_name="Combined Actions")
+excel_file.save()
+
+with open(excel_file.path, 'rb') as f:
+    dbx.files_upload(f.read(), '/MyAPP/'+excel_file.path)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35492577)
+ You can create an ExcelWriter object with the option not to convert strings to urls: 
+
+  writer = pandas.ExcelWriter(r'file.xlsx', engine='xlsxwriter',options={'strings_to_urls': False})
+df.to_excel(writer)
+writer.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27617286)
+ The error showed that you combined the path to the files 2 times on top of each other: 
+
+  'D:/apera/Workspace/Sounding2/bla.txtD:/apera/Workspace/Sounding2/'
+  
+
+ This does it for me: 
+
+  import xlsxwriter
+import glob ,csv
+
+openSoundingFile = 'D:/apera/Workspace/Sounding2/*.txt'
+
+for filename in glob.glob(openSoundingFile):
+    spamReader = csv.reader(open(filename, 'rb'), delimiter=';',quotechar='"')
+    # Note that filename is the full path already! Just [:-4] to remove .txt
+    workbook = xlsxwriter.Workbook(filename[:-4] + '.xlsx')
+    sheet = workbook.add_worksheet('Original data')
+    for rowx, row in enumerate(spamReader):
+        for colx, value in enumerate(row):
+            sheet.write(rowx, colx, value)
+    workbook.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42826211)
+ In your example the  Workbook()  constructor creates a new file which overwrites the file created in Pandas. 
+
+ If you want to add other dataframes to the workbook you can call  to_excel()  with other worksheet names, like this: 
+
+  writer = pd.ExcelWriter('SAP.xlsx', engine='xlsxwriter')
+
+pivot.to_excel(writer, sheet_name='Pivot')
+df2.to_excel(writer, sheet_name='Sheet2')
+writer.save()
+  
+
+ If you want to add a worksheet using the XlsxWriter apis you can do it as follows: 
+
+  writer = pd.ExcelWriter('SAP.xlsx', engine='xlsxwriter')
+
+pivot.to_excel(writer, sheet_name='Pivot')
+
+workbook  = writer.book
+worksheet = workbook.add_worksheet('Detail')
+writer.save()
+  
+
+ See also http://xlsxwriter.readthedocs.io/working_with_pandas.html in the XlsxWriter docs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51059182)
+ Probably the best way is to write the Pandas Excel stream to a memory stream, and then wrap this into a HTTP response: 
+
+  from pandas import ExcelWriter
+
+XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+def some_excelfile_view(request):
+    response = HttpResponse(content_type=XLSX_MIME)
+    response['Content-Disposition'] = 'attachment; filename="PythonExport.xlsx"'
+
+    # obtain obj_master
+    # ...
+    writer = pd.ExcelWriter(<b>response</b>, engine='xlsxwriter')
+
+    df_view = obj_master.get_employee()
+    df_view.to_excel(writer, 'Sheet1')
+    writer.save()
+    return response  
+
+ Then you can use a  url  that maps to this  some_excelfile_view . If a user then visists that URL, it will perform a file download for the Excel file. 
+
+
+

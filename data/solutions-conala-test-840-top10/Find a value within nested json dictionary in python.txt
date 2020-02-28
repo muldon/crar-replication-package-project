@@ -1,0 +1,241 @@
+Query: Find a value within nested json dictionary in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26782023)
+ You can use a recursive function to dig through every layer and print its value with an indent 
+
+  def recurse_keys(df, indent = '  '):
+    ''' 
+    import json, requests, pandas
+    r = requests.post(...)  
+    rj = r.json() # json decode results query
+    j = json.dumps(rj, sort_keys=True,indent=2)            
+    df1 = pandas.read_json(j)         
+    '''
+    for key in df.keys():
+        print(indent+str(key))
+        if isinstance(df[key], dict):
+            recurse_keys(df[key], indent+'   ')
+recurse_keys(df1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44624877)
+ This is an optional implementation to your issue. 
+
+ First, filter all subkey1 with True. 
+
+ Second, find from the filtered dictionary the max value within subkey2. 
+
+  d = {'key1' : {'subkey1' : True,  'subkey2' : 4},
+     'key2' : {'subkey1' : True,  'subkey2' : 8},
+     'key3' : {'subkey1' : False, 'subkey2' : 1},
+     'key4' : {'subkey1' : False, 'subkey2' : 9} }
+
+max_d = {v["subkey2"]:{k:v} for k,v in d.items() if v["subkey1"]} # create new dictionary that the key is the value from subkey2 and the value is the original key and value.
+max_int = max(max_d.keys(), key=int) # get the max key
+
+print (max_d[max_int]) # print the maximum 
+
+>>> {'key2': {'subkey1': True, 'subkey2': 8}}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54701494)
+ I am assuming you are defining duplicates by value and not by keys. In that case, you can flatten the nested dict using (https://stackoverflow.com/questions/52081545/python-3-flattening-nested-dictionaries-and-lists-within-dictionaries) 
+
+  def flatten(d):
+    out = {}
+    for key, val in d.items():
+        if isinstance(val, dict):
+            val = [val]
+        if isinstance(val, list):
+            for subdict in val:
+                deeper = flatten(subdict).items()
+                out.update({key + '_' + key2: val2 for key2, val2 in deeper})
+        else:
+            out[key] = val
+    return out
+  
+
+ and then check for the condition 
+
+  v = flatten(d).values()
+len(set(v))!=len(v)
+  
+
+ results in  True 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14227829)
+ As you said that unknown was at a fixed place
+You can do the following 
+
+  import json
+s=json.loads('{"A":{"B":{"unknown":{"1":"F","maindata":[{"Info":"TEXT"}]}}}}')
+i=s["A"]["B"].keys()
+x=i[0]   # Will store 'unknown' in x, whatever unknown is
+print s['A']['B'][x]['maindata'][0]['Info']    #here x dictionary index is used after B as its value will be the value for unknown
+  
+
+ This should do the job, since only the unknown key is really 'unknown' 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33466690)
+ Instead of  for key, value in jdata: , use  for key, value in jdata.items():  like this: 
+
+  for key, value in data.items():
+    pprint("Key:")
+    pprint(key)
+  
+
+ Take a look at the https://docs.python.org/3/library/stdtypes.html#dict.items for dict: 
+
+ 
+    items() : 
+  
+   Return a new view of the dictionary’s items ((key, value) pairs). 
+ 
+
+  EDIT:  If you want to get all of the nested keys and not just the top level ones, you could take an approach like those suggested in https://stackoverflow.com/a/26167568/996114 like so: 
+
+  def get_keys(dl, keys_list):
+    if isinstance(dl, dict):
+        keys_list += dl.keys()
+        map(lambda x: get_keys(x, keys_list), dl.values())
+    elif isinstance(dl, list):
+        map(lambda x: get_keys(x, keys_list), dl)
+
+keys = []
+get_keys(jdata, keys)
+
+print(keys)
+# [u'a', u'inLanguage', u'description', u'priceCurrency', u'geonames_address', u'price', u'title', u'availabl', u'uri', u'seller', u'publisher', u'a', u'hasIdentifier', u'hasPreferredName', u'uri', u'fallsWithinState1stDiv', u'score', u'fallsWithinCountry', u'fallsWithinCountyProvince2ndDiv', u'geo', u'a', u'hasType', u'label', u'a', u'label', u'a', u'uri', u'hasName', u'a', u'label', u'a', u'uri', u'hasName', u'a', u'label', u'a', u'uri', u'lat', u'lon', u'a', u'address', u'a', u'name', u'a', u'description', u'a', u'name', usury']
+
+print(list(set(keys)))    # unique list of keys
+# [u'inLanguage', u'fallsWithinState1stDiv', u'label', u'hasName', u'title', u'hasPreferredName', u'lon', u'seller', u'score', u'description', u'price', u'address', u'lat', u'fallsWithinCountyProvince2ndDiv', u'geo', u'a', u'publisher', u'hasIdentifier', u'name', u'priceCurrency', u'geonames_address', u'hasType', u'availabl', u'uri', u'fallsWithinCountry']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21613711)
+ Use  str.index  to find where json object start and  re.sub  (makes  "a": "123"  from  a:"123" ) with  str.replace  (changes single quotes to double quotes here:  ['1','2'] ) to fix json: 
+
+  import json
+import re
+
+var = '''var myVar  =  { a: "123",b:"345", c: {c1:20,c2:"c123", c3: {c3_1: {c3_1_1:"12"}}}, d:21, e:['1','2']}'''
+v = var[var.index('{'):]
+v = re.sub(r'(\w*):', r'"\1":', v)
+v = v.replace('\'', '\"')
+
+>>> v
+'{ "a": "123","b":"345", "c": {"c1":20,"c2":"c123", "c3": {"c3_1": {"c3_1_1":"12"}}}, "d":21, "e":["1","2"]}'
+>>> json.loads(v)
+{u'a': u'123', u'c': {u'c3': {u'c3_1': {u'c3_1_1': u'12'}}, u'c2': u'c123', u'c1': 20}, u'b': u'345', u'e': [u'1', u'2'], u'd': 21}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33466814)
+ You should use either https://docs.python.org/2/library/stdtypes.html#dict.items or https://docs.python.org/2/library/stdtypes.html#dict.iteritems in  for key, value in jdata  
+
+ So, it should be either 
+
+  for key, value in jdata.items():
+  
+
+  
+
+  for key, value in jdata.iteritems():
+  
+
+ for python3 and python2 respectively. 
+
+ See answers on this question to know the difference between the two: https://stackoverflow.com/questions/10458437/what-is-the-difference-between-dict-items-and-dict-iteritems 
+
+ If you only need to iterate over keys of the dictionary, you can even try https://docs.python.org/2/library/stdtypes.html#dict.keys or https://docs.python.org/2/library/stdtypes.html#dict.iterkeys 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46745854)
+ What you want to return is the name of the keys. 
+
+  json_dict = {"key": "value", "key1": [{"binner": "inner_value"},{"ainner1": "inner_value1"}]}
+
+for i in json_dict['key1']:
+    for x in i.keys():
+        print (x)
+  
+
+  
+
+  binner
+ainner1
+  
+
+  ..  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14227627)
+ It is a bit lenghty, but in that example above: 
+
+  In [1]: import json
+
+In [2]: s = """\
+   ...: {
+   ...:   "A": {
+   ...:     "B": {
+   ...:       "unknown": {
+   ...:         "1": "F",
+   ...:         "maindata": [
+   ...:           {
+   ...:             "Info": "TEXT"
+   ...:           }
+   ...:         ]
+   ...:       }
+   ...:     }
+   ...:   }
+   ...: }"""
+
+In [3]: data = json.loads(s)
+
+In [4]: data['A']['B']['unknown']['maindata'][0]['Info']
+Out[4]: u'TEXT'
+  
+
+ You basically treat it as a dictionary, passing the keys to get the values of each nested dictionary. The only different part is when you hit  maindata , where the resulting value is a list. In order to handle that, we pull the first element  [0]  and then access the  Info  key to get the value  TEXT . 
+
+ In the case of  unknown  changing, you would replace it with a variable that represents the 'known' name it will take at that point in your code: 
+
+  my_variable = 'some_name'
+data['A']['B'][my_variable]['maindata'][0]['Info']
+  
+
+ And if I would have actually read your question properly the first time, if you don't know what  unknown  is at any point, you can do something like this: 
+
+  data['A']['B'].values()[0]['maindata'][0]['Info']
+  
+
+ Where  values()  is a variable containing: 
+
+  [{u'1': u'F', u'maindata': [{u'Info': u'TEXT'}]}]
+  
+
+ A single-item list that can be accessed with  [0]  and then you can proceed as above. Note that this is dependent on there only being one item present in that dictionary - you would need to adjust a bit if there were more. 
+
+
+

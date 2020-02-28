@@ -1,0 +1,170 @@
+Query: Python: How to convert a string containing hex bytes to a hex string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/846067)
+ This is fast and works for small and (arbitrary) large ints: 
+
+  def Dump(n): 
+  s = '%x' % n
+  if len(s) & 1:
+    s = '0' + s
+  return s.decode('hex')
+print repr(Dump(1245427))  #: '\x13\x00\xf3'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10824333)
+ In  all versions of Python , you can use the function 
+https://docs.python.org/2/library/binascii.html#binascii.a2b_hex (also known as https://docs.python.org/2/library/binascii.html#binascii.unhexlify): 
+
+  >>> import binascii
+>>> s = '356a192b7913b04c54574d18c28d46e6395428ab'
+>>> binascii.a2b_hex(s)
+'5j\x19+y\x13\xb0LTWM\x18\xc2\x8dF\xe69T(\xab'
+  
+
+ In  Python 3.x , you can use https://docs.python.org/3/library/stdtypes.html#bytes.fromhex. 
+
+ In  Python 2.x , you can use the  hex  str-to-str codec: 
+
+  >>> s.decode("hex")
+'5j\x19+y\x13\xb0LTWM\x18\xc2\x8dF\xe69T(\xab'
+  
+
+ The codec internally calls  binascii.a2b_hex() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28524760)
+ Single-source Python 2/3 compatible version based on https://stackoverflow.com/a/846067/4279: 
+
+  #!/usr/bin/env python
+import binascii
+
+def int2bytes(i):
+    hex_string = '%x' % i
+    n = len(hex_string)
+    return binascii.unhexlify(hex_string.zfill(n + (n & 1)))
+
+print(int2bytes(1245427))
+# -> b'\x13\x00\xf3'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37788085)
+ In your first snippet,  [0xff]  is a list containing the integer 255 written in hexadecimal form. You could have written  [255]  instead of  [0xff] , they compile to identical bytecode. So to replace that integer by a variable  m  you can do  
+
+  m = 255
+relay.write(bytearray([m]))
+  
+
+ FWIW, your first snippet could also be written as  
+
+  relay.write(bytearray('\xff'))
+  
+
+ which initializes the  bytearray  with a hexadecimal string containing a single  ff  byte. 
+
+ The  bytearray([hex(m)])  won't work because  hex(255)  is a string containing four bytes:  '0xff' , i.e., the digit  0 , followed by the letters  x ,  f , and  f . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6624521)
+ Use the  binascii  module: 
+
+  >>> import binascii
+>>> binascii.hexlify('foo'.encode('utf8'))
+b'666f6f'
+>>> binascii.unhexlify(_).decode('utf8')
+'foo'
+  
+
+ See this answer:
+https://stackoverflow.com/questions/2340319/python-3-1-1-string-to-hex/2340358#2340358 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34690254)
+ 
+   I want to encode string to bytes. 
+ 
+
+  bytes.fromhex()  already transforms your hex string into bytes. Don't confuse an object and its text representation -- REPL uses  sys.displayhook  that uses  repr()  to  display  bytes in ascii printable range as the corresponding characters but it doesn't affect the value in any way:  
+
+  >>> b't' == b'\x74'
+True
+  
+
+ 
+   Print bytes to hex 
+ 
+
+ To convert bytes back into a hex string, you could use  binascii.hexlify() : 
+
+  >>> import binascii
+>>> binascii.hexlify(b't\x03\x078E').decode('ascii')
+'7403073845'
+  
+
+ 
+   How can it be displayed as hex like following?  b't\x03\x078E' => '\x74\x03\x07\x38\x45'  
+ 
+
+  >>> print(''.join(['\\x%02x' % b for b in b't\x03\x078E']))
+\x74\x03\x07\x38\x45
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30715543)
+ The  bytes  representation can be confusing.  b'0607'  is not the same as  bytes([0x06,0x07] ).  b'0607'  is actually  4 bytes  [48,54,48,55]  where 48 is the ascii code for  0 ,etc.  
+
+  [x for x in b'0607'] 
+[48, 54, 48, 55]
+  
+
+ as such  b'0607'  is already an ascii string but represented as  bytes  if you want it to convert it to  str  you need to  b'0607'.decode("ascii")  (so that you construct a str from those bytes interpreting them like ascii code (as they are)). 
+
+ In general, you convert  bytes  to hex string like this: 
+
+  >>> a = binascii.hexlify(bytes([1,10,15,16,255]))
+>>> a
+b'010a0f10ff'
+>>> type(a)
+<class 'bytes'>
+>>> b = a.decode("ascii")
+>>> type(b)
+<class 'str'>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30724180)
+ The method  binascii.hexlify()  will convert  bytes  to a  bytes  representing the ascii hex string. That means that each byte in the input will get converted to two ascii characters. If you want a true  str  out then you can  .decode("ascii")  the result.  
+
+ I included an snippet that illustrates it.  
+
+  import binascii
+
+with open("addressbook.bin", "rb") as f: # or any binary file like '/bin/ls'
+    in_bytes = f.read()
+    print(in_bytes) # b'\n\x16\n\x04'
+    hex_bytes = binascii.hexlify(in_bytes) 
+    print(hex_bytes) # b'0a160a04' which is twice as long as in_bytes
+    hex_str = hex_bytes.decode("ascii")
+    print(hex_str) # 0a160a04
+  
+
+ from the hex string  "0a160a04"  to can come back to the  bytes  with  binascii.unhexlify("0a160a04")  which gives back  b'\n\x16\n\x04'  
+
+
+

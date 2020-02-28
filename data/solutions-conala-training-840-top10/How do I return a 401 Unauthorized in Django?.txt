@@ -1,0 +1,178 @@
+Query: How do I return a 401 Unauthorized in Django?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10649158)
+ I know this is an old one, but it's the top Google result for "django 401", so I thought I'd point this out... 
+
+ Assuming you've already imported  django.http.HttpResponse , you can do it in a single line: 
+
+  return HttpResponse('Unauthorized', status=401)
+  
+
+ The  'Unauthorized'  string is optional. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40438077)
+ Refering to the response by pip, Flask Security internally uses flask login for its implementation callback.Hence when we register a callback handler with Flask security, we get call stack exceeded response. 
+
+  app.security.unauthorized_handler(unauth_handler)  
+
+ Hence instead please register with Flask login 
+
+  app.login_manager.unauthorized_handler(unauth_handler)  
+
+ Hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44823532)
+ You are not using Django-rest-framework in right way.  
+
+  class CheckAuth(generics.GenericAPIView):
+
+    def post(self, request):
+        print(request.user)
+        if request.user.is_authenticated():
+             content = {'message': 'Authenticated'}
+             return Response(content, status=200)
+        else:
+             content = {'message': 'Unauthenticated'}
+             return Response(content, status=401)
+  
+
+ You can further see Django-rest docs about views http://www.django-rest-framework.org/api-guide/views/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33408825)
+ Add the unauthorized email address as an administrator here:
+https://console.developers.google.com/project/_/permissions/projectpermissions 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47637358)
+ I was looking for django's actual http response code in case of a database connection timeout when using  pymysql . The following test confirmed it's a  401 Unauthorized  when  pymysql  raises an  OperationalError . 
+
+<pre class="lang-python prettyprint-override"> from unittest.mock import patch
+
+import pymysql
+from django.test import TestCase, Client
+
+
+class TestDatabaseOutage(TestCase):
+    client = None
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_database_connection_timeout_returns_401(self):
+        with patch.object(pymysql, 'connect') as connect_method:
+            message = "Can't connect to MySQL server on 'some_database.example.com' ([Errno 110] Connection timed out)"
+            connect_method.side_effect = pymysql.OperationalError(2003, message)
+            response = self.client.get('/')
+            self.assertEqual(response.status_code, 401)
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27653188)
+ From http://tools.ietf.org/id/draft-ietf-oauth-v2-12.html, in the implicit grant section (4.2.2.1): 
+
+ 
+   unauthorized_client 
+  
+   
+     The client is not authorized to request an access token using this method. 
+   
+ 
+
+ My understanding is that the authorization server doesn't allow implicit grants. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4356857)
+ Write a view decorator that checks the appropriate HTTP headers and returns the appropriate response (there is no http://docs.djangoproject.com/en/dev/ref/request-response/#httpresponse-subclasses for response code 401). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14263766)
+  class HttpResponseUnauthorized(HttpResponse):
+    status_code = 401
+
+...
+return HttpResponseUnauthorized()
+  
+
+ Normally, you should set the instance in  __init__  or you end up with class variables that are shared between all instances. However, Django does this for you already: 
+
+  class HttpResponse(object):
+    """A basic HTTP response, with content and dictionary-accessed headers."""
+
+    status_code = 200
+
+    def __init__(self, content='', mimetype=None, status=None,
+            content_type=None):
+        # snip...
+        if status:
+            self.status_code = status
+  
+
+ (https://github.com/django/django/blob/1.4.3/django/http/__init__.py#L566) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23929897)
+  from django.http import HttpResponse
+
+def some_view(request):
+    if request.REQUEST.get('key') == 'value':
+        if not request.user.is_authenticated():
+            response = HttpResponse('Text to send if user hits Cancel button', status=401)
+            response['WWW-Authenticate'] = 'Basic realm="My Realm'
+            return response
+        ...
+  
+
+ This will return a  401  status code, but requires you to provide your own content/template. If it is acceptable for you to return a  403  status code, you can use the built-in  PermissionDenied  exception that returns a 403 page based on your '403.html' template: 
+
+  from django.core.exceptions import PermissionDenied
+
+def some_view(request):
+    if request.REQUEST.get('key') == 'value':
+        if not request.user.is_authenticated():
+            raise PermissionDenied
+        ...
+  
+
+  EDIT:  
+
+ To implement HTTP Basic Authentication, you have to set up your webserver (Apache, nginx, whatever you're using) to handle this. You should check your webserver's documentation on how to do this.  
+
+ Django implements a  RemoteUserBackend  to allow users to login using basic authentication, but this uses the same user model as the normal  ModelBackend , so these are not separate. Luckily, https://github.com/django/django/blob/1.6/django/contrib/auth/middleware.py#L21 and https://github.com/django/django/blob/1.6/django/contrib/auth/backends.py#L74 are quite simple. The webserver will deny any request with invalid credentials, so any time the  'REMOTE_USER'  header (or whatever header value you use) is set, the user is properly authenticated. This header will be available in  request.META , so to check if a user is authenticated using Basic Authentication, you can use this code: 
+
+  from django.http import HttpResponse
+
+def some_view(request):
+    if request.REQUEST.get('key') == 'value':
+        if request.META.get('REMOTE_USER', None):
+            do_something()
+        else:
+            response = HttpResponse('Text to send if user hits Cancel button', status=401)
+            response['WWW-Authenticate'] = 'Basic realm="My Realm'
+            return response
+        ...
+  
+
+
+

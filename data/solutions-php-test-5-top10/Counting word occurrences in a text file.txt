@@ -1,0 +1,292 @@
+Query: Counting word occurrences in a text file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7944981)
+ This is a function that extract common words from a string. it takes three parameters; string, stop words array and keywords count.  you have to get the stop_words from txt file using php function that take txt file into array 
+
+ 
+   $stop_words = file('stop_words.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);  
+  
+   $this->extract_common_words( $text, $stop_words)  
+ 
+
+ You can use this file http://tools.seobook.com/general/keyword-density/stop_words.txt as your primary stop words file, or create your own file. 
+
+  function extract_common_words($string, $stop_words, $max_count = 5) {
+      $string = preg_replace('/ss+/i', '', $string);
+      $string = trim($string); // trim the string
+      $string = preg_replace('/[^a-zA-Z -]/', '', $string); // only take alphabet characters, but keep the spaces and dashes too…
+      $string = strtolower($string); // make it lowercase
+
+      preg_match_all('/\b.*?\b/i', $string, $match_words);
+      $match_words = $match_words[0];
+
+      foreach ( $match_words as $key => $item ) {
+          if ( $item == '' || in_array(strtolower($item), $stop_words) || strlen($item) <= 3 ) {
+              unset($match_words[$key]);
+          }
+      }  
+
+      $word_count = str_word_count( implode(" ", $match_words) , 1); 
+      $frequency = array_count_values($word_count);
+      arsort($frequency);
+
+      //arsort($word_count_arr);
+      $keywords = array_slice($frequency, 0, $max_count);
+      return $keywords;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52460142)
+  
+
+  <?php
+
+$count_array = ["if" => 0,"world" => 0];
+
+$file = fopen('Data.txt', "r");
+
+while(!feof($file))
+{
+    $line = trim(fgets($file));
+
+    $words = explode(" ", $line);
+
+    foreach($words as $word) {
+        if (array_key_exists($word, $count_array)) {
+            $count_array[$word]++;
+        }
+    }
+}
+
+foreach ($count_array as $word => $number) {
+    echo $word . " occurred " . $number . " times" . PHP_EOL;
+}
+  
+
+ Example Data.txt 
+
+  asd lol rotflol if
+world rotflol world
+bubu hehe gnigni if if
+if hehe if world
+  
+
+  
+
+  $ php script.php
+if occurred 5 times
+world occurred 3 times
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4090395)
+ Take a look at http://php.net/str_word_count. It counts words, but can also extract them to an array (each value in the array being a word). You can then post-process this array to remove stop words, count occurrences, etc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30716507)
+ Here's a regex solution. 
+
+  <?php
+$test = 'one two three four five six seven eight nine ten eleven tweleve thirteen fourteen';
+echo preg_replace('~((\w+\s){4})~', '$1' . "\n", $test);
+  
+
+ Output: 
+
+  one two three four 
+five six seven eight 
+nine ten eleven tweleve
+  
+
+  \w  is a word character (Alphanumeric characters plus "_", http://en.wikipedia.org/wiki/Regular_expression), if you only want  A-Z  use  [a-z]  and use the  i  modifier to make it case insensitive,  ~((\w+\s){4})~i . The  \s  is a whitespace and the  {4}  is requiring 4 occurrences of the  \w+\s . 
+
+ Per your code... 
+
+  $data = preg_replace('~((\w+\s){4})~', '$1' . "\n", $data);
+file_put_contents('new_text_file.txt', $data);
+  
+
+ http://php.net/manual/en/function.file-put-contents.php 
+
+ Per updated code: 
+
+  <?php
+require "simple_html_dom.php";
+$html = file_get_html("http://www.lipsum.com/");
+$data = array();
+$counter = 0;
+foreach($html->find("div") as $tr){
+    $row = array();
+    foreach($tr->find("div") as $td){
+        $row[] = $td->plaintext;
+    }
+    $data[] = $row;
+}
+$data = preg_replace('~((\w+\s){4})~', '$1' . "\n", implode(' ', $data));
+file_put_contents('new_text_file.txt', $data, FILE_APPEND | LOCK_EX);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52459925)
+ If you put the entire wordlist into an array, you could just use 
+
+  $counts = array_count_values($count_array)
+  
+
+ See http://php.net/manual/en/function.array-count-values.php for more info (or http://php.net/manual/en/function.str-word-count.php to read in a line). Then  $counts  would be something like 
+
+  Array
+(
+    [if] => 47
+    [world] => 7
+    [otherword] => 17
+)
+  
+
+ Then you could loop through that list to check if the word is in your wordlist and echo appropriately like 
+
+  foreach($counts as $word => $number) {
+    if (in_array($word, $count_array) {
+        echo $word.'</b> occurrence is '.$number.' times. ';
+    }
+}
+  
+
+  
+
+  foreach($count_array as $word) {
+    echo $word.'</b> occurrence is '.intval($counts[$word]).' times. ';
+}
+  
+
+ And to parse the line and count the number of words you'll want to use http://php.net/manual/en/function.str-word-count.php instead of  explode(' ', $line);  because  explode(' ', 'word word.');  would return  array(0 => 'word', 1 => 'word.')  (note the period is included because you just exploded on spaces) vs  str_word_count('word word.', 1)  would return  array(0 => 'word', 1 => 'word')  (easier to loop through and count). 
+
+ Edit, adding full (untested) code: 
+
+  $count_array = array("if", "world"); //words to search for and count
+
+$word_counts = array();
+//initialize the array like [word] => 0
+foreach($count_array as $w) {
+    $word_counts[$w] = 0;
+}
+
+$file = fopen('Data.txt', "r");
+while(!feof($file))
+{
+    $line = trim(fgets($file));
+    if ($line != "") {
+        $OBJ = json_decode($line);
+        $words = str_word_count($OBJ->user->text, 1); //return associative array of words
+
+        foreach($words as $w) { //go through the list of returned words
+            if (in_array($w, $count_array)) { //if this word is in our $count_array
+                $word_counts[$w]++; //count it!
+            }
+        }
+    }
+}
+
+foreach($word_counts as $word => $count) {
+    echo '<b>' . $word . ' occurance are ' . $count . " times.</b> ";
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14598854)
+  private static function lineCount($file) {
+    $linecount = 0;
+    $handle = fopen($file, "r");
+    while(!feof($handle)){
+        if (fgets($handle) !== false) {
+                $linecount++;
+        }
+    }
+    fclose($handle);
+    return  $linecount;     
+}
+  
+
+ I wanted to add a little fix to the function above... 
+
+ in a specific example where i had a file containing the word 'testing' the function returned 2 as a result. so i needed to add a check if fgets returned false or not :) 
+
+ have fun :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49613239)
+ Counting the number of lines can be done by following codes: 
+
+  <?php
+$fp= fopen("myfile.txt", "r");
+$count=0;
+while($line = fgetss($fp)) // fgetss() is used to get a line from a file ignoring html tags
+$count++;
+echo "Total number of lines  are ".$count;
+fclose($fp);
+?>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18697527)
+ I'm just counting the occurrences of the different delimiters in the CSV file, the one with the most should probably be the correct delimiter: 
+
+  //The delimiters array to look through
+$delimiters = array(
+    'semicolon' => ";",
+    'tab'       => "\t",
+    'comma'     => ",",
+);
+
+//Load the csv file into a string
+$csv = file_get_contents($file);
+foreach ($delimiters as $key => $delim) {
+    $res[$key] = substr_count($csv, $delim);
+}
+
+//reverse sort the values, so the [0] element has the most occured delimiter
+arsort($res);
+
+reset($res);
+$first_key = key($res);
+
+return $delimiters[$first_key]; 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44795805)
+ This is an addition to https://stackoverflow.com/users/3096922/wallace-de-souza solution 
+
+ It also skips empty lines while counting: 
+
+  function getLines($file)
+{
+    $file = new \SplFileObject($file, 'r');
+    $file->setFlags(SplFileObject::READ_AHEAD | SplFileObject::SKIP_EMPTY | 
+SplFileObject::DROP_NEW_LINE);
+    $file->seek(PHP_INT_MAX);
+
+    return $file->key() + 1; 
+}
+  
+
+
+

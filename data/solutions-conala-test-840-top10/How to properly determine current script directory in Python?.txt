@@ -1,0 +1,149 @@
+Query: How to properly determine current script directory in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30832032)
+ This should work in most cases: 
+
+  import os,sys
+dirname=os.path.dirname(os.path.realpath(sys.argv[0]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50289769)
+  import os
+import sys
+
+def get_script_path():
+    return os.path.dirname(os.path.realpath(sys.argv[0]))
+
+
+my_script_dir = get_script_path()
+print my_script_dir
+  
+
+ This gives you the directory of the script at the top of the stack (i.e. the one being executed - not Python's, which is usually the first executed, returning  C:/ ) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44188489)
+ In Python 3.4+ you can use the simpler https://docs.python.org/3/library/pathlib.html module: 
+
+  from inspect import currentframe, getframeinfo
+from pathlib import Path
+
+filename = getframeinfo(currentframe()).filename
+parent = Path(filename).resolve().parent
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6209894)
+ If you really want to cover the case that a script is called via  execfile(...) , you can use the  inspect  module to deduce the filename (including the path).  As far as I am aware, this will work for all cases you listed: 
+
+  filename = inspect.getframeinfo(inspect.currentframe()).filename
+path = os.path.dirname(os.path.abspath(filename))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3718912)
+  
+
+  import os
+cwd = os.getcwd()
+  
+
+   I'm not sure what exactly you mean by the "current script directory".  What would the expected output be for the use cases you gave? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48931294)
+ The  os.path...  approach was the 'done thing' in Python 2. 
+
+ In Python 3, you can find directory of script as follows: 
+
+  from pathlib import Path
+cwd = Path(__file__).parents[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22881871)
+  #!/usr/bin/env python
+import inspect
+import os
+import sys
+
+def get_script_dir(follow_symlinks=True):
+    if getattr(sys, 'frozen', False): # py2exe, PyInstaller, cx_Freeze
+        path = os.path.abspath(sys.executable)
+    else:
+        path = inspect.getabsfile(get_script_dir)
+    if follow_symlinks:
+        path = os.path.realpath(path)
+    return os.path.dirname(path)
+
+print(get_script_dir())
+  
+
+ It works on CPython, Jython, Pypy. It works if the script is executed using  execfile()  ( sys.argv[0]  and  __file__  -based solutions would fail here). It works if the script is inside https://stackoverflow.com/a/5356563/4279. It works if the script is "imported" ( PYTHONPATH=/path/to/library.zip python -mscript_to_run ) from a zip file; it returns the archive path in this case. It works if the script is compiled into a standalone executable ( sys.frozen ). It works for symlinks ( realpath  eliminates symbolic links). It works in an interactive interpreter; it returns the current working directory in this case. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45126116)
+ (edited) I found that way, what do you think of it ? (it also returns the venv base path and works even for  readthedocs  where checking the  env  variable does not): 
+
+  import os
+import sys
+from distutils.sysconfig import get_config_vars
+
+
+def get_venv_basedir():
+    """Returns the base directory of the virtualenv, useful to read configuration and plugins"""
+
+    exec_prefix = get_config_vars()['exec_prefix']
+
+    if hasattr(sys, 'real_prefix') is False or exec_prefix.startswith(sys.real_prefix):
+        raise EnvironmentError('You must be in a virtual environment')
+
+    return os.path.abspath(get_config_vars()['exec_prefix'] + '/../')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3718923)
+  os.path.dirname(os.path.abspath(__file__))
+  
+
+ is indeed the best you're going to get. 
+
+ It's unusual to be executing a script with  exec / execfile ; normally you should be using the module infrastructure to load scripts. If you must use these methods, I suggest setting  __file__  in the  globals  you pass to the script so it can read that filename. 
+
+ There's no other way to get the filename in execed code: as you note, the CWD may be in a completely different place. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21957181)
+ The working directory is not set to the directory of the script, but to the current directory where you started the script. 
+
+ Use  __file__  to determine the file location and use that as a starting point to make  filename  an absolute path: 
+
+  import os
+
+here = os.path.dirname(os.path.abspath(__file__))
+
+filename = os.path.join(here, '20140210204804.kml')
+  
+
+
+

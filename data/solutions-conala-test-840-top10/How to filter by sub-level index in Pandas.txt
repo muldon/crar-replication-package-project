@@ -1,0 +1,209 @@
+Query: How to filter by sub-level index in Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13447678)
+ How about using the  level  parameter in http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.reindex.html? 
+
+  In [14]: df
+Out[14]: 
+            0         1
+a 0  0.007288 -0.840392
+  1  0.652740  0.597250
+b 0 -1.197735  0.822150
+  1 -0.242030 -0.655058
+
+In [15]: stk_list = ['a']
+
+In [16]: df.reindex(stk_list, level=0)
+Out[16]: 
+            0         1
+a 0  0.007288 -0.840392
+  1  0.652740  0.597250
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13453153)
+  
+
+  df[df.index.map(lambda x: x[0] in stk_list)]
+  
+
+ Example: 
+
+  In : stk_list
+Out: ['600106', '300204', '300113']
+
+In : df
+Out:
+                STK_Name   ROIC   mg_r
+STK_ID RPT_Date
+002410 20111231      ???  0.401  0.956
+300204 20111231      ???  0.375  0.881
+300295 20111231     ????  2.370  0.867
+300288 20111231     ????  1.195  0.861
+600106 20111231     ????  1.214  0.857
+300113 20111231     ????  0.837  0.852
+
+In : df[df.index.map(lambda x: x[0] in stk_list)]
+Out:
+                STK_Name   ROIC   mg_r
+STK_ID RPT_Date
+300204 20111231      ???  0.375  0.881
+600106 20111231     ????  1.214  0.857
+300113 20111231     ????  0.837  0.852
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50496447)
+    
+
+  df.('time > 1')
+
+         val
+id time     
+1  2       3
+2  2       4
+  
+
+ 
+
+  IndexSlice  
+
+ DataFrame index must be lexsorted 
+
+  df.sort_index().loc[pd.IndexSlice[:, 2:], :]
+
+         val
+id time     
+1  2       3
+2  2       4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48967074)
+ You need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html for select each level of  MultiIndex  and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sub.html: 
+
+  print (df.xs('one', level=1, axis=1).sub(df.xs('two', level=1, axis=1)))
+first       bar       baz       foo       qux
+A      0.511199  1.684088 -1.377296  1.818127
+B      0.421159  0.477186  0.777098 -1.265297
+C      0.512711  2.262646 -0.435340  1.400147
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36814447)
+ For me it only worked if I take the zero out of the x as follows: 
+
+  a[a.index.map(lambda x: x in b)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50496477)
+  In [17]: df[df.index.get_level_values('time') > 1]
+Out[17]:
+         val
+id time
+1  2       3
+2  2       4
+  
+
+ @piRSquared's solution is more idiomatic though... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43938064)
+ I think you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html + http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html for first  df  and then  groupby  by first level ( Level_1 ) and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.transform.html  sum . Last divide by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.div.html: 
+
+  df1 = df.groupby(['Level_1','Sub_level'])['Value'].size()
+print (df1)
+Level_1  Sub_level
+Group A  A1           5
+         A2           1
+Group B  B1           1
+         B2           2
+Name: Value, dtype: int64
+
+df2 = df1.groupby(level=0).transform('sum')
+print (df2)
+Level_1  Sub_level
+Group A  A1           6
+         A2           6
+Group B  B1           3
+         B2           3
+Name: Value, dtype: int64
+
+df3 = df1.div(df2).reset_index(name='Pct_of_total')
+print (df3)
+   Level_1 Sub_level  Pct_of_total
+0  Group A        A1      0.833333
+1  Group A        A2      0.166667
+2  Group B        B1      0.333333
+3  Group B        B2      0.666667
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12228299)
+ To use the "str.*" methods on a column, you could reset the index, filter rows with a column "str.*" method call, and re-create the index. 
+
+  In [72]: x = df.reset_index(); x[x.RPT_Date.str.endswith("0630")].set_index(['STK_ID', 'RPT_Date'])
+Out[72]: 
+                      sales        cogs    net_pft
+STK_ID RPT_Date                                   
+000876 20060630   857483000   729541000   67157200
+       20070630  1146245000  1050808000  113468500
+       20080630  1932470000  1777010000  133756300
+002254 20070630   501221000   289167000  118012200
+  
+
+ However, this approach is not particularly fast. 
+
+  In [73]: timeit x = df.reset_index(); x[x.RPT_Date.str.endswith("0630")].set_index(['STK_ID', 'RPT_Date'])
+1000 loops, best of 3: 1.78 ms per loop
+  
+
+ Another approach builds on the fact that a MultiIndex object behaves much like
+a list of tuples. 
+
+  In [75]: df.index
+Out[75]: 
+MultiIndex
+[('000876', '20060331') ('000876', '20060630') ('000876', '20060930')
+ ('000876', '20061231') ('000876', '20070331') ('000876', '20070630')
+ ('000876', '20070930') ('000876', '20071231') ('000876', '20080331')
+ ('000876', '20080630') ('000876', '20080930') ('002254', '20061231')
+ ('002254', '20070331') ('002254', '20070630') ('002254', '20070930')]
+  
+
+ Building on that, you can create a boolean array from a MultiIndex with df.index.map() and use the result to filter the frame. 
+
+  In [76]: df[df.index.map(lambda x: x[1].endswith("0630"))]
+Out[76]: 
+                      sales        cogs    net_pft
+STK_ID RPT_Date                                   
+000876 20060630   857483000   729541000   67157200
+       20070630  1146245000  1050808000  113468500
+       20080630  1932470000  1777010000  133756300
+002254 20070630   501221000   289167000  118012200
+  
+
+ This is also quite a bit faster. 
+
+  In [77]: timeit df[df.index.map(lambda x: x[1].endswith("0630"))]
+1000 loops, best of 3: 240 us per loop
+  
+
+
+

@@ -1,0 +1,179 @@
+Query: Elegant way to convert list to hex string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17731957)
+  >>> walls = [True, True, True, False]
+>>> hex(int(''.join([str(int(b)) for b in walls]), 2))
+'0xe'
+  
+
+ or (inspired by @millimoose's answer), 
+
+  >>> hex(sum(b<<i for i,b in enumerate(reversed(walls))))
+'0xe'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7363332)
+ In Python 2.x you can use http://docs.python.org/library/binascii.html#binascii.unhexlify: 
+
+  >>> import binascii
+>>> binascii.unhexlify('abcdef0123456789')
+'\xab\xcd\xef\x01#Eg\x89'
+  
+
+ In Python 3 there's a more elegant method using only the built-in  bytes  type: 
+
+  >>> bytes.fromhex('abcdef0123456789')
+b'\xab\xcd\xef\x01#Eg\x89'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52003649)
+  l = [0x1A, 0xF3, 0x74, 0xA3]
+
+merged = ''.join([str(hex(el))[2:] for el in l])
+  
+
+ If you need the hex you can get it as: 
+
+  hex(int(merged, 16)) --> 0x1af374a3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7362985)
+ One liner: 
+
+  a = "1a2b3c"
+print ''.join(chr(int(a[i] + a[i+1], 16)) for i in xrange(0, len(a), 2))
+  
+
+  
+
+  xrange(0, len(a), 2) # gives alternating indecis over the string
+a[i] + a[i+1]        # the pair of characters as a string
+int(..., 16)         # the string interpreted as a hex number
+chr(...)             # the character corresponding to the given hex number
+''.join()            # obtain a single string from the sequence of characters
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7362959)
+ What about  binascii.unhexlify(hexstr) ? 
+See the docs for the binascii module : http://docs.python.org/library/binascii.html  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19255872)
+ If you actually want a list of mutable bytes rather than one of immutable one-character strings, you could do it this way: 
+
+  myData = ['a', '\x65', 'B', '\x66\x69', 'C', '\xff']
+
+myByteArray = bytearray(''.join(myData))
+
+print " ".join(hex(byte) for byte in myByteArray)
+# 0x61 0x65 0x42 0x66 0x69 0x43 0xff
+  
+
+ If a list of one-character strings is OK, all you need is: 
+
+  myByteArray = list(''.join(myData))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51234421)
+ The formatting can be handled with the default string formatting in Python: 
+
+  '[{}]'.format(', '.join(map('0x{:02X}'.format, a)))  
+
+  '{:02x}'  means that we print the number as a  hexadecimal  one ( x ), with at two  leading zeros  ( 02 ) if necessary. 
+
+ As for the conversion from a string to a list of integers, the following is probably more elegant: 
+
+  list(bytes.fromhex('0xFFFF'.replace('0x', '')))
+  
+
+ for example: 
+
+  >>> list(bytes.fromhex('0xFFFF'.replace('0x', '')))
+[255, 255]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17732202)
+ Joining the one-liners club, by way of bit manipulation which seems more appropriate. 
+
+  val = hex(reduce(lambda total, wall: total << 1 | wall, walls, 0))
+  
+
+ This does the same as: 
+
+  val = 0
+for wall in walls:
+    val <<= 1 # add one 0 bit at the "end"
+    val |= wall # set this bit to 1 if wall is True, otherwise leave it at 0
+
+val = hex(val) # get a hex string in the end
+val = format(val, 'x') # or without the leading 0x if it's undesired
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10936050)
+ I'm not sure how do you want to get the take the integers after the hex value ... Are they supposed to be 1, 2, or  x  digits ? 
+
+  
+
+  import re
+
+# convert unicode or string to raw
+def raw(s):
+    if isinstance(s, str):
+        s = s.encode('string-escape')
+    elif isinstance(s, unicode):
+        s = s.encode('unicode-escape')
+    return s
+
+s = '\x1e\x00\x00\x00\xf0\x0f184203308373388492761797873987'
+
+print [ re.sub(r'\\', r'0', raw(i)) for i in s]
+  
+
+  
+
+  ['0x1e', '0x00', '0x00', '0x00', '0xf0', '0x0f', '1', '8', '4', '2', '0', '3', '3', '0', '8', '3', '7', '3', '3', '8', '8', '4', '9', '2', '7', '6', '1', '7', '9', '7', '8', '7', '3', '9', '8', '7']
+  
+
+ Hope that could help 
+
+  edit:  simplified the list comprehension 
+
+  edit:  if you indeed want to get rid of non hex values, then you could use  
+
+  >>> print [int(re.sub(r'\\', r'0', raw(i)), 16) for i in s if len(raw(i))>1]
+[30, 0, 0, 0, 240, 15]
+  
+
+ and comparing ... or even way better, as https://stackoverflow.com/users/487339/dsm stated 
+
+  >>> s = '\x1e\x00\x00\x00\xf0\x0f184203308373388492761797873987'
+>>> ord(max(s))
+240
+  
+
+
+

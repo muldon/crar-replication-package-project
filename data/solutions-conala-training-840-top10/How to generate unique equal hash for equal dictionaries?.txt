@@ -1,0 +1,306 @@
+Query: How to generate unique equal hash for equal dictionaries?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16736002)
+  
+
+  from pprint import pformat
+hash(pformat(a)) == hash(pformat(b))
+  
+
+ If you want to persist the hashes, you should use a hash from hashlib. sha1 is plenty 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19844637)
+ I prefer serializing the dict as JSON and hashing that: 
+
+  import hashlib
+import json
+
+a={'name':'Danish', 'age':107}
+b={'age':107, 'name':'Danish'}
+
+print hashlib.sha1(json.dumps(a, sort_keys=True)).hexdigest()
+print hashlib.sha1(json.dumps(b, sort_keys=True)).hexdigest()
+  
+
+ Returns: 
+
+  71083588011445f0e65e11c80524640668d3797d
+71083588011445f0e65e11c80524640668d3797d
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15741983)
+ here you can find an implementation : 
+
+  def __uniqueid__():
+    """
+      generate unique id with length 17 to 21.
+      ensure uniqueness even with daylight savings events (clocks adjusted one-hour backward).
+
+      if you generate 1 million ids per second during 100 years, you will generate 
+      2*25 (approx sec per year) * 10**6 (1 million id per sec) * 100 (years) = 5 * 10**9 unique ids.
+
+      with 17 digits (radix 16) id, you can represent 16**17 = 295147905179352825856 ids (around 2.9 * 10**20).
+      In fact, as we need far less than that, we agree that the format used to represent id (seed + timestamp reversed)
+      do not cover all numbers that could be represented with 35 digits (radix 16).
+
+      if you generate 1 million id per second with this algorithm, it will increase the seed by less than 2**12 per hour
+      so if a DST occurs and backward one hour, we need to ensure to generate unique id for twice times for the same period.
+      the seed must be at least 1 to 2**13 range. if we want to ensure uniqueness for two hours (100% contingency), we need 
+      a seed for 1 to 2**14 range. that's what we have with this algorithm. You have to increment seed_range_bits if you
+      move your machine by airplane to another time zone or if you have a glucky wallet and use a computer that can generate
+      more than 1 million ids per second.
+
+      one word about predictability : This algorithm is absolutely NOT designed to generate unpredictable unique id.
+      you can add a sha-1 or sha-256 digest step at the end of this algorithm but you will loose uniqueness and enter to collision probability world.
+      hash algorithms ensure that for same id generated here, you will have the same hash but for two differents id (a pair of ids), it is
+      possible to have the same hash with a very little probability. You would certainly take an option on a bijective function that maps
+      35 digits (or more) number to 35 digits (or more) number based on cipher block and secret key. read paper on breaking PRNG algorithms 
+      in order to be convinced that problems could occur as soon as you use random library :)
+
+      1 million id per second ?... on a Intel(R) Core(TM)2 CPU 6400 @ 2.13GHz, you get :
+
+      >>> timeit.timeit(uniqueid,number=40000)
+      1.0114529132843018
+
+      an average of 40000 id/second
+    """
+    mynow=datetime.now
+    sft=datetime.strftime
+    # store old datetime each time in order to check if we generate during same microsecond (glucky wallet !)
+    # or if daylight savings event occurs (when clocks are adjusted backward) [rarely detected at this level]
+    old_time=mynow() # fake init - on very speed machine it could increase your seed to seed + 1... but we have our contingency :)
+    # manage seed
+    seed_range_bits=14 # max range for seed
+    seed_max_value=2**seed_range_bits - 1 # seed could not exceed 2**nbbits - 1
+    # get random seed
+    seed=random.getrandbits(seed_range_bits)
+    current_seed=str(seed)
+    # producing new ids
+    while True:
+        # get current time 
+        current_time=mynow()
+        if current_time <= old_time:
+            # previous id generated in the same microsecond or Daylight saving time event occurs (when clocks are adjusted backward)
+            seed = max(1,(seed + 1) % seed_max_value)
+            current_seed=str(seed)
+        # generate new id (concatenate seed and timestamp as numbers)
+        #newid=hex(int(''.join([sft(current_time,'%f%S%M%H%d%m%Y'),current_seed])))[2:-1]
+        newid=int(''.join([sft(current_time,'%f%S%M%H%d%m%Y'),current_seed]))
+        # save current time
+        old_time=current_time
+        # return a new id
+        yield newid
+
+""" you get a new id for each call of uniqueid() """
+uniqueid=__uniqueid__().next
+
+import unittest
+class UniqueIdTest(unittest.TestCase):
+    def testGen(self):
+        for _ in range(3):
+            m=[uniqueid() for _ in range(10)]
+            self.assertEqual(len(m),len(set(m)),"duplicates found !")
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9845481)
+ The following compares the dictionaries and prints the non-equal items: 
+
+  for d1, d2 in zip(list_1, list_2):
+    for key, value in d1.items():
+        if value != d2[key]:
+            print key, value, d2[key]
+  
+
+ Output:  key2 BBB DDD . By using  zip  we can iterate over two dictionaries at a time. We then iterate over the items of the first dictionary and compare the value with the corresponding value in the second dictionary. If these are not equal, then we print the key and both values. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17641658)
+ If you overwrite  __eq__  you should always overwrite  __hash__ , too. 
+
+ 
+   "If a == b, then it must be the case that hash(a) == hash(b), else sets
+  and dictionaries will fail." Eric 
+ 
+
+  __hash__  is used to generate an integer out of an object.
+This is used to put the keys of a dict or the elements of sets into buckets so that one can faster find them. 
+
+ If you do not overwrite  __hash__ , the default algorithm creates different hash-integers although the objects are equal. 
+
+  
+
+  class Foo(object):
+    def __eq__(self, other):
+        return type(self) == type(other)
+    def __hash__(self):
+        return 1
+  
+
+ Because all objects of your class are equal to every other object of that class they must all be in the same bucket(1) in the set. This way  in  returns also  True . 
+
+ What should  __eq__  be like: 
+
+ 
+  if you only compare Foo objects 
+
+  def __eq__(self, other):
+    return self.number == other.number
+   
+  if you also compare Foo objects to other objects: 
+
+  def __eq__(self, other):
+    return type(self) == type(other) and self.number == other.number
+   
+  if you have different classes with different algorithms for equal, I recommend http://en.wikipedia.org/wiki/Double_dispatch.  
+
+  class Foo:
+    def __eq__(self, other):
+        return hasattr(other, '_equals_foo') and other._equals_foo(self)
+    def _equals_foo(self, other):
+        return self.number == other.number
+    def _equals_bar(self, other):
+        return False # Foo never equals Bar
+class Bar:
+    def __eq__(self, other):
+        return hasattr(other, '_equals_bar') and other._equals_bar(self)
+    def _equals_foo(self, other):
+        return False # Foo never equals Bar
+    def _equals_bar(self, other):
+        return True # Bar always equals Bar
+  
+
+ This way both  a  and  b  in  a == b  decide what equal means.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49696255)
+  hash  is equal for  equal  objects, and may be equal even for unequal objects.  hash  doesn't even exist for mutable objects. 
+
+  id  is guaranteed to be unique for an object during its lifetime, and it doesn't care about mutation. 
+
+ The use cases are completely different. 
+
+  >>> x, y, z = 1, 1.0, [1]
+>>> hash(x), hash(y)
+(1, 1)
+>>> hash(z)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: unhashable type: 'list'
+>>> id(x), id(y)
+(10832608, 139668416746072)
+>>> id(z)
+139668282136008
+>>> z.append(2)
+>>> id(z)
+139668282136008
+>>> hash(-1), hash(-2)
+(-2, -2)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2511238)
+ You can use this: 
+
+  >>> import random
+>>> ''.join(random.choice('0123456789ABCDEF') for i in range(16))
+'E2C6B2E19E4A7777'
+  
+
+ There is no guarantee that the keys generated will be unique so you should be ready to retry with a new key in the case the original insert fails. Also, you might want to consider using a deterministic algorithm to generate a string from an auto-incremented id instead of using random values, as this will guarantee you uniqueness (but it will also give predictable keys). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16736280)
+  Sure, it may require non-negligible time to do it, but at least you can keep using a "good" hash function, i.e., one that shows good dispersion plus all the other desired properties. Moreover, if the idea is to save space it's probably because you expect lots of entries in the dictionary, therefore, the time saved by not sorting the set when using a "good" hash function will certainly be dominated by the lookup time when using a "bad" hash function as a result of a high number of collisions. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29058569)
+ Yet another possibility, up to the last note of the OP, is to compare the hashes ( SHA  or  MD ) of the dicts dumped as JSON. The way hashes are constructed guarantee that if they are equal, the source strings are equal as well. This is very fast and mathematically sound.  
+
+  import json
+import hashlib
+
+def hash_dict(d):
+    return hashlib.sha1(json.dumps(d, sort_keys=True)).hexdigest()
+
+x = dict(a=1, b=2)
+y = dict(a=2, b=2)
+z = dict(a=1, b=2)
+
+print(hash_dict(x) == hash_dict(y))
+print(hash_dict(x) == hash_dict(z))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1325234)
+  To get a unique comparison:  
+
+ To be unique you could serialize the data and then compare the serialized value to ensure it matches exactly. 
+
+ Example: 
+
+  import pickle
+
+class C:
+  i = 1
+  j = 2
+
+c1 = C()
+c2 = C()
+c3 = C()
+c1.i = 99
+
+unique_hash1 = pickle.dumps(c1) 
+unique_hash2 = pickle.dumps(c2) 
+unique_hash3 = pickle.dumps(c3) 
+
+unique_hash1 == unique_hash2 #False
+unique_hash2 == unique_hash3 #True
+  
+
+  If you don't need unique values for each object, but mostly unique:  
+
+ Note the same value will always reduce to the same hash, but 2 different values could reduce to the same hash.  
+
+ You cannot use something like the built-in hash() function (unless you override  __hash__ ) 
+
+  hash(c1) == hash(c2) #False
+hash(c2) == hash(c3) #False <--- Wrong
+  
+
+ or something like serialize the data using pickle and then use zlib.crc32. 
+
+  import zlib
+crc1 = zlib.crc32(pickle.dumps(c1))
+crc2 = zlib.crc32(pickle.dumps(c2))
+crc3 = zlib.crc32(pickle.dumps(c3))
+crc1 == crc2 #False
+crc2 == crc3 #True
+  
+
+
+

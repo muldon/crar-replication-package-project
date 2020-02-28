@@ -1,0 +1,247 @@
+Query: How do I abort the execution of a Python script?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/179376)
+ exit() should do it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/179516)
+ You could put the body of your script into a function and then you could return from that function. 
+
+  def main():
+  done = True
+  if done:
+    return
+    # quit/stop/exit
+  else:
+    # do other stuff
+
+if __name__ == "__main__":
+  #Run as main program
+  main()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2139017)
+  
+
+  sys.exit("message")
+  
+
+ It is like the perl 
+
+  die("message")
+  
+
+ if this is what you are looking for. It terminates the execution of the script even it is called from an imported module / def /function 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/179375)
+ exit() should do the trick 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51500840)
+ The whole  EOF ... EOF  block gets executed within the Python runtime so exiting from it doesn't affect the bash script. You'll need to collect the exit status and check it after the Python execution if you want to stop the further bash script progress, i.e.: 
+
+  #!/bin/bash
+
+~/.conda/envs/my_env/bin/python <<'EOF'
+import sys
+
+sys.exit(0x01)  # use any exit code from 0-0xFF range, comment out for a clean exit
+
+print("End of the Python script that will not execute without commenting out the above.")
+EOF
+
+exit_status=$?  # store the exit status for later use
+
+# now lets check the exit status and see if python returned a non-zero exit status
+if [ $exit_status -ne 0 ]; then
+    echo "Python exited with a non-zero exit status, abort!"
+    exit $exit_status  # exit the bash script with the same status
+fi
+# continue as usual...
+echo "All is good, end of script"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/22856785)
+ It seems that it's not possible to terminate a running script - at least not in a "friendly" way. One approach I've seen is to run the IronPython engine in another thread, and abort the thread if you need to stop the script. 
+
+ I wasn't keen on this brute-force approach, which would risk leaving any resources used by the script (e.g. files) open. 
+
+ In the end, I create a C# helper class like this:- 
+
+  public class HostFunctions
+{
+    public bool AbortScript { get; set; }
+
+    // Other properties and functions that I want to expose to the script...
+}
+  
+
+ When the hosting application wants to terminate the script it sets  AbortScript  to true. This object is passed to the running script via the scope:- 
+
+  _hostFunctions = new HostFunctions();
+_scriptScope = _engine.CreateScope();
+_scriptScope.SetVariable("HostFunctions", _hostFunctions);
+  
+
+ In my scripts I just need to strategically place checks to see if an abort has been requested, and deal with it appropriately, e.g.:- 
+
+  for i in range(100):
+    print 'doing something'
+    time.sleep(1)
+    if HostFunctions.AbortScript:
+        cleanup()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/179385)
+ If the entire program should stop use sys.exit() otherwise just use an empty return. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49372905)
+ You could just force to exit the program whenever the exception happens: 
+
+  import sys
+# ...
+try:
+    do_thing()
+except UserAbort:
+    break
+except KeyboardInterrupt:
+    sys.exit()
+    pass
+except Exception as e:
+    print(e)
+    continue
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/28366398)
+ I have  not  found a true "stop interpreter from the outside" approach.  But  I created a workaround that at least gets the job done in my situation. Maybe it will help someone else... 
+
+ The idea is that I have a thread inside the Python script that does nothing else but waits to be woken up. It gets woken up by a call to an "abort" function from within C++. Once it is awake it kills the script from the inside. I chose a crude approach to stop the script in this example: 
+
+  os._exit(1)  
+
+ There are sure nicer ways to do this, but this is beyond the point right here. The whole abort and terminate stuff can also be wrapped nicer, but once again: I just want to sketch the idea. 
+
+ My test  Python  script looks like this: 
+
+  import threading
+import time
+import os
+
+def abort():
+    global run
+    run = False
+    global condition
+    with condition:    
+        condition.notify()
+
+def threadBlock():
+    while True:
+        print( "Blocking!" )
+        time.sleep(3)
+
+def threadTerminate():    
+    while run:
+        global condition
+        with condition:
+            condition.wait()
+
+    global kill
+    if kill:
+        os._exit(1)
+
+def myEntryFunction()
+    blockingThread = threading.Thread( target = threadBlock )
+    terminatingThread = threading.Thread( target = threadTerminate )
+
+    blockingThread.start()
+    terminatingThread.start()
+
+    threadBlock().join()
+    global kill
+    kill = False
+    global condition
+    with condition:    
+        condition.notify()      
+    terminatingThread.join()
+
+
+
+run = True;
+kill = True;
+condition = threading.Condition()
+  
+
+ From within  C++  I kill the script like this: 
+
+  // other code (see question)
+
+std::thread killer([&pythonScript] () {
+    std::chrono::seconds d(15);
+    std::this_thread::sleep_for(d);
+    AcquireGIL gil;
+    pythonScript.executeFunction("abort");          
+});
+
+pythonFunction(/* args */);
+  
+
+ With AcquireGIL looking like this:   
+
+  #include <boost/python.hpp>
+
+class AcquireGIL final
+{
+public:
+    AcquireGIL();
+    ~AcquireGIL();
+
+
+private:
+    PyGILState_STATE gilState_;
+};
+
+AcquireGIL::AcquireGIL()
+: gilState_(PyGILState_Ensure()) {
+    // nothing to do...
+}
+
+AcquireGIL::~AcquireGIL() {
+    PyGILState_Release(gilState_);
+}
+  
+
+  Edit  
+
+  Different (similar) approach  
+
+ In the entry function of my script I start a thread as  daemon  that calls a helper function. The helper function calls a worker method (that does the stuff I actually want to do).  After  the worker method returns, the helper signals a condition variable. The main thread just waits for this condition. If I want to abort from the outside, I just notify the condition as well. When the main thread ends, the helper thread already ended or in case of an abort from the outside, will be cleaned up. 
+
+ Attention 
+
+ In case of an abort the helper thread will not be able to clean up properly. So you have to cope with that or take care of it manually. 
+
+
+

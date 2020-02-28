@@ -1,0 +1,263 @@
+Query: Case insensitive dictionary search with Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27890005)
+ Start using a real case insensitive dictionary via: 
+
+  from requests import CaseInsensitiveDict
+  
+
+ Or if you want to see the code: 
+
+  class CaseInsensitiveDict(dict):
+
+    """Basic case insensitive dict with strings only keys."""
+
+    proxy = {}
+
+    def __init__(self, data):
+        self.proxy = dict((k.lower(), k) for k in data)
+        for k in data:
+            self[k] = data[k]
+
+    def __contains__(self, k):
+        return k.lower() in self.proxy
+
+    def __delitem__(self, k):
+        key = self.proxy[k.lower()]
+        super(CaseInsensitiveDict, self).__delitem__(key)
+        del self.proxy[k.lower()]
+
+    def __getitem__(self, k):
+        key = self.proxy[k.lower()]
+        return super(CaseInsensitiveDict, self).__getitem__(key)
+
+    def get(self, k, default=None):
+        return self[k] if k in self else default
+
+    def __setitem__(self, k, v):
+        super(CaseInsensitiveDict, self).__setitem__(k, v)
+        self.proxy[k.lower()] = k
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3296646)
+ Using dict comprehensions (Python2.7+) 
+
+  a_lower = {k.lower():v for k,v in a.items()}
+  
+
+ If your python is too old for dict comprehensions 
+
+  a_lower = dict((k.lower(),v) for k,v in a.items())
+  
+
+ then look up the value with the lowercase version of the key 
+
+  value = a_lower[key.lower()]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16202162)
+ Just wanted to add  __setitem__, pop to Alex Martelli's Answer: 
+
+  from collections import Mapping
+
+class CaseInsensitiveDict(Mapping):
+    def __init__(self, d):
+        self._d = d
+        self._s = dict((k.lower(), k) for k in d)
+    def __contains__(self, k):
+        return k.lower() in self._s
+    def __len__(self):
+        return len(self._s)
+    def __iter__(self): 
+        return iter(self._s)
+    def __getitem__(self, k):
+        return self._d[self._s[k.lower()]]
+    def __setitem__(self, k, v):
+        self._d[k] = v
+        self._s[k.lower()] = k
+    def pop(self, k):
+        k0 = self._s.pop(k.lower())
+        return self._d.pop(k0)
+    def actual_key_case(self, k):
+        return self._s.get(k.lower())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3298213)
+ If you are not needing the lookup very often you can use this function without wasting space for other copy of dictionary. It is slow though as all keys must be checked against every time. 
+
+  a = {'xyz':2, 'wMa':8, 'Pma':9}
+
+## if you do not use many times and/or the dict is very big
+
+def case_insensitive_key(a,k):
+    k = k.lower()
+    return [a[key] for key in a if key.lower() == k]
+
+print 'yes' if case_insensitive_key(a,'Xyz') else 'no'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2082261)
+ While a case insensitive dictionary is a solution, and there are answers to how to achieve that, there is a possibly easier way in this case. A case insensitive search is sufficient: 
+
+  import re
+
+text = "Practice changing the Color"
+words = {'color': 'colour', 'practice': 'practise'}
+
+def replace(words,text):
+        keys = words.keys()
+        for i in keys:
+                exp = re.compile(i, re.I)
+                text = re.sub(exp, words[i], text)
+        return text
+
+text = replace(words,text)
+print text
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30221547)
+ In my particular instance, I needed a case insensitive lookup, however, I did not want to modify the original case of the key. For example: 
+
+  >>> d = {}
+>>> d['MyConfig'] = 'value'
+>>> d['myconfig'] = 'new_value'
+>>> d
+{'MyConfig': 'new_value'}
+  
+
+ You can see that the dictionary still has the original key, however it is accessible case-insensitively. Here's a simple solution: 
+
+  class CaseInsensitiveKey(object):
+    def __init__(self, key):
+        self.key = key
+    def __hash__(self):
+        return hash(self.key.lower())
+    def __eq__(self, other):
+        return self.key.lower() == other.key.lower()
+    def __str__(self):
+        return self.key
+  
+
+ The __hash__ and __eq__ overrides are required for both getting and setting entries in the dictionary. This is creating keys that hash to the same position in the dictionary if they are case-insensitively equal. 
+
+ Now either create a custom dictionary that initializes a CaseInsensitiveKey using the provided key: 
+
+  class CaseInsensitiveDict(dict):
+    def __setitem__(self, key, value):
+        key = CaseInsensitiveKey(key)
+        super(CaseInsensitiveDict, self).__setitem__(key, value)
+    def __getitem__(self, key):
+        key = CaseInsensitiveKey(key)
+        return super(CaseInsensitiveDict, self).__getitem__(key)
+  
+
+ or simply make sure to always pass an instance of CaseInsensitiveKey as the key when using the dictionary. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3296782)
+ Note that making a dictionary case-insensitive, by whatever mean, may well lose information: for example, how would you "case-insensitivize"  {'a': 23, 'A': 45} ?!  If all you care is where a key is in the dict or not (i.e., don't care about what value corresponds to it), then make a  set  instead -- i.e. 
+
+  theset = set(k.lower() for k in thedict)
+  
+
+ (in every version of Python, or  {k.lower() for k in thedict}  if you're happy with your code working only in Python 2.7 or later for the sake of some purely decorative syntax sugar;-), and check with  if k.lower() in theset: ... . 
+
+ Or, you could make a wrapper class, e.g., maybe a read-only one...: 
+
+  import collections
+
+class CaseInsensitiveDict(collections.Mapping):
+    def __init__(self, d):
+        self._d = d
+        self._s = dict((k.lower(), k) for k in d)
+    def __contains__(self, k):
+        return k.lower() in self._s
+    def __len__(self):
+        return len(self._s)
+    def __iter__(self):
+        return iter(self._s)
+    def __getitem__(self, k):
+        return self._d[self._s[k.lower()]]
+    def actual_key_case(self, k):
+        return self._s.get(k.lower())
+  
+
+ This will keep (without actually altering the original dictionary, so all precise information can still be retrieve for it, if and when needed) an arbitrary one of possibly-multiple values for keys that "collapse" into a single key due to the case-insensitiveness, and offer all read-only methods of dictionaries (with string keys, only) plus an  actual_key_case  method returning the actual case mix used for any given string key (or  None  if no case-alteration of that given string key matches any key in the dictionary). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3296522)
+  dict(zip(map(string.lower,a.keys()),a.values()))
+  
+
+ . 
+
+ map(function,iterable) works over the iterable; and iterable of the dictionary is the list of keys.   
+
+  a = {'a': 1, 'c': 3, 'B': 2}
+for i in a:
+ print a
+# returns a c B
+  
+
+ zip brings together the keys and values back into pairs, but as a series of tuples. dict converts the tuples back into a dict. 
+
+ You could also do something like  
+
+  def myfunc(t):
+ return (string.lower(t[0]),t[1])
+
+map(myfunc,a.items())
+# returns [('a', 1), ('c', 3), ('b', 2)
+dict(map(myfunc,a.items()))
+# returns {'a': 1, 'c': 3, 'b': 2}
+  
+
+ ... 
+
+  dict(map(lambda (key, value):(string.lower(key),value),a.items()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31126733)
+ Use  re.IGNORECASE  when compiling the match, then convert the matched result to uppercase for the dictionary. 
+
+  import re
+a = ["LONG GOOG VON", "Long Aapl X4 VON", 'no matches here']
+match = re.compile(r"\s(\S+)\s", re.IGNORECASE)
+benchmarks = {"GOOG": "Google", "AAPL": "Apple"}
+for element in a:
+    s = match.search(element)
+    if s:
+        print(benchmarks.get(s.group(1).upper(), ''))
+  
+
+  
+
+  Google
+Apple
+  
+
+
+

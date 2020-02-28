@@ -1,0 +1,246 @@
+Query: How can i create the empty json object in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39152685)
+ This is how you can create a nested object from JSON (similarly to how PHP does that. To create object tree from JSON (rather, parsed JSON, which is just a Python structure, write the following class: 
+
+  class Nested:
+    def __new__(cls, structure:
+        self = super(Nested, cls.__new__(cls
+        if type(structure is dict:
+            self.__dict__ = {key: Nested(structure[key] for key in structure}
+        elif type(structure is list:
+            self = [Nested(item for item in structure]
+        else:
+            self = structure
+        return self
+  
+
+ and call it from your parsed JSON. For example: 
+
+  import json
+
+s = json.dumps({'a': 1, 'b': {'c': [1, 2, {'d': 3}], 'e': {'f': 'g'}}}
+
+result = Nested(json.loads(s
+
+print(result.a  #  1
+
+print(result.b.c # [1, 2, <__main__.Nested object at 0x00000297A983D828>]
+
+print(result.b.c[0] # 1
+
+print(result.b.c[2].d # 3
+  
+
+ 
+
+ Here is what is how the class works: 
+
+ 
+   __new__  is invoked before anything else. Here we construct an instance of an object (empty  
+  If new is list, we replace self with list of nested objects, so that  Nested({'a': [1, 2, 3].a  is equal to  [Nested(1, Nested(2, Nested(3]  (which also equals to just  [1, 2, 3] , see number 4  
+  If new is dict, for each key we create a property with the same name and assign  Nested(dict[key]  to it.  
+  If any other type, just assign value to self (replace  self  with value so that  Nested({'a': ['b', 'c', 'd']}.a[0]  equals  'b' , not  Nested(..   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16436279)
+ http://docs.python.org/2/library/json.html#json.loads takes a json formatted string and turns it into a Python object like dict or list. In your code, you're passing  dict()  as default value if  mydata  doesn't exist in  request.POST , while it should be a string, like  "{}" .   
+
+  json_data = json.loads(request.POST.get('mydata', "{}"))
+  
+
+ Also remember, the value of  request.POST['mydata']  must be JSON formatted, or else you'll get the same error. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39968639)
+ The problem is that your object is not an actual json object. 
+
+ You can use post method with json=YOUR_PYTHON_OBJECT 
+
+ So to fix your code, change your dictionary to use just a regular python dictionary, use json=payload, rather than data=payload. 
+
+ So refactoring your code, you will have: 
+
+  import requests
+headers = {"Accept": "application/json",
+           "Content-Type": "application/json",
+           "Authorization": "Bearer xxx"
+           }
+
+r = requests.get("http://www.localhost", headers=headers)
+print(r.text)
+print(r.status_code)
+
+dashboard = {"id": None,
+             "title": "API_dashboard_test",
+             "tags": ["CL-5"],
+             "timezone": "browser",
+             "rows": [{}],
+             "schemaVersion": 6,
+             "version": 0
+             }
+payload = {"dashboard": dashboard}
+url = "http://www.localhost/api/dashboards/db"
+
+p = requests.post(url, headers=headers, json=payload)
+print(p)
+print(p.status_code)
+print(p.text)
+  
+
+ Note the differences in dashboard, for example, "rows" was changed from "[{}]" to just [{}] so that it is a python object (list with empty dictionary), rather than a string.  
+
+ The output is 
+
+  200
+<Response [200]>
+200
+{"slug":"api_dashboard_test","status":"success","version":0}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11781349)
+ You can also add the name of the variable in your json file: 
+
+  json.dump({'favorite-color': favColor}, outFile)
+outFile.close()
+  
+
+ And handle the case of an empty list when reading the json file: 
+
+  data = json.load(inFile)
+
+if len(data['favorite-color']) == 0:
+    ...
+  
+
+ Note that you must provide the object that you want to save and then the file-like object to  json.dump . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53882513)
+ JSON is a string representation of data, such as lists and dictionaries. You don't append to the JSON, you append to the original data and then dump it. 
+
+ Also, you don't use  append()  with dictionaries, it's used with lists. 
+
+  data = {} # This is a dictionary
+data["a"] = "1"; # Add an item to the dictionary
+json_data = json.dumps(data) # Convert the dictionary to a JSON string
+print(json_data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20855734)
+ Would it be easier to modify the behaviour of the encoder rather than creating a new dict sub class?  
+
+  class OrderedDictJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, 'keys'):
+            return {} # replace your unordered dict with an OrderedDict from collections
+        else:
+            return super(OrderedDictJSONEncoder, self).default(obj)
+  
+
+ And use it like so:  
+
+  json.dumps(my_dict_to_encode, cls=OrderedDictJSONEncoder)
+  
+
+ This seems like the right place to turn an unordered Python dict into an ordered JSON object.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23894872)
+  pyramid  has native JSON request support. Set the  contentType  parameter to  application/json  to tell the server that you are sending JSON, preferably with a character set (UTF8): 
+
+  $.ajax({
+    url: "http://127.0.0.1:6543/test",
+    type: "POST",
+    data: JSON.stringify(data),
+    contentType: 'application/json; charset=utf-8'
+    dataType: 'json',
+    success: function(response, textStatus, jqXHR) {
+        alert(response);
+    },
+    error: function(jqXHR, textStatus, errorThrown){
+        alert(textStatus, errorThrown);
+    }
+});
+  
+
+ and on the server side use http://docs.pylonsproject.org/docs/pyramid/en/latest/api/request.html#pyramid.request.Request.json_body: 
+
+  @view_config(route_name="test", renderer='templates/main.html')
+def new_sheet(request):
+    myObject = request.json_body
+
+    print myObject["customer"]
+
+    test = "hello"
+    return dict(test=test)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36252257)
+ I adapted https://stackoverflow.com/a/8230373/1067132 to python 3. 
+
+ Here is what has changed: 
+
+ 
+  unicode  disappeared 
+ updated the call to the parents'  default  with  super()  
+ using  base64  to serialize the  bytes  type into  str  (because it seems that  bytes  in python 3 can't be converted to JSON) 
+ 
+
+<pre class="lang-python prettyprint-override"> from decimal import Decimal
+from base64 import b64encode, b64decode
+from json import dumps, loads, JSONEncoder
+import pickle
+
+class PythonObjectEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (list, dict, str, int, float, bool, type(None))):
+            return super().default(obj)
+        return {'_python_object': b64encode(pickle.dumps(obj)).decode('utf-8')}
+
+def as_python_object(dct):
+    if '_python_object' in dct:
+        return pickle.loads(b64decode(dct['_python_object'].encode('utf-8')))
+    return dct
+
+data = [1,2,3, set(['knights', 'who', 'say', 'ni']), {'key':'value'}, Decimal('3.14')]
+j = dumps(data, cls=PythonObjectEncoder)
+print(loads(j, object_hook=as_python_object))
+# prints: [1, 2, 3, {'knights', 'who', 'say', 'ni'}, {'key': 'value'}, Decimal('3.14')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45828800)
+ You are trying to access undefined key  type  when you are doing this  self.type = params['type'] . 
+
+ This will throw  KeyError . 
+
+ You might want to use: 
+
+  self.type = params.get('type', '') #sets self.type to '' empty string
+self.type = params.get('type') #sets self.type to None
+  
+
+
+

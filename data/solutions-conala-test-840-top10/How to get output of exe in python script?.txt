@@ -1,0 +1,206 @@
+Query: How to get output of exe in python script?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/748058)
+ To call an external program from Python, use the http//docs.python.org/library/subprocess.html#module-subprocess module. 
+
+ 
+   The subprocess module allows you to spawn new processes, connect to their input/output/error pipes, and obtain their return codes.  
+ 
+
+ An example from the doc ( output  is a file object that provides output from the child process.) 
+
+  output = subprocess.Popen(["mycmd", "myarg"], stdout=subprocess.PIPE).communicate()[0]
+  
+
+ A concrete example, using  cmd , the Windows command line interpreter with 2 arguments 
+
+  >>> p1 = subprocess.Popen(["cmd", "/C", "date"],stdout=subprocess.PIPE)
+>>> p1.communicate()[0]
+'The current date is Tue 04/14/2009 \r\nEnter the new date (mm-dd-yy) '
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/881686)
+ You can redirect directly to a file using subprocess. 
+
+  import subprocess
+with open('output.txt', 'w') as output_f:
+    p = subprocess.Popen('Text/to/execute with-arg',
+                         stdout=output_f,
+                         stderr=output_f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/748170)
+ I am pretty sure that you are talking about Windows here (based on the phrasing of your question), but in a Unix/Linux (including Mac) environment, the commands module is also available: 
+
+  import commands
+
+( stat, output ) = commands.getstatusoutput( "somecommand" )
+
+if( stat == 0 ):
+    print "Command succeeded, here is the output: %s" % output
+else:
+    print "Command failed, here is the output: %s" % output
+  
+
+ The commands module provides an extremely simple interface to run commands and get the status (return code) and the output (reads from stdout and stderr). Optionally, you can get just status or just output by calling commands.getstatus() or commands.getoutput() respectively. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38082493)
+ You have to choose between one of these solutions: 
+
+ 
+ pass the  relative path  and set the current working directory to the same folder that contains script.exe by using  os.chdir('folderPath')  before trying to open the file 
+ 
+
+ OR 
+
+<ol start="2">
+ pass the  absolute path  to the  script.exe  file by using  cmd = os.getcwd() + "\\script.exe"  
+ 
+
+ By using the  second approach , you'll have: 
+
+  cmd = os.getcwd() + "\\script.exe"
+print "Executing " + cmd
+fetchPipe = subprocess.Popen(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+(output, error) = fetchPipe.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/880929)
+ Easiest is  os.system("the.exe -a >thefile.txt") , but there are many other ways, for example with the  subprocess  module in the standard library. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27664738)
+ You need to http://qt-project.org/doc/qt-4.8/qprocess.html#waitForFinished before you allow the script to exit: 
+
+  p.start("./mainapp.exe", [])
+p.waitForFinished()
+out = p.readAllStandardOutput()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30313091)
+ To summarize and complement the existing answers: 
+
+ 
+    python.exe   is a console (terminal) application  for launching CLI-type scripts . 
+
+ 
+ Unless run from an existing console window,  python.exe   opens a new console window . 
+  Standard streams   sys.stdin ,  sys.stdout  and  sys.stderr  are  connected to the console window . 
+  Execution is  synchronous  when launched from a  cmd.exe  or PowerShell console window: <sup>See https://stackoverflow.com/users/205580/eryksun's 1st comment below.</sup> 
+
+ 
+ If a new console window was created, it stays open until the script terminates. 
+ When invoked from an existing console window, the prompt is blocked until the script terminates. 
+  
+  
+    pythonw.exe   is a GUI app  for launching GUI/no-UI-at-all scripts . 
+
+ 
+  NO console window  is opened. 
+ Execution is  asynchronous :
+
+ 
+ When invoked from a console window, the script is merely  launched  and the prompt returns right away, whether the script is still running or not. 
+  
+  Standard streams   sys.stdin ,  sys.stdout  and  sys.stderr  are  NOT available .
+
+ 
+  Caution :  Unless you take extra steps , this has  potentially unexpected side effects :
+
+ 
+  Unhandled exceptions  cause the script to  abort  silently  . 
+  In Python 2.x, simply trying to use  print()  can cause that to happen  (in 3.x,  print()  simply has no effect). 
+ To  prevent that from within your script , and to learn more, see https://stackoverflow.com/a/30310192/45375 of mine. 
+  Ad-hoc , you can use  output redirection :<sup>Thanks, @handle.</sup> 
+ pythonw.exe yourScript.pyw 1>stdout.txt 2>stderr.txt  
+(from PowerShell: 
+ cmd /c pythonw.exe yourScript.pyw 1>stdout.txt 2>stderr.txt ) to capture stdout and stderr output in  files . 
+If you're confident that use of  print()  is the only reason your script fails silently with  pythonw.exe , and you're not interested in stdout output, use @handle's command from the comments: 
+ pythonw.exe yourScript.pyw 1>NUL 2>&1  
+ Caveat : This output redirection technique does  not  work when invoking  *.pyw  scripts  directly  (as opposed to by passing the script file path to  pythonw.exe ). <sup>See https://stackoverflow.com/users/205580/eryksun's 2nd comment and its follow-ups below.</sup> 
+  
+  
+  
+ 
+
+ 
+
+ You can  control which of the executables runs your script by default  - such as when opened from Explorer - by  choosing the right filename extension : 
+
+ 
+  *.py  files are by default associated (invoked) with  python.exe  
+  *.pyw  files are by default associated (invoked) with  pythonw.exe  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16696388)
+ You can use the subprocess module in python to read the output from your c++ exe file.
+For example: 
+
+ c++ file: 
+
+  #include <iostream>
+using namespace std;
+int main()
+{
+    int a[]={1,2,3,4};
+    cout<<"[";
+    for(int i=0; i<3; i++)
+        cout<<a[i]<<",";
+    cout<<a[3]<<"]";
+    return 0;
+}
+  
+
+ then your python script will be: 
+
+  import subprocess
+a=subprocess.check_output("c++compiledfile")
+l=eval(a)
+print l
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14055895)
+ Execute a cygwin shell (e.g.  bash ) and have it run your script, instead of running your script directly: 
+
+  subprocess.check_output("C:/cygwin/bin/bash.exe ./listChains.sh < 2p31protein.pdb")
+  
+
+ Alternatively, associate the  .sh  filetype extension to open with  bash.exe . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1689024)
+ pythonw.exe will run the script without a command prompt.  The problem is that the Python interpreter, Python.exe, is linked against the console subsystem to produce console output (since that's 90% of cases) -- pythonw.exe is instead linked against the GUI subsystem, and Windows will not create a console output window for it unless it asks for one. 
+
+ http://www.oreillynet.com/pub/a/python/excerpts/chpt20/index.html?page=2 discusses GUI programming with Python, and also alludes to pythonw.exe.  It also helpfully points out that if your Python files end with  .pyw  instead of  .py , the standard Windows installer will set up associations correctly and run your Python in pythonw.exe. 
+
+ In your case it doesn't sound like a problem, but reliance upon pythonw.exe makes your application Windows-specific -- other solutions exist to accomplish this on, say, Mac OS X. 
+
+
+

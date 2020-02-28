@@ -1,0 +1,256 @@
+Query: How do I get list of files from FTP server?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/44839455)
+ I added  client.enterLocalPassiveMode()  and it works: 
+
+  client.connect("xxx.com");
+boolean login = client.login("xxx", "xxx");
+client.enterLocalPassiveMode();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29159787)
+    System.out.println(ftp.printWorkingDirectory());
+        boolean status = ftp
+                .changeWorkingDirectory("mydirectory");
+        System.out.println("Status of Change Directory:" + status);
+        System.out.println(ftp.printWorkingDirectory());
+        InputStream is = null;
+
+        System.out.println(ftp.printWorkingDirectory());
+        System.out.println(ftp.isConnected());
+
+        FTPFile[] list2 = ftp.listFiles();
+        System.out.println("Number of files in this directory:"
+                + list2.length);
+        for (int i = 0; i < list2.length; i++) {
+            System.out.println("-------[" + list2[i].getName()
+                    + "]---------------------");
+            is = ftp.retrieveFileStream(list2[i].getName());
+            int bytesRead = 0;
+            byte[] buffer = new byte[1024];
+            while ((bytesRead = is.read(buffer, 0, buffer.length)) > 0) {
+                System.out.println(new String(buffer, 0, bytesRead));
+            }
+            is.close();
+            ftpClient.completePendingCommand());
+            System.out.println("-------[END:" + list2[i].getName()
+                    + "]---------------------");
+        }
+  
+
+ ftpClient.completePendingCommand()); 
+To finalize the file transfer you must call completePendingCommand() and check its return value to verify success.  
+
+ There are a few FTPClient methods that do not complete the entire sequence of FTP commands to complete a transaction. These commands require some action by the programmer after the reception of a positive intermediate command. After the programmer's code completes its actions, it must call this method to receive the completion reply from the server and verify the success of the entire transaction. This is what the commons API says, http://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/ftp/FTPClient.html#retrieveFileStream(java.lang.String) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14467304)
+ if you use URI with file you can use your code but , but when you want to use ftp so you need to this kind of code; code list the name of the files under your ftp server 
+
+  import java.net.*;
+import java.io.*;
+
+public class URLConnectionReader {
+    public static void main(String[] args) throws Exception {
+        URL url = new URL("ftp://username:password@www.superland.example/server");
+        URLConnection con = url.openConnection();
+        BufferedReader in = new BufferedReader(new InputStreamReader(
+                                    con.getInputStream()));
+        String inputLine;
+        while ((inputLine = in.readLine()) != null) 
+            System.out.println(inputLine);
+        in.close();
+    }
+}
+  
+
+  EDITED  http://www.codejava.net/java-se/networking/ftp/using-urlconnection-to-list-files-and-directories-on-ftp-server 
+
+  package net.codejava.ftp;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
+
+public class FtpUrlListing {
+
+    public static void main(String[] args) {
+        String ftpUrl = "ftp://%s:%s@%s/%s;type=d";
+        String host = "www.myserver.com";
+        String user = "tom";
+        String pass = "secret";
+        String dirPath = "/projects/java";
+
+        ftpUrl = String.format(ftpUrl, user, pass, host, dirPath);
+        System.out.println("URL: " + ftpUrl);
+
+        try {
+            URL url = new URL(ftpUrl);
+            URLConnection conn = url.openConnection();
+            InputStream inputStream = conn.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+            String line = null;
+            System.out.println("--- START ---");
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            System.out.println("--- END ---");
+
+            inputStream.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21983199)
+ You need to filter the strings returned from the ftp client. Below is an example how to do this. 
+
+  List<String> xlsFiles = new ArrayList<String>();
+for(String i : downloadFiles) {
+    if(i.endsWith(".)) {
+        xlsFiles.add(i);
+    }
+}
+  
+
+ The  xlsFiles   List  will contain only files ending with  ". . 
+
+ Edit: 
+
+ It appears your example won't compile due not using  FTPClient  API correctly.  FTPClient.listFiles()  returns an array of  FTPFiles . 
+
+  FTPFiles[] downloadFiles = ftp.listFiles();
+List<FTPFile> xlsFiles = new ArrayList<FTPFile>();
+for(FTPFilei : downloadFiles) {
+    if(i.getName().endsWith(".)) {
+        xlsFiles.add(i);
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47408280)
+ Try logging in as anonymous ("anonymous" is the default user in many FTP servers): 
+
+  ftpClient.connect(ip, port);
+ftpClient.login("anonymous", "");
+ftpClient.changeWorkingDirectory(timePath);
+FTPFile[] directoryArray = ftpClient.listFiles();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14200271)
+ The Java SE http://docs.oracle.com/javase/7/docs/api/java/net/URLConnection.html is insuitable for the job of retrieving a list of files from a FTP host. As to FTP, it basically only supports the FTP  get  or  put  commands (retrieve or upload file). It does not support the FTP  ls  command (list files) which you're basically looking for, let alone many others. 
+
+ You need to look for 3rd party libraries supporting the FTP  ls  command (and many more). A commonly used one is the http://commons.apache.org/net http://commons.apache.org/proper/commons-net/javadocs/api-3.3/org/apache/commons/net/ftp/FTPClient.html. In its http://commons.apache.org/proper/commons-net/javadocs/api-3.3/org/apache/commons/net/ftp/FTPClient.html is demonstrated how to issue a  ls : 
+
+  FTPClient f = new FTPClient();
+f.connect(server);
+f.login(username, password);
+FTPFile[] files = f.listFiles(directory);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14200254)
+ You could use http://commons.apache.org/net/api-3.2/org/apache/commons/net/ftp/FTPClient.html#listFiles%28%29 
+
+ This would allow you to call listFiles with... 
+
+  public static void main(String[] args) throws IOException {
+        FTPClient client = new FTPClient();
+        client.connect("c64.rulez.org");
+        client.enterLocalPassiveMode();
+        client.login("anonymous", "");
+        FTPFile[] files = client.listFiles("/pub");
+        for (FTPFile file : files) {
+            System.out.println(file.getName());
+        }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29477291)
+ Try to execute this after the login 
+
+    ftp.execPBSZ(0);
+  ftp.execPROT("P");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36035384)
+ There's no standard way to have the FTP server sort the files according to your (or any) criteria. 
+
+ Though some FTP servers, notably the ProFTPD and vsftpd, support proprietary flags with the  LIST  command to sort the entries. 
+
+ Both these servers support the  -t  flag to sort the files by a modification time: 
+
+  LIST -t
+  
+
+ Though this is not only non-standard, it actually violates the FTP protocol. 
+
+ For all options supported by ProFTPD, see its man page: 
+http://www.proftpd.org/docs/directives/linked/config_ref_ListOptions.html 
+
+ Note that vsftpd supports only  -a ,  -r ,  -t ,  -F  and  -l  with the same meaning as ProFTPD. 
+
+ The Apache Commons Net has no API to add flags to the  LIST  command (the only exception, while irrelevant to this question, is the  -a  flag - which is sent when  FTPClient.setListHiddenFiles  is set). 
+
+ You would have to override the https://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/ftp/FTPClient.html#getListArguments(java.lang.String) to inject your own flags. 
+
+ 
+
+ Though again, I do not see what's wrong with using https://docs.oracle.com/javase/8/docs/api/java/util/Comparator.html to sort the files. Just make sure you use https://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/ftp/FTPClient.html#mlistDir%28%29, which internally uses a modern  MLSD  command. This way you get precise timestamps, not minute- or worse precision timestamps like with obsolete  LIST  - https://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/ftp/FTPClient.html#listFiles(). 
+
+  FTPFile[] remoteFiles = ftpClient.mlistDir(remotePath);
+
+Arrays.sort(remoteFiles,
+    Comparator.comparing((FTPFile remoteFile) -> remoteFile.getTimestamp()).reversed());
+  
+
+ Though, as you commented, the vsftpd does not support  MLSD  (ProFTPD does). In that case the  LIST -t  is indeed the only efficient (although again, not standard/portable) way to get precisely sorted files. Except for a time-consuming call of  MDTM  - https://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/ftp/FTPClient.html#getModificationTime%28java.lang.String%29 for each listed file. If you can do without precise timestamps, the same code as above, but with  FTPClient.listFiles()  will do. 
+
+ See also https://stackoverflow.com/q/49623415/850848. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/4756241)
+  
+
+   FTPClient f = new FTPClient();
+ f.connect(server);
+ f.login(username, password);
+ FTPFile[] files = listFiles(directory);
+  
+
+  Note:  port 22 is used for SSH,sftp not for ftp 
+
+ If its sftp then you need to go for http://commons.apache.org/vfs/ 
+
+
+

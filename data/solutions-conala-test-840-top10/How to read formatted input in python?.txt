@@ -1,0 +1,257 @@
+Query: How to read formatted input in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7637990)
+ If you have it in a string, you can use http://docs.python.org/library/stdtypes.html#str.split to separate them. 
+
+  >>> for string in ('Mike 18', 'Kevin 35', 'Angel 56'):
+...   l = string.split()
+...   print repr(l[0]), repr(int(l[1]))
+...
+'Mike' 18
+'Kevin' 35
+'Angel' 56
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41445813)
+ Assuming you are on Python 3, you can use this syntax 
+
+  inputs = list(map(str,input().split()))
+  
+
+ if you want to access individual element you can do it like that 
+
+  m, n = map(str,input().split())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45640709)
+ You can do the following if you already know the number of fields of the input: 
+
+  client_name = raw_input("Enter you first and last name: ")
+first_name, last_name = client_name.split() 
+  
+
+ and in case you want to iterate through the fields separated by spaces, you can do the following: 
+
+  some_input = raw_input() # This input is the value separated by spaces
+for field in some_input.split():
+    print field # this print can be replaced with any operation you'd like
+    #             to perform on the fields.
+  
+
+ A more generic use of the "split()" function would be: 
+
+      result_list = some_string.split(DELIMITER)
+  
+
+ where DELIMETER is replaced with the delimiter you'd like to use as your separator, with single quotes surrounding it. 
+
+ An example would be: 
+
+      result_string = some_string.split('!')    
+  
+
+ The code above takes a string and separates the fields using the '!' . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1397841)
+ Use http://docs.python.org/library/functions.html#raw_input instead of  input() . 
+
+  # Python 2.5.4
+>>> a = raw_input()
+3, 4, 5
+>>> a
+'3, 4, 5'
+>>> b = a.split(', ')
+>>> b
+['3', '4', '5']
+>>> [s.strip() for s in raw_input().split(",")] # one liner
+3, 4, 5
+['3', '4', '5']
+  
+
+ The misleadingly names http://docs.python.org/library/functions.html#input function does not do what you'd expect it to. It actually evaluates the input from stdin as python code. 
+
+ In your case it turns out that what you then have is a tuple of numbers in  a , all parsed and ready for work, but generally you don't really want to use this curious side effect. Other inputs can cause any number of things to happen. 
+
+ Incidentally, in Python 3 they fixed this, and now the <a href="http://docs.python.org/3.1/library/functions.html#input"  function does what you'd expect. 
+
+ Two more things: 
+
+ 
+ You don't need to  import string  to do simple string manipulations.  
+ Like mjv http://#1397838, to split a tuple or a list into several variables, you can 'unpack' it. This will not be feasible if you don't know how long the list will be, though. 
+ 
+
+  
+
+  >>> l = (1,2,3,4,5)
+>>> a,b,c,d,e = l
+>>> e
+5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1397838)
+  Under Python 2.x only   (*) 
+
+ after a = input() 
+
+ a is a tuple with the 5 values readily parsed!  
+
+ A quick way to assign these 5 values is 
+
+  a, b, c, d, e = a
+  
+
+ (*) with Python version 3.0? or for sure 3.1, input() works more like the raw_input() method of 2.x, which makes it less confusing.  (thank you mshsayem to point this out!) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34003288)
+ The best place to look would be Boto3's readthedocs here: https://boto3.readthedocs.org/en/latest/reference/services/dynamodb.html#DynamoDB.Client.batch_write_item 
+
+ As long as your JSON was formatted correctly for the request as in the example you could use: 
+
+  f = open('MyData.json')
+request_items = json.loads(f.read())
+client = boto3.client('dynamodb')
+response = client.batch_write_item(RequestItems=request_items)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39250948)
+ First, read that for reference for Python datetime.strptime() format strings:
+https://docs.python.org/3.5/library/datetime.html#strftime-strptime-behavior 
+
+ And that for CSV parsing: https://docs.python.org/3.5/library/csv.html 
+
+ My answer will use standard Python only. As a valid alternative you could use a specialized data analysis library such as pandas as already suggested. 
+
+ your  MM/dd/yyyy  would be  %m/%d/%Y  in strptime format (which is actually C standard format), and  dd-MM-yyyy  would be  %d-%m-%Y . 
+
+ Now I'm not sure if you want the dates to be "autodiscovered" by your python script or if you want to be able to specify the appropriate columns and formats by hand. So I will suggest a script for both: 
+
+ This will convert all dates in the columns names and input formats specified in the INPUT_DATE_FORMATS map: 
+
+  from datetime import datetime
+
+import csv
+
+# file that will be read as input
+INPUT_FILENAME = 'yourfile.csv'
+# file that will be produced as output (with properly formatted dates)
+OUTPUT_FILENAME = 'newfile.csv'
+
+
+INPUT_DATE_FORMATS = {'column2dt': '%m/%d/%Y', 'column6dt': '%d-%m-%Y'}
+
+OUTPUT_DATE_FORMAT = '%d-%m-%YT%H:%MZ'
+
+with open(INPUT_FILENAME, 'rt') as finput:
+    reader = csv.DictReader(finput, delimiter='|')
+    with open(OUTPUT_FILENAME, 'wt') as foutput:
+        writer = csv.DictWriter(foutput, fieldnames=reader.fieldnames, delimiter='|') # you can change delimiter if you want
+        for row in reader: # read each entry one by one
+            for header, value in row.items(): # read each field one by one
+                date_format = INPUT_DATE_FORMATS.get(header)
+                if date_format:
+                    parsed_date = datetime.strptime(value, date_format)
+                    row[header] = parsed_date.strftime(OUTPUT_DATE_FORMAT)
+            writer.writerow(row)
+  
+
+ This will try yo parse each field in the input file with all formats specificied in INPUT_DATE_FORMATS and will write a new file with all those dates formatted with OUTPUT_DATE_FORMAT: 
+
+  from datetime import datetime
+
+import csv
+
+# file that will be read as input
+INPUT_FILENAME = 'yourfile.csv'
+# file that will be produced as output (with properly formatted dates)
+OUTPUT_FILENAME = 'newfile.csv'
+
+
+INPUT_DATE_FORMATS = ('%m/%d/%Y', '%d-%m-%Y')
+OUTPUT_DATE_FORMAT = '%d-%m-%YT%H:%MZ'
+
+with open(INPUT_FILENAME, 'rt') as finput:
+    reader = csv.DictReader(finput, delimiter='|')
+    with open(OUTPUT_FILENAME, 'wt') as foutput:
+        writer = csv.DictWriter(foutput, fieldnames=reader.fieldnames, delimiter='|') # you can change delimiter if you want
+        for row in reader: # read each entry one by one
+            for header, value in row.items(): # read each field one by one
+                for date_format in INPUT_DATE_FORMATS: # try to parse a date
+                    try:
+                        parsed_date = datetime.strptime(value, date_format)
+                        row[header] = parsed_date.strftime(OUTPUT_DATE_FORMAT)
+                    except ValueError:
+                        pass
+            writer.writerow(row)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32805950)
+ Since your input seems formatted as JSON, look into the  json  module. It will do the parsing for you: https://docs.python.org/3.4/library/json.html 
+
+  import json
+with open(filename,'r') as f:
+    data = json.load(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35063937)
+ From your example, your input looks like a string of a binary formatted number. 
+
+ If so, you don't need a dictionnary for that: 
+
+  def byte_to_char(input):
+     return chr(int(input, base=2))
+  
+
+ 
+
+ Using the data you gave in the comments, you have to split your binary string into bytes. 
+
+  input ='01010100011010000110100101110011001000000110100101110011001000000110101001110101011100110111010000100000011000010010000001110100011001010111001101110100001000000011000100110000001110100011000100110000'
+length = 8
+input_l = [input[i:i+length] for i in range(0,len(input),length)]
+  
+
+ And then, per byte, you convert it into a char: 
+
+  input_c = [chr(int(c,base=2)) for c in input_l]
+print ''.join(input_c)
+  
+
+  
+
+  def string_decode(input, length=8):
+    input_l = [input[i:i+length] for i in range(0,len(input),length)]
+    return ''.join([chr(int(c,base=2)) for c in input_l])
+
+decode(input)
+>'This is just a test 10:10'
+  
+
+
+

@@ -1,0 +1,199 @@
+Query: import Csv from File
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1913518)
+ http://commons.apache.org/proper/commons-csv/ Excel format successfully parses multiline CSVs: 
+
+  Reader in = new FileReader("path/to/file.csv");
+Iterable<CSVRecord> records = CSVFormat.EXCEL.parse(in);
+for (CSVRecord record : records) {
+    String lastName = record.get("Last Name");
+    String firstName = record.get("First Name");
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10466170)
+ Use OpenCSV: 
+
+  CSVReader reader = new CSVReader(new FileReader("yourfile.csv")); 
+List myEntries = reader.readAll();
+JTable table = new JTable(myEntries.toArray());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5162212)
+ Utilize postgresql's http://www.postgresql.org/docs/current/interactive/sql-copy.html command 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9991186)
+ Try http://opencsv.sourceforge.net/ as suggested https://stackoverflow.com/questions/101100/csv-api-for-java and <a href="https://stackoverflow.com/questions/7712524/java-import-csv-to-arraylist" . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9521089)
+ Do you need to save the file as an intermediate step before parsing it?  Most CSV parsers (OpenCSV for example) will read from a  Reader  or  InputStream  directly.  So you can do something like: 
+
+  def newFile = request.getFile('newFile')
+def csv = new CSVReader(newFile.inputStream.newReader())
+...
+  
+
+ If you want to save the file, you can use the http://static.springsource.org/spring/docs/2.0.x/api/org/springframework/web/multipart/commons/CommonsMultipartFile.html#transferTo%28java.io.File%29 method: 
+
+  def newFile = request.getFile('newFile')
+newFile.transferTo(new File('newFile.csv'))
+def csv = new CSVReader(new File('newFile.csv').newReader())
+  
+
+ In that case, you'll have to ensure two requests don't overwrite each other by ensuring unique a file name. 
+
+ You can find more information in the grails manual: http://grails.org/doc/latest/guide/theWebLayer.html#6.1.9%20Uploading%20Files 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53156002)
+ You can use header=true and use inferSchema=true to get the correct data types from the file you have headers. Then get this schema type into to a StructType in Java and use that to import the other csv files without headers. This was tested in spark version 2.3.2 
+
+      import org.apache.spark.sql.Dataset;
+    import org.apache.spark.sql.Row;
+    import org.apache.spark.sql.SparkSession;
+
+
+    SparkSession spark = SparkSession.builder()
+        .appName("SimpleApp")
+        .master("local")
+        .getOrCreate();
+
+  // Use this to get the headers automatically
+    Dataset<Row> csvData = sparkSession.read()
+       .format("csv")
+       .option("header","true")
+       .option("inferSchema","true")
+       .load("C:\\MyData\\numData.csv");
+
+    csvData.printSchema();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3768743)
+ 
+   1: Upload a zip file (containing multiple CSV files) 
+ 
+
+ Use a  multipart/form-data  form with  input type="file"  in HTML/JSP to be able to select a file and upload it. Use http://commons.apache.org/fileupload in the Servlet to be able to parse the request body and obtain the uploaded files. See also: https://stackoverflow.com/questions/2422468/how-to-upload-files-in-jsp-servlet/2424824#2424824 
+
+ 
+   2: Unzip the file to obtian the CSV files 
+ 
+
+ Use http://download.oracle.com/javase/6/docs/api/java/util/zip/ZipInputStream.html to read a zip file and extract the zip entries. See also: http://www.oracle.com/technetwork/articles/java/compress-1565076.html. 
+
+ 
+   3: Read the CSV files and pump the records into a mySQL database 
+ 
+
+ Two ways: 
+
+ 
+  Put the CSV somewhere on the local disk file system where the MySQL has access to and instruct it to import it using a http://dev.mysql.com/doc/refman/5.1/en/load-data.html query.  
+  Use an existing http://www.google.com/search?q=java+csv+parser or https://stackoverflow.com/questions/3225108/issues-converting-csv-to-xls-in-java-only-core-java-experience-needed-question/3225146#3225146 to parse a CSV into a useable collection of Java objects, e.g.  List<List<String>> . Then http://download.oracle.com/javase/tutorial/jdbc/basics/index.html and use http://download.oracle.com/javase/tutorial/jdbc/basics/prepared.html to create, populate and execute an  INSERT  query in batches. See also this https://stackoverflow.com/questions/2839321/java-connectivity-with-mysql/2840358#2840358.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9991166)
+ You can use http://opencsv.sourceforge.net/ for importing csv data and then constructing objects from it. 
+
+ I prefer using libraries so that I can save development time. Also they tend to solve specific problems better. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22526891)
+ This is very simple in Java 8: 
+
+  public static void main(String[] args) throws Exception {
+    final Path path = Paths.get("path", "to", "folder");
+    final Path txt = path.resolve("myFile.txt");
+    final Path csv = path.resolve("myFile.csv");
+    try (
+            final Stream<String> lines = Files.lines(txt);
+            final PrintWriter pw = new PrintWriter(Files.newBufferedWriter(csv, StandardOpenOption.CREATE_NEW))) {
+        lines.map((line) -> line.split("\\|")).
+                map((line) -> Stream.of(line).collect(Collectors.joining(","))).
+                forEach(pw::println);
+    }
+}
+  
+
+ First you get your files at  Path  objects. 
+Then you open a  PrintWriter  to your destination  Path . 
+
+ Now you do some Java 8 stream processing with lambdas: 
+
+ 
+  Files.lines(txt)  streams the lines from the file 
+  map((line) -> line.split("\\|"))  splits each line to a  String[]  on  |  
+  map((line) -> Stream.of(line).collect(Collectors.joining(",")))  joins the individual  String[]  again using  ,  
+  forEach(pw::println)  writes the new lines to the destination file. 
+ 
+
+ Using  import static : 
+
+      try (
+            final Stream<String> lines = Files.lines(txt);
+            final PrintWriter pw = new PrintWriter(newBufferedWriter(csv, StandardOpenOption.CREATE_NEW))) {
+        lines.map((line) -> line.split("\\|")).
+                map((line) -> Stream.of(line).collect(joining(","))).
+                forEach(pw::println);
+    }
+  
+
+ As Java 8 was released only yesterday here is a Java 7 solution: 
+
+  public static void main(String[] args) throws Exception {
+    final Path path = Paths.get("path", "to", "folder");
+    final Path txt = path.resolve("myFile.txt");
+    final Path csv = path.resolve("myFile.csv");
+    final Charset utf8 = Charset.forName("UTF-8");
+    try (
+            final Scanner scanner = new Scanner(Files.newBufferedReader(txt, utf8));
+            final PrintWriter pw = new PrintWriter(Files.newBufferedWriter(csv, utf8, StandardOpenOption.CREATE_NEW))) {
+        while (scanner.hasNextLine()) {
+            pw.println(scanner.nextLine().replace('|', ','));
+        }
+    }
+}
+  
+
+ Again, with  import static : 
+
+      try (
+            final Scanner scanner = new Scanner(newBufferedReader(txt, utf8));
+            final PrintWriter pw = new PrintWriter(newBufferedWriter(csv, utf8, StandardOpenOption.CREATE_NEW))) {
+        while (scanner.hasNextLine()) {
+            pw.println(scanner.nextLine().replace('|', ','));
+        }
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49279681)
+ If you create your CSVReader instance using a CSVReaderBuilder you can set your own parser for the reader to use. All you need then is to create your own parser that implements the ICSVParser interface. 
+
+
+

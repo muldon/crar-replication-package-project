@@ -1,0 +1,185 @@
+Query: Can a python script execute a function inside a bash script?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5826451)
+ No, the function is only available within that bash script. 
+
+ What you could do is adapt the bash script by checking for an argument and execute functions if a specific argument is given. 
+
+ For example 
+
+  # $1 is the first argument
+
+case $1 in
+ "go" )
+       go
+       ;;
+ "otherfunc" )
+       otherfunc
+       ;;
+ * )
+       echo "Unknown function"
+       ;;
+esac 
+  
+
+ Then you can call the function like this: 
+
+  subprocess.call("test.sh otherfunc")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32997534)
+ Based on @samplebias solution but with some modification that worked for me, 
+
+ So I wrapped it into function that loads bash script file, executes bash function and returns output 
+
+  def run_bash_function(library_path, function_name, params):
+    params = shlex.split('"source %s; %s %s"' % (library_path, function_name, params))
+    cmdline = ['bash', '-c'] + params
+    p = subprocess.Popen(cmdline,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    if p.returncode != 0:
+        raise RuntimeError("'%s' failed, error code: '%s', stdout: '%s', stderr: '%s'" % (
+            ' '.join(cmdline), p.returncode, stdout.rstrip(), stderr.rstrip()))
+    return stdout.strip()  # This is the stdout from the shell command
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5826523)
+ . Given this  foo.sh : 
+
+  function go() { 
+    echo "hi" 
+}
+  
+
+  
+
+  >>> subprocess.Popen(['bash', '-c', '. foo.sh; go'])
+  
+
+ Output: 
+
+  hi
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2119716)
+ You can use the  -c  option: 
+
+  python -c "import random; print random.uniform(0, 1)"
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2120343)
+ To call a specific function in a module, assure that the module has the following: 
+
+  if __name__ == "__main__":
+    the_function_to_call( )
+  
+
+ Then you can simply do this in your shell script. 
+
+  python module.py
+  
+
+  
+
+  python -m module
+  
+
+ Depending on whether or not the module's on the  PYTHONPATH . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9813574)
+ tl; dr: 
+
+ Your issue is the use of  shell=True . Set it to  shell=False  and it'll work. 
+
+ With this option set, python will just run the first element of the  command  array, i.e.  bash  as a shell script. So currently, python is launching a shell of its own, in order to run your command ( bash ). It'll run bash with no arguments, and bash will then wait for input, blocking your python script. 
+
+ The  shell=True  setting is for use cases where you are passing a shell script in as a single string. When you're explicitly specifying a shell and its parameters as the process to invoke, as you are doing above, you should set  shell=False . 
+
+  >>> import subprocess
+>>> subprocess.Popen(['bash', 'whatever'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
+  
+
+ Here's what the proces tree looks like when I run the above: 
+
+    \_ python
+      \_ /bin/sh -c bash whatever
+          \_ bash
+  
+
+ The  whatever  is actually passed in, but it's a parameter to the  sh , not a parameter to the inner  bash , so the command being run is effectively  ['/bin/sh', '-c', 'bash', 'whatever'] , which is quite different from  ['/bin/sh', '-c', 'bash whatever']  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50171305)
+ You can't directly "import a Python module and call a Python function" from a bash script since this will make it a Python script. 
+
+ What you could do is change  file.py  so it accepts CLI parameters which it will handle and execute the appropriate functions. Then your bash script could look something like 
+
+  #!/bin/bash
+
+./file.py myfunction
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44420985)
+ This worked for me: 
+
+  Bashrc  
+
+  $ cat ~/.bashrc  |grep LOLO
+export LOLO="/foo/bar"
+  
+
+  Bash  
+
+  #!/usr/bin/bash
+
+echo $LOLO
+  
+
+  Python  
+
+  #!/usr/bin/python
+
+import subprocess, os
+my_env = os.environ.copy()
+my_env["PATH"] = "/usr/sbin:/sbin:" + my_env["PATH"]
+subprocess.Popen('/home/m.ortiz.montealegre/lolo/script.sh', env=my_env)
+  
+
+  Output:  
+
+  $ python script.py
+/foo/bar
+  
+
+ The thing is, if you add new values (aliases / variables) to your bashrc you'll need to restart your terminal in order to bashrc gets executed and make those changes availables in the environment.  
+
+ I've found the references to do this https://stackoverflow.com/questions/2231227/python-subprocess-popen-with-a-modified-environment and <a href="https://stackoverflow.com/questions/16618071/can-i-export-a-variable-to-the-environment-from-a-bash-script-without-sourcing-i"  
+
+  Note:  From a subshell process you can't set environment variables to the parent shell. 
+
+
+

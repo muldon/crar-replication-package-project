@@ -1,0 +1,222 @@
+Query: Substitute multiple whitespace with single whitespace in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2077906)
+  import re
+
+re.sub('\s+', ' ', mystring).strip()
+  
+
+ This will also substitute all tabs, newlines and other "whitespace-like" characters. 
+
+ The  strip()  will remote any leading and trailing whitespaces. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2077944)
+ A simple possibility (if you'd rather avoid REs) is 
+
+  ' '.join(mystring.split())
+  
+
+ The split and join perform the task you're explicitly asking about -- plus, they also do the extra one that you don't talk about but is seen in your example, removing trailing spaces;-). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13364940)
+ Use lookahead and lookbehind assertions:   
+
+  >>> import re
+... x = '01/01/12 17:11:11 random junk 01/08/10 12:01:33'
+... y = re.sub(r'(?<=\d{2}) (?=\d{2})', '-', x)
+... y
+103: '01/01/12-17:11:11 random junk 01/08/10-12:01:33'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13744969)
+ I had the same problem with some strings separated by different whitespace chars, and used  \s  as shown in the http://docs.python.org/2/library/re.html library specification. 
+
+  \s matches any whitespace character, this is equivalent to the set [ \t\n\r\f\v].  
+
+ you will need to import  re  as the regular expression handler: 
+
+  import re
+line = "something separated\t by \t\t\t different \t things"
+workstr = re.sub('\s+','\t',line)
+  
+
+ So, any whitespace or separator ( \s ) repeated one or more times ( + ) is transformed to a single tabulation ( \t ), that you can reprocess with split('\t') 
+
+  workstr = "something`\t`separated`\t`by`\t`different`\t`things"
+newline = workstr.split('\t')
+newline = ['something','separated','by','different','things']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35839054)
+ You can use the negated character class  [^\S\n]  where  \S  is all that is not a whitespace: 
+
+  re.sub(r'[^\S\n]', '', s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15531122)
+ Assuming no  "  within the  "substring"  
+
+  import re
+str = 'a    b    c  "d   e   f"'  
+str = re.sub(r'("[^"]*")|[ \t]+', lambda m: m.group(1) if m.group(1) else ' ', str)
+
+print(str)
+#'a b c "d   e   f"'
+  
+
+ The regex  ("[^"]*")|[ \t]+  will match either a quoted substring or one or more single spaces or tabs. Because the regex matches the quoted substring first, the whitespace inside it will not be able to be matched by the alternative subpattern  [ \t]+ , and therefore will be ignored.  
+
+ The pattern that matches the quoted substring is enclosed in  ()  so the callback can check if it was matched. If it was,  m.group(1)  will be truthy and it's value is simply returned. If not, it is whitespace that has been matched so a single space is returned as the replacement value. 
+
+  
+
+  def repl(match):
+    quoted = match.group(1)
+    return quoted if quoted else ' '
+
+str = re.sub(r'("[^"]*")|[ \t]+', repl, str)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36958049)
+ You can apply the regex  '\s{2,}'  (two or more whitespace characters) to each line and substitute the matches with a single  '|'  character. 
+
+  >>> import re
+>>> line = 'ANDREWS VS BALL                   JA-15-0050      D0015    JUDGE EDWARD A ROBERTS        '
+>>> re.sub('\s{2,}', '|', line.strip())
+'ANDREWS VS BALL|JA-15-0050|D0015|JUDGE EDWARD A ROBERTS'
+  
+
+ Stripping any leading and trailing whitespace from the line before applying  re.sub  ensures that you won't get  '|'  characters at the start and end of the line. 
+
+ Your actual code should look similar to this: 
+
+  import re
+with open(filename) as f:
+    for line in f:
+        subbed = re.sub('\s{2,}', '|', line.strip())
+        # do something here
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30740469)
+ This replaces the whitespace that contains a newline with a single newline, then replaces the whitespace that doesn't contain a newline with a single space. 
+
+  import re
+
+def change_whitespace(string):
+    return re.sub('[ \t\f\v]+', ' ', re.sub('[\s]*[\n\r]+[\s]*', '\n', string))
+  
+
+ Results: 
+
+  >>> change_whitespace('   \n \n \n a')
+'\na'
+>>> change_whitespace('   \t \t    a')
+' a'
+>>> change_whitespace('   \na\n     ')
+'\na\n'
+  
+
+ Thanks to @sln for reminding me of regex callback functions: 
+
+  def change_whitespace_2(string):
+    return re.sub('\s+', lambda x: '\n' if '\n' in x.group(0) else ' ', string)
+  
+
+ Results: 
+
+  >>> change_whitespace_2('   \n \n \n a')
+'\na'
+>>> change_whitespace_2('   \t \t    a')
+' a'
+>>> change_whitespace_2('   \na\n     ')
+'\na\n'
+  
+
+ And here's a function with @sln's expression: 
+
+  def change_whitespace_3(string):
+    return re.sub('(?<!\s)(?:([^\S\r\n]+)|(\s+))(?!\s)', lambda x: ' ' if x.group(1) else '\n', string)
+  
+
+ Results: 
+
+  >>> change_whitespace_3('   \n \n \n a')
+'\na'
+>>> change_whitespace_3('   \t \t    a')
+' a'
+>>> change_whitespace_3('   \na\n     ')
+'\na\n'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53014987)
+ use regex and word boundary: 
+
+  >>> s="Lorem/ipsum/dolor/sit         amet consetetur"
+>>> import re
+>>> re.sub(r"\b \b","",s)
+'Lorem/ipsum/dolor/sit         ametconsetetur'
+>>>
+  
+
+ This technique also handles the more general case: 
+
+  >>> s="Lorem/ipsum/dolor/sit         amet consetetur      adipisci velit"
+>>> re.sub(r"\b \b","",s)
+'Lorem/ipsum/dolor/sit         ametconsetetur      adipiscivelit'
+  
+
+ for start & end spaces, you'll have to work slightly harder, but it's still doable: 
+
+  >>> s=" Lorem/ipsum/dolor/sit         amet consetetur      adipisci velit "
+>>> re.sub(r"(^|\b) (\b|$)","",s)
+'Lorem/ipsum/dolor/sit         ametconsetetur      adipiscivelit'
+  
+
+ Just for fun, a last variant: use  re.split  with a multiple space separation, preserve the split char using a group, then join the strings again, removing the spaces only if the string has some non-space in it: 
+
+  "".join([x if x.isspace() else x.replace(" ","") for x in re.split("( {2,})",s)])
+  
+
+ (I suppose that this is slower because of list creation & join though) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1274913)
+  result = rex.sub(' ', string) # this produces a string with tons of whitespace padding
+result = rex.sub('', result) # this reduces all those spaces
+  
+
+ Because you typo'd and forgot to use rex_s for the second call instead. Also, you need to substitute at least one space back in or you'll end up with any multiple-space gap becoming no gap at all, instead of a single-space gap. 
+
+  result = rex.sub(' ', string) # this produces a string with tons of whitespace padding
+result = rex_s.sub(' ', result) # this reduces all those spaces
+  
+
+
+

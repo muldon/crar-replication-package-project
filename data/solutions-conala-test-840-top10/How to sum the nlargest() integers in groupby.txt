@@ -1,0 +1,214 @@
+Query: How to sum the nlargest() integers in groupby
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49118969)
+  df.groupby('col2').apply(pd.DataFrame.nlargest, n=2, columns='col5')
+
+        col1 col2 col3     col4  col5
+col2                                 
+A    1   1.1    A  1.7      x/y     4
+     2   1.1    A  2.5  x/y/z/n     3
+B    8   3.4    B  4.3  x/u/v/b     6
+     6   2.6    B    4    x/y/z     5
+C    9   3.4    C  4.5        -     3
+D    13  3.3    D  4.8  x/u/v/w     5
+     12  1.1    D  4.7        x     2
+  
+
+ 
+
+ However, you had  col5  as strings.  Convert them to integers 
+
+  df.astype(dict(col5=int)).groupby('col2').apply(
+    pd.DataFrame.nlargest, n=2, columns='col5')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2739310)
+ In Python, use  heapq.nlargest .  This is the most flexible approach in case you ever want to handle more than just the top two elements. 
+
+ Here's an example. 
+
+  >>> import heapq
+>>> import random
+>>> x = range(100000)
+>>> random.shuffle(x)
+>>> heapq.nlargest(2, x)
+[99999, 99998]
+  
+
+ Documentation:
+http://docs.python.org/library/heapq.html#heapq.nlargest 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41334180)
+        
+
+  from io import StringIO
+import pandas as pd
+
+txt = """                 some_id
+2016-12-26 11:03:10        001
+2016-12-26 11:03:13        001
+2016-12-26 12:03:13        001
+2016-12-26 12:03:13        008
+2016-12-27 11:03:10        009
+2016-12-27 11:03:13        009
+2016-12-27 12:03:13        003
+2016-12-27 12:03:13        011"""
+
+df = pd.read_csv(StringIO(txt), sep='\s{2,}', engine='python')
+
+df.index = pd.to_datetime(df.index)
+df.some_id = df.some_id.astype(str).str.zfill(3)
+
+df
+
+                    some_id
+2016-12-26 11:03:10     001
+2016-12-26 11:03:13     001
+2016-12-26 12:03:13     001
+2016-12-26 12:03:13     008
+2016-12-27 11:03:10     009
+2016-12-27 11:03:13     009
+2016-12-27 12:03:13     003
+2016-12-27 12:03:13     011
+  
+
+ 
+
+   using  nlargest      
+
+  df.groupby(pd.TimeGrouper('D')).some_id.value_counts() \
+    .groupby(level=0, group_keys=False).nlargest(2)
+
+            some_id
+2016-12-26  001        3
+            008        1
+2016-12-27  009        2
+            003        1
+Name: some_id, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45693334)
+ I think you need  groupby  first Multiindex level and apply function with  nlargest : 
+
+  grp_data = data.groupby(['New_category','CDI_CUS_NM']) 
+               .aggregate({'GrossRevenue_GBP':np.sum, 
+                           'OrderCount':np.sum,
+                           '% Rev': np.sum,
+                           'MOVC_GBP': tmean ,
+                           'Average order size': tmean })
+
+df = grp_data.groupby('New_category')
+             .apply(lambda x: x.nlargest(1,'GrossRevenue_GBP'))
+             .reset_index(level=0, drop=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41169934)
+  groupby.nlargest(2)  returns a Series with MultiIndex: 
+
+  df.groupby('id')['value'].nlargest(2)
+Out: 
+id   
+1   1    11
+    0    10
+2   5     8
+    3     7
+3   6    10
+    7     8
+Name: value, dtype: int64
+  
+
+ Here, both the id and the original index appear in the returning Series. Now if you take the sum, it will take the sum of every value in this Series. However, if you apply the sum on level=0 (or on the id part of this MultiIndex), it will only take the sum for each id separately. 
+
+  df.groupby('id')['value'].nlargest(2).sum(level=0)
+Out: 
+id
+1    21
+2    15
+3    18
+Name: value, dtype: int64
+  
+
+ Now you have the sum of two largest values for each id. To find the largest two values in this Series you need to call  nlargest  again: 
+
+  df.groupby('id')['value'].nlargest(2).sum(level=0).nlargest(2)
+Out: 
+id
+1    21
+3    18
+Name: value, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45977695)
+ You could do this with groupby still: 
+
+  df.sort_values('count', ascending = False).groupby('Id').head(2)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54334989)
+ Here's a little fun with  groupby  and  nlargest : 
+
+  (df.set_index('C')
+   .groupby('A')['B']
+   .nlargest(1)
+   .index
+   .to_frame()
+   .reset_index(drop=True))
+
+   A  C
+0  1  b
+1  2  d
+  
+
+ 
+
+ Or,  sort_values ,  groupby , and  last : 
+
+  df.sort_values('B').groupby('A')['C'].last().reset_index()
+
+   A  C
+0  1  b
+1  2  d
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40621852)
+ use  nlargest  
+
+  gps.groupby(['A', 'B']).size().nlargest(2)
+
+A  B
+1  2    3
+   3    2
+dtype: int64
+  
+
+  
+
+  gps.groupby(['A', 'B']).size().nlargest(2).reset_index(name='count')
+  
+
+ https://i.stack.imgur.com/YD2mR.png 
+
+
+

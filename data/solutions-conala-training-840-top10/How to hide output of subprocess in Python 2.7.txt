@@ -1,0 +1,186 @@
+Query: How to hide output of subprocess in Python 2.7
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13155339)
+ You can set a flag in  startupinfo  to hide the window, and set  stdout=subprocess.PIPE  to capture the output of the process. 
+
+  startupinfo = subprocess.STARTUPINFO()
+startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+startupinfo.wShowWindow = subprocess.SW_HIDE
+sp = subprocess.Popen(..., stdout=subprocess.PIPE, startupinfo=startupinfo)
+  
+
+ Remember that  STARTUPINFO  is for Windows only. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11269627)
+ Redirect the output to DEVNULL: 
+
+  import os
+import subprocess
+
+FNULL = open(os.devnull, 'w')
+retcode = subprocess.call(['echo', 'foo'], stdout=FNULL, stderr=subprocess.STDOUT)
+  
+
+ It is effectively the same as running this shell command: 
+
+  retcode = os.system("echo 'foo' &> /dev/null")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3125581)
+ The best way to do that is to redirect the output into /dev/null.   
+
+  devnull = open('/dev/null', 'w')
+subprocess.Popen(shlex.split(command_line), stdout=devnull)
+  
+
+ Then to wait until it's done, you can use .wait() on the Popen object, getting you to this: 
+
+  devnull = open('/dev/null', 'w')
+process = subprocess.Popen(shlex.split(command_line), stdout=devnull)
+retcode = process.wait()
+  
+
+ retcode will then contain the return code of the process. 
+
+ ADDITIONAL:  As mentioned in comments, this won't hide stderr.  To hide stderr as well you'd do it like so: 
+
+  devnull = open('/dev/null', 'w')
+process = subprocess.Popen(shlex.split(command_line), stdout=devnull, stderr=devnull)
+retcode = process.wait()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24611795)
+ This is supposed to work, but it's possible that the actual command you're running (presumably not  ls ) is buggy and sending all of its output to  stderr  instead of  stdout .   
+
+  output = subprocess.check_output(commandList, stderr=subprocess.STDOUT)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2561918)
+ Use http://docs.python.org/library/subprocess.html#subprocess.call. From the docs: 
+
+ 
+   subprocess.call(*popenargs, **kwargs) 
+  Run command with arguments. Wait for command to complete, then
+  return the returncode attribute.
+  The arguments are the same as for the
+  Popen constructor. 
+ 
+
+  Edit:  
+
+  subprocess.call()  uses http://docs.python.org/library/subprocess.html#subprocess.Popen.wait, and  wait()  is vulnerable to deadlocks (as Tommy Herbert pointed out). From the docs: 
+
+ 
+   Warning: This will deadlock if the
+  child process generates enough output
+  to a stdout or stderr pipe such that
+  it blocks waiting for the OS pipe
+  buffer to accept more data. Use
+  communicate() to avoid that. 
+ 
+
+ So if your command generates a lot of output, use http://docs.python.org/library/subprocess.html#subprocess.Popen.communicate instead: 
+
+  p = subprocess.Popen(
+    ["scanx", "--udp", host],
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE)
+out, err = p.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4951162)
+ You can do a poll on the status of your subprocess and keep outputting lines. 
+
+  p = subprocess.Popen('ls;sleep 10', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+rc = p.poll()
+while rc != 0:
+    while True:
+        line = p.stdout.readline()
+        if not line:
+            break
+        print line
+    rc = p.poll()
+
+assert rc == 0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3125577)
+ http://docs.python.org/library/subprocess.html#subprocess.Popen.communicate is used to wait for the process to terminate. For example: 
+
+  from subprocess import PIPE, Popen
+outputTuple = Popen(["gcc", "--version"], stdout = PIPE).communicate()
+  
+
+ will return a tuple of strings, one for stdout and another one for stderr output. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6313868)
+ Use  shell=True  and  creationflags=subprocess.SW_HIDE  with  subprocess.Popen . This worked for me 
+
+  subprocess.Popen(['test.bat'], shell=True, creationflags=subprocess.SW_HIDE)
+  
+
+ In some releases of Python,  SW_HIDE  is not available in  subprocess  module. In that case, you may have to use  _subprocess.SW_HIDE  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7509054)
+ Add the  shell=True  argument to the subprocess calls. 
+
+  subprocess.call('taskkill /F /IM exename.exe', shell=True)
+  
+
+ Or, if you don't need to wait for it, use  subprocess.Popen  rather than  subprocess.call . 
+
+  subprocess.Popen('taskkill /F /IM exename.exe', shell=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16882176)
+ You don't have to use  Popen()  if you don't want to.   .call()  use  Popen() , give you a simpler API to do what you want. 
+
+ All console applications have 3 'file' streams:  stdin  for input, and  stdout  and  stderr  for output. The application decides what to write where; usually error and diagnostic information to  stderr , the rest to  stdout . If you want to capture the output for either of these outputs in your Python program, you specify the  subprocess.PIPE  argument so that the 'stream' is redirected into your program. . 
+
+ If you want to capture the output of the  airodump-ng wlan0  command, it's easiest to use the http://docs.python.org/2/library/subprocess.html#subprocess.check_output function; it takes care of the  PIPE  argument for you: 
+
+  scanned_networks = subprocess.check_output(["airodump-ng", "wlan0"])
+  
+
+ Now  output  contains whatever  airodump-ng  wrote to its  stdout  stream. 
+
+ If you need to have more control over the process, then you do need to use the  Popen()  class: 
+
+  proc = subprocess.Popen(["airodump-ng", "wlan0"], stdout=subprocess.PIPE)
+for line in proc.stdout:
+    # do something with line
+proc.terminate()
+  
+
+
+

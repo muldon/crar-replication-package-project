@@ -1,0 +1,301 @@
+Query: how to do a left,right and mid of a string in a pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20970328)
+  
+
+  >>> df['StateInitial'] = df['state'].str[:2]
+>>> df
+   pop       state  year StateInitial
+0  1.5    Auckland  2000           Au
+1  1.7       Otago  2001           Ot
+2  3.6  Wellington  2002           We
+3  2.4     Dunedin  2001           Du
+4  2.9    Hamilton  2002           Ha
+  
+
+ For last two that would be  df['state'].str[-2:] . Don't know what exactly you want for middle, but you can apply arbitrary function to a column with  apply  method: 
+
+  >>> df['state'].apply(lambda x: x[len(x)/2-1:len(x)/2+1])
+0    kl
+1    ta
+2    in
+3    ne
+4    il
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22586331)
+ If I remember my QBasic, right, left and mid do something like this: 
+
+  >>> s = '123456789'
+>>> s[-2:]
+'89'
+>>> s[:2]
+'12'
+>>> s[4:6]
+'56'
+  
+
+ http://www.angelfire.com/scifi/nightcode/prglang/qbasic/function/strings/left_right.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41087279)
+ Thanks Andy W 
+
+ I found that the mid() did not quite work as I expected and I modified as follows: 
+
+  def mid(s, offset, amount):
+    return s[offset-1:offset+amount-1]
+  
+
+ I performed the following test: 
+
+  print('[1]23', mid('123', 1, 1))
+print('1[2]3', mid('123', 2, 1))
+print('12[3]', mid('123', 3, 1))
+print('[12]3', mid('123', 1, 2))
+print('1[23]', mid('123', 2, 2))
+  
+
+ Which resulted in: 
+
+  [1]23 1
+1[2]3 2
+12[3] 3
+[12]3 12
+1[23] 23
+  
+
+ Which was what I was expecting.  The original mid() code produces this: 
+
+  [1]23 2
+1[2]3 3
+12[3] 
+[12]3 23
+1[23] 3
+  
+
+ But the left() and right() functions work fine.  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38987747)
+ A short example with  pd.cut . 
+
+ Let's start with some data frame: 
+
+  df = pd.DataFrame({'A': [0, 8, 2, 5, 9, 15, 1]})
+  
+
+ and, say, we want to assign the numbers to the following categories:  'low'  if a number is in the interval  [0, 2] ,  'mid'  for  (2, 8] ,  'high'  for  (8, 10] , and we exclude numbers above 10 (or below 0). 
+
+ Thus, we have 3 bins with edges: 0, 2, 8, 10. Now, we can use  cut  as follows: 
+
+  pd.cut(df['A'], bins=[0, 2, 8, 10], include_lowest=True)
+Out[33]: 
+0     [0, 2]
+1     (2, 8]
+2     [0, 2]
+3     (2, 8]
+4    (8, 10]
+5        NaN
+6     [0, 2]
+Name: A, dtype: category
+Categories (3, object): [[0, 2] < (2, 8] < (8, 10]]
+  
+
+ The argument  include_lowest=True  includes the left end of the first interval. (If you want intervals open on the right, then use  right=False .) 
+
+ The intervals are probably not the best names for the categories. So, let's use names:  low/mid/high : 
+
+  pd.cut(df['A'], bins=[0, 2, 8, 10], include_lowest=True, labels=['low', 'mid', 'high'])
+Out[34]: 
+0     low
+1     mid
+2     low
+3     mid
+4    high
+5     NaN
+6     low
+Name: A, dtype: category
+Categories (3, object): [low < mid < high]
+  
+
+ The excluded number 15 gets a "category"  NaN . If you prefer a more meaningful name, probably the simplest solution (there're other ways to deal with NaN's) is to add another bin and a category name, for example: 
+
+  pd.cut(df['A'], bins=[0, 2, 8, 10, 1000], include_lowest=True, labels=['low', 'mid', 'high', 'excluded'])
+Out[35]: 
+0         low
+1         mid
+2         low
+3         mid
+4        high
+5    excluded
+6         low
+Name: A, dtype: category
+Categories (4, object): [low < mid < high < excluded]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48616910)
+ You can use this method also it will act like that 
+
+  thadari=[1,2,3,4,5,6]
+
+#Front Two(Left)
+print(thadari[:2])
+[1,2]
+
+#Last Two(Right)
+print(thadari[:-2])
+[5,6]
+
+#mid
+mid = len(thadari) //2
+
+lefthalf = thadari[:mid]
+[1,2,3]
+righthalf = thadari[mid:]
+[4,5,6]
+  
+
+ Hope it will help 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45198685)
+ Given a string  date = "2015/2016"  you could do the following to get  15/16 : 
+
+ 
+ Use  left, right = date.split('/')  to capture both separate dates 
+  Remove all but last 2 characters from string with: 
+
+  new_left = left[-2:]
+new_right = right[-2:]
+   
+ Join the new string into one with  new_date = new_left+'/'+new_right  
+ 
+
+  Edit : A one liner solution working directly with the dataframe, based on other answers: 
+
+  df['new'] = df['fy'].str.split('/')[0][-2:] +'/'+ df['fy'].str.split('/')[1][-2:]
+  
+
+ This is a more generic approach as it will work for strings with different lengths and obtain only the last 2 characters, preventing error from incorrect indexes and preventing you from hard-coding them (even though your dates will probably always have 4 chars each plus the '/', at least in the next 8,000 years) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44088970)
+ So  pd.cut()  actually creates a  CategoricalIndex , with an  IntervalIndex  as the categories. 
+
+  In [13]: df = pd.DataFrame({'month': [1, 1, 2, 2], 'distances': range(4), 'value': range(4)})
+
+In [14]: df
+Out[14]: 
+   distances  month  value
+0          0      1      0
+1          1      1      1
+2          2      2      2
+3          3      2      3
+
+In [15]: result = df.groupby(['month', pd.cut(df.distances, 2)]).value.mean()
+
+In [16]: result
+Out[16]: 
+month  distances    
+1      (-0.003, 1.5]    0.5
+2      (1.5, 3.0]       2.5
+Name: value, dtype: float64
+  
+
+ You can simply coerce them to an  IntervalIndex  (this also works if they are a column), then access. 
+
+  In [17]: pd.IntervalIndex(result.index.get_level_values('distances')).left
+Out[17]: Float64Index([-0.003, 1.5], dtype='float64')
+
+In [18]: pd.IntervalIndex(result.index.get_level_values('distances')).right
+Out[18]: Float64Index([1.5, 3.0], dtype='float64')
+
+In [19]: pd.IntervalIndex(result.index.get_level_values('distances')).mid
+Out[19]: Float64Index([0.7485, 2.25], dtype='float64')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48163924)
+ I see that this is an old post but I will take the liberty to answer it anyway. 
+
+ It is  now  possible (ref @chrisb's answer) to access the endpoints for categorical intervals using  left  and  right . 
+
+  s = pd.cut(pd.Series(np.arange(11)), bins = 5)
+
+mid = [(a.left + a.right)/2 for a in s]
+Out[34]: [0.995, 0.995, 0.995, 3.0, 3.0, 5.0, 5.0, 7.0, 7.0, 9.0, 9.0]
+  
+
+ Since intervals are open to the left and closed to the right, the 'first' interval (the one starting at 0), actually starts at -0.01. To get a midpoint using 0 as the left value you can do this 
+
+  mid_alt = [(a.left + a.right)/2 if a.left != -0.01 else a.right/2 for a in s]
+Out[35]: [1.0, 1.0, 1.0, 3.0, 3.0, 5.0, 5.0, 7.0, 7.0, 9.0, 9.0]
+  
+
+ Or, you can say that the intervals are closed to the left and open to the right  
+
+  t = pd.cut(pd.Series(np.arange(11)), bins = 5, right=False)
+Out[38]: 
+0       [0.0, 2.0)
+1       [0.0, 2.0)
+2       [2.0, 4.0)
+3       [2.0, 4.0)
+4       [4.0, 6.0)
+5       [4.0, 6.0)
+6       [6.0, 8.0)
+7       [6.0, 8.0)
+8     [8.0, 10.01)
+9     [8.0, 10.01)
+10    [8.0, 10.01)
+  
+
+ But, as you see, you get the same problem at the last interval. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38735351)
+  
+
+  s = "X/NOUN/dobj>_hold/VERB/ROOT_<membership/NOUN/dobj_<with/ADP/prep_<Y/PROPN/pobj_>,/PUNCT/punct"
+
+import re
+
+out = []
+for part in s.split('_'):
+    Left, Mid, Right = re.search('^([<>]|)(.([<>]|)$', part).groups()
+    tail = ['-'] if not Left+Right else [Left+Right]
+    out.append(Mid.split('/') + tail)
+
+print(out)
+  
+
+ Try online: https://repl.it/Civg 
+
+ It relies on two main things: 
+
+ 
+ a regex pattern which always makes three groups  ()()()  where the edge groups only look for characters  < ,  >  or nothing  ([<>]|) , and the middle matches everything (non-greedy)  (. . The whole thing is anchored at the start ( ^ ) and end ( $ ) of the string so it consumes the whole input string. 
+ Assuming that you will never have angles on both ends of the string, then the combined string  Left+Right  will either be an empty string plus the character to put at the end, one way or the other, or a completely empty string indicating a dash is required. 
+ 
+
+
+

@@ -1,0 +1,144 @@
+Query: How do I do a not equal in Django queryset filtering?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51303588)
+ Using exclude and filter 
+
+  results = Model.objects.filter(x=5).exclude(a=true)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32778343)
+ You should use  filter  and  exclude  like this 
+
+  results = Model.objects.exclude(a=true).filter(x=5)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38054461)
+ What you are looking for are all objects that have either  a=false   or   x=5 . In Django,  |  serves as  OR  operator between querysets: 
+
+  results = Model.objects.filter(a=false)|Model.objects.filter(x=5)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4725256)
+ While with the Models, you can filter with  = ,  __gt ,  __gte ,  __lt ,  __lte , you cannot use  ne ,  !=  or  <> . However, you can achieve better filtering on using the Q object. 
+
+ You can avoid chaining  QuerySet.filter()  and  QuerySet.exlude() , and use this: 
+
+  from django.db.models import Q
+object_list = QuerySet.filter(~Q(field='not wanted'), field='wanted')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4139956)
+ Your query appears to have a double negative, you want to exclude all rows where x is not 5, so in other words you want to include all rows where x IS 5. I believe this will do the trick.  
+
+  results = Model.objects.filter(x=5).exclude(a=true)
+  
+
+ To answer your specific question, there is no "not equal to" but that's probably because django has both "filter" and "exclude" methods available so you can always just switch the logic round to get the desired result. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20679785)
+ Here's how I do it: 
+
+  class PurchaseList(viewsets.ModelViewSet):
+    ...
+    def get_serializer(self, *args, **kwargs):
+        serializer_class = self.get_serializer_class()
+        context = self.get_serializer_context()
+        return serializer_class(*args, request_user=self.request.user, context=context, **kwargs)
+
+class PurchaseSerializer(serializers.ModelSerializer):
+    ...
+    def __init__(self, *args, request_user=None, **kwargs):
+        super(PurchaseSerializer, self).__init__(*args, **kwargs)
+        self.fields['user'].queryset = User._default_manager.filter(pk=request_user.pk)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42391127)
+  results = Model.objects.filter(a = True).exclude(x = 5)  Generetes this sql:  select * from tablex where a != 0 and x !=5 The sql depends on how your True/False field is represented, and the database engine. The django code is all you need though.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35603223)
+ In  Django 1.9/1.10  there are three options. 
+
+ 
+  https://docs.djangoproject.com/en/1.9/topics/db/queries/#retrieving-specific-objects-with-filters 
+
+  results = Model.objects.exclude(a=true).filter(x=5)
+   
+  Use https://docs.djangoproject.com/en/1.9/ref/models/querysets/#q-objects and the https://docs.djangoproject.com/en/1.9/topics/db/queries/#complex-lookups-with-q-objects 
+
+  from django.db.models import Q
+object_list = QuerySet.filter(~Q(a=True), x=5)
+   
+  Register a https://docs.djangoproject.com/en/1.9/howto/custom-lookups/#a-simple-lookup-example 
+
+  from django.db.models import Lookup
+from django.db.models.fields import Field
+
+@Field.register_lookup
+class NotEqual(Lookup):
+    lookup_name = 'ne'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return '%s <> %s' % (lhs, rhs), params
+  
+
+ The  register_lookup  decorator was added in  Django 1.8  and
+enables custom lookup as usual: 
+
+  results = Model.objects.exclude(a=True, x__ne=5)
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36574279)
+ You can filter the queryset before you aggregate to remove any values that are less than or equal to 0 with  __gt  ( __gte  would include 0's which just makes more work for the summation) 
+
+  mvs.filter(cost_saving_10th__gt=0).aggregate(Sum('cost_saving_10th'))
+  
+
+ Note: Since you're filtering the queryset, you may lose entries from the queryset's results. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1154977)
+ Maybe http://docs.djangoproject.com/en/dev/topics/db/queries/#complex-lookups-with-q-objects could be of help for this problem. I've never used them but it seems they can be negated and combined much like normal python expressions. 
+
+ Update: I Just tried it out, it seems to work pretty well: 
+
+  >>> from myapp.models import Entry
+>>> from django.db.models import Q
+
+>>> Entry.objects.filter(~Q(id = 3))
+
+[<Entry: Entry object>, <Entry: Entry object>, <Entry: Entry object>, ...]
+  
+
+
+

@@ -1,0 +1,397 @@
+Query: Indexing a pandas dataframe by integer
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16104482)
+ echoing @HYRY, see the new docs in 0.11 
+
+ http://pandas.pydata.org/pandas-docs/stable/indexing.html 
+
+ Here we have new operators,  .iloc  to explicity support only integer indexing, and  .loc  to explicity support only label indexing 
+
+ e.g. imagine this scenario 
+
+  In [1]: df = pd.DataFrame(np.random.rand(5,2),index=range(0,10,2),columns=list('AB'))
+
+In [2]: df
+Out[2]: 
+          A         B
+0  1.068932 -0.794307
+2 -0.470056  1.192211
+4 -0.284561  0.756029
+6  1.037563 -0.267820
+8 -0.538478 -0.800654
+
+In [5]: df.iloc[[2]]
+Out[5]: 
+          A         B
+4 -0.284561  0.756029
+
+In [6]: df.loc[[2]]
+Out[6]: 
+          A         B
+2 -0.470056  1.192211
+  
+
+  []  slices the rows (by label location) only 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44489704)
+ You're trying to mix label-based indexing with integer indexing/slicing. You can't use  loc  for that, which is for label- loc ation based indexing. 
+
+ Pandas currently provides  ix  for mixing label and integer based indexing. But that will be deprecated in a future version. 
+
+ One thing you can do is grab the labels from the index using using integer-based slicing on the  index : 
+
+  In [20]: df.loc[df.index[:-1], 'a']
+Out[20]:
+0    1
+1    2
+2    3
+3    4
+Name: a, dtype: int64
+  
+
+ So your example would be: 
+
+  In [22]: df.loc[df.index[:-1], 'a'] = df.loc[df.index[:-1], 'b']
+
+In [23]: df
+Out[23]:
+   a  b
+0  6  6
+1  7  7
+2  8  8
+3  9  9
+4  5  0
+
+In [24]:
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50661279)
+ This is one way via https://pandas.pydata.org/pandas-docs/version/0.17.0/generated/pandas.DataFrame.iloc.html, which uses integer-location based indexing for selecting by position. 
+
+ It's also a gentle reminder that  pandas  integer indexing is based on  numpy . 
+
+  import pandas as pd
+import numpy as np
+
+df = pd.DataFrame(columns=list('ABCDEFGHI'))
+
+cols = np.insert(np.arange(df.shape[1]),
+                 df.columns.get_loc('H')+1,
+                 df.columns.get_loc('F'))
+
+res = df.iloc[:, cols]
+
+print(res)
+
+Empty DataFrame
+Columns: [A, B, C, D, E, F, G, H, F, I]
+Index: []
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46920450)
+ The primary purpose of the DataFrame indexing operator,  []  is to select columns.</h3>
+
+ When the indexing operator is passed a string or integer, it attempts to find a column with that particular name and return it as a Series. 
+
+ So, in the question above:  df[2]  searches for a column name matching the integer value  2 . This column does not exist and a  KeyError  is raised. 
+
+ 
+
+ The DataFrame indexing operator completely changes behavior to select rows when slice notation is used</h3>
+
+ Strangely, when given a slice, the DataFrame indexing operator selects rows and can do so by integer location or by index label.  
+
+  df[2:3]
+  
+
+ This will slice beginning from the row with integer location 2 up to 3, exclusive of the last element. . The following selects rows beginning at integer location 6 up to but not including 20 by every third row. 
+
+  df[6:20:3]
+  
+
+ You can also use slices consisting of string labels if your DataFrame index has strings in it. For more details, see https://stackoverflow.com/questions/31593201/pandas--vs-ix-vs-loc-explanation/46915810#46915810. 
+
+ I almost never use this slice notation with the indexing operator as its not explicit and hardly ever used. When slicing by rows, stick with  .loc/. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45376850)
+ You can refer to this other post on https://stackoverflow.com/a/43968774/2336654 
+
+ 
+
+  To answer your question directly:  
+This is called mixed type indexing.  You want to access one dimension by position and the other by label.   
+
+ To solve this problem, we need to translate either: 
+
+ 
+ the position into a label then use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html (or https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.at.html) for label indexing. 
+ the label into a position then use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iloc.html (or https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iat.html) for position indexing. 
+ 
+
+ 
+
+  Using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html    
+
+ We get the label at the  0  position 
+
+  df.loc[df.index[0], 'A']
+  
+
+  
+
+  df.at[df.index[0], 'A']
+  
+
+  
+
+  df.get_value(df.index[0], 'A')
+  
+
+ 
+
+  Using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iloc.html  
+We get the position of the label using  pd.Index.get_loc  
+
+  df.iloc[0, df.columns.get_loc('A')]
+  
+
+  
+
+  df.iat[0, df.columns.get_loc('A')]
+  
+
+  
+
+  df.get_value(0, df.columns.get_loc('A'), takable=True)
+  
+
+ 
+
+ I also included examples of using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.get_value.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31593712)
+  Note: in pandas version 0.20.0 and above,  ix  is http://pandas-docs.github.io/pandas-docs-travis/indexing.html#ix-indexer-is-deprecated and the use of  loc  and  iloc  is encouraged instead. I have left the parts of this answer that describe  ix  intact as a reference for users of earlier versions of pandas. Examples have been added below showing alternatives to   ix  . 
+
+ 
+
+ First, here's a recap of the three methods: 
+
+ 
+  loc  gets rows (or columns) with particular  labels  from the index.  
+  iloc  gets rows (or columns) at particular  positions  in the index (so it only takes integers). 
+  ix  usually tries to behave like  loc  but falls back to behaving like  iloc  if a label is not present in the index. 
+ 
+
+ It's important to note some subtleties that can make  ix  slightly tricky to use: 
+
+ 
+  if the index is of integer type,  ix  will only use label-based indexing and not fall back to position-based indexing. If the label is not in the index, an error is raised.  
+  if the index does not contain  only  integers, then given an integer,  ix  will immediately use position-based indexing rather than label-based indexing. If however  ix  is given another type (e.g. a string), it can use label-based indexing.  
+ 
+
+ 
+
+ To illustrate the differences between the three methods, consider the following Series: 
+
+  >>> s = pd.Series(np.nan, index=[49,48,47,46,45, 1, 2, 3, 4, 5])
+>>> s
+49   NaN
+48   NaN
+47   NaN
+46   NaN
+45   NaN
+1    NaN
+2    NaN
+3    NaN
+4    NaN
+5    NaN
+  
+
+ We'll look at slicing with the integer value  3 . 
+
+ In this case,  s.iloc[:3]  returns us the first 3 rows (since it treats 3 as a position) and  s.loc[:3]  returns us the first 8 rows (since it treats 3 as a label): 
+
+  >>> s.iloc[:3] # slice the first three rows
+49   NaN
+48   NaN
+47   NaN
+
+>>> s.loc[:3] # slice up to and including label 3
+49   NaN
+48   NaN
+47   NaN
+46   NaN
+45   NaN
+1    NaN
+2    NaN
+3    NaN
+
+>>> s.ix[:3] # the integer is in the index so s.ix[:3] works like loc
+49   NaN
+48   NaN
+47   NaN
+46   NaN
+45   NaN
+1    NaN
+2    NaN
+3    NaN
+  
+
+ Notice  s.ix[:3]  returns the same Series as  s.loc[:3]  since it looks for the label first rather than working on the position (and the index for  s  is of integer type). 
+
+ What if we try with an integer label that isn't in the index (say  6 )? 
+
+ Here  s.iloc[:6]  returns the first 6 rows of the Series as expected. However,  s.loc[:6]  raises a KeyError since  6  is not in the index.  
+
+  >>> s.iloc[:6]
+49   NaN
+48   NaN
+47   NaN
+46   NaN
+45   NaN
+1    NaN
+
+>>> s.loc[:6]
+KeyError: 6
+
+>>> s.ix[:6]
+KeyError: 6
+  
+
+ As per the subtleties noted above,  s.ix[:6]  now raises a KeyError because it tries to work like  loc  but can't find a  6  in the index. Because our index is of integer type  ix  doesn't fall back to behaving like  iloc . 
+
+ If, however, our index was of mixed type, given an integer  ix  would behave like  iloc  immediately instead of raising a KeyError: 
+
+  >>> s2 = pd.Series(np.nan, index=['a','b','c','d','e', 1, 2, 3, 4, 5])
+>>> s2.index.is_mixed() # index is mix of different types
+True
+>>> s2.ix[:6] # now behaves like iloc given integer
+a   NaN
+b   NaN
+c   NaN
+d   NaN
+e   NaN
+1   NaN
+  
+
+ Keep in mind that  ix  can still accept non-integers and behave like  loc : 
+
+  >>> s2.ix[:'c'] # behaves like loc given non-integer
+a   NaN
+b   NaN
+c   NaN
+  
+
+ As general advice, if you're only indexing using labels, or only indexing using integer positions, stick with  loc  or  iloc  to avoid unexpected results - try not use  ix . 
+
+ 
+
+ Combining position-based and label-based indexing</h3>
+
+ Sometimes given a DataFrame, you will want to mix label and positional indexing methods for the rows and columns. 
+
+ For example, consider the following DataFrame. How best to slice the rows up to and including 'c'  and  take the first four columns? 
+
+  >>> df = pd.DataFrame(np.nan, 
+                      index=list('abcde'),
+                      columns=['x','y','z', 8, 9])
+>>> df
+    x   y   z   8   9
+a NaN NaN NaN NaN NaN
+b NaN NaN NaN NaN NaN
+c NaN NaN NaN NaN NaN
+d NaN NaN NaN NaN NaN
+e NaN NaN NaN NaN NaN
+  
+
+ In earlier versions of pandas (before 0.20.0)  ix  lets you do this quite neatly - we can slice the rows by label and the columns by position (note that for the columns,  ix  will default to position-based slicing since   4  is not a column name): 
+
+  >>> df.ix[:'c', :4]
+    x   y   z   8
+a NaN NaN NaN NaN
+b NaN NaN NaN NaN
+c NaN NaN NaN NaN
+  
+
+ In later versions of pandas, we can achieve this result using  iloc  and the help of another method: 
+
+  >>> df.iloc[:df.index.get_loc('c') + 1, :4]
+    x   y   z   8
+a NaN NaN NaN NaN
+b NaN NaN NaN NaN
+c NaN NaN NaN NaN
+  
+
+ http://pandas.pydata.org/pandas-docs/version/0.19.1/generated/pandas.Index.get_loc.html is an index method meaning "get the position of the label in this index". Note that since slicing with  iloc  is exclusive of its endpoint, we must add 1 to this value if we want row 'c' as well. 
+
+ There are further examples in pandas' documentation http://pandas-docs.github.io/pandas-docs-travis/indexing.html#ix-indexer-is-deprecated. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36071777)
+ I'm guessing that your  df.columns.dtype  is of the  object  data type and also that testing  df.columns.is_integer()  returns false. 
+
+ The behaviour of  ix  is dependent on the data type or contents of the index. If you have an  integer  type index or  .is_integer()  is true,  ix  uses label-based indexing (like  loc ). If you have another type of index (e.g.  float ,  object ), then  ix  uses position-based indexing when given an integer to find (like  iloc ). In this latter case, index position 2014 is out of bounds. 
+
+ If you convert your columns to integer type,  ix  will work as you expect it to (it will only use label-based indexing): 
+
+  >>> df.columns = df.columns.astype(int)
+>>> df.ix[:, 2014]
+Region 10    10.8
+Georgia       7.1
+Name: 2014, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14295623)
+ Use DataFrame.ix[]: 
+
+  In [21]: d
+Out[21]: 
+   x   y
+0  0  11
+1  1  12
+2  2  13
+
+In [22]: d.ix[d.x % 2 == 0, 'y'] = -5
+
+In [23]: d
+Out[23]: 
+   x   y
+0  0  -5
+1  1  12
+2  2  -5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45685590)
+ I know this is an old question but this can indeed be done without chained indexing or using  reset_index() . You just need to use  df.index[2]  inside the  .loc  indexer. 
+
+  df.loc[df.index[2],'col2':'col3']
+  
+
+ This will also work correctly with assignments. 
+
+
+

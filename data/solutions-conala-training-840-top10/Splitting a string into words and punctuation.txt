@@ -1,0 +1,291 @@
+Query: Splitting a string into words and punctuation
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27972684)
+ Instead of splitting the string, why not just get the numbers directly: 
+
+  >>> import re
+>>> Mystring = "123 456 789, 234, 999|567 888[222"
+>>> re.findall('\d+', Mystring)
+['123', '456', '789', '234', '999', '567', '888', '222']
+>>>
+  
+
+  \d+  has Python match one or more digits (a number). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/367292)
+ This is more or less the way to do it: 
+
+  >>> import re
+>>> re.findall(r"[\w']+|[.,!?;]", "Hello, I'm a string!")
+['Hello', ',', "I'm", 'a', 'string', '!']
+  
+
+ The trick is, not to think about where to split the string, but what to include in the tokens. 
+
+ Caveats: 
+
+ 
+ The underscore (_) is considered an inner-word character. Replace \w, if you don't want that. 
+ This will not work with (single) quotes in the string. 
+ Put any additional punctuation marks you want to use in the right half of the regular expression. 
+ Anything not explicitely mentioned in the re is silently dropped. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15950837)
+ You could join on the punctuation first: 
+
+  def join_punctuation(seq, characters='.,;?!'):
+    characters = set(characters)
+    seq = iter(seq)
+    current = next(seq)
+
+    for nxt in seq:
+        if nxt in characters:
+            current += nxt
+        else:
+            yield current
+            current = nxt
+
+    yield current
+
+c = ' '.join(join_punctuation(b))
+  
+
+ The  join_punctuation  generator yields strings with any following punctuation already joined on: 
+
+  >>> b = ['Hello', ',', 'who', 'are', 'you', '?']
+>>> list(join_punctuation(b))
+['Hello,', 'who', 'are', 'you?']
+>>> ' '.join(join_punctuation(b))
+'Hello, who are you?'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15950842)
+ Do this after you get the result, not full, but works... 
+
+  c = re.sub(r' ([^A-Za-z0-9])', r'\1', c)
+  
+
+ Output: 
+
+  c = 'Hello , who are you ?'
+>>> c = re.sub(r' ([^A-Za-z0-9])', r'\1', c)
+>>> c
+'Hello, who are you?'
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/367265)
+ . 
+
+ I have my doubts as to how well this will hold up in the sense of efficiency, or if it catches all cases (note the "!!!" grouped together; this may or may not be a good thing). 
+
+  >>> import re
+>>> import string
+>>> s = "Helo, my name is Joe! and i live!!! in a button; factory:"
+>>> l = [item for item in map(string.strip, re.split("(\W+)", s)) if len(item) > 0]
+>>> l
+['Helo', ',', 'my', 'name', 'is', 'Joe', '!', 'and', 'i', 'live', '!!!', 'in', 'a', 'button', ';', 'factory', ':']
+>>>
+  
+
+ One obvious optimization would be to compile the regex before hand (using re.compile) if you're going to be doing this on a line-by-line basis.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/367244)
+ Here's a minor update to your implementation.  If your trying to doing anything more detailed I suggest looking into the NLTK that le dorfier suggested. 
+
+ This might only be a little faster since ''.join() is used in place of +=, which is http://www.skymind.com/~ocrow/python_string/. 
+
+  import string
+
+d = "Hello, I'm a string!"
+
+result = []
+word = ''
+
+for char in d:
+    if char not in string.whitespace:
+        if char not in string.ascii_letters + "'":
+            if word:
+                    result.append(word)
+            result.append(char)
+            word = ''
+        else:
+            word = ''.join([word,char])
+
+    else:
+        if word:
+            result.append(word)
+            word = ''
+print result
+['Hello', ',', "I'm", 'a', 'string', '!']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23243973)
+ You need to explicitly  split  the string on whitespace: 
+
+  def word_feats(words):
+    return dict([(word, True) for word in words.split()])
+  
+
+ This uses https://docs.python.org/3/library/stdtypes.html#str.split without arguments, splitting on arbitrary-width whitespace (including tabs and line separators).
+A string is a sequence of individual characters otherwise, and direct iteration will indeed just loop over each character. 
+
+ Splitting into words, however, has to be an explicit operation you need to perform yourself, because different use-cases will have different needs on  how  to split a string into separate parts. Does punctuation count, for example? What about parenthesis or quoting, should words grouped by those not be split, perhaps? . 
+
+ If all you are doing is setting all values to  True , it'll be much more efficient to use https://docs.python.org/3/library/stdtypes.html#dict.fromkeys instead: 
+
+  def word_feats(words):
+    return dict.fromkeys(words.split(), True)
+  
+
+  
+
+  >>> def word_feats(words):
+...     return dict.fromkeys(words.split(), True)
+... 
+>>> print(word_feats("I love this sandwich."))
+{'I': True, 'this': True, 'love': True, 'sandwich.': True}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/8930959)
+ Here is a Unicode-aware version: 
+
+  re.findall(r"\w+|[^\w\s]", text, re.UNICODE)
+  
+
+ The first alternative catches sequences of word characters (as defined by unicode, so "résumé" won't turn into  ['r', 'sum'] ); the second catches individual non-word characters, ignoring whitespace. 
+
+ Note that, unlike the top answer, this treats the single quote as separate punctuation (e.g. "I'm" ->  ['I', "'", 'm'] ). This appears to be standard in NLP, so I consider it a feature. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51676532)
+ That's not how  str.translate  works. Your  text.translate(string.punctuation)  uses the punctuation chars as a translation table, so it maps '\n', which is codepoint 10 to the 10th char in  string.punctuation , which is '+'. The usual way to use  str.translate  is to first create a translation table using https://docs.python.org/3/library/stdtypes.html#str.maketrans, which lets you specify chars to map from, the corresponding chars to map to, and (optionally) chars to delete. If you just want to use it for deletion you can create the table using https://docs.python.org/3/library/stdtypes.html#dict.fromkeys, eg 
+
+  table = dict.fromkeys([ord(c) for c in string.punctuation])
+  
+
+ which makes a dict associating the codepoint of each char in  string.punctuation  to  None . 
+
+ Here's a repaired version of your code that uses  str.translate  to perform the case conversion and the punctuation deletion in a single step. 
+
+  # Map upper case to lower case & remove punctuation
+table = str.maketrans(string.ascii_uppercase, 
+    string.ascii_lowercase, string.punctuation)
+
+text = text.translate(table)
+text_list = text.split('\n')
+for row in text_list:
+    print(repr(row))
+  
+
+  output  
+
+  'from mark twain marktwaingmailcom'
+'to edgar allen poe eapgmailcom'
+'subject rehello'
+''
+'ed'
+''
+'i just read the tell tale heart youve got problems man'
+''
+'sincerely'
+'marky mark'
+''
+'from edgar allen poe eapgmailcom'
+'to mark twain marktwaingmailcom'
+'subject re hello'
+''
+'mark'
+''
+'the world is crushing my soul and so are you'
+''
+'regards'
+'edgar'
+  
+
+ 
+
+ However, simply deleting all the punctuation is a bit messy, since it joins some words that you may not want joined. Instead, we can translate each punctuation char to a space, and then split on whitespace: 
+
+  # Map all punctuation to space
+table = dict.fromkeys([ord(c) for c in string.punctuation], ' ')
+text = text.translate(table).lower()
+text_list = text.split()
+print(text_list)
+  
+
+  output  
+
+  ['from', 'mark', 'twain', 'mark', 'twain', 'gmail', 'com', 'to', 'edgar', 'allen', 'poe', 'eap', 'gmail', 'com', 'subject', 're', 'hello', 'ed', 'i', 'just', 'read', 'the', 'tell', 'tale', 'heart', 'you', 've', 'got', 'problems', 'man', 'sincerely', 'marky', 'mark', 'from', 'edgar', 'allen', 'poe', 'eap', 'gmail', 'com', 'to', 'mark', 'twain', 'mark', 'twain', 'gmail', 'com', 'subject', 're', 'hello', 'mark', 'the', 'world', 'is', 'crushing', 'my', 'soul', 'and', 'so', 'are', 'you', 'regards', 'edgar']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52302595)
+ you'd be better off  splitting  your sentence, then count the words, not the substrings: 
+
+  textt="When I was One I had just begun When I was Two I was nearly new"
+wwords=['i', 'was', 'three', 'near']
+text_words = textt.lower().split()
+result = {w:text_words.count(w) for w in wwords}
+
+print(result)
+  
+
+ prints: 
+
+  {'three': 0, 'i': 4, 'near': 0, 'was': 3}
+  
+
+ if the text has punctuation now, you're better off with regular expressions to split the string according to non-alphanum: 
+
+  import re
+
+textt="When I was One, I had just begun.I was Two when I was nearly new"
+
+wwords=['i', 'was', 'three', 'near']
+text_words = re.split("\W+",textt.lower())
+result = {w:text_words.count(w) for w in wwords}
+  
+
+ result: 
+
+  {'was': 3, 'near': 0, 'three': 0, 'i': 4}
+  
+
+ (another alternative is to use  findall  on word characters:  text_words = re.findall(r"\w+",textt.lower()) ) 
+
+ Now if your list of "important" words is big, maybe it's better to count  all  the words, and filter afterwards, using the classical  collections.Counter : 
+
+  text_words = collections.Counter(re.split("\W+",textt.lower()))
+result = {w:text_words.get(w) for w in wwords}
+  
+
+
+

@@ -1,0 +1,346 @@
+Query: How do you modify sys.path in Google App Engine (Python)?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6247272)
+ It worked for me inserting the new dirs as the first entries in sys.path. 
+
+ path_changer. 
+
+  import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), 'apps'))
+  
+
+ app. 
+
+  import path_changer
+from google.appengine.ext.webapp.util import run_wsgi_app
+
+from flask import Flask
+import settings
+
+app = Flask('myapp')
+app.config.from_object('settings')
+
+from website import views as website_views
+
+run_wsgi_app(app)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36379035)
+ You should use the https://cloud.google.com/appengine/docs/python/tools/libraries27#vendoring mechanism to set up third party libraries for App Engine app. No need to modify  sys.path  in your files. Create  lib  directory directly in your application root and tell your app how to find libraries in this directory by means of  appengine_config.py  file. 
+
+  from google.appengine.ext import vendor
+
+# Add any libraries installed in the "lib" folder.
+vendor.add('lib')
+  
+
+ Use pip with the -t lib flag to install libraries in this directory. 
+
+  $ pip install -t lib [lib-name]
+  
+
+  
+
+  $ pip install -t lib -r requirements.txt
+  
+
+ Check out https://stackoverflow.com/a/26212173/3029175 answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18955756)
+ In GAE change the python path via Preferences settings, set Python Path to match your python 27 path. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2354273)
+ 1) Ensure you have a blank  __init__.py  file in  subdir .   
+
+ 2) Use a full path; something like this:   
+
+  import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'subdir'))
+  
+
+ 
+
+ Edit:  providing more info to answer questions asked in a comment.   
+
+ http://code.google.com/appengine/articles/deferred.html you can place those three lines of code in a file called  fix_path.py .  Then, in your  main.py  file, do this  import fix_path  before all other imports.  http://bitbucket.org/abernier/yab/src/dc1fbe541d17/.   
+
+ And, yes, the  __init__.py  file is required; per the http://docs.python.org/tutorial/modules.html#packages: 
+
+ 
+   When importing the package, Python
+  searches through the directories on
+  sys.path looking for the package
+  subdirectory. 
+  
+   The  __init__.py  files are required to
+  make Python treat the directories as
+  containing packages; this is done to
+  prevent directories with a common
+  name, such as string, from
+  unintentionally hiding valid modules
+  that occur later on the module search
+  path. In the simplest case,
+   __init__.py  can just be an empty file, but it can also execute initialization
+  code for the package or set the
+   __all__  variable, described later. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8901912)
+ Some suggestions: 
+
+ modify the .* handler 
+from : 
+
+  -url: .*
+ script: main.py
+  
+
+  
+
+  -url: /.*
+script: main.py
+  
+
+ Or: Maybe you can manually add the handler and try again to see if there are any differences. 
+
+  - url: /_ah/remote_api
+  script: $PYTHON_LIB/google/appengine/ext/remote_api/handler.py
+  login: admin
+  
+
+  EDIT1  
+
+ There is another version of remote console code that you may want to try try. It is also from google app engine official website. 
+
+  #remote_console.py
+#!/usr/bin/python
+impt code
+impt getpass
+impt sys
+
+sys.path.append(r"C:\Program Files\Google\google_appengine")
+sys.path.append(r"C:\Program Files\Google\google_appengine\lib\yaml\lib")
+sys.path.append(r"C:\Program Files\Google\google_appengine\lib\fancy_urllib")
+
+from google.appengine.ext.remote_api impt remote_api_stub
+from google.appengine.ext impt db
+
+def auth_func():
+    return raw_input('Username:'), getpass.getpass('Passwd:')
+
+if len(sys.argv) < 2:
+    print " %s app_id [host]" % (sys.argv[0],)
+app_id = sys.argv[1]
+if len(sys.argv) > 2:
+    host = sys.argv[2]
+else:
+    host = '%s.appspot.com' % app_id
+
+remote_api_stub.ConfigureRemoteDataste(app_id, '/remote_api', auth_func, host)
+
+code.interact('App Engine interactive console f %s' % (app_id,), None, locals())
+  
+
+  
+
+  remote_console.py YOUR_APP_ID YOUR_APP_ID.appspot.com
+  
+
+   
+
+  remote_console.py s~YOUR_APP_ID YOUR_APP_ID.appspot.com
+  
+
+ F some reason, some app id will begin with s~. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2710892)
+ Simply place the  short_url.py  file in your app's directory. 
+
+ Sample App Engine project: 
+
+ 
+myapp/
+    app.yaml
+    index.yaml
+    main.py
+    short_url.py
+    views.py
+ 
+
+ And in  views.py  (or wherever), you can then import like so:   
+
+  import short_url
+  
+
+ 
+
+ For more complex projects, perhaps a better method is to create a directory especially for dependencies; say  lib : 
+
+ 
+myapp/
+    lib/
+        __init__.py
+        short_url.py
+    app.yaml
+    index.yaml
+    main.py
+    views.py
+ 
+
+  from lib import short_url
+  
+
+ 
+
+ Edit #2: 
+Apologies, I should have mentioned this earlier.  You need modify your path, thanks to Nick Johnson for the following fix. 
+Ensure that this code is run before starting up your app; something like this: 
+
+  import os
+import sys
+
+def fix_path():
+    # credit:  Nick Johnson of Google
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
+
+def main():
+    url_map = [ ('/', views.IndexHandler),] # etc.
+    app = webapp.WSGIApplication(url_map, debug=False)
+    wsgiref.handlers.CGIHandler().run(app)
+
+if __name__ == "__main__":
+    fix_path()
+    main()
+  
+
+ 
+
+ Edit3: 
+To get this code to run before all other imports, you can put the path managing code in a file of its own in your app's base directory (Python recognizes everything in that directory without any path modifications). 
+And then you'd just ensure that this import  
+
+  import fix_path
+  
+
+ ...is listed before all other imports in your  main.py  file. 
+Here's a http://bitbucket.org/abernier/yab/src/ in case my explanation wasn't clear. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14475246)
+ For starters, you can put your application root directory and the SDK root directory ( google_appengine ) in your Python path.  You'll also need a few libraries like  yaml , either installed or added to the library path from the SDK's  lib  directory.  Then you can import modules and call some features. 
+
+  >>> import sys
+>>> sys.path.append('/Applications/GoogleAppEngineLauncher.app/Contents/Resources/GoogleAppEngine-default.bundle/Contents/Resources/google_appengine')
+  
+
+ Of course, as soon as a code path tries to make a service call, the library will raise an exception, saying it isn't bound to anything.  To bind the service libraries to test stubs, use the testbed library: 
+
+  >>> from google.appengine.ext import testbed
+>>> tb = testbed.Testbed()
+>>> tb.activate()
+>>> tb.init_datastore_v3_stub()
+>>> from google.appengine.ext import db
+>>> import models
+>>> m = models.Entry()
+>>> m.title = ‘Test’
+>>> m.put()
+  
+
+ To tell the datastore test stub to use your development server's datastore file, pass the path to the file to  init_datastore_v3_stub()  as the  datastore_file  argument.  See the doc comment for the method in  google.appengine.ext.testbed  for more information. 
+
+ For more information on testbed: https://developers.google.com/appengine/docs/python/tools/localunittesting 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3600810)
+ App engine patch manipulates sys.path internally.  Background tasks bypass that code, so your path will not be ready for Django calls.  You have two choices: 
+
+ 
+  Fix the paths manually.  The http://code.google.com/appengine/articles/deferred.html (see the sub-section called "Handling import path manipulation") suggests factoring the path manipulation code into a module that can be imported by your task script.  
+  Eliminate dependencies on django code, if possible.  If you can write your task to be pure python and/or google api calls, you're good to go.  In your case, this might mean refactoring your settings code.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29681061)
+ Google has provided a documented way for included third-party libraries in your GAE project. 
+
+ See the https://cloud.google.com/appengine/docs/python/tools/libraries27#vendoring. 
+
+ 
+   If you want to include additional pure-python third-party packages, you can do so by setting up vendoring. Vendoring allows you to install packages to a subdirectory of your project and include them in your code. To use vendoring, create (or modify)  appengine_config.py  in the root of your project.   
+ 
+
+  from google.appengine.ext import vendor
+# Add any libraries installed in the "lib" folder.
+vendor.add('lib')
+  
+
+ And then just put all your libs' source code in your  lib  dir 
+
+  > pip install beautifulsoup4 -t lib
+  
+
+ So your project directory structure looks like this: 
+
+  project
+- lib
+  - bs4
+- your_code.py
+  
+
+ This will allow your project's source files to import libs' packages/modules as if they were added to your  PYTHON_PATH . For example: 
+
+  # file: your_code.py
+import bs4  # no need for 'from lib import bs4'
+# do stuff with bs4...
+  
+
+ You can also easily install everything from a requirements.txt file by doing the following command 
+
+  > pip install -t lib -r requirements.txt
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21996251)
+ The way it worked here is: 
+
+  import sys
+# sys.path.insert(0, 'libs') #"Old" way, not working for me.
+sys.path.append(os.path.join(os.path.dirname(__file__), "libs")) # This works!
+  
+
+  
+
+  from bs4 import BeautifulSoup
+  
+
+
+

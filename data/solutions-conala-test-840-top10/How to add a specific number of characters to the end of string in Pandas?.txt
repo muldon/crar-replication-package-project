@@ -1,0 +1,259 @@
+Query: How to add a specific number of characters to the end of string in Pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39817006)
+ Without creating extra columns: 
+
+  In [63]: data
+Out[63]: 
+    Col1
+0      A
+1      B
+2    A1R
+3     B2
+4  AABB4
+
+In [64]: max_length = data.Col1.map(len).max()
+
+In [65]: data.Col1 = data.Col1.apply(lambda x: x + '_'*(max_length - len(x)))
+
+In [66]: data
+Out[66]: 
+    Col1
+0  A____
+1  B____
+2  A1R__
+3  B2___
+4  AABB4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39818021)
+ consider the  pd.Series   s  
+
+  s = pd.Series(['A', 'B', 'A1R', 'B2', 'AABB4'])
+  
+
+   solution   
+use  str.ljust  
+
+  m = s.str.len().max()
+s.str.ljust(m, '_')
+
+0    A____
+1    B____
+2    A1R__
+3    B2___
+4    AABB4
+dtype: object
+  
+
+ 
+
+        
+
+  m = df.Col1.str.len().max()
+df.Col1 = df.Col1.ljust(m '_')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39816915)
+ It isn't the most pandas-like solution, but you can try the following: 
+
+  col = np.array(["A", "B", "A1R", "B2", "AABB4"])
+data = pd.DataFrame(col, columns=["Before"])
+  
+
+ Now compute the maximum length, the list of individual lengths, and the differences: 
+
+  max_ = data.Before.map(lambda x: len(x)).max()
+lengths_ = data.Before.map(lambda x: len(x))
+diffs_ = max_ - lengths_
+  
+
+ Create a new column called  After  adding the underscores, or any other character: 
+
+  data["After"] = data["Before"] + ["_"*i for i in diffs_]
+  
+
+ All this gives: 
+
+    Before  After
+0      A  A____
+1      B  B____
+2    A1R  A1R__
+3  AABB4  AABB4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51124428)
+ one way could be to use  \S*  matching all non withespaces after  A/P_  and also add  \s  to remove the whitespace after the string to remove, such as: 
+
+  df_sess['COL'] = df_sess['col'].str.replace(r'A/P_\S*\s', '')
+  
+
+ In you input, it seems there is an typo error (or at least I think so), so with this input: 
+
+  df_sess = pd.DataFrame({'col':['hi A/P_90890 how A/P_True A/P_/93290 are A/P_wueiwo A/P_|iwoeu you A/P_?9028k ?',
+                              'Im fine, what A/P_49 A/P_0.0309 about you?']})
+print (df_sess['col'].str.replace(r'A/P_\S*\s', ''))
+0            hi how are you ?
+1    Im fine, what about you?
+Name: col, dtype: object
+  
+
+ you get the expected output 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54686246)
+ A simple function with  if  statement can solve your problem: 
+
+<pre class="lang-py prettyprint-override"> s = pd.Series(["T7MS1","Tank_3","TANK 5", "System"])
+
+pattern= "[MS|HS|XP|TANK |Tank_](\d+)"
+def fetch_num(txt):
+    result = re.findall(pattern,txt)
+    if result: # if matched
+        return result[0]
+    else:
+        return txt
+
+s.apply(fetch_num)
+  
+
+ Or you can use this pattern  r"\d+$"  if you don't want to match number after specific word. 
+ $  in the pattern means  the end of the string . 
+
+ It returns: 
+
+  0         1
+1         3
+2         5
+3    System
+dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42386909)
+ You can match with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.match.html 
+
+  pd[(pd['affix'] == 'man') & pd.str.match('..{3}$')
+  
+
+  '..{3}$'  is a regular expression that says to: 
+
+ 
+  '.*'  match anything any number of times 
+  '[aeiou]'  followed by a single character from the list between brackets 
+  '.{3}$'  followed by any 3 characters then followed by the end of the string. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50305091)
+ You can add string by condition: 
+
+  df.loc[df['gene'] == 'gene1', 'gene'] += '_number1'
+
+print (df)
+            gene  scaf  GC    other
+0  gene1_number1  3456  78   other1
+1          gene2  7898  56  other 2
+2          gene3  5667  23  other 3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52010820)
+ Pass a regular expression to  str.count  ( |  is used for  or ): 
+
+  df2['A'].str.count('/|-')
+Out: 
+0    3
+1    2
+2    2
+3    2
+4    4
+5    3
+6    1
+Name: A, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37811904)
+ you can do it this way, but I'm not sure that it's the best / fastest way to do it: 
+
+  In [143]: df
+Out[143]:
+        col1
+0 2015-02-02
+1 2015-04-05
+2 2016-07-02
+
+In [144]: %paste
+N = 2
+(df.col1.apply(lambda x: pd.Series(pd.date_range(x - pd.Timedelta(days=N),
+                                                 x + pd.Timedelta(days=N))
+                         )
+         )
+        .stack()
+        .drop_duplicates()
+        .reset_index(level=[0,1], drop=True)
+        .to_frame(name='col1')
+)
+## -- End pasted text --
+Out[144]:
+         col1
+0  2015-01-31
+1  2015-02-01
+2  2015-02-02
+3  2015-02-03
+4  2015-02-04
+5  2015-04-03
+6  2015-04-04
+7  2015-04-05
+8  2015-04-06
+9  2015-04-07
+10 2016-06-30
+11 2016-07-01
+12 2016-07-02
+13 2016-07-03
+14 2016-07-04
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/37429600)
+ I think you can first http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.replace.html special characters (I add  \|  to the end), then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.lower.html text, http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.split.html by  \s+  (arbitrary wtitespaces). Output is DataFrame. So you can http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.stack.html it to  Series , http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.drop_duplicates.html and last http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.tolist.html: 
+
+  print (df['title'].str
+                  .replace(r'[\-\!\@\#\$\%\^\&\*\(\)\_\+\[\]\;\'\.\,\/\{\}\:\"\<\>\?\|]','')
+                  .str
+                  .lower()
+                  .str
+                  .split('\s+', expand=True)
+                  .stack()
+                  .drop_duplicates()
+                  .tolist())
+
+['this', 'is', 'line', 'number', 'one', 'i', 'love', 'pandas', 'they', 'are', 
+'so', 'puffy', 'tring', 'with', 'specia', 'characters', 'yes', 'it']
+  
+
+
+

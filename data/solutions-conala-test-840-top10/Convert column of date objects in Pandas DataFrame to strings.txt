@@ -1,0 +1,195 @@
+Query: Convert column of date objects in Pandas DataFrame to strings
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17690868)
+  In [46]: pd.to_datetime(pd.Series(date_stngs))
+Out[46]: 
+0   2008-12-20 00:00:00
+1   2008-12-21 00:00:00
+2   2008-12-22 00:00:00
+3   2008-12-23 00:00:00
+dtype: datetime64[ns]
+  
+
+ Update: benchmark 
+
+  In [43]: dates = [(dt.datetime(1960, 1, 1)+dt.timedelta(days=i)).date().isoformat() for i in range(20000)]
+
+In [44]: timeit pd.Series([pd.to_datetime(date) for date in dates])
+1 loops, best of 3: 1.71 s per loop
+
+In [45]: timeit pd.to_datetime(pd.Series(dates))
+100 loops, best of 3: 5.71 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33967346)
+ As of http://pandas.pydata.org/pandas-docs/version/0.17.0/whatsnew.html#whatsnew-0170-strftime, you can format with the  dt  accessor: 
+
+  df['DateStr'] = df['DateObj'].dt.strftime('%d%m%Y')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17690795)
+  >>> import pandas as pd
+>>> date_stngs = ('2008-12-20','2008-12-21','2008-12-22','2008-12-23')
+>>> a = pd.Series([pd.to_datetime(date) for date in date_stngs])
+>>> a
+0    2008-12-20 00:00:00
+1    2008-12-21 00:00:00
+2    2008-12-22 00:00:00
+3    2008-12-23 00:00:00
+  
+
+  UPDATE  
+
+ Use pandas.to_datetime(pd.Series(... It's concise and much faster than above code. 
+
+  >>> pd.to_datetime(pd.Series(date_stngs
+0   2008-12-20 00:00:00
+1   2008-12-21 00:00:00
+2   2008-12-22 00:00:00
+3   2008-12-23 00:00:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54100972)
+ Use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_datetime.html to convert your series to  datetime  first, using  errors='coerce'  to ensure non-convertible values are replaced by  NaN : 
+
+  df_all_files['the_date'] = pd.to_datetime(df_all_files['the_date'], errors='coerce').dt.date
+  
+
+ However, I strongly recommend you  avoid  conversion to  dt.date  as this converts your series to an  object  dtype series of  datetime.date  objects, as opposed to an efficient  Pandas   datetime  series. 
+
+ Here are 4 examples of problems caused by using Python  datetime.date  or  datetime.datetime  objects with Pandas: 
+
+ 
+ https://stackoverflow.com/a/51474980/9209546 
+ https://stackoverflow.com/questions/16412099/parse-a-pandas-column-to-datetime/52900759#52900759 
+ https://stackoverflow.com/questions/53761721/why-my-code-didnt-select-data-from-pandas-dataframe/53761837#53761837 
+ https://stackoverflow.com/questions/53234770/filtering-pandas-dataframe-by-day/53234837#53234837 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49341293)
+ Assuming we imported  pandas as pd  and  df  is our dataframe 
+
+  pd.to_datetime(df['date'], unit='s')
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29594896)
+ I'd convert the 'Date' column to dtype datetime so you can do date string comparison and then you can do the following: 
+
+  In [26]:
+
+df[(df['Date'] > '2014-06-05') & (df['Date'] < '2015-06-11')]
+Out[26]:
+        Date   High    Low  Close    Volume
+4 2014-06-06  651.3  644.5  645.6  12497800
+5 2014-06-09   93.9   91.8   93.7  74876982
+6 2014-06-10   95.0   93.6   94.2  62458587
+  
+
+  
+
+  df['Date'] = pd.to_datetime(df['Date'])
+  
+
+ Then the boolean condition requires using the  &  operator for  AND  and parentheses due to operator precedence. 
+
+  EDIT  
+
+ It looks like your 'Date' data is in fact the index, in which case you can still perform the datetime conversion like so:  df.index = pd.to_datetime(df.index)  and then filter like this: 
+
+  In [28]:
+
+df[(df.index > '2014-06-05') & (df.index < '2015-06-11')]
+Out[28]:
+             High    Low  Close    Volume
+Date                                     
+2014-06-06  651.3  644.5  645.6  12497800
+2014-06-09   93.9   91.8   93.7  74876982
+2014-06-10   95.0   93.6   94.2  62458587
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29626781)
+ So long as dt is a datetime dtype already you can filter using date strings, if not then you can convert doing this: 
+
+  df['dt'] = pd.to_datetime(df['dt'])
+  
+
+  
+
+  In [115]:
+
+df[(df['dt'] > '2014-07-23 07:30:00') & (df['dt'] < '2014-07-23 09:00:00')]
+Out[115]:
+                       dt  value
+index                           
+91    2014-07-23 07:35:00  0.300
+92    2014-07-23 07:40:00  0.300
+93    2014-07-23 07:45:00  0.216
+94    2014-07-23 07:50:00  0.204
+95    2014-07-23 07:55:00  0.228
+96    2014-07-23 08:00:00  0.228
+97    2014-07-23 08:05:00  0.228
+98    2014-07-23 08:10:00  0.228
+99    2014-07-23 08:15:00  0.240
+100   2014-07-23 08:20:00  0.228
+101   2014-07-23 08:25:00  0.216
+102   2014-07-23 08:30:00  0.228
+103   2014-07-23 08:35:00  0.324
+104   2014-07-23 08:40:00  0.336
+105   2014-07-23 08:45:00  0.324
+106   2014-07-23 08:50:00  0.324
+107   2014-07-23 08:55:00  0.324
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31856487)
+ https://stackoverflow.com/a/28161433/2071807 is fast and concise. But it changes the  DataFrame  you are trying to sort, which you may or may not want. 
+
+ <sub>( Note : You almost certainly  will  want it, because your date columns should be dates, not strings!)</sub> 
+
+ In the unlikely event that you don't want to change the dates into dates, you can also do it a different way. 
+
+ First, get the index from your sorted  Date  column: 
+
+  In [25]: pd.to_datetime(df.Date).order().index
+Out[25]: Int64Index([0, 2, 1], dtype='int64')
+  
+
+ Then use it to index your original  DataFrame , leaving it untouched: 
+
+  In [26]: df.ix[pd.to_datetime(df.Date).order().index]
+Out[26]: 
+        Date Symbol
+0 2015-02-20      A
+2 2015-08-21      A
+1 2016-01-15      A
+  
+
+  
+
+  Note:  for Pandas versions 0.20.0 and later, use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html instead of  ix , which is now deprecated. 
+
+
+

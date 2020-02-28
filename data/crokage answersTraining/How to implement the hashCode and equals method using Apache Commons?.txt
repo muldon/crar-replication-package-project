@@ -1,0 +1,164 @@
+Query: How to implement the hashCode and equals method using Apache Commons?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25614656)
+ try this code, use http://commons.apache.org/proper/commons-lang/apidocs/org/apache/commons/lang3/builder/EqualsBuilder.html 
+
+  public int hashCode() {
+    return new HashCodeBuilder(17, 31). // two randomly chosen prime numbers
+        append(empid).
+        append(name).
+        append(dept_name ).
+        append(code ).
+        toHashCode();
+}
+
+public boolean equals(Object obj) {
+
+    if (obj == this)
+        return true;
+    if (!(obj instanceof Person))
+        return false;
+
+    Emp rhs = (Emp) obj;
+    return new EqualsBuilder().
+        // if deriving: appendSuper(super.equals(obj)).
+        append(name, rhs.name).
+        isEquals();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5039178)
+ The commons/lang builders are great and I have been using them for years without noticeable performance overhead (with and without hibernate. But as Alain writes, the Guava way is even nicer: 
+
+ Here's a sample Bean: 
+
+  public class Bean{
+
+    private String name;
+    private int length;
+    private List<Bean> children;
+
+}
+  
+
+ Here's equals( and hashCode( implemented with Commons/Lang: 
+
+  @Override
+public int hashCode({
+    return new HashCodeBuilder(
+        .append(name
+        .append(length
+        .append(children
+        .HashCode(;
+}
+
+@Override
+public boolean equals(final Object obj{
+    if(obj instanceof Bean{
+        final Bean other = (Bean obj;
+        return new EqualsBuilder(
+            .append(name, other.name
+            .append(length, other.length
+            .append(children, other.children
+            .isEquals(;
+    } else{
+        return false;
+    }
+}
+  
+
+ and here with Java 7 or higher (inspired by Guava: 
+
+  @Override
+public int hashCode({
+    return Objects.hash(name, length, children;
+}
+
+@Override
+public boolean equals(final Object obj{
+    if(obj instanceof Bean{
+        final Bean other = (Bean obj;
+        return Objects.equals(name, other.name
+            && length == other.length // special handling for primitives
+            && Objects.equals(children, other.children;
+    } else{
+        return false;
+    }
+}
+  
+
+ Note: this code originally referenced Guava, but as comments have pointed out, this functionality has since been introduced in the JDK, so Guava is no longer required. 
+
+ As you can see the Guava / JDK version is shorter and avoids superfluous helper objects. In case of equals, it even allows for short-circuiting the evaluation if an earlier  Object.equals(  call returns false ( be fair: commons / lang has an  ObjectUtils.equals(obj1, obj2  method with identical semantics which could be used instead of  EqualsBuilder   allow short-circuiting as above. 
+
+ So: yes, the commons lang builders are very preferable over manually constructed  equals(  and  hashCode(  methods (or those awful monsters Eclipse will generate for you, but the Java 7+ / Guava versions are even better. 
+
+ And a note about Hibernate: 
+
+ be careful about using lazy collections in your equals(, hashCode( and String( implementations. That will fail miserably if you don't have an open Session. 
+
+ 
+
+ Note (about equals(: 
+
+ a in both versions of equals( above, you might want  use one or both of these shortcuts also: 
+
+  @Override
+public boolean equals(final Object obj{
+    if(obj == this return true;  // test for reference equality
+    if(obj == null return false; // test for null
+    // continue as above
+  
+
+ b depending on your interpretation of the equals( contract, you might also change the line(s 
+
+      if(obj instanceof Bean{
+  
+
+  
+
+      // make sure you run a null check before this
+    if(obj.getClass( == getClass({ 
+  
+
+ If you use the second version, you probably also want  call  super(equals(  inside your  equals(  method. Opinions differ here, the pic is discussed in this question:  
+
+ 
+   https://stackoverflow.com/q/8248970/342852 
+ 
+
+ (although it's about  hashCode( , the same applies   equals(  
+
+ 
+
+  Note (inspired by Comment from https://stackoverflow.com/users/274473/kayahr  
+
+  Objects.hashCode(..  (just as the underlying  Arrays.hashCode(...  might perform badly if you have many primitive fields. In such cases,  EqualsBuilder  may actually be the better solution. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18991304)
+ Define  equals  method in all subclasses like  AMRadio ,  FMRadio  and so on. You can use  EqualsBuilder  from Apache commons for this. http://commons.apache.org/proper/commons-lang/apidocs/org/apache/commons/lang3/builder/EqualsBuilder.html 
+
+ Typical  equals  method using  EqualsBuilder  looks like this. It uses reflection to compare equality. 
+
+   public boolean equals(Object obj) {
+     return EqualsBuilder.reflectionEquals(this, obj);
+  }
+  
+
+ And while comparing, do not use  ==  since it checks for reference equality, not logical equality. Use  equals  method like 
+
+     if (selectedRadio.equals(radioAM))
+    {
+      return radioAM.getCurrentStaion();
+    }
+  
+
+
+

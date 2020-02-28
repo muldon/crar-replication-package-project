@@ -1,0 +1,187 @@
+Query: How do I delete entity object in JPA?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/29647983)
+ For deleting an object, Hibernate requires that the object is in persistent state. Thus, Hibernate first fetches the object (SELECT) and then removes it (DELETE). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19707991)
+ Okay, thanks to stackoverflow and googling, I managed to find a way to solve it: 
+
+
+
+      if (em.contains(e)) {
+        em.remove(e);
+    } else {
+        BaseEntity ee = em.getReference(e.getClass(), e.getId());
+        em.remove(ee);
+    }
+  
+
+ is correct way to remove entity that is detached.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/811352)
+ A bulk delete query does not load objects into memory and it bypasses any cascade specified on associations. 
+
+ I would code your delete method as: 
+
+  public int deleteByGuid(final String guid){
+    Organization org = entityManager.find(Organization.class, guid);
+    entityManager.remove(org);
+}
+  
+
+ If you use a Query to do bulk updates, the operation is delegated to the database directly. If you wish to delete child objects, you have to set a DELETE CASCADE trigger at the "database" level. 
+
+ By loading the object and removing it, Hibernate will trigger the cascade at the "object" level. 
+
+ More info available at: http://twasink.net/blog/2005/04/differences-in-behaviour-between-hibernate-delete-queries-and-the-old-way/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51313642)
+ Maybe there is something wrong  your equals and hashcode of the Product class and the object you load from database is not the same you are trying to delete. 
+
+ A better way for deleting a product by id would be using the id instead of the product object.  
+
+ You could replace 
+
+  productRepository.delete(product);
+  
+
+  
+
+  productRepository.delete(productId);
+  
+
+ where productId is of type Long.
+This would also avoid the additional query. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25157060)
+ in JPA 2.1, there are Criteria APIs exactly as what you want.it looks like this: 
+
+  CriteriaBuilder cBuilder = em.getCriteriaBuilder();
+CriteriaDelete<T> cq = cBuilder.createCriteriaDelete(entityClass);
+Root<T> root = cq.from(entityClass);
+cq.where(/*some codition*/);
+int result = em.createQuery(cq).executeUpdate();
+  
+
+ you can refert to JPA 2.1 SPEC and API http://download.oracle.com/otndocs/jcp/persistence-2_1-pr-spec/index.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29723834)
+ After some more digging...
+I agree with Zealous, that an object has to be loaded into the persistence context to be removed (a proxy is also good enough). The reason is : You
+may have Hibernate interceptors enabled, and the object must be passed
+through these interceptors to complete its life-cycle. If you delete rows in
+the database directly, the interceptor won't run. 
+
+ And to answer my question it has 2 options: 
+
+ 
+ If object to be deleted is an uninitialized proxy, it will be deleted without version check, because proxy itself means we never verified or accessed, hence it is safe to delete. 
+ If object was a detached object, it will be first merged and brought in persistence context. Now when delete is called version will be checked and if entity is found to be stale, exception will be thrown. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48957682)
+ This code doesn't delete a detached entity : 
+
+  Author a = new Author("George Orwell");  // transient entity
+
+dao.delete(a); // delete an entity unknown for the context. 
+               // The EM silently ignores that
+  
+
+ It deletes a transient entity, that is an entity that never was managed by the persistence context. 
+
+ To delete a detached entity, first make it attached to the persistence context : 
+
+  Author a = new Author("George Orwell");  // transient entity
+
+em.refresh(a); // attach the entity to the persistence context. 
+               // persist() or merge() would also attach it
+
+em.detach(a);  // detach it from the context
+
+em.delete(a);  // delete a detached entity.
+               // The EM throws llegalArgumentException
+  
+
+ An  IllegalArgumentException  should so be thrown if your JPA implementation respects the specification. 
+
+ At least, that is what Hibernate does to process the  delete()  operation : 
+
+  package org.hibernate.event.internal;
+...
+public class DefaultDeleteEventListener implements DeleteEventListener {
+    ...
+    @Override
+    protected void performDetachedEntityDeletionCheck(DeleteEvent event) {
+        EventSource source = event.getSession();
+        String entityName = event.getEntityName();
+        EntityPersister persister = source.getEntityPersister( entityName, event.getObject() );
+        Serializable id =  persister.getIdentifier( event.getObject(), source );
+        entityName = entityName == null ? source.guessEntityName( event.getObject() ) : entityName; 
+        throw new IllegalArgumentException("Removing a detached instance "+ entityName + "#" + id);
+    }
+    ...
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48502296)
+ try using the entityManager with remove statement: 
+
+  em.remove(getB());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16318401)
+ What was the SQL generated? 
+
+ Try comparing entityC to a list of EntityC objects instead of ids. 
+
+ Or, try using a sub-select, instead of a join. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3409945)
+ Bulk delete operations are not cascaded, per JPA specification: 
+
+ 
+   4.10 Bulk Update and Delete Operations</h3>
+  
+   ... 
+  
+   A delete operation only applies to
+  entities of the specified class and
+  its subclasses. It does not cascade to
+  related entities. 
+  
+   ... 
+ 
+
+ If you want to benefit from cascading, load the entity and then call  EntityManager#remove(Object)  on it. 
+
+
+

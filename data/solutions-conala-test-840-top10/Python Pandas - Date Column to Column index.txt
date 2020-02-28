@@ -1,0 +1,203 @@
+Query: Python Pandas - Date Column to Column index
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/46257940)
+ Using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_index.html     
+
+  import pandas as pd
+
+df = pd.DataFrame(['2007-02-21','2007-02-18','2007-02-24','2007-02-18','2007-
+02-23', '2007-02-20' , '2007-02-23'], index=[3, 1, 5, 1, 4,2,4], columns=
+['Date'])
+
+print df
+         Date
+3  2007-02-21
+1  2007-02-18
+5  2007-02-24
+1  2007-02-18
+4  2007-02-23
+2  2007-02-20
+4  2007-02-23
+
+
+df2 = df.sort_index(axis=0)
+print(df2)
+
+         Date
+1  2007-02-18
+1  2007-02-18
+2  2007-02-20
+3  2007-02-21
+4  2007-02-23
+4  2007-02-23
+5  2007-02-24
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15752582)
+ You can use http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.set_index.html: 
+
+  df.set_index('month')
+  
+
+ For example: 
+
+  In [1]: df = pd.DataFrame([[1, datetime(2011,1,1)], [2, datetime(2011,1,2)]], columns=['a', 'b'])
+
+In [2]: df
+Out[2]: 
+   a                   b
+0  1 2011-01-01 00:00:00
+1  2 2011-01-02 00:00:00
+
+In [3]: df.set_index('b')
+Out[3]: 
+            a
+b            
+2011-01-01  1
+2011-01-02  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28282651)
+ If you don't know the name of the date column ahead of time and need to set the index automatically based on the time series column in the data 
+
+  df.set_index((df.select_dtypes(include=[np.datetime64]).columns).tolist())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27049685)
+ I had similar problem I've just solved by reset_index. But you can use either set_index or reset_index:  
+
+  ind_df=df.set_index(['A', 'B'])  
+
+  df.reset_index(level=0, inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30984484)
+ Assuming  Date  is the index to your DataFrame, you can get a date column in your melted DataFrame as follows: 
+
+  sim_2005_melted['Date'] = pd.concat([sim_2005.reset_index().Date 
+                                     for _ in range(sim_2005.shape[1])], 
+                                    ignore_index=True).values
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37955390)
+ I think you can add to column  TDate  column  Hour  converted http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_timedelta.html with  unit='h' : 
+
+  df = pd.DataFrame({'TDate':['2005-01-03','2005-01-04','2005-01-05'],
+                   'Hour':[4,5,6]})
+
+df['TDate'] = pd.to_datetime(df.TDate)
+print (df)
+   Hour      TDate
+0     4 2005-01-03
+1     5 2005-01-04
+2     6 2005-01-05
+
+df['TDate'] +=  pd.to_timedelta(df.Hour, unit='h')
+print (df)
+   Hour               TDate
+0     4 2005-01-03 04:00:00
+1     5 2005-01-04 05:00:00
+2     6 2005-01-05 06:00:00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39400375)
+  resample </h3>
+
+  df.resample('D', on='Date_Time').mean()
+
+              B
+Date_Time      
+2001-10-01  4.5
+2001-10-02  6.0
+  
+
+ 
+
+  Grouper </h3>
+
+ As suggested by @JosephCottam 
+
+  df.set_index('Date_Time').groupby(pd.Grouper(freq='D')).mean()
+
+              B
+Date_Time      
+2001-10-01  4.5
+2001-10-02  6.0
+  
+
+ 
+
+ Deprecated uses of  TimeGrouper </h3>
+
+ You can set the index to be  'Date_Time'  and use  pd.TimeGrouper  
+
+  df.set_index('Date_Time').groupby(pd.TimeGrouper('D')).mean().dropna()
+
+              B
+Date_Time      
+2001-10-01  4.5
+2001-10-02  6.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39443311)
+ DataFrame.set_index() expects a column name or list of columns as an argument, so you should do: 
+
+  dateForm['date'] = poorList
+dateForm.set_index('date', inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37360780)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_datetime.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_timedelta.html. Then convert  timedelta  to  hours  by  np.timedelta64(1, 'h')  and last if  type  of output is always  int , cast by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.astype.html: 
+
+  #convert column Date to datetime
+df['Date'] = pd.to_datetime(df.Date)
+
+df['Ind'] = ((df.Date 
+              - pd.to_datetime('2002-05-01') 
+              + pd.to_timedelta(df.Hr / 100, unit='h')) / np.timedelta64(1, 'h')).astype(int)
+print (df)
+        Date   Hr  CO2_resp  ind
+0 2002-05-01  600  0.000889    6
+1 2002-05-02  600  0.000984   30
+2 2002-05-04  900  0.000912   81
+  
+
+ If not dividing by  100  column  Hr , output is different: 
+
+  df['Ind'] = ((df.Date 
+              - pd.to_datetime('2002-05-01') 
+              + pd.to_timedelta(df.Hr,unit='h')) / np.timedelta64(1, 'h')).astype(int)
+print (df)
+        Date   Hr  CO2_resp  Ind
+0 2002-05-01  600  0.000889  600
+1 2002-05-02  600  0.000984  624
+2 2002-05-04  900  0.000912  972
+  
+
+
+

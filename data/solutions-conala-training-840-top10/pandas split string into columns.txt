@@ -1,0 +1,186 @@
+Query: pandas split string into columns
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48958305)
+ The  str.split  method has an  expand  argument: 
+
+  >>> df['string'].str.split(',', expand=True)
+         0        1         2
+0  astring      isa    string
+1  another   string        la
+2      123      232   another
+>>>
+  
+
+  
+
+  >>> df['string'].str.split(',', expand=True).rename(columns = lambda x: "string"+str(x+1))
+   string1  string2   string3
+0  astring      isa    string
+1  another   string        la
+2      123      232   another
+  
+
+ Much neater with Python >= 3.6 f-strings: 
+
+  >>> (df['string'].str.split(',', expand=True)
+...              .rename(columns=lambda x: f"string_{x+1}"))
+  string_1 string_2  string_3
+0  astring      isa    string
+1  another   string        la
+2      123      232   another
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31738206)
+  
+
+  df = pd.DataFrame(['a|b', 'c|d'])
+s = df[0].apply(lambda x: x.split('|'))
+df['left'] = s.apply(lambda x: x[0])
+df['right'] = s.apply(lambda x: x[1])
+  
+
+ Output: 
+
+       0 left right
+0  a|b    a     b
+1  c|d    c     d
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37033928)
+ To get the first three string characters: 
+
+  >>> d.col2.str[:3]
+0    0|0
+1    1|0
+Name: col2, dtype: object
+  
+
+ To split on ":" and take the first item: 
+
+  >>> d.col2.str.split(':', expand=True)[0]
+0    0|0
+1    1|0
+Name: 0, dtype: object
+  
+
+ To apply it to a group of columns: 
+
+  cols = ['col2', 'col3', 'col5']
+d.loc[:, cols] = d.loc[:, cols].apply(lambda s: s.str[:3])
+
+>>> d
+  col1 col2 col3  col4 col5
+0  USA  0|0  1|0  done  2|0
+1  AGN  1|0  0|2  done  1|0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48958359)
+ Slightly less concise than the  expand  option, but here is an alternative way: 
+
+  In [29]: cols = ['string_1', 'string_2', 'string_3']   
+
+In [30]: pandas.DataFrame(df.string.str.split(', ').tolist(), columns=cols)
+Out[30]: 
+  string_1 string_2 string_3
+0  astring      isa   string
+1  another   string       la
+2      123      232  another
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43331171)
+ This should give you what you want in  df3 . I used the  pd.concat  method to append the proper columns into a single df. 
+
+  # Using your second method to split the second column (slight variation)
+df2 = df['STRING_COL'].str.split('^', expand=True)
+
+# Concatenate the proper columns into a single df
+df3 = pd.concat([df[['ID']], df2], axis=1)
+
+# Rename the columns and turn the VALUE column into type bool 
+df3.columns = ['ID', 'NUMBER', 'VALUE', 'Accepted', 'COMPANY']
+df3.VALUE = df3.VALUE.astype(bool)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38608657)
+ try http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.extract.html method: 
+
+  In [104]: df[['b','c']] = df.a.str.extract(r'(.{3})(.*)', expand=True)
+
+In [105]: df
+Out[105]:
+         a    b     c
+0   sea001  sea   001
+1  seac002  sea  c002
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38468767)
+ Use  expand=True  when doing the  split  to get multiple columns: 
+
+  test['values'].str.split('_', expand=True)
+  
+
+ If there's only one underscore, and you only care about the value to the right, you could use: 
+
+  test['values'].str.split('_').str[1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46021406)
+ Here's one approach 
+
+  In [1417]: pd.concat([s.str.split(' / ').apply(pd.Series, index=c.split(' / ')) 
+                     for c, s in df.set_index('Name').iteritems()],
+                     axis=1).reset_index()
+Out[1417]:
+  Name North South East West No1 No2 No3
+0  ABC     0     1    0    0  10   3   6
+1  XYZ     1     0    0    1   4   5   6
+2  PQR     1     0    0    1   3   6   6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37471900)
+ If you return an Series in your apply it splits it into columns (returns a DataFrame): 
+
+  In [11]: ds.map(json.loads).apply(lambda x: pd.Series([x["a"] if "a" in x else None, x["b"] if "b" in x else None]))
+Out[11]:
+             0    1
+TNFRSF18   0.0  0.0
+SDF4       NaN  0.0
+TNFRSF4    0.0  NaN
+B3GALT6    0.0  0.0
+C1orf159   3.0  NaN
+BC033949   NaN  2.0
+ISG15      5.0  3.0
+WASH7P     0.0  NaN
+NOC2L      0.0  NaN
+LOC643837  0.0  4.0
+  
+
+  Note: You should have a look at http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_json.html, to avoid this?  
+
+
+

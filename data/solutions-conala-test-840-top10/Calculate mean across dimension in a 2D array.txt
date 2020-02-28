@@ -1,0 +1,229 @@
+Query: Calculate mean across dimension in a 2D array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15820030)
+ Here is a non-numpy solution: 
+
+  >>> a = [[40, 10], [50, 11]]
+>>> [float(sum(l))/len(l) for l in zip(*a)]
+[45.0, 10.5]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15820007)
+  a.mean()  takes an  axis  argument: 
+
+  In [1]: import numpy as np
+
+In [2]: a = np.array([[40, 10], [50, 11]])
+
+In [3]: a.mean(axis=1)     # to take the mean of each row
+Out[3]: array([ 25. ,  30.5])
+
+In [4]: a.mean(axis=0)     # to take the mean of each col
+Out[4]: array([ 45. ,  10.5])
+  
+
+  
+
+  In [5]: np.mean(a, axis=1)
+Out[5]: array([ 25. ,  30.5])
+  
+
+ The reason your slicing wasn't working is because this is the syntax for slicing: 
+
+  In [6]: a[:,0].mean() # first column
+Out[6]: 45.0
+
+In [7]: a[:,1].mean() # second column
+Out[7]: 10.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15820027)
+ If you do this a lot, http://www.numpy.org/ is the way to go. 
+
+ If for some reason you can't use NumPy: 
+
+  >>> map(lambda x:sum(x)/float(len(x)), zip(*a))
+[45.0, 10.5]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27523194)
+ You can resize the array after taking the mean: 
+
+  In [24]: a = np.array([[1, 1, 2, 2],
+[2, 2, 1, 0],
+[2, 3, 2, 1],
+[4, 8, 3, 0]])
+In [25]: np.resize(a.mean(axis=0).astype(int), a.shape)
+Out[25]: 
+array([[2, 3, 2, 0],
+       [2, 3, 2, 0],
+       [2, 3, 2, 0],
+       [2, 3, 2, 0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17044532)
+ You can it by using DataFrame of pandas. 
+
+  from pandas import DataFrame
+
+B = [[1,2,3],[1,2,3,4],[1,2]]
+df = DataFrame(B)
+df.mean(axis=0)
+""""
+df
+   0  1   2   3
+0  1  2   3 NaN
+1  1  2   3   4
+2  1  2 NaN NaN
+
+df.mean(axis=0)
+0    1
+1    2
+2    3
+3    4
+"""
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20352002)
+ There is a Numpy reshaping trick to do this. You can reshape your original 2D array to a 4D array where all cells which would fall in a single 50*50 grid are put into two unique dimensions. Calling any function on these axis will give you the aggregated result. 
+
+ Lets make a sample 2D array: 
+
+  n = 1000
+grid_size = 20
+
+grid = np.arange(n*n).reshape(n,n)
+  
+
+ Then calculate the aggregation factor and the number of grids in both dimensions: 
+
+  factor = n / grid_size
+yblocks, xblocks = np.array(grid.shape) / factor
+  
+
+ You can then reshape the original  grid  array to 4 dimensions and apply the  mean  on the second and fourth dimension. 
+
+  grid_small = grid.reshape(yblocks, factor, xblocks, factor).mean(axis=3).mean(axis=1)
+  
+
+ You can test it by slicing a few of the grids yourself and applying the mean on them with: 
+
+  assert(grid[:factor,:factor].mean() == grid_small[0,0])
+assert(grid[-factor:,-factor:].mean() == grid_small[-1,-1])
+  
+
+ The results and difference visualized:
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35151488)
+ Take a look at http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.signal.convolve2d.html.  
+
+  import numpy as np
+import scipy.signal as ss
+
+data = np.array([[13, 10, 10, 10],
+                 [12, 10, 10,  8],
+                 [ 9,  9,  9,  9],
+                 [ 9, 10, 10,  9]])
+kernel = np.ones((3,3))
+kernel /= kernel.size
+
+ss.convolve2d(data, kernel, mode='valid')
+  
+
+ this gives 
+
+  array([[ 10.22222222,   9.44444444],
+       [  9.77777778,   9.33333333]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27528262)
+ You can use the  keepdims  keyword argument to keep that vanishing dimension, e.g.: 
+
+  >>> a = np.random.randint(10, size=(4, 4)).astype(np.double)
+>>> a
+array([[ 7.,  9.,  9.,  7.],
+       [ 7.,  1.,  3.,  4.],
+       [ 9.,  5.,  9.,  0.],
+       [ 6.,  9.,  1.,  5.]])
+>>> a[:] = np.mean(a, axis=0, keepdims=True)
+>>> a
+array([[ 7.25,  6.  ,  5.5 ,  4.  ],
+       [ 7.25,  6.  ,  5.5 ,  4.  ],
+       [ 7.25,  6.  ,  5.5 ,  4.  ],
+       [ 7.25,  6.  ,  5.5 ,  4.  ]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27524125)
+ In order to correctly satisfy the condition that duplicate values of the means appear in the direction they were derived, it's necessary to  reshape  the mean array to a shape which is broadcastable with the original array. 
+
+ Specifically, the mean array should have the same shape as the original array except that the length of the dimension along which the mean was taken should be 1. 
+
+ The following function should work for any shape of array and any number of dimensions: 
+
+  def fill_mean(arr, axis):
+    mean_arr = np.mean(arr, axis=axis)
+    mean_shape = list(arr.shape)
+    mean_shape[axis] = 1
+    mean_arr = mean_arr.reshape(mean_shape)   
+    return np.zeros_like(arr) + mean_arr
+  
+
+ Here's the function applied to your example array which I've called  a : 
+
+  >>> fill_mean(a, 0)
+array([[ 2.25,  3.5 ,  2.  ,  0.75],
+       [ 2.25,  3.5 ,  2.  ,  0.75],
+       [ 2.25,  3.5 ,  2.  ,  0.75],
+       [ 2.25,  3.5 ,  2.  ,  0.75]])
+
+>>> fill_mean(a, 1)
+array([[ 1.5 ,  1.5 ,  1.5 ,  1.5 ],
+       [ 1.25,  1.25,  1.25,  1.25],
+       [ 2.  ,  2.  ,  2.  ,  2.  ],
+       [ 3.75,  3.75,  3.75,  3.75]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35350568)
+ Using pandas and groupby: 
+
+  df = pd.DataFrame([[2,1],[2,32],[4,4512],[1,34],[2,323],[2,42],[1,23],[4,123]])
+df.groupby(0).mean()
+
+        1
+0        
+1    28.5
+2    99.5
+4  2317.5
+  
+
+
+

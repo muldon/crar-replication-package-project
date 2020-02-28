@@ -1,0 +1,178 @@
+Query: Python: Sum string lengths
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25944281)
+ I know this is an old question, but I can't help noting that the Python error message  tells  you how to do this:  
+
+  TypeError: sum() can't sum strings [use ''.join(seq) instead]
+  
+
+  
+
+  >>> strings = ['abc', 'de']
+>>> print len(''.join(strings))
+5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42851759)
+ The shortest and fastest way is apply a https://en.wikipedia.org/wiki/Functional_programming with https://docs.python.org/3/library/functions.html#map and https://docs.python.org/3/library/functions.html#sum: 
+
+  >>> data = ['a', 'bc', 'def', 'ghij']
+>>> sum(map(len, data))
+10
+  
+
+ In Python 2, use https://docs.python.org/2.7/library/itertools.html#itertools.imap instead of  map  for better memory performance: 
+
+  >>> from itertools import imap
+>>> data = ['a', 'bc', 'def', 'ghij']
+>>> sum(imap(len, data))
+10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/21678918)
+ Here's another way using operator.  Not sure if this is easier to read than the accepted answer. 
+
+  import operator
+
+length = reduce(operator.add, map(len, strings))
+
+print length
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3780444)
+ My first way to do it would be  sum(map(len, strings)) . Another way is to use a list comprehension or generator expression as the other answers have posted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19669064)
+ I can Propose few versions: 
+
+ You can replace spaces with empty string and calculate length 
+
+  len(mystr.replace(" ", ""))
+  
+
+ or You can calculate length of whole string and number of spaces. 
+
+  len(mystr) - count(' ')
+  
+
+ or You can calculate lengths of all substrings after splitting string   
+
+  sum(map(len, mystr.split(' ')))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36455724)
+ https://docs.python.org/2/library/functions.html#zip and https://docs.python.org/2/library/functions.html#sum: 
+
+  a,b = "house", "mouse"
+
+print(sum(s1 == s2 for s1, s2 in zip(a, b)))
+4
+  
+
+ zipping will pair the characters at the same index, then summing how many times  s1 == s2  will give you the count of matching chars: 
+
+  In [1]: a,b = "house", "mouse"
+
+In [2]: zip(a, b)
+Out[2]: [('h', 'm'), ('o', 'o'), ('u', 'u'), ('s', 's'), ('e', 'e')]
+  
+
+ The only thing that is unclear is what  you use as the  out of  if the strings are of different lengths.  
+
+ If you did want the matches and the sum you can still use the same logic: 
+
+  def paired(s1, s2):
+    sm, index_ch = 0, []
+    for ind, (c1, c2) in enumerate(zip(s1, s2)):
+        if c1 == c2:
+            sm += 1
+            index_ch.append((ind, c1))
+    return index_ch, sm
+
+index_char, sm = paired("house", "mouse")
+
+print(index_char, sm)
+  
+
+ Output: 
+
+  ([(1, 'o'), (2, 'u'), (3, 's'), (4, 'e')], 4)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21501588)
+ Ignoring that rather small time difference for now, there is actually a huge difference for your two ways  in memory . 
+
+  sum((len(y) for y in [str(x) for x in range(0, 999999)]))
+  
+
+ This will create a string for each number and store that in a list. Then you use a generator expression to loop over that list and sum the lengths up. So you essentially have a string for each number, a list storing all strings, and a number that is being added to for the lengths. 
+
+  len(''.join([str(x) for x in range(0, 999999)]))
+  
+
+ This will again create a string for each number and store that in a list. Then you create a huge string with all numbers. Afterwards you call length on in (which is then a O(1) call). So you don’t have the number you add to (while summing the lengths up), but you do have another long string that combines all the other strings again. 
+
+ So even if that is faster, you are throwing away a lot of memory, which will likely have an effect on performance later too. 
+
+ To improve all this, you should consider creating as little stuff permanently as possible. Don’t use list comprehensions as that will actually create the lists; don’t use  str.join  as that requires a list and iterates it twice. 
+
+  sum(len(str(x)) for x in range(0, 999999)))
+  
+
+ Now, this will still be slower than the  len(''.join(…))  method but won’t have that much of a memory overhead. In fact, it will only create one string object at a time, get its length and add it to the sum. The string can then be immediately collected. 
+
+ The reason this will still be slow though is that it both  len  and  str  need to be looked up with every iteration inside of the generator. To speed that up, use  map  to only look it up twice. wim made a really good suggestion in the comments: 
+
+  sum(map(len, map(str, range(999999))))
+  
+
+ This actually performs faster than the  len(''.join(…))  way for me. My timing results in order of being mentioned in my answer: 
+
+  62.36836282166257
+50.54277449168785
+58.24419845897603
+40.3403849521618
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/13011467)
+ You can use http://docs.python.org/library/itertools.html?highlight=itertools#itertools.izip_longest, and use a  fillvalue  equal to  0  
+
+  In [6]: [sum(x) for x in itertools.izip_longest(*lists, fillvalue=0)]
+Out[6]: [6, 5, 4]
+  
+
+ for Python < 2.6: 
+
+  In [27]: ml = max(map(len, lists))
+
+In [28]: ml       #length of the longest list in lists
+Out[28]: 3
+
+In [29]: [sum(x) for x in zip(*map(lambda x:x+[0]*ml if len(x)<ml else x, lists))]
+Out[29]: [6, 5, 4]
+  
+
+
+

@@ -1,0 +1,174 @@
+Query: How to sum elements in functional way
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13728528)
+ Does a comprehension count? 
+
+  >>> [sum(l[:i]) for i, _ in enumerate(l)]
+[0, 0, 1, 3, 6, 10, 15, 21, 28, 36]
+  
+
+ or perhaps using  reduce : 
+
+  reduce(
+    lambda (sums, last), x: (sums+[x+last], x+last),
+    l, ([], 0)
+)[0]
+  
+
+ Or another way: 
+
+  reduce(lambda sums,x: sums+[x+sums[-1]], l[1:], l[:1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13728545)
+ Here is cumulative sum done in the style of functional programming: 
+
+  def func(l):
+   if len(l) < 2: return l
+   sub = func(l[:-1])
+   return sub + [sub[-1] + l[-1]]
+
+print func([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3131120)
+ The only way to get out of the builtin  reduce  part way through is to throw an exception. Fortunately it's not hard to get the desired result this way: 
+
+  def interruptible_reduce(fn, *args):
+    try:
+        return reduce(fn, *args)
+    except StopIteration, e:
+        return e.args[0]
+
+def reducefn(a, b):
+    total = a[1] + b[1]
+    if total > 8:
+        raise StopIteration(a)
+    return (a[0]+b[0], total)
+
+input = [2, 1, 3, 4, 5]
+
+>>> from itertools import imap
+>>> interruptible_reduce(reducefn, imap(lambda x: (1,x), input))
+(3, 6)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3130448)
+ This is a function that implements that functional program: 
+
+  >>> def limited_reduce(reducer, pred, lst):
+...  i = 0
+...  y = lst[0]
+...  while pred(y) and i < len(lst):
+...    i += 1
+...    y = reducer(lst[i], y)
+...  return (i, y)
+  
+
+  
+
+  >>> def limited_reduce(reducer, pred, lst):
+...   def helper(i, accum, rest):
+...     if not rest or not pred(accum): return (i, accum)
+...     return helper(i+1, reducer(rest[0], accum), rest[1:])
+...   return helper(0, lst[0], lst[1:])
+  
+
+ There's probably a way to clean it up a bit, but you would use it like this: 
+
+  >>>> limited_reduce(lambda x,y: x+y, lambda r: r < 6, [1,2,1,3,2])
+(3, 7)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13728730)
+ Here's what I got, using recursion: 
+
+  def f(L, n=0):
+    # If the list is empty, that means we went through all the elements there
+    if len(L)>0:
+        # n is the last element in the sum list. Add to it the first remaining element
+        n = n+L[0]
+        # Return a list containing the newest item and those of the remaining elements
+        return [n] + f(L[1:], n)
+    else:
+        # It it is empty, there are no more sums to calculate
+        return []
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3130379)
+ Try the following 
+
+  let sumUntil list stopAfter = 
+    let rec inner list sum = 
+        if sum >= stopAfter then sum
+        else 
+            match list with
+            | [] -> sum
+            | h::t-> inner t (sum + h)
+    inner list 0    
+  
+
+  
+
+  > sumUntil [1;2;3;4;5] 8;;
+val it : int = 10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/16877865)
+ One way with functional programming and the http://docs.python.org/2/library/operator.html#operator.itemgetter function: 
+
+  >>> p = {'A' : 1, 'B' : 2, 'C' : 3}
+>>> q = ['A', 'B']
+>>> import operator
+>>> sum(operator.itemgetter(*q)(p))
+3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35186464)
+ If you want functional use https://docs.python.org/3.5/library/functions.html#map: 
+
+  ans = list(map(myreadfunction,filenames))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3133085)
+ Let's imagine Python had two functions, http://gnosis.cx/publish/programming/charming_python_b13.html (similar to  reduce  but it would yield intermediate values; it's called scanl in some languages) and https://stackoverflow.com/questions/2138873/cleanest-way-to-get-last-item-from-python-iterator (get last item of an iterable): 
+
+  from itertools import takewhile
+from operator import add
+xs = [1, 2, 3, 4, 5]
+pair = ilast(enumerate(takewhile(lambda x: x < 8, ireduce(add, xs, 0))))
+# (3, 6)
+  
+
+  
+
+  last $ zip [0..] (takeWhile (< 8) (scanl (+) 0 xs))
+  
+
+
+

@@ -1,0 +1,245 @@
+Query: Rounding entries in a Pandas DafaFrame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33668206)
+ Since Pandas 0.17, DataFrames have a http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.round.html method: 
+
+  df =newdf3.pivot_table(rows=['Quradate'],aggfunc=np.mean)
+df.round()
+  
+
+ which even allows you to have different precision for each column 
+
+  df.round({'Alabama_exp':2, 'Credit_exp':3})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19101948)
+ Just use  numpy.round , e.g.: 
+
+  100 * np.round(newdf3.pivot_table(rows=['Quradate'], aggfunc=np.mean), 2) 
+  
+
+ As long as round is appropriate for all column types, this works on a  DataFrame . 
+
+  
+
+  In [9]: dfrm
+Out[9]:
+          A         B         C
+0 -1.312700  0.760710  1.044006
+1 -0.792521 -0.076913  0.087334
+2 -0.557738  0.982031  1.365357
+3  1.013947  0.345896 -0.356652
+4  1.278278 -0.195477  0.550492
+5  0.116599 -0.670163 -1.290245
+6 -1.808143 -0.818014  0.713614
+7  0.233726  0.634349  0.561103
+8  2.344671 -2.331232 -0.759296
+9 -1.658047  1.756503 -0.996620
+
+In [10]: 100*np.round(dfrm, 2)
+Out[10]:
+     A    B    C
+0 -131   76  104
+1  -79   -8    9
+2  -56   98  137
+3  101   35  -36
+4  128  -20   55
+5   12  -67 -129
+6 -181  -82   71
+7   23   63   56
+8  234 -233  -76
+9 -166  176 -100
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19100863)
+  I'm leaving this here for the explanation of why the OP's approach threw an error, but subsequent solutions are better.  
+
+ The best solution is to simply use Series'  round  method: 
+
+  In [11]: s
+Out[11]: 
+0    0.026574
+1    0.304801
+2    0.057819
+dtype: float64
+
+In [12]: 100*s.round(2)
+Out[12]:  
+0     3
+1    30
+2     6
+dtype: float64
+  
+
+   .astype('int')  on there as well, depending on what you want to do next. 
+
+ To understand why your approach didn't work, remember that the function  round  needs two arguments, the number of decimal places  and the data to be rounded . In general, to apply functions that take two arguments, you can "curry" the function like so: 
+
+  In [13]: s.apply(lambda x: round(x, 2))
+Out[13]: 
+0    1.03
+1    1.30
+2   -1.06
+dtype: float64
+  
+
+  As DSM points out on the comments, for this case one actually needs the currying approach -because there is no  round  method for DataFrames.  df.applymap(...)  is the way to go.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19101774)
+ For a modestly sized  DataFrame ,  applymap  will be horrendously slow, since it is applying a Python function element by element in Python (i.e., there's no Cython speeding this up). It's faster to use  apply  with  functools.partial : 
+
+  In [22]: from functools import partial
+
+In [23]: df = DataFrame(randn(100000, 20))
+
+In [24]: f = partial(Series.round, decimals=2)
+
+In [25]: timeit df.applymap(lambda x: round(x, 2))
+1 loops, best of 3: 2.52 s per loop
+
+In [26]: timeit df.apply(f)
+10 loops, best of 3: 33.4 ms per loop
+  
+
+ You could even make a function that returns a partial function that you can apply: 
+
+  In [27]: def column_round(decimals):
+   ....:     return partial(Series.round, decimals=decimals)
+   ....:
+
+In [28]: df.apply(column_round(2))
+  
+
+ As @EMS suggests, you can use  np.round  as well, since  DataFrame  implements the  __array__  attribute and automatically wraps many of  numpy 's ufuncs. It's also about twice as fast with the frame shown above: 
+
+  In [47]: timeit np.round(df, 2)
+100 loops, best of 3: 17.4 ms per loop
+  
+
+ If you have non-numeric columns you can do this: 
+
+  In [12]: df = DataFrame(randn(100000, 20))
+
+In [13]: df['a'] = tm.choice(['a', 'b'], size=len(df))
+
+In [14]: dfnum = df._get_numeric_data()
+
+In [15]: np.round(dfnum)
+  
+
+ to avoid the cryptic error thrown by  numpy  when you try to round a column of strings. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28376206)
+ you can select the columns by dtype, and return only the columns with numeric types before multiplying:  
+
+  import numpy as np
+import pandas as pd
+
+df = pd.DataFrame({'food': ['eggs','eggs','ham','ham'],'co1':[20,19,20,21,],
+  'col2': [10,10,20,20]})
+  
+
+ updated to return all columns: 
+
+  df.update(df.loc[:, df.dtypes == np.int64] *2)
+  
+
+ returns: 
+
+      co1 col2 food
+0   40  20  eggs
+1   38  20  eggs
+2   40  40  ham
+3   42  40  ham
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38499436)
+ If you prefer to stay in the pandas DafaFrame / Series domain: 
+
+  F.C.apply(lambda x: x[-1])
+  
+
+ Returns: 
+
+  >>> F.C.apply(lambda x: x[-1])
+0         True
+1          orz
+2    [1, 2, 3]
+Name: C, dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46515741)
+ Add one nanosecond to each time and then round. 
+
+  df['TimeStamp'] = (df['TimeStamp'] + pd.Timedelta(1)).dt.round('min')
+
+0   10:28:00
+1   10:29:00
+2   10:30:00
+3   10:31:00
+Name: TimeStamp, dtype: timedelta64[ns]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41303236)
+ This might work: 
+
+  >>> df['price_cleaning_ceiling']= df.price_cleaning.apply(lambda x: int(math.ceil(x / 10.0)) * 10)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35874082)
+ You could just apply  numpy.floor ; 
+
+  import numpy as np
+
+tempDF['int_measure'] = tempDF['measure'].apply(np.floor)
+
+    id  measure  int_measure
+0   12      3.2            3
+1   12      4.2            4
+2   12      6.8            6
+...
+9   51      2.1            2
+10  51      NaN          NaN
+11  51      3.5            3
+...
+19  91      7.3            7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35874286)
+  
+
+  df.apply(lambda s: s // 1)
+  
+
+ Using  np.floor  is faster, however. 
+
+
+

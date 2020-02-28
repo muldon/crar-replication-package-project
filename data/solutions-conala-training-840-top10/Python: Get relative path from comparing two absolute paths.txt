@@ -1,0 +1,256 @@
+Query: Python: Get relative path from comparing two absolute paths
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7288086)
+ Another option is 
+
+  >>> print os.path.relpath('/usr/var/log/', '/usr/var')
+log
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43982145)
+ I looked for a solution with python2 and w/o any external dependency. Didn't find anything matching my needs. And while commonprefix, does only compare strings and not path elems, I wrote this:  
+
+  def _relpath(cwd, path):
+    # Create a relative path for path from cwd, if possible
+    if sys.platform == "win32":
+        cwd = cwd.lower()
+        path = path.lower()
+
+    _cwd = os.path.abspath(cwd).split(os.path.sep)
+    _path = os.path.abspath(path).split(os.path.sep)
+    equal_until_pos = None
+    for i in xrange(min(len(_cwd), len(_path))):
+        if _cwd[i] != _path[i]:
+            break
+        else:
+            equal_until_pos = i
+    if equal_until_pos is None:
+        return path
+    newpath = [".." for i in xrange(len(_cwd[equal_until_pos + 1:]))]
+    newpath.extend(_path[equal_until_pos + 1:])
+    if newpath:
+        return os.path.join(*newpath)
+    return "."
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7288073)
+ http://docs.python.org/library/os.path.html#os.path.relpath: 
+
+ 
+   Return a relative filepath to path either from the current directory or from an optional start point. 
+ 
+
+  >>> from os.path import relpath
+>>> relpath(/usr/var/log/, /usr/var)
+log
+>>> relpath(/usr/var/log/, /usr/var/sad/)
+../log
+  
+
+ So, if relative path starts with  ..  - it means that the second path is not descendant of the first path. 
+
+ In Python3 you can use https://docs.python.org/3/library/pathlib.html#pathlib.PurePath.relative_to: 
+
+  Python 3.5.1 (default, Jan 22 2016, 08:54:32)
+>>> from pathlib import Path
+
+>>> Path(/usr/var/log).relative_to(/usr/var/log/)
+PosixPath(.)
+
+>>> Path(/usr/var/log).relative_to(/usr/var/)
+PosixPath(log)
+
+>>> Path(/usr/var/log).relative_to(/etc/)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/usr/local/Cellar/python3/3.5.1/Frameworks/Python.framework/Versions/3.5/lib/python3.5/pathlib.py", line 851, in relative_to
+    .format(str(self), str(formatted)))
+ValueError: /usr/var/log does not start with /etc
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9816853)
+ You can use  os.path.abspath()  to turn relative paths into absolute paths: 
+
+  file_paths = []
+
+for folder, subs, files in os.walk(rootdir):
+  for filename in files:
+    file_paths.append(os.path.abspath(os.path.join(folder, filename)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13162398)
+ From Blenders response at https://stackoverflow.com/questions/6036129/platform-independent-file-paths 
+
+  >>> import os
+>>> os.path.join('app', 'subdir', 'dir', 'filename.foo')
+'app/subdir/dir/filename.foo'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17544930)
+ Use http://docs.python.org/2/library/os.html#os.walk to generate a list of files in either directory (with paths relative to their roots): 
+
+  import os
+
+def relative_files(path):
+    """Generate filenames with pathnames relative to the initial path."""
+    for root, dirnames, files in os.walk(path):
+        relroot = os.path.relpath(root, path)
+        for filename in files:
+            yield os.path.join(relroot, filename)
+  
+
+ Create a set of paths from one: 
+
+  root_one = 'so.1.0'  # use an absolute path here
+root_two = 'so.1.1'  # use an absolute path here
+files_one = set(relative_files(root_one))
+  
+
+ then find all the pathnames in the other root that are the same by using a set intersection: 
+
+  from itertools import izip_longest
+
+def different_files(root_one, root_two):
+    """Yield files that differ between the two roots
+
+    Generate pathnames relative to root_one and root_two that are present in both
+    but have different contents.
+
+    """
+    files_one = set(relative_files(root_one))
+    for same in files_one.intersection(relative_files(root_two)):
+        # same is a relative path, so same file in different roots
+        with open(os.path.join(root_one, same)) as f1, open(os.path.join(root_two, same)) as f2:
+            if any(line1 != line2 for line1, line2 in izip_longest(f1, f2)):
+                # lines don't match, so files don't match! 
+                yield same
+  
+
+ http://docs.python.org/2/library/itertools.html#itertools.izip_longest loops over the files efficiently pairing up lines; if one file is longer than the other the remaining lines will be paired up with  None  to ensure that you detect one as different from the other. 
+
+  
+
+  $ mkdir -p /tmp/so.1.0/p/q
+$ mkdir -p /tmp/so.1.1/p/q
+$ echo 'file one' > /tmp/so.1.0/p/q/search.c
+$ echo 'file two' > /tmp/so.1.1/p/q/search.c
+$ echo 'file three' > /tmp/so.1.1/p/q/ignored.c
+$ echo 'matching' > /tmp/so.1.0/p/q/same.c
+$ echo 'matching' > /tmp/so.1.1/p/q/same.c
+
+>>> for different in different_files('/tmp/so.1.0', '/tmp/so.1.1'):
+...     print different
+... 
+p/q/search.c
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36209089)
+ This code will return the absolute path to the main script. 
+
+  import os
+def whereAmI():
+    return os.path.dirname(os.path.realpath(__import__("__main__").__file__))
+  
+
+ This will work even in a module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37322475)
+ What https://stackoverflow.com/users/5987/mark-ransom is saying is that your  Wanted Output  is invalid, given the possible values  path  could take. When talking about paths, the OS has some conventions regarding how to resolve a path string to a file or directory. 
+
+ Consider the following code:
+ 
+
+  def toComponents(path):
+    return path.split('/')
+
+
+def fromComponents(components):
+    return '/'.join(components)
+
+# specialToComponents takes a path and returns
+# the components relative to the / folder or
+# if the path is relative, it returns the components
+# Use at your own risk.
+def specialToComponents(path):
+    return path.strip('/').split('/')
+  
+
+ Suppose you have two paths: 
+
+ 
+  path = /drive/dir/anotherdir/finaldir/  This is an absolute path, which tells the reader and the OS that the file is located inside the  /  folder, inside the  path  folder and so on, until  finaldir/  
+  path = drive/dir/anotherdir/finaldir/  This is a relative path. It conventionally means relative to the program's current directory. It says go to the current directory, then go to  drive  then  dir  and so on, until  finaldir/ . 
+ 
+
+ What you're trying to do is read absolute paths as relative ones and relative ones as relative ones, which is great, if only it doesn't cause headaches for you when someone tries to run your code against an absolute path. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23696927)
+  os.path.abspath()  makes a relative path absolute  relative to the current working directory , not to the file's original location. A path is just a string, Python has no way of knowing where the filename came from. 
+
+ You need to supply the directory yourself. When you use  os.walk , each iteration lists the directory being listed ( root  in your code), the list of subdirectories (just their names) and a list of filenames (again, just their names). Use  root  together with the filename to make an absolute path: 
+
+  Files={}
+cwd = os.path.abspath(os.getcwd())
+for root, dirs, files in os.walk(cwd):
+    for file in files:
+        if file.endswith('.c'):
+            Files[file] = os.path.join(root, os.path.abspath(file))
+  
+
+ Note that your code only records the  one  path for each unique filename; if you have  foo/bar/baz.c  and  foo/spam/baz.c , it depends on the order the OS listed the  bar  and  spam  subdirectories which one of the two paths wins. 
+
+ You may want to collect paths into a list instead: 
+
+  Files={}
+cwd = os.path.abspath(os.getcwd())
+for root, dirs, files in os.walk(cwd):
+    for file in files:
+        if file.endswith('.c'):
+            full_path = os.path.join(root, os.path.abspath(file))
+            Files.setdefault(file, []).append(full_path)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/13602895)
+ Instead of using relative paths, store an absolute path based on the  current  module path: 
+
+  MODULEPATH = os.path.dirname(__file__)
+
+template = open(os.path.join(MODULEPATH, 'templates/sometemplate.tpl').read()
+  
+
+  __file__  is the filename of the current module,  os.path.dirname(__file__)  is the directory the module resides in. 
+
+ You should never rely on relative paths in Python code; the current working directory is not changed when running a python program. 
+
+
+

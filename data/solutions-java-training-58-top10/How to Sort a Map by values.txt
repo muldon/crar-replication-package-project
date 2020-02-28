@@ -1,0 +1,362 @@
+Query: How to Sort a Map by values
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/109389)
+ From http://www.programmersheaven.com/download/49349/download.aspx 
+
+  private static <K, V> Map<K, V> sortByValue(Map<K, V> map) {
+    List<Entry<K, V>> list = new LinkedList<>(map.entrySet());
+    Collections.sort(list, new Comparator<Object>() {
+        @SuppressWarnings("unchecked")
+        public int compare(Object o1, Object o2) {
+            return ((Comparable<V>) ((Map.Entry<K, V>) (o1)).getValue()).compareTo(((Map.Entry<K, V>) (o2)).getValue());
+        }
+    });
+
+    Map<K, V> result = new LinkedHashMap<>();
+    for (Iterator<Entry<K, V>> it = list.iterator(); it.hasNext();) {
+        Map.Entry<K, V> entry = (Map.Entry<K, V>) it.next();
+        result.put(entry.getKey(), entry.getValue());
+    }
+
+    return result;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6584631)
+ Use a generic comparator such as : 
+
+  final class MapValueComparator<K,V extends Comparable<V>> implements Comparator<K> {
+
+    private Map<K,V> map;
+
+    private MapValueComparator() {
+        super();
+    }
+
+    public MapValueComparator(Map<K,V> map) {
+        this();
+        this.map = map;
+    }
+
+    public int compare(K o1, K o2) {
+        return map.get(o1).compareTo(map.get(o2));
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33903633)
+ This code can sort a key-value map in both orders i.e. ascending and descending. 
+
+  <K, V extends Comparable<V>> Map<K, V> sortByValues
+     (final Map<K, V> map, int ascending)
+{
+     Comparator<K> valueComparator =  new Comparator<K>() {         
+        private int ascending;
+        public int compare(K k1, K k2) {
+            int compare = map.get(k2).compareTo(map.get(k1));
+            if (compare == 0) return 1;
+            else return ascending*compare;
+        }
+        public Comparator<K> setParam(int ascending)
+        {
+            this.ascending = ascending;
+            return this;
+        }
+    }.setParam(ascending);
+
+    Map<K, V> sortedByValues = new TreeMap<K, V>(valueComparator);
+    sortedByValues.putAll(map);
+    return sortedByValues;
+}
+  
+
+ As an example: 
+
+  Map<Integer,Double> recommWarrVals = new HashMap<Integer,Double>();
+recommWarrVals = sortByValues(recommWarrVals, 1);  // Ascending order
+recommWarrVals = sortByValues(recommWarrVals,-1);  // Descending order
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6281263)
+ Afaik the most cleaner way is utilizing collections to sort map on value: 
+
+  Map<String, Long> map = new HashMap<String, Long>();
+// populate with data to sort on Value
+// use datastructure designed for sorting
+
+Queue queue = new PriorityQueue( map.size(), new MapComparable() );
+queue.addAll( map.entrySet() );
+
+// get a sorted map
+LinkedHashMap<String, Long> linkedMap = new LinkedHashMap<String, Long>();
+
+for (Map.Entry<String, Long> entry; (entry = queue.poll())!=null;) {
+    linkedMap.put(entry.getKey(), entry.getValue());
+}
+
+public static class MapComparable implements Comparator<Map.Entry<String, Long>>{
+
+  public int compare(Entry<String, Long> e1, Entry<String, Long> e2) {
+    return e1.getValue().compareTo(e2.getValue());
+  }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/747627)
+ Based on @devinmoore code, a map sorting methods using generics and supporting both ascending and descending ordering. 
+
+  /**
+ * Sort a map by it's keys in ascending order. 
+ *  
+ * @return new instance of {@link LinkedHashMap} contained sorted entries of supplied map.
+ * @author Maxim Veksler
+ */
+public static <K, V> LinkedHashMap<K, V> sortMapByKey(final Map<K, V> map) {
+    return sortMapByKey(map, SortingOrder.ASCENDING);
+}
+
+/**
+ * Sort a map by it's values in ascending order.
+ *  
+ * @return new instance of {@link LinkedHashMap} contained sorted entries of supplied map.
+ * @author Maxim Veksler
+ */
+public static <K, V> LinkedHashMap<K, V> sortMapByValue(final Map<K, V> map) {
+    return sortMapByValue(map, SortingOrder.ASCENDING);
+}
+
+/**
+ * Sort a map by it's keys.
+ *  
+ * @param sortingOrder {@link SortingOrder} enum specifying requested sorting order. 
+ * @return new instance of {@link LinkedHashMap} contained sorted entries of supplied map.
+ * @author Maxim Veksler
+ */
+public static <K, V> LinkedHashMap<K, V> sortMapByKey(final Map<K, V> map, final SortingOrder sortingOrder) {
+    Comparator<Map.Entry<K, V>> comparator = new Comparator<Entry<K,V>>() {
+        public int compare(Entry<K, V> o1, Entry<K, V> o2) {
+            return comparableCompare(o1.getKey(), o2.getKey(), sortingOrder);
+        }
+    };
+
+    return sortMap(map, comparator);
+}
+
+/**
+ * Sort a map by it's values.
+ *  
+ * @param sortingOrder {@link SortingOrder} enum specifying requested sorting order. 
+ * @return new instance of {@link LinkedHashMap} contained sorted entries of supplied map.
+ * @author Maxim Veksler
+ */
+public static <K, V> LinkedHashMap<K, V> sortMapByValue(final Map<K, V> map, final SortingOrder sortingOrder) {
+    Comparator<Map.Entry<K, V>> comparator = new Comparator<Entry<K,V>>() {
+        public int compare(Entry<K, V> o1, Entry<K, V> o2) {
+            return comparableCompare(o1.getValue(), o2.getValue(), sortingOrder);
+        }
+    };
+
+    return sortMap(map, comparator);
+}
+
+@SuppressWarnings("unchecked")
+private static <T> int comparableCompare(T o1, T o2, SortingOrder sortingOrder) {
+    int compare = ((Comparable<T>)o1).compareTo(o2);
+
+    switch (sortingOrder) {
+    case ASCENDING:
+        return compare;
+    case DESCENDING:
+        return (-1) * compare;
+    }
+
+    return 0;
+}
+
+/**
+ * Sort a map by supplied comparator logic.
+ *  
+ * @return new instance of {@link LinkedHashMap} contained sorted entries of supplied map.
+ * @author Maxim Veksler
+ */
+public static <K, V> LinkedHashMap<K, V> sortMap(final Map<K, V> map, final Comparator<Map.Entry<K, V>> comparator) {
+    // Convert the map into a list of key,value pairs.
+    List<Map.Entry<K, V>> mapEntries = new LinkedList<Map.Entry<K, V>>(map.entrySet());
+
+    // Sort the converted list according to supplied comparator.
+    Collections.sort(mapEntries, comparator);
+
+    // Build a new ordered map, containing the same entries as the old map.  
+    LinkedHashMap<K, V> result = new LinkedHashMap<K, V>(map.size() + (map.size() / 20));
+    for(Map.Entry<K, V> entry : mapEntries) {
+        // We iterate on the mapEntries list which is sorted by the comparator putting new entries into 
+        // the targeted result which is a sorted map. 
+        result.put(entry.getKey(), entry.getValue());
+    }
+
+    return result;
+}
+
+/**
+ * Sorting order enum, specifying request result sort behavior.
+ * @author Maxim Veksler
+ *
+ */
+public static enum SortingOrder {
+    /**
+     * Resulting sort will be from smaller to biggest.
+     */
+    ASCENDING,
+    /**
+     * Resulting sort will be from biggest to smallest.
+     */
+    DESCENDING
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7268690)
+ Some simple changes in order to have a sorted map with pairs that have duplicate values. In the compare method (class ValueComparator) when values are equal do not return 0 but return the result of comparing the 2 keys. Keys are distinct in a map so you succeed to keep duplicate values (which are sorted by keys by the way). So the above example could be modified like this: 
+
+      public int compare(Object a, Object b) {
+
+        if((Double)base.get(a) < (Double)base.get(b)) {
+          return 1;
+        } else if((Double)base.get(a) == (Double)base.get(b)) {
+          return ((String)a).compareTo((String)b);
+        } else {
+          return -1;
+        }
+      }
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2581754)
+ Here's a generic-friendly version: 
+
+  public class MapUtil {
+    public static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map) {
+        List<Entry<K, V>> list = new ArrayList<>(map.entrySet());
+        list.sort(Entry.comparingByValue());
+
+        Map<K, V> result = new LinkedHashMap<>();
+        for (Entry<K, V> entry : list) {
+            result.put(entry.getKey(), entry.getValue());
+        }
+
+        return result;
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2112659)
+ I've looked at the given answers, but a lot of them are more complicated than needed or remove map elements when several keys have same value. 
+
+ Here is a solution that I think fits better: 
+
+  public static <K, V extends Comparable<V>> Map<K, V> sortByValues(final Map<K, V> map) {
+    Comparator<K> valueComparator =  new Comparator<K>() {
+        public int compare(K k1, K k2) {
+            int compare = map.get(k2).compareTo(map.get(k1));
+            if (compare == 0) return 1;
+            else return compare;
+        }
+    };
+    Map<K, V> sortedByValues = new TreeMap<K, V>(valueComparator);
+    sortedByValues.putAll(map);
+    return sortedByValues;
+}
+  
+
+ Note that the map is sorted from the highest value to the lowest. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51804965)
+ To sort by key, you could use a  TreeMap . To sort each list in the values, you could iterate over the values of the map by using the  Map.values().forEach()  methods and then sort each list by using  List.sort .  
+
+  Map<Integer, List<Integer>> sortedByKey = new TreeMap<>(yourMap);
+
+sortedByKey.values().forEach(list -> list.sort(null)); // null: natural order
+  
+
+ This sorts each list  in-place , meaning that the original lists are mutated. 
+
+ 
+
+ If instead you want to create not only a new map, but also new lists for each value, you could do it as follows: 
+
+  Map<Integer, List<Integer>> sortedByKey = new TreeMap<>(yourMap);
+
+sortedByKey.replaceAll((k, originalList) -> { 
+    List<Integer> newList = new ArrayList<>(originalList);
+    newList.sort(null); // null: natural order
+    return newList;
+});
+  
+
+ 
+
+  EDIT:  
+
+ As suggested in the comments, you might want to change: 
+
+  sortedByKey.values().forEach(list -> list.sort(null));
+  
+
+  
+
+  sortedByKey.values().forEach(Collections::sort);
+  
+
+  
+
+  sortedByKey.values().forEach(list -> list.sort(Comparator.naturalOrder()));
+  
+
+ Either one of the two options above is much more expressive and shows the developer's intention in a better way than using  null  as the comparator argument to the  List.sort  method. 
+
+ Same considerations apply for the approach in which the lists are not modified in-place. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/13438052)
+ . If you use the first answer (Google takes you here), change the comparator to add an equal clause, otherwise you cannot get values from the sorted_map by keys: 
+
+  public int compare(String a, String b) {
+        if (base.get(a) > base.get(b)) {
+            return 1;
+        } else if (base.get(a) < base.get(b)){
+            return -1;
+        } 
+
+        return 0;
+        // returning 0 would merge keys
+    }
+  
+
+
+

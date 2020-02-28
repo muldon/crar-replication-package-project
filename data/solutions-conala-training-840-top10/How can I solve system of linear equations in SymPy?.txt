@@ -1,0 +1,237 @@
+Query: How can I solve system of linear equations in SymPy?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40121906)
+ Another example on matrix linear system equations, lets assume we are solving for this system: 
+
+ https://i.stack.imgur.com/wWNog.png 
+
+ In  SymPy  we could do something like: 
+
+  >>> import sympy as sy
+... sy.init_printing()
+
+>>> a, b, c, d = sy.symbols('a b c d')
+... A = sy.Matrix([[a-b, b+c],[3*d + c, 2*a - 4*d]])
+... A
+
+⎡ a - b     b + c  ⎤
+⎢                  ⎥
+⎣c + 3⋅d  2⋅a - 4⋅d⎦
+
+
+>>> B = sy.Matrix([[8, 1],[7, 6]])
+... B
+
+⎡8  1⎤
+⎢    ⎥
+⎣7  6⎦
+
+
+>>> A - B
+
+⎡ a - b - 8     b + c - 1  ⎤
+⎢                          ⎥
+⎣c + 3⋅d - 7  2⋅a - 4⋅d - 6⎦
+
+
+>>> sy.solve(A - B, (a, b, c, d))
+{a: 5, b: -3, c: 4, d: 1}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31547816)
+ SymPy recently got a new Linear system solver:  linsolve  in  sympy.solvers.solveset , you can use that as follows: 
+
+  In [38]: from sympy import *
+
+In [39]: from sympy.solvers.solveset import linsolve
+
+In [40]: x, y, z = symbols('x, y, z')
+  
+
+  List of Equations Form:      
+
+  In [41]: linsolve([x + y + z - 1, x + y + 2*z - 3 ], (x, y, z))
+Out[41]: {(-y - 1, y, 2)}
+  
+
+    
+
+  In [59]: linsolve(Matrix(([1, 1, 1, 1], [1, 1, 2, 3])), (x, y, z))
+Out[59]: {(-y - 1, y, 2)}
+  
+
+    
+
+  In [59]: M = Matrix(((1, 1, 1, 1), (1, 1, 2, 3)))
+
+In [60]: system = A, b = M[:, :-1], M[:, -1]
+
+In [61]: linsolve(system, x, y, z)
+Out[61]: {(-y - 1, y, 2)}
+  
+
+  Note : Order of solution corresponds the order of given symbols. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38484721)
+ This is a fundamental operation in Sympy, you should study the documention. 
+ 
+
+  import sympy as sp
+
+f_m, f_c, f_p = sp.var('f_m, f_c, f_p')
+a0, a1, a2 = sp.var('a0:3')
+dx = sp.var('dx')
+
+eq1 = sp.Eq(f_m, a0 + a1*(-dx) + a2*(-dx)**2)
+eq2 = sp.Eq(f_c, a0)
+eq3 = sp.Eq(f_p, a0 + a1*(dx) + a2*(dx)**2 )
+
+
+sp.linsolve([eq1, eq2, eq3], (a0, a1, a2))
+# sp.solve([eq1, eq2, eq3], (a0, a1, a2))  # also works
+  
+
+ 
+    {(f_c, (-f_m + f_p)/(2*dx), (-2*f_c + f_m + f_p)/(2*dx**2))}  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40447963)
+ As far as I understand, you have to adjust the matrix of your system to take care of  RyA  and other variables that currently in the right hand side. You can do it manually (in which case this question is out of the scope of this site, it is purely mathematical excercise) or use e.g. http://www.sympy.org/en/index.html instead of  np.linalg.solve()  which can do the algebra part of the problem for you: 
+
+  from sympy import Matrix, symbols, solve
+
+x1, x2, f1 = symbols('x1 x2 f1')
+X = Matrix([0, x1, x2])
+B = Matrix([f1, 50, 60])
+M = Matrix([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+
+solve(M * X - B, [x1, x2, f1])
+
+# {f1: 40, x2: 100/3, x1: -30}
+  
+
+ Note that  sympy  can be slower in solving numeric linear systems than  numpy.linalg , so you may want to use  sympy  to do algebraic part of the work, calculate the matrix and the right hand side, and then use  numpy.linalg.solve  to solve it. 
+
+  import numpy as np
+from sympy import expand
+def symbolic_to_matrix(F, variables):
+
+    """
+    F is a symbolic vector function that is a left hand side of equation F = 0
+    variables is a list of variables (sympy.Symbol's) which F depends on.
+
+    Assuming that there exists numeric matrix A such that equation F = 0
+    is equivalent to linear equation Ax = b, this function returns 
+    tuple (A, b)
+    """
+    A = []
+    b = []
+    for row in F:
+        coeffs = expand(row).as_coefficients_dict()
+        A.append([float(coeffs[x]) for x in variables])
+        b.append(-float(coeffs[1]))
+    return np.array(A), np.array(b)
+
+A, b = symbolic_to_matrix(M * X - B, [x1, x2, f1])
+# A
+# array([[ 2.,  3., -1.],
+#       [ 5.,  6.,  0.],
+#       [ 8.,  9.,  0.]])
+# b
+# array([ -0.,  50.,  60.])
+
+np.linalg.solve(A, b)
+# array([-30.        ,  33.33333333,  40.        ])
+# the same answer 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31548073)
+ You can solve in matrix form  Ax=b  (in this case an underdetermined system but we can use http://docs.sympy.org/dev/modules/solvers/solvers.html#sympy.solvers.solvers.solve_linear_system): 
+
+  from sympy import Matrix, solve_linear_system
+
+x, y, z = symbols('x, y, z')
+A = Matrix(( (1, 1, 1, 1), (1, 1, 2, 3) ))
+solve_linear_system(A, x, y, z)
+
+{x: -y - 1, z: 2}
+  
+
+ Or rewrite as (my editing, not sympy): 
+
+  [x]=  [-1]   [-1]
+[y]= y[1]  + [0]
+[z]=  [0]    [2]
+  
+
+ In the case of a square  A  we could define  b  and use  A.LUsolve(b) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39866932)
+ I don't know why but  rational=False  helps 
+
+  sympy.solve([sympy.Eq(b - a**2.552 - c), sympy.Eq(b, 2)], rational=False)
+  
+
+ see: https://stackoverflow.com/questions/17087629/sympy-hangs-when-trying-to-solve-a-simple-algebraic-equation 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38509562)
+ After some searching, I found  
+
+  sympy.linear_eq_to_matrix(equations, *symbols)
+  
+
+ This has solved my problem.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5847306)
+ For calculations in symbols - use  sympy . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36319802)
+ Right now solver have some issue in solving system of equation having more  sqrt . So in below code first removing the  sqrt  and then solving system of equation.Currently solver is not fast for these types of equations ,it is taking around 10 sec to execute. 
+
+  P, Q, S, T,  = symbols('P Q S T')
+c, y_0, y_c, dy_0, dy_c = symbols('c y_0 y_c dy_0 dy_c')
+eq_y = (P*x + Q - y(x))**2 + S*x + T
+eq_dy = eq_y.diff(x)
+equations = [
+  (eq_y).subs([(x, 0), (y(0), y_0), (y(x).diff(x).subs(x, 0), dy_0)]),
+  (eq_dy).subs([(x, 0), (y(0), y_0), (y(x).diff(x).subs(x, 0), dy_0)]),
+  (eq_y).subs([(x, c), (y(c), y_c), (y(x).diff(x).subs(x, c), dy_c)]),
+  (eq_dy).subs([(x, c), (y(c), y_c), (y(x).diff(x).subs(x, c), dy_c)])
+ ]
+solve(equations, P, Q, S, T)
+  
+
+   
+
+    [(-(y_0 - y_c)/c, y_0, 0, 0), ((2*c*dy_0*dy_c + dy_0*y_0 - dy_0*y_c + dy_c*y_0 - dy_c*y_c)/(c*dy_0 + c*dy_c + 2*y_0 - 2*y_c), -(2*c**3*dy_0*dy_c**2 - c**2*dy_0**2*y_0 + 2*c**2*dy_0*dy_c*y_0 - 4*c**2*dy_0*dy_c*y_c + c**2*dy_c**2*y_0 - 2*c**2*dy_c**2*y_c - 2*c*dy_0*y_0**2 + 2*c*dy_0*y_c**2 - 4*c*dy_c*y_0*y_c + 4*c*dy_c*y_c**2 - 2*y_0**3 + 2*y_0**2*y_c + 2*y_0*y_c**2 - 2*y_c**3)/(c*dy_0 + c*dy_c + 2*y_0 - 2*y_c)**2, -4*(dy_0 - dy_c)*(c*dy_0 + y_0 - y_c)**2*(c*dy_c + y_0 - y_c)**2/(c*dy_0 + c*dy_c + 2*y_0 - 2*y_c)**3, -4*(c*dy_0 + y_0 - y_c)**2*(c*dy_c + y_0 - y_c)**4/(c*dy_0 + c*dy_c + 2*y_0 - 2*y_c)**4)]
+  
+
+ please cross check the answer. 
+
+
+

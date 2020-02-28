@@ -1,0 +1,365 @@
+Query: Python. Convert escaped utf string to utf-string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22601369)
+ Encode it to  bytes  (using whatever codec, utf-8 probably works) then decode it using  unicode-escape : 
+
+  s = 'blah\\x2Ddude'
+
+s.encode().decode('unicode-escape')
+Out[133]: 'blah-dude'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42548590)
+ Yep, there is! 
+
+ For python 2: 
+
+  print r'your string'.decode('string_escape')
+  
+
+ For python 3, you need to transform it as bytes, and then use  decode : 
+
+  print(rb'your string'.decode('unicode_escape'))
+  
+
+ Note that this doesn't work in your case, since your symbols aren't escaped properly (even if you print them using the "normal" way, it doesn't work). 
+
+ 
+
+ Your string should be like this: 
+
+  rb'3\u00B0 \u00b1 0.2\u00B0 2\u03B8'
+  
+
+ Note that if you need to transform a  string  to  bytes  in python, you can use the  bytes  function. 
+
+  my_str = r'3\u00B0 \u00b1 0.2\u00B0 2\u03B8'
+my_bytes = bytes(my_str, 'utf-8')
+print my_bytes.decode('string_escape') # python 2
+print(my_bytes.decode('unicode_escape')) # python 3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51021338)
+ I think I've figured out a way to do that.   .decode('ascii')  right on the string, then it will give you back the encoded string, for example: 
+
+  "".encode("unicode_escape").decode('ascii')
+  
+
+  
+
+  '\\U0001f642'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14820462)
+ You'll have to use  unicode_escape  instead: 
+
+  >>> b"\\123omething special".decode('unicode_escape')
+  
+
+ If you  start  with a  str  object instead (equivalent to the python 2.7 unicode) you'll need to encode to bytes first, then decode with  unicode_escape . 
+
+ If you need bytes as end result, you'll have to encode again to a suitable encoding ( .encode('latin1')  for example, if you need to preserve literal byte values; the first 256 Unicode code points map 1-on-1). 
+
+ Your example is actually UTF-16 data with escapes. Decode from  unicode_escape , back to  latin1  to preserve the bytes, then from  utf-16-le  (UTF 16 little endian without BOM): 
+
+  >>> value = b's\\000u\\000p\\000p\\000o\\000r\\000t\\000@\\000p\\000s\\000i\\000l\\000o\\000c\\000.\\000c\\000o\\000m\\000'
+>>> value.decode('unicode_escape').encode('latin1')  # convert to bytes
+b's\x00u\x00p\x00p\x00o\x00r\x00t\x00@\x00p\x00s\x00i\x00l\x00o\x00c\x00.\x00c\x00o\x00m\x00'
+>>> _.decode('utf-16-le') # decode from UTF-16-LE
+'support@psiloc.com'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6539952)
+ This is a common problem, so here's a relatively thorough illustration. 
+
+ For non-unicode strings (i.e. those without  u  prefix like  u'\xc4pple' ), one must decode from the native encoding ( iso8859-1 / latin1 , unless https://stackoverflow.com/q/2276200/19212 function) to http://en.wikipedia.org/wiki/Unicode, then encode to a character set that can display the characters you wish, in this case I'd recommend http://en.wikipedia.org/wiki/UTF-8. 
+
+ First, here is a handy utility function that'll help illuminate the patterns of Python 2.7 string and unicode: 
+
+  >>> def tell_me_about(s): return (type(s), s)
+  
+
+ A plain string</h3>
+
+  >>> v = "\xC4pple" # iso-8859-1 aka latin1 encoded string
+
+>>> tell_me_about(v)
+(<type 'str'>, '\xc4pple')
+
+>>> v
+'\xc4pple'        # representation in memory
+
+>>> print v
+?pple             # map the iso-8859-1 in-memory to iso-8859-1 chars
+                  # note that '\xc4' has no representation in iso-8859-1, 
+                  # so is printed as "?".
+  
+
+ Decoding a iso8859-1 string - convert plain string to unicode</h3>
+
+  >>> uv = v.decode("iso-8859-1")
+>>> uv
+u'\xc4pple'       # decoding iso-8859-1 becomes unicode, in memory
+
+>>> tell_me_about(uv)
+(<type 'unicode'>, u'\xc4pple')
+
+>>> print v.decode("iso-8859-1")
+Äpple             # convert unicode to the default character set
+                  # (utf-8, based on sys.stdout.encoding)
+
+>>> v.decode('iso-8859-1') == u'\xc4pple'
+True              # one could have just used a unicode representation 
+                  # from the start
+  
+
+ A little more illustration — with “Ä”</h3>
+
+  >>> u"Ä" == u"\xc4"
+True              # the native unicode char and escaped versions are the same
+
+>>> "Ä" == u"\xc4"  
+False             # the native unicode char is '\xc3\x84' in latin1
+
+>>> "Ä".decode('utf8') == u"\xc4"
+True              # one can decode the string to get unicode
+
+>>> "Ä" == "\xc4"
+False             # the native character and the escaped string are
+                  # of course not equal ('\xc3\x84' != '\xc4').
+  
+
+ Encoding to UTF</h3>
+
+  >>> u8 = v.decode("iso-8859-1").encode("utf-8")
+>>> u8
+'\xc3\x84pple'    # convert iso-8859-1 to unicode to utf-8
+
+>>> tell_me_about(u8)
+(<type 'str'>, '\xc3\x84pple')
+
+>>> u16 = v.decode('iso-8859-1').encode('utf-16')
+>>> tell_me_about(u16)
+(<type 'str'>, '\xff\xfe\xc4\x00p\x00p\x00l\x00e\x00')
+
+>>> tell_me_about(u8.decode('utf8'))
+(<type 'unicode'>, u'\xc4pple')
+
+>>> tell_me_about(u16.decode('utf16'))
+(<type 'unicode'>, u'\xc4pple')
+  
+
+ Relationship between unicode and UTF and latin1</h3>
+
+  >>> print u8
+Äpple             # printing utf-8 - because of the encoding we now know
+                  # how to print the characters
+
+>>> print u8.decode('utf-8') # printing unicode
+Äpple
+
+>>> print u16     # printing 'bytes' of u16
+���pple
+
+>>> print u16.decode('utf16')
+Äpple             # printing unicode
+
+>>> v == u8
+False             # v is a iso8859-1 string; u8 is a utf-8 string
+
+>>> v.decode('iso8859-1') == u8
+False             # v.decode(...) returns unicode
+
+>>> u8.decode('utf-8') == v.decode('latin1') == u16.decode('utf-16')
+True              # all decode to the same unicode memory representation
+                  # (latin1 is iso-8859-1)
+  
+
+ Unicode Exceptions</h3>
+
+   >>> u8.encode('iso8859-1')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 0:
+  ordinal not in range(128)
+
+>>> u16.encode('iso8859-1')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xff in position 0:
+  ordinal not in range(128)
+
+>>> v.encode('iso8859-1')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xc4 in position 0:
+  ordinal not in range(128)
+  
+
+ One would get around these by converting from the specific encoding (latin-1, utf8, utf16) to unicode e.g.  u8.decode('utf8').encode('latin1') . 
+
+ So perhaps one could draw the following principles and generalizations: 
+
+ 
+ a type  str  is a set of bytes, which may have one of a number of encodings such as Latin-1, UTF-8, and UTF-16 
+ a type  unicode  is a set of bytes that can be converted to any number of encodings, most commonly UTF-8 and latin-1 (iso8859-1) 
+ the  print  command has https://stackoverflow.com/questions/2596714, set to  sys.stdout.encoding  and defaulting to UTF-8 
+ One must decode a  str  to unicode before converting to another encoding. 
+ 
+
+ Of course, all of this changes in Python 3.x. 
+
+ Hope that is illuminating. 
+
+ Further reading</h3>
+
+ 
+ http://www.tbray.org/ongoing/When/200x/2003/04/26/UTF, by Tim Bray. 
+ 
+
+ And the very illustrative rants by Armin Ronacher: 
+
+ 
+ http://lucumr.pocoo.org/2013/7/2/the-updated-guide-to-unicode/ 
+ http://lucumr.pocoo.org/2014/1/5/unicode-in-2-and-3/ 
+ http://lucumr.pocoo.org/2014/1/9/ucs-vs-utf8/ 
+ http://lucumr.pocoo.org/2014/5/12/everything-about-unicode/ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38620562)
+ You  have  UTF-8 JSON data: 
+
+  >>> import json
+>>> data = {'content': u'\u4f60\u597d'}
+>>> json.dumps(data, indent=1, ensure_ascii=False)
+u'{\n "content": "\u4f60\u597d"\n}'
+>>> json.dumps(data, indent=1, ensure_ascii=False).encode('utf8')
+'{\n "content": "\xe4\xbd\xa0\xe5\xa5\xbd"\n}'
+>>> print json.dumps(data, indent=1, ensure_ascii=False).encode('utf8')
+{
+ "content": "你好"
+}
+  
+
+ My terminal just  happens  to be configured to handle UTF-8, so printing the UTF-8 bytes to my terminal produced the desired output. 
+
+ However, if your terminal is  not  set up for such output, it is your  terminal  that then shows 'wrong' characters: 
+
+  >>> print json.dumps(data, indent=1,  ensure_ascii=False).encode('utf8').decode('latin1')
+{
+ "content": "ä½ å¥½"
+}
+  
+
+ Note how I  decoded  the data to Latin-1 to deliberately mis-read the UTF-8 bytes. 
+
+ This isn't a Python problem; this is a problem with how you are handling the UTF-8 bytes in whatever tool you used to read these bytes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18119589)
+ In python 2.7 
+
+  >>> print '\xd0\xbf\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82'
+привет
+
+>>> print '\\xd0\\xbf\\xd1\\x80\\xd0\\xb8\\xd0\\xb2\\xd0\\xb5\\xd1\\x82'.decode('string-escape')
+привет
+>>> print r'\xd0\xbf\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82'.decode('string-escape')
+привет
+  
+
+ In python 3.x 
+
+  >>> br'\xd0\xbf\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82'.decode('unicode-escape').encode('latin1').decode('utf-8')
+'привет'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42554708)
+ If you are on windows and pythonnet installed 
+
+  import clr
+clr.AddReference("System")
+clr.AddReference("System.Windows.Forms")
+import System.Windows.Forms as WinForms
+
+def rtf_to_text(rtf_str):
+    """Converts rtf to text"""
+
+    rtf = r"{\rtf1\ansi\ansicpg1252" + '\n' + rtf_str + '\n' + '}'
+    richTextBox = WinForms.RichTextBox()
+    richTextBox.Rtf = rtf
+    return richTextBox.Text
+
+print(rtf_to_text(r'3 \u176? \u177? 0.2\u176? (2\u952?)'))
+-->'3 ° ± 0.2° (2θ)'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44269487)
+ If you only use byte strings, and save your source file encoded as UTF-8, your byte strings  will  contain UTF-8-encoded data.  No need for the coding statement (although REALLY strange that you don't want to use it...it's just a comment).  The coding statement let's Python know the encoding of the source file, so it can decode Unicode strings correctly ( u'xxxxx' ).  If you have no Unicode strings, it doesn't matter. 
+
+ For your questions, no need to convert to escape codes.  If you encode the file as UTF-8, you can use the more readable characters in your byte strings. 
+
+ FYI, that won't work for Python 3, because byte strings cannot contain non-ASCII in that version. 
+
+ That said, here's some code that will convert your example as requested.  It reads the source assuming it is encoded in UTF-8, then uses a regular expression to locate all non-ASCII characters.  It passes them through a conversion function to generate the replacement.  This should be safe, since non-ASCII can only be used in string literals and constants in Python 2.  Python 3, however, allows non-ASCII in variable names so this wouldn't work there. 
+
+  import io
+import re
+
+def escape(m):
+    char = m.group(0).encode('utf8')
+    return ''.join(r'\x{:02x}'.format(ord(b)) for b in char)
+
+with io.open('sample.py',encoding='utf8') as f:
+    content = f.read()
+
+new_content = re.sub(r'[^\x00-\x7f]',escape,content)
+
+with io.open('sample_new.py','w',encoding='utf8') as f:
+    f.write(new_content)
+  
+
+  
+
+  # Printing na\xc3\xafve and \xe7\x94\xb7\xe5\xad\xa9
+def fxn():
+    print 'na\xc3\xafve'
+    print '\xe7\x94\xb7\xe5\xad\xa9'
+fxn()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21971480)
+ Use  encode  to convert unicode to byte string: 
+
+  os.system(copycmd.encode('utf-8'))
+  
+
+
+

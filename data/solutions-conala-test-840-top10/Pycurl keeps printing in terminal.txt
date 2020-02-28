@@ -1,0 +1,285 @@
+Query: Pycurl keeps printing in terminal
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7668219)
+  
+
+  devnull = open('/dev/null', 'w')
+p.setopt(pycurl.WRITEFUNCTION, devnull.write)
+  
+
+ or just a function that does nothing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7668202)
+ The Pycurl documentation is terrible, but I think you want to set WRITEFUNCTION to a function that does nothing, e.g. 
+
+  p.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+  
+
+ Also, I wish to state for the record that I thought "SET does everything" APIs went out with VMS.  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11326076)
+ in pycurl, you could set this,  
+
+  import pycurl
+pycurl.CONTENT_LENGTH_DOWNLOAD 
+  
+
+  
+
+  import Curl, pycurl
+con = Curl()
+con.set_option(pycurl.CONTENT_LENGTH_DOWNLOAD, 9999999999)
+con.get('url' ....
+  
+
+ also try following until it works: 
+
+  pycurl.SIZE_DOWNLOAD
+pycurl.REQUEST_SIZE 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6554466)
+ this will send a request and store/print the response body: 
+
+  from StringIO import StringIO    
+import pycurl
+
+url = 'http://www.google.com/'
+
+storage = StringIO()
+c = pycurl.Curl()
+c.setopt(c.URL, url)
+c.setopt(c.WRITEFUNCTION, storage.write)
+c.perform()
+c.close()
+content = storage.getvalue()
+print content
+  
+
+ if you want to store the response headers, use: 
+
+  c.setopt(c.HEADERFUNCTION, storage.write)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17041856)
+  import os
+import pycurl
+import sys
+
+
+def progress(total, existing, upload_t, upload_d):
+    existing = existing + os.path.getsize(filename)
+    try:
+        frac = float(existing)/float(total)
+    except:
+        frac = 0
+    sys.stdout.write("\r%s %3i%%" % ("File downloaded - ", frac*100))
+
+url = raw_input('Enter URL to download folder/file: ')
+filename = url.split("/")[-1].strip()
+
+
+def test(debug_type, debug_msg):
+    print "debug(%d): %s" % (debug_type, debug_msg)
+
+c = pycurl.Curl()
+c.setopt(pycurl.URL, url)
+c.setopt(pycurl.FOLLOWLOCATION, 1)
+c.setopt(pycurl.MAXREDIRS, 5)
+
+# Setup writing
+if os.path.exists(filename):
+    f = open(filename, "ab")
+    c.setopt(pycurl.RESUME_FROM, os.path.getsize(filename))
+else:
+    f = open(filename, "wb")
+
+c.setopt(pycurl.WRITEDATA, f)
+
+#c.setopt(pycurl.VERBOSE, 1) 
+c.setopt(pycurl.DEBUGFUNCTION, test)
+c.setopt(pycurl.NOPROGRESS, 0)
+c.setopt(pycurl.PROGRESSFUNCTION, progress)
+try:
+    c.perform()
+except:
+    pass
+  
+
+ Possible to download file for example - *.tar, . .  
+
+ Used pycurl for resume download. 
+
+ Testing of this code as:  
+
+ 
+ Run this file on terminal like:  
+ 
+
+ Here is the log on terminal,  
+
+  anupam@anupampc:~/Documents$ python resume_download.py 
+
+Enter URL to download folder/file: http://nightly.openerp.com/6.0/6.0/openerp-allinone-setup-6.0-20110625-r3451.exe 
+
+File downloaded - 199%
+  
+
+ If you stop this download by pressing Ctrl + C and starts process to download file/folder , it start from where it was stopped. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2784921)
+ You passed the following flags to the compiler when compiling PyCurl: 
+
+  ARCHFLAGS="-arch x86_64"
+  
+
+ It seems that you have compiled PyCurl in 64-bit mode, while you use the 32-bit Python. Have you tried it  with  ARCHFLAGS="-arch i386" ? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34514246)
+ I haven't had any luck with both approaches listed here. Both lead to the following error: 
+
+  pycurl.error: (23, 'Failed writing body (0 != 108)')
+  
+
+ According to documentation both  lambda x: None  and  devnull.write  should be good options: 
+
+ 
+   The WRITEFUNCTION callback  may return the number of bytes written . If this number is not equal to the size of the byte string, this signifies an error and libcurl will abort the request.  Returning None is an alternate way  of indicating that the callback has consumed all of the string passed to it and, hence, succeeded. 
+ 
+
+ http://pycurl.sourceforge.net/doc/callbacks.html#WRITEFUNCTION 
+
+ However in my project I had to do the following to fix this problem: 
+
+  c.setopt(pycurl.WRITEFUNCTION, lambda bytes: len(bytes))
+  
+
+ In other words it was not optional to return the number of bytes written when I looked.  devnull.write  actually does return the number of bytes written, I didn't look into that though. Possibly there's some issue with bytes vs strings. 
+
+ Note that I'm using Python 3. I'm guessing this does not apply to Python 2. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46854097)
+ You want to prohibit  libcurl  to reuse connections. Quick answer is https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html. 
+
+ Reproduction 
+
+ In a virtualenv do  pip install proxy.py tornado . Open two terminal windows and active the virtualenv. 
+
+  test.py  
+
+  import pycurl
+from tornado import gen, ioloop, httpclient
+
+urls = ['https://httpbin.org/uuid', 'https://httpbin.org/uuid']
+proxy_config = {'proxy_host': '127.0.0.1', 'proxy_port': 8899}
+
+def prepare(curl):
+    # curl.setopt(pycurl.FORBID_REUSE, 1)
+    pass   
+
+@gen.coroutine
+def main():
+    client = httpclient.AsyncHTTPClient()
+    for url in urls:
+        kwargs = {}
+        kwargs.update(proxy_config)
+        kwargs['prepare_curl_callback'] = prepare
+        response = yield client.fetch(url, **kwargs)
+        print(response.body)
+
+if __name__ == '__main__':
+    httpclient.AsyncHTTPClient.configure(
+        'tornado.curl_httpclient.CurlAsyncHTTPClient')
+    ioloop.IOLoop.instance().run_sync(main)
+  
+
+  window #1  
+
+  $ python test.py
+  
+
+  window #2  
+
+  $ proxy.py --log-level DEBUG 2>&1 | grep -P "(Closing proxy|Proxying connection)"
+  
+
+ Window #2 two should output something like: 
+
+  2017-10-20 19:03:53,091 - DEBUG - pid:30914 - Proxying connection <socket._socketobject object at 0x7fc90f0fe0c0> at address ('127.0.0.1', 55202)
+2017-10-20 19:03:53,695 - DEBUG - pid:30914 - Closing proxy for connection <socket._socketobject object at 0x7fc90f0fe0c0> at address ('127.0.0.1', 55202)
+  
+
+ Solution 
+
+ Now uncomment  curl.setopt(pycurl.FORBID_REUSE, 1)  and you will see: 
+
+  2017-10-20 19:05:19,492 - DEBUG - pid:30931 - Proxying connection <socket._socketobject object at 0x7f66de66e0c0> at address ('127.0.0.1', 55214)
+2017-10-20 19:05:19,890 - DEBUG - pid:30931 - Closing proxy for connection <socket._socketobject object at 0x7f66de66e0c0> at address ('127.0.0.1', 55214)
+2017-10-20 19:05:19,893 - DEBUG - pid:30932 - Proxying connection <socket._socketobject object at 0x7f66de66e280> at address ('127.0.0.1', 55218)
+2017-10-20 19:05:20,279 - DEBUG - pid:30932 - Closing proxy for connection <socket._socketobject object at 0x7f66de66e280> at address ('127.0.0.1', 55218)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6554490)
+ The perform() method executes the html fetch and writes the result to a function you specify.  You need to provide a buffer to put the html into and a write function.  Usually, this can be accomplished using a StringIO object as follows: 
+
+  import pycurl
+import StringIO
+
+c = pycurl.Curl()
+c.setopt(pycurl.URL, "http://www.google.com/")
+
+b = StringIO.StringIO()
+c.setopt(pycurl.WRITEFUNCTION, b.write)
+c.setopt(pycurl.FOLLOWLOCATION, 1)
+c.setopt(pycurl.MAXREDIRS, 5)
+c.perform()
+html = b.getvalue()
+  
+
+ You could also use a file or tempfile or anything else that can store data. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/5576013)
+ I ran into the same issue when trying to install from pip and easy_install.  I got it installed and working by downloading the pycurl source and compiling for Snow Leopard.  In the pycurl source directory, before you run "python setup.py install" as the install.txt says, you need to run this: 
+
+  gcc-4.2 -fno-strict-aliasing -fno-common -dynamic -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -DENABLE_DTRACE -arch i386 -arch x86_64 -pipe -DHAVE_CURL_SSL=1 -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c src/pycurl.c -o build/temp.macosx-10.6-universal-2.6/src/pycurl.o
+  
+
+ Basically, it's the same compilation flags EXCEPT for  -arch PPC , which was causing it to fail on Snow Leopard. 
+
+ Once you run the command above, then you can run: 
+
+  python setup.py install
+  
+
+ . 
+
+
+

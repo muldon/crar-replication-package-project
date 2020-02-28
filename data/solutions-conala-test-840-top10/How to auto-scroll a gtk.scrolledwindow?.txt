@@ -1,0 +1,203 @@
+Query: How to auto-scroll a gtk.scrolledwindow?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8868061)
+ fookatchu's answer can be improved so that the callback could be used by multiple widgets: 
+
+  def treeview_changed( self, widget, event, data=None ):
+    adj = widget.get_vadjustment()
+    adj.set_value( adj.upper - adj.pagesize )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5235358)
+ After widening my search-radius, i found a ruby-related answer. since the problem is gtk-related, it should be able to be solved in any language like this: 
+
+ you connect the widget which changes, in my case the treeview, with  gtk.widget 's 'size-allocate' signal and set the  gtk.scrolledwindow  value to "upper - page_size". example: 
+
+  self.treeview.connect('size-allocate', self.treeview_changed)
+  
+
+ ... 
+
+  def treeview_changed(self, widget, event, data=None):
+    adj = self.scrolled_window.get_vadjustment()
+    adj.set_value( adj.upper - adj.page_size )
+  
+
+ link to the original post at ruby-forum.com: 
+
+ http://www.ruby-forum.com/topic/119851 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27495954)
+ Python Gtk 3 version: 
+
+  adj.set_value(adj.get_upper() - adj.get_page_size())  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13637975)
+ try to do it in this way. (I have copied from another question: How to auto-scroll a gtk.scrolledwindow?) It works fine for me. 
+
+  def on_TextOfLog_size_allocate(self, widget, event, data=None):
+    adj = self.scrolled_window.get_vadjustment()
+    adj.set_value( adj.upper - adj.page_size )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50222997)
+ You should just pack your  TreeView  into a  Gtk.ScrolledWindow  
+
+  class Window(Gtk.Window):
+    def __init__(self):
+        Gtk.Window.__init__(self, title='Mein Gtk-Fenster')
+        self.set_default_size(100, 120)
+
+        self.view = TreeView()
+
+        scroll = Gtk.ScrolledWindow () # 1
+        scroll.add (self.view)         # 2
+        scroll.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        self.add (scroll)
+
+        self.connect('destroy', Gtk.main_quit)
+        self.show_all()
+  
+
+ TreeView is smart enough to scroll only contents: 
+
+ 
+   https://i.stack.imgur.com/MdT6l.png 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15980129)
+  SOLUTION:  
+
+ The problem was that the window couldn't be more narrow than the wider row in the  Gtk.TreeView , and I also wanted my window without horizontal scroll bars. The final code that solves my problem is this: 
+
+  self.scrolledwindow = Gtk.ScrolledWindow()
+self.scrolledwindow.set_policy(Gtk.PolicyType.NEVER,
+                               Gtk.PolicyType.AUTOMATIC)
+
+...
+
+renderer_text = Gtk.CellRendererText(weight=600)
+renderer_text.set_fixed_size(200, -1)
+column_text = Gtk.TreeViewColumn('Name', renderer_text, text=1)
+  
+
+ In that way, the  Gtk.CellRendererText  has a minimum size and can be re-sized once the window is opened. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40917718)
+ For gtkmm 3.0/C++11: 
+
+  void append(std::string s) {
+  textbuffer->insert(textbuffer->end(), s.c_str());
+
+  // Wait for Gui to Redraw with added line to buffer
+  while (gtk_events_pending())
+    gtk_main_iteration_do(false);
+
+  // Scoll to end of Buffer
+  auto it = textbuffer->get_iter_at_line(textbuffer->get_line_count());
+  TextView1.scroll_to(it);
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30074699)
+ by Emmanuele over the Gtk mailing list: 
+
+  from gi.repository import Gtk, Gdk
+import cairo
+
+class Test(Gtk.Window):
+
+    def __init__(self):
+        Gtk.Window.__init__(self)
+        sw=Gtk.ScrolledWindow()
+        vp=Gtk.Viewport()
+        box=Gtk.VBox()
+
+        vp.set_size_request(100,100)
+
+        for i in range(3):
+            da=Gtk.DrawingArea()
+            da.connect("draw", self.draw, [0.3, 0.4, 0.6])
+            da.set_size_request(100,100)
+            box.add(da)
+
+        sw.add(vp)
+        vp.add(box)        
+        self.add(sw)
+        self.show_all()
+
+    def draw(self, widget, cr, color):
+        cr.rectangle(0, 0, 100, 100)
+        cr.set_source_rgb(color[0], color[1], color[2])
+        cr.fill()
+        cr.queue_draw_area(0, 0, 100, 100)
+
+        return True
+
+main=Test()
+Gtk.main()
+  
+
+ You should read the API reference for GTK+ 3.x: 
+
+ https://developer.gnome.org/gtk/stable 
+
+ as well as the Python API reference: 
+
+ http://lazka.github.io/pgi-docs/#Gtk-3.0 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4934738)
+ I think the problem there is that your wx.StaticText widgets are children of the SaveEdFrame, not the ScrolledWindow.  The ScrolledWindow is being redrawn over them as you scroll it.   
+
+   headerLabel = wx.StaticText(self.scroll, -1, "TestStr %s" % key)
+ self.mainSizer.Add(headerLabel)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14152950)
+ You can get the reference to each ScrollBar (one horizontal and one vertical) by querying scrolledwindow.GetChildren() like: 
+
+  sw = wx.ScrolledWindow(self)
+for child in sw.GetChildren():
+  if isinstance(child, wx.ScrollBar):
+    print child
+    child.SetBackgroundColour(...)
+  
+
+ Regarding your second question, there's SetForegroundColour(). You can always look through the documentation by doing: 
+
+  python
+>>> import wx
+>>> help(wx.ScrollBar)
+  
+
+
+

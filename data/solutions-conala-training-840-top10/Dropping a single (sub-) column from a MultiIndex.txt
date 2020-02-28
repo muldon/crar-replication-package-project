@@ -1,0 +1,335 @@
+Query: Dropping a single (sub-) column from a MultiIndex
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32446915)
+ I don't think you can avoid converting the single index into a  MultiIndex .  This is probably the easiest way, you could also convert after joining. 
+
+  In [48]: df1.columns = pd.MultiIndex.from_tuples([(c, '', '') for c in df1])
+
+In [49]: pd.concat([df2, df1], axis=1)
+Out[49]: 
+  level 1    level 2     single
+        a  b       c   d       
+        h  j       k   l       
+0       1  5      10  20     10
+1       2  6      11  21     11
+2       3  7      12  22     12
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48967074)
+ You need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.xs.html for select each level of  MultiIndex  and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sub.html: 
+
+  print (df.xs('one', level=1, axis=1).sub(df.xs('two', level=1, axis=1)))
+first       bar       baz       foo       qux
+A      0.511199  1.684088 -1.377296  1.818127
+B      0.421159  0.477186  0.777098 -1.265297
+C      0.512711  2.262646 -0.435340  1.400147
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22397506)
+ http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop.html is a very flexible method, and there are quite a few ways to use it: 
+
+  In [11]: mi = pd.MultiIndex.from_product([['col1', 'col2', 'col3'], ['a', 'b']])
+
+In [12]: df = pd.DataFrame(1, index=[0], columns=mi)
+
+In [13]: df
+Out[13]:
+   col1     col2     col3
+      a  b     a  b     a  b
+0     1  1     1  1     1  1
+  
+
+ Drop a single column using a tuple: 
+
+  In [14]: df.drop(('col1', 'a'), axis=1)
+Out[14]:
+   col1  col2     col3
+      b     a  b     a  b
+0     1     1  1     1  1
+  
+
+ or a list using a list of tuples: 
+
+  In [15]: df.drop([('col1', 'a'), ('col2', 'b')], axis=1)
+Out[15]:
+   col1  col2  col3
+      b     a     a  b
+0     1     1     1  1
+  
+
+ or across a level, e.g. all  a s: 
+
+  In [16]: df.drop('a', level=1, axis=1)
+Out[16]:
+   col1  col2  col3
+      b     b     b
+0     1     1     1
+  
+
+  In 0.14, you'll also be able to pass regex of what to drop...  
+
+ There's also a way to drop the entire level of a index/column: 
+
+  In [21]: df.columns.droplevel(1)
+Out[21]: Index([u'col1', u'col1', u'col2', u'col2', u'col3', u'col3'], dtype='object')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45019743)
+ You just have to call https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_index.html after setting : 
+
+  df1=pd.DataFrame(columns=pd.MultiIndex.from_product((('a','b'),
+(1,2))),data=np.arange(4).reshape(1,-1))
+df2=pd.DataFrame(columns=pd.MultiIndex.from_tuples((('a','3'),('b',5))),data=[[9,9]])
+df=df1.join(df2)
+
+#    a     b     a  b
+#    1  2  1  2  3  5
+# 0  0  1  2  3  9  9
+
+df.sort_index(axis=1,inplace=True)
+
+#    a        b      
+#    1  2  3  1  2  5
+# 0  0  1  9  2  3  9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45020825)
+ I think you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reindex.html or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reindex_axis.html by custom  list : 
+
+  df1=pd.DataFrame(columns=pd.MultiIndex.from_product((('C','R', 'A'),(1,2))),
+                 data=np.arange(6).reshape(1,-1))
+df2=pd.DataFrame(columns=pd.MultiIndex.from_tuples((('C','3'),('R',5),('A',4))),
+                 data=[[9,9,4]])
+df=df1.join(df2)
+print (df)
+  C     R     A     C  R  A
+   1  2  1  2  1  2  3  5  4
+0  0  1  2  3  4  5  9  9  4
+
+df1 = df.reindex(columns = ['C','R','A'], level=0)
+print (df1)
+   C        R        A      
+   1  2  3  1  2  5  1  2  4
+0  0  1  9  2  3  9  4  5  4
+
+df1 = df.reindex_axis(['C','R','A'], level=0, axis=1)
+print (df1)
+   C        R        A      
+   1  2  3  1  2  5  1  2  4
+0  0  1  9  2  3  9  4  5  4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37233663)
+ You can use  from_product  when creating a MultiIndex. 
+
+  dates = ['2016-1-1', '2016-1-2', '2016-1-3']
+cols = pd.MultiIndex.from_product([dates, ['High', 'Low']])
+
+>>> pd.DataFrame(np.random.randn(1,6), columns=cols)
+   2016-1-1            2016-1-2            2016-1-3          
+       High       Low      High       Low      High       Low
+0 -0.075206  0.464617  0.347055 -0.807486  0.871124 -0.375196
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14189912)
+ How about simply reassigning  df.columns : 
+
+  levels = df.columns.levels
+labels = df.columns.labels
+df.columns = levels[1][labels[1]]
+  
+
+ For example: 
+
+  import pandas as pd
+
+columns = pd.MultiIndex.from_arrays([['basic_amt']*4,
+                                     ['NSW','QLD','VIC','All']])
+index = pd.Index(['All', 'Full Time', 'Part Time'], name = 'Faculty')
+df = pd.DataFrame([(1,1,2,4),
+                   (0,01,0,1),
+                   (1,0,2,3)])
+df.columns = columns
+df.index = index
+  
+
+  
+
+  print(df)
+
+           basic_amt               
+                 NSW  QLD  VIC  All
+Faculty                            
+All                1    1    2    4
+Full Time          0    1    0    1
+Part Time          1    0    2    3
+  
+
+  
+
+  levels = df.columns.levels
+labels = df.columns.labels
+df.columns = levels[1][labels[1]]
+print(df)
+
+           NSW  QLD  VIC  All
+Faculty                      
+All          1    1    2    4
+Full Time    0    1    0    1
+Part Time    1    0    2    3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46954074)
+ I would use mapping for a single column: 
+
+  df1['newcol'] = df1.index.get_level_values(-1).map(lambda x: df2.newcol[x])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49477468)
+ You could use  df.loc : 
+
+  import numpy as np
+import pandas as pd
+
+columns = pd.MultiIndex.from_product([['A','B','C'],['X','Y','Z']])
+df = pd.DataFrame(np.random.randint(10, size=(3,len(columns))), columns=columns)
+#    A        B        C      
+#    X  Y  Z  X  Y  Z  X  Y  Z
+# 0  2  7  5  1  6  0  5  0  0
+# 1  8  4  7  2  0  8  7  3  9
+# 2  0  6  8  8  1  1  8  0  2
+
+# In some cases `sort_index` may be needed to avoid UnsortedIndexError
+df = df.sort_index(axis=1)
+print(df.loc[:, (['A','B'],['X','Y'])])
+  
+
+ yields (something like): 
+
+     A     B   
+   X  Y  X  Y
+0  2  7  1  6
+1  8  4  2  0
+2  0  6  8  1
+  
+
+ 
+
+ If you only want to select, say, the  ('A','Y')  and  ('B','X')  columns, then note that you can specify MultiIndexed columns as tuples: 
+
+  In [37]: df.loc[:, [('A','Y'),('B','X')]]
+Out[37]: 
+   A  B
+   Y  X
+0  7  1
+1  4  2
+2  6  8
+  
+
+ or even just  df[[('A','Y'),('B','X')]]  (which yields the same result). 
+
+ And in general it is better to use a single indexer such as  df.loc[...]  instead of double indexing (e.g.  df[...][...] ). It can be quicker (because it makes fewer calls to  __getitem__ , and generates fewer temporary sub-DataFrames) and  df.loc[...] = value  it is http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy to make assignments to sub-slices of a DataFrame which modify  df  itself. 
+
+ 
+
+ The reason why  df[['A','B']][['X','Y']]  would not work is because
+ df[['A','B']]  returns a DataFrame with a MultiIndex:  
+
+  In [36]: df[['A','B']]
+Out[36]: 
+   A        B      
+   X  Y  Z  X  Y  Z
+0  2  7  5  1  6  0
+1  8  4  7  2  0  8
+2  0  6  8  8  1  1
+  
+
+ So indexing this DataFrame with  ['X','Y']  fails because there are no top-level column labels named  'X'  or  'Y' . 
+
+ 
+
+ Sometimes, depending on how the DataFrame was constructed (or due to operations performed on the DataFrame) the MultiIndex needs to be lexsorted before it can be sliced. There is a http://pandas.pydata.org/pandas-docs/stable/whatsnew.html#multiindexing-using-slicers mentioning this issue. To lexsort the column index use 
+
+  df = df.sort_index(axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/37749078)
+ Another solution is use use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.MultiIndex.droplevel.html with http://pandas.pydata.org/pandas-docs/stable/whatsnew.html#changes-to-rename (new in  pandas   0.18.0 ): 
+
+  import pandas as pd
+
+cols = pd.MultiIndex.from_arrays([['basic_amt']*4,
+                                     ['NSW','QLD','VIC','All']], 
+                                     names = [None, 'Faculty'])
+idx = pd.Index(['All', 'Full Time', 'Part Time'])
+
+df = pd.DataFrame([(1,1,2,4),
+                   (0,1,0,1),
+                   (1,0,2,3)], index = idx, columns=cols)
+
+print (df)
+          basic_amt            
+Faculty         NSW QLD VIC All
+All               1   1   2   4
+Full Time         0   1   0   1
+Part Time         1   0   2   3
+
+df.columns = df.columns.droplevel(0)
+#pandas 0.18.0 and higher
+df = df.rename_axis(None, axis=1)
+#pandas bellow 0.18.0
+#df.columns.name = None
+
+print (df)
+           NSW  QLD  VIC  All
+All          1    1    2    4
+Full Time    0    1    0    1
+Part Time    1    0    2    3
+
+print (df.columns)
+Index(['NSW', 'QLD', 'VIC', 'All'], dtype='object')
+  
+
+ If need both column names use  list  comprehension: 
+
+  df.columns = ['_'.join(col) for col in df.columns]
+print (df)
+           basic_amt_NSW  basic_amt_QLD  basic_amt_VIC  basic_amt_All
+All                    1              1              2              4
+Full Time              0              1              0              1
+Part Time              1              0              2              3
+
+print (df.columns)
+Index(['basic_amt_NSW', 'basic_amt_QLD', 'basic_amt_VIC', 'basic_amt_All'], dtype='object')
+  
+
+
+

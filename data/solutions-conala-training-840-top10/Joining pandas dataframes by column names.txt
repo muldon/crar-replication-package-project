@@ -1,0 +1,285 @@
+Query: Joining pandas dataframes by column names
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20375692)
+ you can use the left_on and right_on options as follows: 
+
+  pd.merge(frame_1, frame_2, left_on = 'county_ID', right_on = 'countyid')
+  
+
+ I was not sure from the question if you only wanted to merge if the key was in the left hand dataframe. If that is the case then the following will do that (the above will in effect do a many to many merge) 
+
+  pd.merge(frame_1, frame_2, how = 'left', left_on = 'county_ID', right_on = 'countyid')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43767449)
+   Answer 1   
+  dict     
+
+  df.rename(columns={1: 'Win', 0: 'Loss'})
+
+Category  Loss  Win
+Name               
+Bob          1    0
+  
+
+        
+
+  df.rename(columns= x: 'Win' if x else 'Loss')
+
+Category  Loss  Win
+Name               
+Bob          1    0
+  
+
+ 
+
+   Answer 2   
+ I'm less clear what you want    
+
+ Consider the following dataframes  d1  and  d2  
+
+  np.random.seed([3,1415])
+d1 = pd.DataFrame(
+    np.random.randint(10, size=(10, 2)),
+    pd.Index(list('ABCDEFGHIJ'), name='Name'),
+    pd.Index(['Loss', 'Win'], name='Category1')
+)
+d2 = pd.DataFrame(
+    np.random.randint(10, size=(10, 2)),
+    pd.Index(list('ABCDEFGHIJ'), name='Name'),
+    pd.Index(['Loss', 'Win'], name='Category2')
+)
+  
+
+ You can use  pd.concat  
+
+  df = pd.concat({d.columns.name: d for d in [d1, d2]}, axis=1)
+df
+
+          Category1     Category2    
+Category1      Loss Win      Loss Win
+Name                                 
+A                 0   2         3   6
+B                 7   3         7   7
+C                 8   7         4   5
+D                 0   6         3   7
+E                 8   6         5   9
+F                 0   2         8   7
+G                 0   4         6   4
+H                 9   7         7   6
+I                 3   2         2   6
+J                 4   3         6   5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36302241)
+  df = df.withColumnRenamed("colName", "newColName")
+       .withColumnRenamed("colName2", "newColName2")
+  
+
+ Advantage of using this way: With long list of columns you would like to change only few column names. This can be very convenient in these scenarios. Very useful when joining tables with duplicate column names. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20375700)
+ you need to make  county_ID  as index for the right frame: 
+
+  frame_2.join ( frame_1.set_index( [ 'county_ID' ], verify_integrity=True ),
+               on=[ 'countyid' ], how='left' )
+  
+
+ for your information, in pandas left join breaks when the right frame has non unique values on the joining column. see this https://github.com/pydata/pandas/issues/5391. 
+
+ so you need to verify integrity before joining by  , verify_integrity=True  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51771146)
+ In  python  3.6.3 with  pandas  0.22.0 you can also use  concat  a long as you set as index the columns you want to use for the joining 
+
+  pd.concat(
+    (iDF.set_index('name') for iDF in [df1, df2, df3]),
+    axis=1, join='inner'
+).reset_index()
+  
+
+ where  df1 ,  df2 , and  df3  are defines as in https://stackoverflow.com/a/23671390/366309 
+
+  import pandas as pd
+df1 = pd.DataFrame(np.array([
+    ['a', 5, 9],
+    ['b', 4, 61],
+    ['c', 24, 9]]),
+    columns=['name', 'attr11', 'attr12']
+)
+df2 = pd.DataFrame(np.array([
+    ['a', 5, 19],
+    ['b', 14, 16],
+    ['c', 4, 9]]),
+    columns=['name', 'attr21', 'attr22']
+)
+df3 = pd.DataFrame(np.array([
+    ['a', 15, 49],
+    ['b', 4, 36],
+    ['c', 14, 9]]),
+    columns=['name', 'attr31', 'attr32']
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43483009)
+ Here is a method to merge a dictionary of data frames while keeping the column names in sync with the dictionary. Also it fills in missing values if needed: 
+
+ This is the function to merge a dict of data frames 
+
+  def MergeDfDict(dfDict, onCols, how='outer', naFill=None):
+  keys = dfDict.keys()
+  for i in range(len(keys)):
+    key = keys[i]
+    df0 = dfDict[key]
+    cols = list(df0.columns)
+    valueCols = list(filter(lambda x: x not in (onCols), cols))
+    df0 = df0[onCols + valueCols]
+    df0.columns = onCols + [(s + '_' + key) for s in valueCols] 
+
+    if (i == 0):
+      outDf = df0
+    else:
+      outDf = pd.merge(outDf, df0, how=how, on=onCols)   
+
+  if (naFill != None):
+    outDf = outDf.fillna(naFill)
+
+  return(outDf)
+  
+
+ OK, lets generates data and test this: 
+
+  def GenDf(size):
+  df = pd.DataFrame({'categ1':np.random.choice(a=['a', 'b', 'c', 'd', 'e'], size=size, replace=True),
+                      'categ2':np.random.choice(a=['A', 'B'], size=size, replace=True), 
+                      'col1':np.random.uniform(low=0.0, high=100.0, size=size), 
+                      'col2':np.random.uniform(low=0.0, high=100.0, size=size)
+                      })
+  df = df.sort_values(['categ2', 'categ1', 'col1', 'col2'])
+  return(df)
+
+
+size = 5
+dfDict = {'US':GenDf(size), 'IN':GenDf(size), 'GER':GenDf(size)}   
+MergeDfDict(dfDict=dfDict, onCols=['categ1', 'categ2'], how='outer', naFill=0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40250460)
+ This can also be done as follows for a list of dataframes  df_list : 
+
+  df = df_list[0]
+for df_ in df_list[1:]:
+    df = df.merge(df_, on='join_col_name')
+  
+
+ or if the dataframes are in a generator object (e.g. to reduce memory consumption): 
+
+  df = next(df_list)
+for df_ in df_list:
+    df = df.merge(df_, on='join_col_name')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38467413)
+ use  pd.concat  
+
+  dflist = [df1, df2]
+keys = ["%d" % i for i in range(1, len(dflist) + 1)]
+
+merged = pd.concat([df.set_index('name') for df in dflist], axis=1, keys=keys)
+merged.columns = merged.swaplevel(0, 1, 1).columns.to_series().str.join('_')
+
+merged
+  
+
+ https://i.stack.imgur.com/EukWx.png 
+
+ Or 
+
+  merged.reset_index()
+  
+
+ <a href="https://i.stack.imgur.com/u9Bz3.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49675929)
+ There is another solution from the https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame..html (that I don't see here), 
+
+  using the  .   
+
+  >>> df = pd.DataFrame([[1, 2], [3, 4]], columns=list('AB'))
+   A  B
+0  1  2
+1  3  4
+>>> df2 = pd.DataFrame([[5, 6], [7, 8]], columns=list('AB'))
+   A  B
+0  5  6
+1  7  8
+>>> df.(df2, ignore_index=True)
+   A  B
+0  1  2
+1  3  4
+2  5  6
+3  7  8
+  
+
+ The  ignore_index=True  is used to ignore the index of the ed dataframe, replacing it with the next index available in the source one. 
+
+ If there are different column names,  Nan  will be introduced. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23671390)
+ You could try this if you have 3 dataframes 
+
+  # Merge multiple dataframes
+df1 = pd.DataFrame(np.array([
+    ['a', 5, 9],
+    ['b', 4, 61],
+    ['c', 24, 9]]),
+    columns=['name', 'attr11', 'attr12'])
+df2 = pd.DataFrame(np.array([
+    ['a', 5, 19],
+    ['b', 14, 16],
+    ['c', 4, 9]]),
+    columns=['name', 'attr21', 'attr22'])
+df3 = pd.DataFrame(np.array([
+    ['a', 15, 49],
+    ['b', 4, 36],
+    ['c', 14, 9]]),
+    columns=['name', 'attr31', 'attr32'])
+
+pd.merge(pd.merge(df1,df2,on='name'),df3,on='name')
+  
+
+ alternatively, as mentioned by cwharland  
+
+  df1.merge(df2,on='name').merge(df3,on='name')
+  
+
+
+

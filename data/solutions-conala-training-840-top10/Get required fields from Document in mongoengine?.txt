@@ -1,0 +1,255 @@
+Query: Get required fields from Document in mongoengine?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31500346)
+ This is what I wrote to generate a dict of all the fields and their nested types. 
+
+  from mongoengine.fields import (
+    IntField,
+    BooleanField,
+    StringField,
+    DateTimeField,
+    DecimalField,
+    FloatField,
+    LongField,
+    ListField,
+    EmbeddedDocumentField,
+    ReferenceField,
+)
+
+__input_types = {
+    IntField,
+    BooleanField,
+    StringField,
+    DateTimeField,
+    DecimalField,
+    FloatField,
+    LongField,
+}
+
+__input_num_types = {
+    IntField,
+    BooleanField,
+    DecimalField,
+    FloatField,
+    LongField,
+}
+
+def list_schema(m):
+    """list all the field in the model
+    and in the nested models"""
+    sdict = {}
+    for k, v in m._fields.iteritems():
+        if k == '_cls':
+            continue
+
+        ftype = type(v)
+        if ftype in __input_types:
+            sdict[k] = {
+                'default': v.default if v.default else '',
+                'is_num': ftype in __input_num_types,
+                'required': v.required,
+            }
+        elif ftype == ListField:
+            seqtype = v.field
+            if seqtype in __input_types:
+                sdict[k] = [{
+                    'default': v.default() if v.default else '',
+                    'is_num': seqtype in __input_num_types,
+                    'required': v.required,
+                }]
+            else:
+                sdict[k] = [list_schema(seqtype.document_type)]
+        else:
+            sdict[k] = list_schema(v.document_type)
+    return sdict
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8587151)
+ ._fields property. 
+
+ If your class was called User you could do this: 
+
+  >>> [k for k,v in User._fields.iteritems() if v.required]
+['joinDate', 'password', 'nickName', 'lastVisited']
+  
+
+ To get a sorted list based on creation you can use the creation counter like so: 
+
+  >>> from operator import itemgetter
+>>> required_fields = ((v.creation_counter, k) for k,v in User._fields.iteritems() if v.required)
+>>> sorted_required_fields = map(itemgetter(1), sorted(required_fields, key=itemgetter(0)))
+>>> sorted_required_fields
+['nickName', 'password', 'joinDate', 'lastVisited']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31121211)
+ You can simply use this 
+
+  field_dict = SomeDocument.get_fields_info()
+for field_name, field in field_dict.iteritems():
+    print field_name, field.required, field.__class__
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12676828)
+ If you want to remove a single  location  embedded document from a  login_info  document with MongoEngine, do something like: 
+
+  // add 
+loc1 = Tracking( time=datetime(2011, 11, 5, 0, 0, 0) )
+loc2 = Tracking( time=datetime(2012, 10, 5, 0, 0, 0) )
+
+login = login_info( user_name='Mark', location=[loc1, loc2] )
+login.save()
+
+// remove locations from the location list
+login.objects( title=user_name='Mark' ).update_one( pull__lt=datetime.now() )
+  
+
+ Note: The mongoengine 0.7.5 has a https://github.com/MongoEngine/mongoengine/issues/144, so you'll have to download the latest version from https://github.com/MongoEngine/mongoengine 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10928853)
+ You can use the positional operator to update the matched embedded document. 
+
+ Heres an example from the tests (https://github.com/MongoEngine/mongoengine/blob/master/tests/test_queryset.py#L313) 
+
+  def test_update_using_positional_operator(self):
+    """Ensure that the list fields can be updated using the positional
+    operator."""
+
+    class Comment(EmbeddedDocument):
+        by = StringField()
+        votes = IntField()
+
+    class BlogPost(Document):
+        title = StringField()
+        comments = ListField(EmbeddedDocumentField(Comment))
+
+    BlogPost.drop_collection()
+
+    c1 = Comment(by="joe", votes=3)
+    c2 = Comment(by="jane", votes=7)
+
+    BlogPost(title="ABC", comments=[c1, c2]).save()
+
+    BlogPost.objects(comments__by="jane").update(inc__comments__S__votes=1)
+
+    post = BlogPost.objects.first()
+    self.assertEquals(post.comments[1].by, 'jane')
+    self.assertEquals(post.comments[1].votes, 8)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40313892)
+ Mongoengine doesn't need you to define an __init__.  
+
+  class User(db.Document):
+    email = db.StringField(required=True)
+    first_name = db.StringField(max_lenght=40, required=True)
+    last_name = db.StringField(max_lenght=40, required=True)
+    password = db.StringField(required=True)
+
+    def clean(self):
+        # clean will be called when you call .save()
+        # You can do whatever you'd like to clean data before save
+        self.password = str(self.password)
+  
+
+ Then all you have to do is  
+
+  user = User(email='email@gmail', first_name='hello', last_name='there', password=2342143213)
+user.save()
+print(user.id)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14170876)
+ I resolved it :) 
+
+  Feed.objects(_id="...", posts__text="findvalue").update(set__posts__S__value="updatevalue")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/8327018)
+ Have you considered using PyMongo directly instead of using Mongoengine? Mongoengine is designed to declare and validate a schema for your documents, and provides many tools and conveniences around that. If your documents are going to vary, I'm not sure Mongoengine is the right choice for you. 
+
+ If, however, you have some fields in common across all documents, and then each document has some set of fields specific to itself, you can use Mongoengine's  DictField . The downside of this is that the keys will not be "top-level", for instance: 
+
+  class UserThings(Document):
+    # you can look this document up by username
+    username = StringField()
+
+    # you can store whatever you want here
+    things = DictField()
+
+dcrosta_things = UserThings(username='dcrosta')
+dcrosta_things.things['foo'] = 'bar'
+dcrosta_things.things['bad'] = 'quack'
+dcrosta_things.save()
+  
+
+ Results in a MongoDB document like: 
+
+  { _id: ObjectId(...),
+  _types: ["UserThings"],
+  _cls: "UserThings",
+  username: "dcrosta",
+  things: {
+    foo: "bar",
+    baz: "quack"
+  }
+}
+  
+
+  Edit:  I should also note, there's work in progress on the development branch of Mongoengine for "dynamic" documents, where attributes on the Python document instances will be saved when the model is saved. See https://github.com/hmarr/mongoengine/pull/112 for details and history. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/25940710)
+ From what I’ve seen, the two are similar, but not entirely interchangeable. Each approach may have a slight advantage based on your needs.  First of all, as you point out, the two approaches require differing definitions in the document, as shown below.   
+
+  class ExampleDynamicEmbeddedDoc(DynamicEmbeddedDocument):
+    pass
+
+class ExampleDoc(Document):
+    dict_approach = DictField()
+    dynamic_doc_approach = EmbeddedDocumentField(ExampleDynamicEmbeddedDoc, default = ExampleDynamicEmbeddedDoc())
+  
+
+  Note:  The default is not required, but the dynamic_doc_approach field will need to be set to a ExampleDynamicEmbeddedDoc object in order to save.  (i.e. trying to save after setting example_doc_instance.dynamic_doc_approach = {} would throw an exception).  Also, you could use the GenericEmbeddedDocumentField if you don’t want to tie the field to a specific type of EmbeddedDocument, but the field would still need to be point to an object subclassed from EmbeddedDocument in order to save. 
+
+ Once set up, the two are functionally similar in that you can save data to them as needed and without restrictions: 
+
+  e = ExampleDoc()
+e.dict_approach["test"] = 10
+e.dynamic_doc_approach.test = 10
+  
+
+ However, the one main difference that I’ve seen is that you can query against any values added to a DictField, whereas you cannot with a DynamicEmbeddedDoc. 
+
+  ExampleDoc.objects(dict_approach__test = 10) # Returns a QuerySet containing our entry.
+ExampleDoc.objects(dynamic_doc_approach__test = 10) # Throws an exception.
+  
+
+ That being said, using an EmbeddedDocument has the advantage of validating fields which you know will be present in the document.  (We simply would need to add them to the ExampleDynamicEmbeddedDoc definition).  Because of this, I think it is best to use a DynamicEmbeddedDocument when you have a good idea of a schema for the field and only anticipate adding fields minimally (which you will not need to query against).  However, if you are not concerned about validation or anticipate adding a lot of fields which you’ll query against, go with a DictField.  
+
+
+

@@ -1,0 +1,158 @@
+Query: How do I calculate logarithm?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7982137)
+ If you want to support arbitrarily big integers, it's not safe to just do 
+
+  Math.log(bigInteger.doubleValue());
+  
+
+ because this would fail if the argument exceeds the  double  range (about 2^1024 or 10^308, i.e. more than 300 decimal digits ). 
+
+ Here's my recipe: 
+
+  private static final double LOG2 = Math.log(2.0);
+
+/**
+ * Computes the natural logarithm of a BigInteger. Works for really big
+ * integers (practically unlimited)
+ * 
+ * @param val Argument, positive integer
+ * @return Natural logarithm, as in <tt>Math.log()</tt>
+ */
+public static double logBigInteger(BigInteger val) {
+    int blex = val.bitLength() - 1022; // any value in 60..1023 is ok
+    if (blex > 0)
+        val = val.shiftRight(blex);
+    double res = Math.log(val.doubleValue());
+    return blex > 0 ? res + blex * LOG2 : res;
+}
+  
+
+ I've tested it with really big BigIntegers (more than 500000 decimal digits), and the maximum relative error has always been below 5.0e-16, which is in the order of the  double  precision. 
+
+ 
+
+ Some sample code, in case you want to test it yourself: 
+
+      public static double testLogBigInteger(int[] factors, int[] exponents) {
+    double l1 = 0;
+    BigInteger bi = BigInteger.ONE;
+    for (int i = 0; i < factors.length; i++) {
+        int exponent = exponents[i];
+        int factor = factors[i];
+        if (factor <= 1)
+            continue;
+        for (int n = 0; n < exponent; n++) {
+            bi = bi.multiply(BigInteger.valueOf(factor));
+        }
+        l1 += Math.log(factor) * exponent;
+    }
+    double l2 = logBigInteger(bi);
+    double err = Math.abs((l2 - l1) / l1);
+    int decdigits = (int) (l1 / Math.log(10) + 0.5);
+    System.out.printf("e=%e digitss=%d \n", err, decdigits);
+    return err;
+}
+
+public static void testManyTries(int tries) {
+    int[] f = { 1, 1, 1, 1, 1 };
+    int[] e = { 1, 1, 1, 1, 1 };
+    Random r = new Random();
+    double maxerr = 0;
+    for (int n = 0; n < tries; n++) {
+        for (int i = 0; i < f.length; i++) {
+            f[i] = r.nextInt(100000) + 2;
+            e[i] = r.nextInt(1000) + 1;
+        }
+        double err = testLogBigInteger(f, e);
+        if (err > maxerr)
+            maxerr = err;
+    }
+    System.out.printf("Max err: %e \n", maxerr);
+}
+  
+
+ Update: for completeness, and because I've needed it, here is sort of an inverse function: 
+
+  /**
+ * Same as Math.exp() but returns a BigInteger. Oriented towards big numbers.
+ * Works even for outputs that exceed the double range
+ *
+ * @param b Should be a large positive value
+ * @return The value of e (base of the natural logarithms) raised to the power b
+ */
+public static BigInteger bigexp(double b) {
+    if( Double.isNaN(b) || Double.isInfinite(b) ) 
+        throw new IllegalArgumentException("Infinite or negative values not accepted: " + b);
+    // e^b = e^(b2+c) = e^b2 2^t with e^c = 2^t 
+    double bc = 680.0;
+    if( b < bc ) 
+        return BigDecimal.valueOf(Math.exp(b)).setScale(0, BigDecimal.ROUND_HALF_EVEN).toBigInteger();
+    double b2 = bc;
+    double c = b - bc;
+    int t = (int) Math.ceil(c / LOG2);
+    c = t * LOG2;
+    b2 = b - c;
+    BigInteger v = BigDecimal.valueOf(Math.exp(b2)).setScale(0, BigDecimal.ROUND_HALF_EVEN).toBigInteger();
+    return v.shiftLeft(t);
+}
+
+public static BigInteger bigpow(double a, double b) {
+    return bigexp(b * Math.log(a));
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25414163)
+ Old question, but I actually think this answer is preferable. It has good precision and supports arguments of practically any size. 
+
+  private static final double LOG10 = Math.log(10.0);
+
+/**
+ * Computes the natural logarithm of a BigDecimal 
+ * 
+ * @param val Argument: a positive BigDecimal
+ * @return Natural logarithm, as in Math.log()
+ */
+public static double logBigDecimal(BigDecimal val) {
+    return logBigInteger(val.unscaledValue()) + val.scale() * Math.log(10.0);
+}
+
+private static final double LOG2 = Math.log(2.0);
+
+/**
+ * Computes the natural logarithm of a BigInteger. Works for really big
+ * integers (practically unlimited)
+ * 
+ * @param val Argument, positive integer
+ * @return Natural logarithm, as in <tt>Math.log()</tt>
+ */
+public static double logBigInteger(BigInteger val) {
+    int blex = val.bitLength() - 1022; // any value in 60..1023 is ok
+    if (blex > 0)
+        val = val.shiftRight(blex);
+    double res = Math.log(val.doubleValue());
+    return blex > 0 ? res + blex * LOG2 : res;
+}
+  
+
+ The core logic ( logBigInteger  method) is copied from https://stackoverflow.com/questions/6827516/logarithm-for-biginteger/7982137#7982137 of mine. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31592833)
+  void foo(int n)
+{
+    println( (Math.log(n) / Math.log(2))); 
+    //cast to int with (int) to take off decimal place
+}
+  
+
+ Returns the "inverse" bitshift as you are calling it, the base 2 logarithm. 
+
+
+

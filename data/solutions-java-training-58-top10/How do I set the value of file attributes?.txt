@@ -1,0 +1,349 @@
+Query: How do I set the value of file attributes?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6927509)
+ If you do know the name of the attribute, then you can use  getAttributeValue  to obtain its value: 
+
+  current.getAttributeValue("att1"); // value1
+  
+
+ If you do not know the name of the attribute(s), then you can use  getAttributes()  and iterate over each  Attribute : 
+
+  List attributes = current.getAttributes();
+Iterator it = attributes.iterator();
+while (it.hasNext()) {
+  Attribute att = (Attribute)it.next();
+  System.out.println(att.getName()); // att1
+  System.out.println(att.getValue()); // value1
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20148959)
+ You can use http://docs.spring.io/spring/docs/2.5.6/api/org/springframework/web/context/support/ServletContextAttributeExporter.html for this. Define a <code  bean as below in your configuration file and set its  attributes  property to a map of  key and value  pairs that you want to put into  ServletContext : 
+
+<pre class="lang-xml prettyprint-override"> <bean class="org.springframework.web.context.support.ServletContextAttributeExporter">
+    <property name="attributes">
+        <map>
+            <entry key="myKey" value="1" />
+        </map>
+    </property>
+</bean>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25583382)
+ 1 . Add readAttr(context,attrs) method to your constructor like below. 
+
+  public MyTextView(Context context, AttributeSet attrs, int defStyle)
+{
+    super(context, attrs, defStyle);
+    readAttr(context,attrs);
+    init();
+}
+
+public MyTextView(Context context, AttributeSet attrs)
+{
+    super(context, attrs);
+    readAttr(context,attrs)
+    init();
+}
+
+public MyTextView(Context context)
+{
+    super(context);
+    init();
+}
+  
+
+ 2 . Define readAttr() method in the same class. 
+
+  private void readAttr(Context context, AttributeSet attrs) {
+    TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.MyTextView);
+
+    // Read the title and set it if any
+    String fontName = a.getString(R.styleable.MyTextView_fontname) ;
+    if (fontName != null) {
+        // We have a attribute value and set it to proper value as you want
+    }
+
+    a.recycle();
+}
+  
+
+ 3 . Modify attrs.xml file (res/values/attrs.xml) and add the below to the file  
+
+  <declare-styleable name="MyTextView">
+  <attr name="fontname" format="string" />
+</declare-styleable>
+  
+
+ 4 . In Xml file. 
+
+  <com.Example.MyTextView 
+   android:id="@+id/header"
+   android:layout_width="wrap_content"
+   android:layout_height="wrap_content"
+   custom:fontname="font.ttf"
+   android:text="Header" />
+  
+
+ 5 . Add this line to the top container of xml file.  
+
+  xmlns:custom="http://schemas.android.com/apk/res/com.yourpackage.name"
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14810328)
+ You can archive it using session attributes. 
+
+  .java  
+
+  request.getSession().setAttribute("attrName", "value");
+  
+
+ request is instance of  javax.servlet.http.HttpServletRequest  
+
+  .  
+
+  ${attrName}
+  
+
+ 
+
+ To get more about session attributes, read http://docs.oracle.com/javaee/6/api/javax/servlet/http/HttpSession.html#setAttribute%28java.lang.String,%20java.lang.Object%29. You can set attribute of any type. 
+
+  request.getSession().setAttribute("attrName", new ArrayList());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5612186)
+ Here's sample code for @edalorzo's answer: 
+
+  import java.util.HashMap;
+import java.util.Map;
+
+public class ThreadAttributes {
+    private static ThreadLocal<Map<String, String>> threadAttrs = new ThreadLocal<Map<String, String>>() {
+        @Override
+        protected Map<String, String> initialValue() {
+            return new HashMap<String, String>();
+        }
+    };
+
+    public static String get(String key) {
+        return threadAttrs.get().get(key);
+    }
+
+    public static void set(String key, String value) {
+        threadAttrs.get().put(key, value);
+    }
+}
+  
+
+ To use it just this: 
+
+  ThreadAttributes.get("attribute"); //to get an attribute
+ThreadAttributes.set("attribute", "toValue"); //to set an attribute
+  
+
+ Warning: if you application creates lots threads and does not reuse them this code will potentially leak  HashMap s. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34784202)
+ I assume it is DOS (Windows) 
+
+ With Java 7 
+
+  import java.nio.file.Files;
+import java.nio.file.Path;
+
+File theFile = new File("yourfile.zip");
+Path file = theFile.toPath();
+Files.setAttribute(file, "dos:archive", true);
+  
+
+ see: http://kodejava.org/how-do-i-set-the-value-of-file-attributes/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36423295)
+ For XML attributes default value goes inside getter method. 
+
+ for Example, 
+
+ customer.xsd 
+
+  <?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema">
+    <element name="Customer">
+        <complexType>
+            <sequence>
+                <element name="element" type="string" maxOccurs="1" minOccurs="0" default="defaultElementName"></element>
+            </sequence>
+            <attribute name="attribute" type="string" default="defaultAttributeValue"></attribute>
+        </complexType>
+    </element>
+</schema>
+  
+
+ It will generate class like below. 
+
+  @XmlRootElement(name = "Customer")
+public class Customer {
+
+    @XmlElement(required = true, defaultValue = "defaultElementName")
+    protected String element;
+    @XmlAttribute(name = "attribute")
+    protected String attribute;
+
+    ......
+
+    public String getAttribute() {
+        //here the default value is set.
+        if (attribute == null) {
+            return "defaultAttributeValue";
+        } else {
+            return attribute;
+        }
+    }
+  
+
+ Created Sample XML to read 
+
+  <?xml version="1.0" encoding="UTF-8" standalone="yes"?><Customer><element/></Customer>
+  
+
+ when we write logic to marshall in our main class. 
+
+  File file = new File("...src/com/testdefault/xsd/CustomerRead.xml");
+            JAXBContext jaxbContext = JAXBContext.newInstance(Customer.class);
+
+            Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
+            Customer customer = (Customer) jaxbUnmarshaller.unmarshal(file);
+            System.out.println(customer.getElement());
+            System.out.println(customer.getAttribute());
+  
+
+ It will print, in console.
+defaultElementName
+defaultAttributeValue 
+
+ P.S -: to get default value of elements you need to have a blank copy of element into xml which is being marshalled.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/943459)
+ You cannot set request parameters. I suggest you try using the attributes as suggested in the previous answers. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32764205)
+  .  You will have the access to it in JSP. 
+
+ 
+   The Tomcat will convert/Generate servlets for all JSPs. 
+ 
+
+ So you have almost same access what you have for Java Servlets in JSP too.
+That means both of them will have access to  servletConfig . 
+
+ All jsp generated servlets will extend https://tomcat.apache.org/tomcat-6.0-doc/api/org/apache/jasper/runtime/HttpJspBase.html which intern extends GenericServlet and GenericServlet has the ServletConfig property. Check this https://tomcat.apache.org/tomcat-5.5-doc/servletapi/javax/servlet/GenericServlet.html. 
+
+ 
+
+  ServletContext attributes  are attributes at the container[tomcat] level, as per the docs 
+
+  /**
+ *
+ * Defines a set of methods that a servlet uses to communicate with its
+ * servlet container, for example, to get the MIME type of a file, dispatch
+ * requests, or write to a log file.
+ *
+ *  There is one context per "web application" per Java Virtual Machine.  (A
+ * "web application" is a collection of servlets and content installed under a
+ * specific subset of the server's URL namespace such as  /catalog 
+ * and possibly installed via a  .war  file.)
+ *
+  
+
+ So there will be only one context per application and what ever the attributes you set will be accessible to all servlets, irrespective of any particular session or request. 
+
+ Where as  Session attributes  are attributes set at the session level, there can be many sessions going on in the container and it is maintained by both the client[usually browser] and the container using  session-id  mechanism. You will have the access to the attributes set in a session, till the session ends. 
+
+ Finally  Request attributes  lifetime is till you serve that request. Once your container sends back the result, the attributes you set will be destroyed.  
+
+ Check the below javaDoc of ServletRequest.removeAttribute(...) 
+
+   /**
+ * Removes an attribute from this request. This method is not generally
+ * needed as attributes only persist as long as the request is being
+ * handled.
+ */
+public void removeAttribute(String name);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/34433798)
+ The problem can't be easily solved in Jsoup, since the  src  attribute value of the example with spaces actually is correctly identified to be only  My . The  file ,  with  and  space.png  parts are in this example also attributes without values. Of course you can use JSoup to concatenate the attribute keys that follow the src attribute to its value. For example like this: 
+
+  String test =""
+        + "<div> </div>"
+        + "<div> </div>"
+        + "<div> </div>"
+        + "<div> </div>"
+        + "<div> </div>";
+Document doc = Jsoup.parse(test);
+Elements imgs = doc.select("img");
+for (Element img : imgs){
+    Attribute src = null;
+    StringBuffer newSrcVal = new StringBuffer();
+    List<String> toRemove = new ArrayList<>();
+    for (Attribute a : img.attributes()){
+        if (a.getKey().equals("src")){
+            newSrcVal.append(a.getValue());
+            src = a;
+        }
+        else if (newSrcVal.length()>0){
+            //we already found the scr tag
+            if (a.getValue().isEmpty()){
+                newSrcVal.append(" ").append(a.getKey());
+                toRemove.add(a.getKey());
+            }
+            else{
+                //the empty attributes, i.e. file name parts are over
+                break;
+            }
+        }               
+    }
+    for (String toRemAttr : toRemove){
+        img.removeAttr(toRemAttr);
+    }
+    src.setValue(newSrcVal.toString());
+}
+System.out.println(doc);
+  
+
+ This algorithm cycles over all img elements and within each img it cycles over its attributes. When it finds the  src  attribute it keeps it for reference and starts to fill the  newSrcBuf  StringBuffer. All following value-less attributes will be added to to  newSrcBuf  until either another attribute with value is found or there are no more attributes. Finally the scr attribute value is reset with the contents of  newSrcBuf  and the former empty attributes are removed from the DOM. 
+
+ Note that this will not work when your filename contains two or more consecutive spaces. JSoup discards those spaces between attributes and therefore you can't get them back after parsing. If you need that, then you need to manipulate the input html before parsing. 
+
+
+

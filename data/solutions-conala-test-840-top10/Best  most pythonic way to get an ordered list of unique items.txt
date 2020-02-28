@@ -1,0 +1,189 @@
+Query: Best / most pythonic way to get an ordered list of unique items
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7458752)
+ This should work: 
+
+  sorted(set(itertools.chain.from_iterable(sequences)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34317088)
+ You can use  collections.OrderedDict()  in order to preserve the unique items in order and, loop over the enumerate of this ordered unique items in order to get a dict of items and those indices (based on their order) then pass this dictionary with the main list to  operator.itemgetter()  to get the corresponding index for each item: 
+
+  >>> from collections import OrderedDict
+>>> from operator import itemgetter
+>>> itemgetter(*lst)({j:i for i,j in enumerate(OrderedDict.fromkeys(lst),1)})
+(1, 1, 2, 3, 1, 2)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46042663)
+ To get the "first" key-value pair from a dictionary, you will have to use an  OrderedDict : 
+
+  from collections import OrderedDict
+d = OrderedDict()
+
+#add items as normal
+
+first_key = [a for a, b in d.items()][0]
+print(d[first_key])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12681879)
+ Well, there is no ordered set, but we can misuse OrderedDict: 
+
+  from collections import OrderedDict
+t = "never gonna give you up"
+OrderedDict.fromkeys(t).keys()
+  
+
+  
+
+  ['n', 'e', 'v', 'r', ' ', 'g', 'o', 'a', 'i', 'y', 'u', 'p']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39755585)
+ This is an elegant way: 
+
+  from collections import OrderedDict
+list(OrderedDict.fromkeys(list))
+  
+
+ It works if the list items are all hashable (you will know that all the list items are hashable if converting it to a set did not trigger an exception).   
+
+ If any items are not hashable, there's an alternative which is more robust at the price of poorer performance: I refer you to the https://stackoverflow.com/a/39755540/674039 from Patrick Haugh. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23339428)
+ Use https://docs.python.org/2/library/itertools.html#itertools.groupby: 
+
+  >>> from itertools import groupby
+>>> from operator import itemgetter
+>>> {k: list(g) for k, g in groupby(items, itemgetter('a'))}
+{1: [{'a': 1, 'c': 8, 'b': 9},
+     {'a': 1, 'c': 4, 'b': 5}],
+ 2: [{'a': 2, 'c': 1, 'b': 3},
+     {'a': 2, 'c': 9, 'b': 7}],
+ 3: [{'a': 3, 'c': 2, 'b': 8}]}
+  
+
+ If item are not in sorted order then you can either sort them and then use  groupby  or you can use  collections.OrderedDict (if order matters) or  collections.defaultdict  to do it in O(N) time: 
+
+  >>> from collections import OrderedDict
+>>> d = OrderedDict()
+>>> for item in items:
+...     d.setdefault(item['a'], []).append(item)
+...     
+>>> dict(d.items())
+{1: [{'a': 1, 'c': 8, 'b': 9},
+     {'a': 1, 'c': 4, 'b': 5}],
+ 2: [{'a': 2, 'c': 1, 'b': 3},
+     {'a': 2, 'c': 9, 'b': 7}],
+ 3: [{'a': 3, 'c': 2, 'b': 8}]}
+  
+
+  Update:  
+
+ I see that you only want the those keys to be returned that we didn't use for grouping, for that you'll need to do something like this: 
+
+  >>> group_keys = {'a'}
+>>> {k:[{k:d[k] for k in d.viewkeys() - group_keys} for d in g]
+                                   for k, g in groupby(items, itemgetter(*group_keys))}
+{1: [{'c': 8, 'b': 9},
+     {'c': 4, 'b': 5}],
+ 2: [{'c': 1, 'b': 3},
+     {'c': 9, 'b': 7}],
+ 3: [{'c': 2, 'b': 8}]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/16014735)
+ Let's take a step back. 
+
+ You want to uniquify a collection.  
+
+ If the values were hashable, you'd use the O(N)  set  solution. . If you could come up with some kind of hash function, you could equivalently use a  dict  of  myhash(value): value . If your use case really is "nothing but hashable values and flat  list s of hashable values", you could do that by  try ing to  hash , then falling back to  hash(tuple()) . But in general, that's not going to work. 
+
+ If they were fully ordered, you'd use the O(N log N)  sorted  solution (or, equivalent, a tree-based solution or similar). If you could come up with some kind of full-ordering function, you could just pass a  key  to the  sorted  function. I think this will work in your use case (hence my other answer). But, if not, no O(N log N) solution is going to work. 
+
+ If they're neither, you can fall back to the O(N**2) linear search solution: 
+
+  unique = []
+for value in items:
+    if value not in unique:
+        unique.append(value)
+  
+
+ If you can't find some way to define a full-ordering or a hash function on your values, this is the best you can do. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37581632)
+ If you wish to trim the dictionary in place, then you can pop the offending items: 
+
+  for k in d.keys()[:-3]:
+    d.pop(k)
+  
+
+ (On python 3, you'll need to convert  .keys()  to a list). 
+
+ If you're wishing to create a new  OrderedDict , then its not clear quite what is "unpythonic" about your current approach. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29181259)
+ First of all, you cant have repeated keys in a dict, ordered or otherwise! You have the key  2  twice. One of the two values is going to be lost instantly when the dict is created. 
+
+ Ok, suppose all the keys are unique. You should never rely on order of items in a dict: 
+
+ 
+   CPython implementation detail: Keys and values are listed in an arbitrary order which is non-random, varies across Python implementations, and depends on the dictionary’s history of insertions and deletions. 
+ 
+
+ (from https://docs.python.org/2/library/stdtypes.html%23mapping-types-dict) 
+
+ That's why there is OrderedDict. What's the next best thing after OrderedDict?  
+
+  >>> d = {2:3, 1:89, 4:5, 2:0, 50: 5, 6: 6}
+
+>>> d  # lost "2:3" pair!
+{1: 89, 2: 0, 4: 5, 50: 5, 6: 6}
+
+>>> l = d.items()
+
+>>> l
+[(1, 89), (2, 0), (4, 5), (50, 5), (6, 6)]
+
+>>> l.sort()
+
+>>> l
+[(1, 89), (2, 0), (4, 5), (6, 6), (50, 5)]
+  
+
+ That's a list of key-value pairs. It is up to you to take care of fetching values from it, etc. What's important is to  never  do  dict(l)  because that might change the order of items.  (To be fair: you can do it, just don't rely on order of items in the resulting dict. Or in any other dict for that matter, as stated in the quote above.) 
+
+ You could implement this in a class, but then you'd be reinventing the OrderedDict class, and probably not as good. 
+
+ 
+
+ Out of curiosity: why you can't use OrderedDict? 
+
+
+

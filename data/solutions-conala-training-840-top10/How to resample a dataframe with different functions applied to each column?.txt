@@ -1,0 +1,374 @@
+Query: How to resample a dataframe with different functions applied to each column?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10021618)
+ You can also downsample using the  asof  method of http://pandas.sourceforge.net/timeseries.html#up-and-downsampling. 
+
+  In [21]: hourly = pd.DateRange(datetime.datetime(2012, 4, 5, 8, 0),
+...                          datetime.datetime(2012, 4, 5, 12, 0),
+...                          offset=pd.datetools.Hour())
+
+In [22]: frame.groupby(hourly.asof).size()
+Out[22]: 
+key_0
+2012-04-05 08:00:00    60
+2012-04-05 09:00:00    60
+2012-04-05 10:00:00    60
+2012-04-05 11:00:00    60
+2012-04-05 12:00:00    1
+In [23]: frame.groupby(hourly.asof).agg({'radiation': np.sum, 'tamb': np.mean})
+Out[23]: 
+                     radiation  tamb 
+key_0                                
+2012-04-05 08:00:00  271.54     4.491
+2012-04-05 09:00:00  266.18     5.253
+2012-04-05 10:00:00  292.35     4.959
+2012-04-05 11:00:00  283.00     5.489
+2012-04-05 12:00:00  0.5414     9.532
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11603242)
+ With pandas 0.18 the resample API changed (see the http://pandas.pydata.org/pandas-docs/version/0.18.0/whatsnew.html#resample-api). 
+So for pandas >= 0.18 the answer is: 
+
+  In [31]: frame.resample('1H').agg({'radiation': np.sum, 'tamb': np.mean})
+Out[31]: 
+                         tamb   radiation
+2012-04-05 08:00:00  5.161235  279.507182
+2012-04-05 09:00:00  4.968145  290.941073
+2012-04-05 10:00:00  4.478531  317.678285
+2012-04-05 11:00:00  4.706206  335.258633
+2012-04-05 12:00:00  2.457873    8.655838
+  
+
+ 
+
+ Old Answer: 
+
+ I am answering my question to reflect the time series related changes in  pandas >= 0.8  (all other answers are outdated). 
+
+ Using pandas >= 0.8 the answer is: 
+
+  In [30]: frame.resample('1H', how={'radiation': np.sum, 'tamb': np.mean})
+Out[30]: 
+                         tamb   radiation
+2012-04-05 08:00:00  5.161235  279.507182
+2012-04-05 09:00:00  4.968145  290.941073
+2012-04-05 10:00:00  4.478531  317.678285
+2012-04-05 11:00:00  4.706206  335.258633
+2012-04-05 12:00:00  2.457873    8.655838
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13592901)
+ You can simply pass the functions as a list: 
+
+  In [20]: df.groupby("dummy").agg({"returns": [np.mean, np.sum]})
+Out[20]: 
+        returns          
+            sum      mean
+
+dummy                    
+1      0.285833  0.028583
+  
+
+  
+
+  In [21]: df.groupby('dummy').agg({'returns':
+                                  {'Mean': np.mean, 'Sum': np.sum}})
+Out[21]: 
+        returns          
+            Sum      Mean
+dummy                    
+1      0.285833  0.028583
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46211721)
+ Different use cases.  When comparing them, it is useful to bring up  apply  and  agg  as well. 
+
+      
+
+  np.random.seed([3,1415])
+df = pd.DataFrame(np.random.randint(10, size=(6, 4)), columns=list('ABCD'))
+
+df
+
+   A  B  C  D
+0  0  2  7  3
+1  8  7  0  6
+2  8  6  0  2
+3  0  4  9  7
+4  3  2  4  3
+5  3  6  7  7
+  
+
+ 
+
+   pd.DataFrame.applymap   
+This takes a function and returns a new dataframe with the results of that function being applied to the value in each cell and replacing the value of the cell with the result. 
+
+  df.applymap(lambda x: str(x) * x)
+
+          A        B          C        D
+0                 22    7777777      333
+1  88888888  7777777              666666
+2  88888888   666666                  22
+3               4444  999999999  7777777
+4       333       22       4444      333
+5       333   666666    7777777  7777777
+  
+
+ 
+
+   pd.DataFrame.agg   
+Takes one or more functions.  Each function is expected to be an aggregation function.  Meaning each function is applied to each column and is expected to return a single value that replaces the entire column.  Examples would be  'mean'  or  'max' .  Both of those take a set of data and return a scalar. 
+
+  df.agg('mean')
+
+A    3.666667
+B    4.500000
+C    4.500000
+D    4.666667
+dtype: float64
+  
+
+  
+
+  df.agg(['mean', 'std', 'first', 'min'])
+
+             A         B         C         D
+mean  3.666667  4.500000  4.500000  4.666667
+std   3.614784  2.167948  3.834058  2.250926
+min   0.000000  2.000000  0.000000  2.000000
+  
+
+ 
+
+   pd.DataFrame.transform   
+Takes one function that is expected to be applied to a column and return a column of equal size. 
+
+  df.transform(lambda x: x / x.std())
+
+          A         B         C         D
+0  0.000000  0.922531  1.825742  1.332785
+1  2.213133  3.228859  0.000000  2.665570
+2  2.213133  2.767594  0.000000  0.888523
+3  0.000000  1.845062  2.347382  3.109832
+4  0.829925  0.922531  1.043281  1.332785
+5  0.829925  2.767594  1.825742  3.109832
+  
+
+ 
+
+   pd.DataFrame.apply   
+pandas attempts to figure out if  apply  is reducing the dimensionality of the column it was operating on (aka, aggregation) or if it is transforming the column into another column of equal size.  When it figures it out, it runs the remainder of the operation as if it were an aggregation or transform procedure. 
+
+  df.apply('mean')
+
+A    3.666667
+B    4.500000
+C    4.500000
+D    4.666667
+dtype: float64
+  
+
+  
+
+  df.apply(lambda x: (x - x.mean()) / x.std())
+
+          A         B         C         D
+0 -1.014353 -1.153164  0.652051 -0.740436
+1  1.198781  1.153164 -1.173691  0.592349
+2  1.198781  0.691898 -1.173691 -1.184698
+3 -1.014353 -0.230633  1.173691  1.036611
+4 -0.184428 -1.153164 -0.130410 -0.740436
+5 -0.184428  0.691898  0.652051  1.036611
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12593342)
+ Would something like this work: 
+
+  In [7]: df.groupby('dummy').returns.agg({'func1' : lambda x: x.sum(), 'func2' : lambda x: x.prod()})
+Out[7]: 
+              func2     func1
+dummy                        
+1     -4.263768e-16 -0.188565
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30674755)
+ The following should work: 
+
+  data.groupby(['A','B']).agg([pd.Series.mean, pd.Series.std, pd.Series.count])
+  
+
+ basically call http://pandas.pydata.org/pandas-docs/stable/groupby.html#applying-multiple-functions-at-once and passing a list of functions will generate multiple columns with those functions applied. 
+
+ Example: 
+
+  In [12]:
+
+df = pd.DataFrame({'a':np.random.randn(5), 'b':[0,0,1,1,2]})
+df.groupby(['b']).agg([pd.Series.mean, pd.Series.std, pd.Series.count])
+Out[12]:
+          a                
+       mean       std count
+b                          
+0 -0.769198  0.158049     2
+1  0.247708  0.743606     2
+2 -0.312705       NaN     1
+  
+
+ You can also pass the string of the method names, the common ones work, some of the more obscure ones don't I can't remember which but in this case they work fine, thanks to @ajcr for the suggestion: 
+
+  In [16]:
+df = pd.DataFrame({'a':np.random.randn(5), 'b':[0,0,1,1,2]})
+df.groupby(['b']).agg(['mean', 'std', 'count'])
+
+Out[16]:
+          a                
+       mean       std count
+b                          
+0 -1.037301  0.790498     2
+1 -0.495549  0.748858     2
+2 -0.644818       NaN     1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44677189)
+ You can still use a dict but with a bit of hack: 
+
+  df_test.groupby('a').transform(lambda x: {'b': x.cumsum(), 'c': x.cumprod()}[x.name])
+Out[427]: 
+    b     c
+0   2     3
+1  22    90
+2  30    50
+3  24  2970
+4  34  2500
+  
+
+ If you need to keep column a, you can do: 
+
+  df_test.set_index('a')\
+       .groupby('a')\
+       .transform(lambda x: {'b': x.cumsum(), 'c': x.cumprod()}[x.name])\
+       .reset_index()
+Out[429]: 
+   a   b     c
+0  1   2     3
+1  1  22    90
+2  2  30    50
+3  1  24  2970
+4  2  34  2500
+  
+
+ Another way is to use an if else to check column names: 
+
+  df_test.set_index('a')\
+       .groupby('a')\
+       .transform(lambda x: x.cumsum() if x.name=='b' else x.cumprod())\
+       .reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42560396)
+ Use  agg  function and pass a list of aggregation functions to it with either  resample  or  pd.TimeGrouper : 
+
+  # make sure the timestamp column is of date time type
+df['timestap'] = pd.to_datetime(df['timestap'])
+
+df.set_index('timestap').resample("s").agg(["min", "max"])
+  
+
+ https://i.stack.imgur.com/giimn.png 
+
+ Or use  TimeGrouper : 
+
+  df.set_index('timestap').groupby(pd.TimeGrouper(freq='s')).agg(['min', 'max'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47614056)
+ Your agg function for column  'C'  should be a  join  
+
+  d.resample('D').agg({'A': sum, 'B': np.mean, 'C': ' - '.join})
+
+              A     B           C
+2017-01-31  1.0  10.0          ok
+2017-02-01  NaN   NaN            
+2017-02-02  NaN   NaN            
+2017-02-03  5.0  25.0  merge - us
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36983514)
+ The  base  argument is applied to midnight, so in your case the sampling starts from 00:30 and adds 78 min increments from there. I see two options. 
+
+  Option 1 : 
+
+ Figure out what the  base  applied to midnight should be in order to reach 9:30 (in this case  24 ): 
+
+  Data.resample(tframe, base=24)
+  
+
+  Option 2 : 
+
+ Generate the datetimeindex yourself, and resample with  reindex : 
+
+  index = pd.date_range('2009-01-30 09:30:00', '2009-01-30 16:00:00', freq='78min')
+Data.reindex(index=index)
+  
+
+ 
+
+  EDIT : for multiple days you will need to generate the timestamps yourself.  
+
+  index_date = pd.date_range('2016-04-01', '2016-04-04')
+index_date = pd.Series(index_date)
+index_time = pd.date_range('09:30:00', '16:00:00', freq='78min')
+index_time = pd.Series(index_time.time)
+
+index = index_date.apply(
+    lambda d: index_time.apply(
+        lambda t: datetime.combine(d, t)
+        )
+    ).unstack().sort_values().reset_index(drop=True)
+  
+
+ Here is what the code does: 
+
+ 
+ Generate the dates and times you're interested in, and make them into series to have the  apply  property. 
+ Using nested 'applies', loop over dates and times and combine them into a datetime object. 
+ The output is a square dataframe (one column per date) so I  unstack  and sort the timestamps (and finally reset the index to get rid of a useless index generated along the way). 
+ 
+
+ The resulting  index  can be used to reindex as in option 2 originally: 
+
+  Data.reindex(index=index)
+  
+
+
+

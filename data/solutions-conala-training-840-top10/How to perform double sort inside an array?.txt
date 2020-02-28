@@ -1,0 +1,214 @@
+Query: How to perform double sort inside an array?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4768167)
+  bar.sort(key=lambda x: (x.attrb1, x.attrb2), reverse=True)
+  
+
+ And you don't need to define  foo.sort  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4768206)
+ You're using classes already so just implement  __lt__ : 
+
+  class foo:
+    def __init__(self,a1,a2):
+        self.attrb1 = a1
+        self.attrb2 = a2
+
+    # just for convenience in `__lt__`
+    def defaultorder(self):
+        return self.attrb1, self.attrb2
+
+    # answers `self < other`, used by the sorting algorithm
+    def __lt__(self, other):
+        return self.defaultorder() < other.defaultorder()
+
+bar.sort(reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4769011)
+ You can also do it without lambda (which I personally don't like): 
+
+  import operator 
+bar.sort(key=operator.attrgetter("attrb1","attrb2"))
+  
+
+ operator.attrgetter works like this: 
+
+  a = foo(3,4)
+b = operator.attrgetter("attrb1","attrb2")(a)
+print(b) #  You get (3,4)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4768238)
+ Sort already do this if you have a tuple of values.
+If you change the method sort to return a tuple: 
+
+   class foo:
+    def __init__(self,a1,a2):
+        self.attrb1 = a1
+        self.attrb2 = a2
+
+    def sort(self):
+        return self.attrb1, self.attrb2
+  
+
+ Then the solution is really simple: 
+
+ 
+   bar.sort(key=foo.sort, reverse=True) 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42773259)
+ You need a double argsort here to keep the order: 
+
+  In [6]: a
+Out[6]: array([5, 4, 8, 3, 6, 1, 2, 4, 9, 6])
+
+In [7]: b=sort(a)
+
+In [8]: b
+Out[8]: array([1, 2, 3, 4, 4, 5, 6, 6, 8, 9])
+
+In [9]: ii=a.argsort().argsort()
+
+In [10]: c=b*b
+
+In [11]: c
+Out[11]: array([ 1,  4,  9, 16, 16, 25, 36, 36, 64, 81])
+
+In [12]: c[ii]
+Out[12]: array([25, 16, 64,  9, 36,  1,  4, 16, 81, 36])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2483748)
+ I'm not sure how best to do it in  numpy , but, in pure Python, the reasoning would be: 
+
+  aargsort  is holding a permutation of  range(len(a))  telling you where the items of  aSort  came from -- much like, in pure Python: 
+
+  >>> x = list('ciaobelu')
+>>> r = range(len(x))
+>>> r.sort(key=x.__getitem__)
+>>> r
+[2, 4, 0, 5, 1, 6, 3, 7]
+>>> 
+  
+
+ i.e., the first argument of  sorted(x)  will be  x[2] , the second one  x[4] , and so forth. 
+
+ So given the sorted version, you can reconstruct the original by "putting items back where they came from": 
+
+  >>> s = sorted(x)
+>>> s
+['a', 'b', 'c', 'e', 'i', 'l', 'o', 'u']
+>>> original = [None] * len(s)
+>>> for i, c in zip(r, s): original[i] = c
+... 
+>>> original
+['c', 'i', 'a', 'o', 'b', 'e', 'l', 'u']
+>>> 
+  
+
+ Of course there are going to be tighter and faster ways to express this in  numpy  (which unfortunately I don't know inside-out as much as I know Python itself;-), but I hope this helps by showing the underlying logic of the "putting things back in place" operation you need to perform. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26655879)
+ Some of this, at least the specific reverse sort question, could be done using http://www.numpy.org/: 
+
+  import numpy as np
+L = np.array([3,4,2,1,5])
+a = np.argsort(L)
+b = L[a]
+r = L[a[::-1]]
+
+print L
+[3 4 2 1 5]
+
+print b
+[1 2 3 4 5]
+
+print r
+[5, 4, 3, 2, 1]
+  
+
+ That is, here we just do the sort once (to create  a , the sorting indices), and then we can manipulate  a , to do other various sorts, like the normal sort  b , and the reverse sort  r .  And many others would be similarly easy, like every other element. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35106519)
+ Standard C library provides  qsort  
+
+  # from libc.stdlib cimport qsort
+# ... declaring "const void *" type seems problematic
+
+# https://stackoverflow.com/questions/8353076/how-do-i-pass-a-pointer-to-a-c-fun$
+cdef extern from "stdlib.h":
+    ctypedef void const_void "const void"
+    void qsort(void *base, int nmemb, int size,
+                int(*compar)(const_void *, const_void *)) nogil
+
+cdef int mycmp(const_void * pa, const_void * pb):
+    cdef double a = (<double *>pa)[0]
+    cdef double b = (<double *>pb)[0]
+    if a < b:
+        return -1
+    elif a > b:
+        return 1
+    else:
+        return 0
+
+cdef void myfunc(double * y, ssize_t l) nogil:
+    qsort(y, l, sizeof(double), mycmp)
+  
+
+ If the array is "almost-sorted", then insertion sort might be better: https://stackoverflow.com/a/2726841/5781248 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46118476)
+ Here's an example, for reference and convenience: 
+
+  # create an array
+a = np.array([5,2,3])
+
+# np.sort - returns the array, sorted
+np.sort(a)
+>>> array([2, 3, 5])
+
+# argsort - returns the original indexes of the sorted array
+np.argsort(a)
+>>> array([1, 2, 0])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/20644005)
+ I was struggling with the same thing and just got help and solved the problem. It works smoothly if your array have column names (structured array) and I think this is a very simple way to sort using the same logic that excel does: 
+
+  array_name[array_name[['colname1','colname2']].argsort()]
+  
+
+ Note the double-brackets enclosing the sorting criteria. And off course, you can use more than 2 columns as sorting criteria. 
+
+
+

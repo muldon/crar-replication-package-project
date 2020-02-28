@@ -1,0 +1,319 @@
+Query: How to insert strings with quotes and newlines into sqlite db with Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14695158)
+ You use SQL parameters instead of string formatting: 
+
+  c.execute("INSERT INTO test VALUES (?, 'bar')", (testfield,))
+  
+
+ When using SQL parameters you let the database library handle the quoting, and even better, give the database to optimize the query and reuse the optimized query plan for multiple executions of the same basic query (with different parameters). 
+
+ Last but not least, you are much better defended against SQL injection attacks as the database library knows best how to escape dangerous SQL-like values. 
+
+ To quote the http://docs.python.org/2/library/sqlite3.html: 
+
+ 
+   Usually your SQL operations will need to use values from Python variables. You shouldn’t assemble your query using Python’s string operations because doing so is insecure; it makes your program vulnerable to an SQL injection attack (see http://xkcd.com/327/ for humorous example of what can go wrong). 
+  
+   Instead, use the DB-API’s parameter substitution. Put  ?  as a placeholder wherever you want to use a value, and then provide a tuple of values as the second argument to the cursor’s  execute()  method. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29965977)
+ You can read about it at: http://initd.org/psycopg/docs/usage.html#the-problem-with-the-query-parameters 
+
+ Simply do not use quotes in SQL and instead of  %  string Python operator use 2nd parameter of  execute()  which is data you want to pass to SQL query: 
+
+  sql = "insert into smth (data, filedate, filedby) values (%s, NOW(), %s)"
+ur_psql.execute(sql, (data, userid))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/143748)
+ Single and double quoted strings in Python are identical. The only difference is that single-quoted strings can contain unescaped double quote characters, and vice versa. For example: 
+
+  'a "quoted" word'
+"another 'quoted' word"
+  
+
+ Then again, there are triple-quoted strings, which allow both quote chars and newlines to be unescaped. 
+
+ You can substitute variables in a string using named specifiers and the locals() builtin: 
+
+  name = 'John'
+lastname = 'Smith'
+print 'My name is %(name)s %(lastname)s' % locals()  # prints 'My name is John Smith'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7083532)
+ The simplest thing is to use python's triple quotes (note the three single quotes) 
+
+  stringtowrite = '''abcd ||
+                   efgh||
+                   iklk'''
+  
+
+ any string literal with triple quotes will continue on a following line. You can use ''' or """. 
+
+ By the way, if you have 
+
+  a = abcd
+b = efgh
+c = iklk
+  
+
+ I would recommend the following: 
+
+  stringtowrite = "%s||\n%s||\n%s" % (a,b,c)
+  
+
+ as a more readable and pythonic way of doing it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24948330)
+ Do not use string formatting to insert query parameters into the query - this would make sql injections possible, you would have problems with characters that need to be escaped, with data type conversions etc. 
+
+ Eliminate the quotes around  ?  and continue using parameterized query parameters: 
+
+  cur.execute("SELECT * FROM DB WHERE employeeNum = ?", (empNum, ))
+  
+
+ The quotes around  ?  made sqlite interpret  ?  . 
+
+ Also see similar problem: 
+
+ 
+ https://stackoverflow.com/questions/1005552/sqlite-parameter-substitution-and-quotes 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18996399)
+  str(a)  is  "{'key': 602L}" . Replacing this into the SQL statement gives: 
+
+  INSERT INTO TABLE VALUES ('{'key': 602L}')
+  
+
+ Note the mismatch of single quotes. Look into escaping the single quotes. 
+
+  EDIT  
+
+ As  user2799617  mentioned, you can try the following: 
+
+  import json
+a_json = json.dumps(str(a))
+self.__db_conn.cursor.execute("INSERT INTO TABLE VALUES ('%s')" % a_json)
+  
+
+ When you get the value back from the database, you can use http://docs.python.org/2/library/json.html#json.loads. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49366485)
+ You don't have to "scan" for a newline, as long as you only add a space when there is a character which is not a space, either before or after, your current character. 
+
+ I don't think it can be done with a single regular expression, but with two you can add just spaces where needed. It needs  two  lookbehinds/lookaheads, because there are two conditions: 
+
+ 
+ There must be at least one character before/after the  @ ,  # , or  ? ; 
+ It must not be a newline. 
+ 
+
+ I added a third condition for consistency: 
+
+<ol start="3">
+ .. this character must not be a space. 
+ 
+
+ so there won't be a space added when there already is one. (It's only a convenience addition, because  \S  happens to match "everything that is not space-like".) 
+
+ Why do you need two lookbehinds? Because one of them will match if there is a character (which must not be a space-like) and another will match if there is "not" a newline, which includes start and end of the string itself. 
+
+ The following code, with a slightly altered input string to show off that it works at edge cases, 
+
+  import re
+
+str = '@0x0D?0A\n@0x1f?@0x2f?48# 65#6C#6C#6F#2C#20#57#6F#72#6C#64#21@'
+
+str = re.sub(r'(?<=\S)(?<!\n)([@?#])', r' \1', str)
+str = re.sub(r'([@?#])(?!\n)(?=\S)', r'\1 ', str)
+print ('"'+str+'"')
+  
+
+  
+
+  "@ 0x0D ? 0A
+@ 0x1f ? @ 0x2f ? 48 # 65 # 6C # 6C # 6F # 2C # 20 # 57 # 6F # 72 # 6C # 64 # 21 @"
+  
+
+ where the double quotes are only added to show begin and end of the result string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6701665)
+ To convert any string into a SQLite identifier: 
+
+ 
+ Ensure the string can be encoded as UTF-8. 
+ Ensure the string does not include any NUL characters. 
+ Replace all  "  with  "" . 
+ Wrap the entire thing in double quotes. 
+ 
+
+ Implementation</h3>
+
+<pre class="lang-python prettyprint-override"> import codecs
+
+def quote_identifier(s, errors="strict"):
+    encodable = s.encode("utf-8", errors).decode("utf-8")
+
+    nul_index = encodable.find("\x00")
+
+    if nul_index >= 0:
+        error = UnicodeEncodeError("NUL-terminated utf-8", encodable,
+                                   nul_index, nul_index + 1, "NUL not allowed")
+        error_handler = codecs.lookup_error(errors)
+        replacement, _ = error_handler(error)
+        encodable = encodable.replace("\x00", replacement)
+
+    return "\"" + encodable.replace("\"", "\"\"") + "\""
+  
+
+ Given a string single argument, it will escape and quote it correctly or raise an exception. The second argument can be used to specify any error handler registered in http://docs.python.org/library/codecs.html. The built-in ones are: 
+
+ 
+   
+    'strict' : raise an exception in case of an encoding error 
+    'replace' : replace malformed data with a suitable replacement marker, such as  '?'  or  '\ufffd'  
+    'ignore' : ignore malformed data and continue without further notice 
+    'xmlcharrefreplace' : replace with the appropriate XML character reference (for encoding only) 
+    'backslashreplace' : replace with backslashed escape sequences (for encoding only) 
+   
+ 
+
+ This doesn't check for reserved identifiers, so if you try to create a new  SQLITE_MASTER  table it won't stop you. 
+
+ Example Usage</h3>
+
+<pre class="lang-python prettyprint-override"> import sqlite3
+
+def test_identifier(identifier):
+    "Tests an identifier to ensure it's handled properly."
+
+    with sqlite3.connect(":memory:") as c:
+        c.execute("CREATE TABLE " + quote_identifier(identifier) + " (foo)")
+        assert identifier == c.execute("SELECT name FROM SQLITE_MASTER").fetchone()[0]
+
+test_identifier("'Héllo?'\\\n\r\t\"Hello!\" -☃") # works
+test_identifier("北方话") # works
+test_identifier(chr(0x20000)) # works
+
+print(quote_identifier("Fo\x00o!", "replace")) # prints "Fo?o!"
+print(quote_identifier("Fo\x00o!"
+print(quote_identifier("Fo\x00o!")) # raises UnicodeEncodeError
+print(quote_identifier(chr(0xD800))) # raises UnicodeEncodeError
+  
+
+ Observations and References</h3>
+
+ 
+ SQLite identifiers are http://www.sqlite.org/datatype3.html#storageclasses, not binary.
+
+ 
+ http://www.sqlite.org/faq.html#q7 
+ Python 2 SQLite API yelled at me when I gave it bytes it couldn't decode as text. 
+ Python 3 SQLite API requires queries be  str s, not  bytes . 
+  
+ 
+
+
+
+ 
+ SQLite identifiers are quoted using double-quotes.
+
+ 
+ http://www.sqlite.org/lang_keywords.html 
+  
+ 
+
+
+
+ 
+ Double-quotes in SQLite identifiers are escaped as two double quotes. 
+ 
+
+
+
+ 
+ SQLite identifiers preserve case, but they are case-insensitive towards ASCII letters. It is possible to enable unicode-aware case-insensitivity.
+
+ 
+ http://www.sqlite.org/faq.html#q18 
+  
+ 
+
+
+
+ 
+ SQLite does not support the http://en.wikipedia.org/wiki/Null_character in strings or identifiers.
+
+ 
+ http://www.sqlite.org/src/tktview?name=57c971fc74 
+  
+ 
+
+
+
+ 
+  sqlite3  can handle any other unicode string as long as it can be properly encoded to UTF-8. Invalid strings could cause crashes between Python 3.0 and Python 3.1.2 or thereabouts. Python 2 accepted these invalid strings, but this is considered a bug.
+
+ 
+ http://bugs.python.org/issue12569 
+ http://hg.python.org/cpython/file/42ec507815d2/Modules/_sqlite/cursor.c 
+ I tested it a bunch. 
+  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18996474)
+ Serialize to JSON  
+
+  self.__db_conn.cursor.execute("INSERT INTO TABLE VALUES ('%s')" % json.dumps(your_dict)
+  
+
+  
+
+  row = db.conn.fetchone(.....)
+your_dict = json.loads(row[...])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/32065456)
+ In SQL, strings use single quotes.
+Double quotes are used to escape column names, so  name = "name"  is the same as  name = name . 
+
+ To avoid string formatting problems, it might be a better idea to use parameters: 
+
+  con.execute("DELETE FROM A_table WHERE name = 'name';")
+con.execute("DELETE FROM A_table WHERE name = ?;", ["name"])  # a Python string
+  
+
+
+

@@ -1,0 +1,278 @@
+Query: How to remove decimal points in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37084889)
+ You have a few options... 
+
+ 1) convert everything to integers. 
+
+  df.astype(int)
+          <=35  >35
+Cut-off            
+Calcium      0    1
+Copper       1    0
+Helium       0    8
+Hydrogen     0    1
+  
+
+ 2) Use  round : 
+
+  >>> df.round()
+          <=35  >35
+Cut-off            
+Calcium      0    1
+Copper       1    0
+Helium       0    8
+Hydrogen     0    1
+  
+
+ but not always great... 
+
+  >>> (df - .2).round()
+          <=35  >35
+Cut-off            
+Calcium     -0    1
+Copper       1   -0
+Helium      -0    8
+Hydrogen    -0    1
+  
+
+ 3) Change your display precision option in Pandas. 
+
+  pd.set_option('precision', 0)
+
+>>> df
+          <=35  >35
+Cut-off            
+Calcium      0    1
+Copper       1    0
+Helium       0    8
+Hydrogen     0    1 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50607883)
+ Since pandas 0.17.1 you can set the displayed numerical precision by https://pandas.pydata.org/pandas-docs/stable/style.html rather than setting the global option: 
+
+  import pandas as pd
+import numpy as np
+
+np.random.seed(24)
+df = pd.DataFrame(np.random.randn(5, 3), columns=list('ABC'))
+df 
+  
+
+ https://i.stack.imgur.com/lqKbd.png 
+
+  df.style.set_precision(2)
+  
+
+ <a href="https://i.stack.imgur.com/V5bfC.png"  
+
+ It is also possible to apply column specific styles 
+
+  df.style.format({
+    'A': '{:,.1f}'.format,
+    'B': '{:,.3f}'.format,
+})
+  
+
+ <a href="https://i.stack.imgur.com/e47ml.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52673918)
+ You can try using as  df['col'] = (df['col']*100).astype(int)
+  as below: 
+
+  df = pd.DataFrame({'col': [1.10, 2.20, 3.30, 4.40]})
+df['col'] = (df['col']*100).astype(int)
+print(df)
+  
+
+ Output: 
+
+     col
+0  110
+1  220
+2  330
+3  440
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43325019)
+ You can use  decimal=","  parameter first in http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html for remove  ,  in floats. 
+
+  cols = ['Name','Sum', 'Dates']
+a = pd.DataFrame([[df["Name"].iat[0], 
+                   df["hours"].sum(), 
+                   df["Date"].min().strftime('%d.%m.%Y') + '-' + 
+                   df["Date"].max().strftime('%d.%m.%Y')]], columns=cols)
+print (a)
+    Name   Sum                  Dates
+0  User1  11.0  01.01.2017-01.02.2017
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51784878)
+ You can convert the type with  .  
+
+  In [312]: df.columns = df.columns.(int)
+
+In [313]: df
+Out[313]:
+  2006 2007 2008 2009
+0  foo  foo  bar  bar
+1  foo  foo  bar  bar
+  
+
+ Or use  .map  and convert to string type. 
+
+  In [338]: df.columns.map('{:g}'.format)
+Out[338]: Index(['2006', '2007', '2008', '2009'], dtype='object')
+
+In [319]: df.columns.map(int)
+Out[319]: Int64Index([2006, 2007, 2008, 2009], dtype='int64')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30570572)
+ The following would preserve all digits and just get rid of the final decimal point which is what you wanted: 
+
+  In [80]:
+t="""val
+1.2345.678"""
+df = pd.read_csv(io.StringIO(t))
+df
+
+Out[80]:
+          val
+0  1.2345.678
+
+In [94]:    
+(df['val'].str[0:df['val'].str.rfind('.')[0]]+df['val'].str.split('.').str[-1]).astype(np.float64)
+
+Out[94]:
+0    1.234568
+dtype: float64
+  
+
+ Note that the above shows a display truncation, the full value is present 
+
+ So the above slices your string from beginning to the position of the last decimal point, I then split the string and add the last split, you can then convert to a float using  astype  
+
+  EDIT  
+
+ A better way I think is for the second part not to split but rather re-use  rfind  for the positioning: 
+
+  In [113]:
+df['val'].str[0:df['val'].str.rfind('.')[0]]+df['val'].str[df['val'].str.rfind('.')[0]+1:]
+
+Out[113]:
+0    1.2345678
+Name: val, dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51735200)
+ Use  mask : 
+
+  df = pd.DataFrame({'Store': ['X', 'Y', 'Z', 'A', 'B'],
+                 'Quantities': ['0.0', '0.034', '0.402', '1.0', '0.0']})
+
+df['Quantities'] = df['Quantities'].mask(df['Quantities']=='0.0', '')
+print(df)
+  
+
+ Output: 
+
+    Store Quantities
+0     X           
+1     Y      0.034
+2     Z      0.402
+3     A        1.0
+4     B           
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37922463)
+ Yes this isn't supported, you can use the property that  NaN  does not equal itself which still works for  Decimal  types: 
+
+  In [20]:
+import pandas as pd
+import decimal
+d = decimal.Decimal('NaN')
+df = pd.DataFrame({'a':[d]})
+df
+
+Out[20]:
+     a
+0  NaN
+
+In [21]:    
+df['a'].apply(lambda x: x != x)
+
+Out[21]:
+0    True
+Name: a, dtype: bool
+  
+
+  
+
+  In [26]:
+df = pd.DataFrame({'a':[d,1,2,3]})
+df[df['a'].apply(lambda x: x == x)]
+
+Out[26]:
+   a
+1  1
+2  2
+3  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51784994)
+ You can convert to  float  before converting to  int  and then  str : 
+
+  df.columns = df.columns.values.astype(float).astype(int).astype(str)
+
+print(df.columns)
+
+Index(['2006', '2007', '2008', '2009'], dtype='object')
+  
+
+ Seems long-winded, but at least we are working with the underlying NumPy array. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23981926)
+ replace the values using the round function, and format the string representation of the percentage numbers: 
+
+  df['var2'] = pd.Series([round(val, 2) for val in df['var2']], index = df.index)
+df['var3'] = pd.Series(["{0:.2f}%".format(val * 100) for val in df['var3']], index = df.index)
+  
+
+ The round function rounds a floating point number to the number of decimal places provided as second argument to the function.  
+
+ String formatting allows you to represent the numbers as you wish. You can change the number of decimal places shown by changing the number before the  f . 
+
+ p.s. I was not sure if your 'percentage' numbers had already been multiplied by 100. If they have then clearly you will want to change the number of decimals displayed, and remove the hundred multiplication.  
+
+
+

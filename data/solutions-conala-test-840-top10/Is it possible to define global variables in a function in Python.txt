@@ -1,0 +1,366 @@
+Query: Is it possible to define global variables in a function in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14323839)
+ You can modify any mutable object without using  global  keyword. 
+
+ This is possible in Python because  global  is used when you want to reassign new objects to variable names already used in global scope or to define new global variables. 
+
+ But in case of mutable objects you're not re-assigning anything, you're just modifying them in-place, therefore Python simply loads them from global scope and modifies them. 
+
+ As http://docs.python.org/2/reference/simple_stmts.html#grammar-token-global_stmt say: 
+
+ 
+   It would be impossible to assign to a global variable without global. 
+ 
+
+  In [101]: dic = {}
+
+In [102]: lis = []
+
+In [103]: def func():
+    dic['a'] = 'foo'
+    lis.append('foo') # but  fails for lis += ['something']
+   .....:     
+
+In [104]: func()
+
+In [105]: dic, lis
+Out[105]: ({'a': 'foo'}, ['foo'])
+  
+
+  dis.dis : 
+
+  In [121]: dis.dis(func)
+  2           0 LOAD_CONST               1 ('foo')
+              3 LOAD_GLOBAL              0 (dic)     # the global object dic is loaded
+              6 LOAD_CONST               2 ('a')
+              9 STORE_SUBSCR                         # modify the same object
+
+  3          10 LOAD_GLOBAL              1 (lis)    # the global object lis is loaded
+             13 LOAD_ATTR                2 (append)
+             16 LOAD_CONST               1 ('foo')
+             19 CALL_FUNCTION            1
+             22 POP_TOP             
+             23 LOAD_CONST               0 (None)
+             26 RETURN_VALUE  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20181981)
+ . Here is the modified code: 
+
+  x = []
+
+class A:
+    def func_1(self):
+        #populate the x variable
+        global x 
+        x.append(1)
+class B:
+    def func_2(self):
+        global x
+        print x
+
+a = A()
+a.func_1()
+b = B()
+b.func_2()
+  
+
+ It can print the list  x  correctly. When it's possible, you should try to avoid global variables. You can use many other ways to pass variables between classes more safely and efficiently.  
+
+ .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4763981)
+ Define the variables outside of the functions and use the  global  keyword. 
+
+  s, n = "", 0
+
+def outer():
+    global n, s
+    n = 123
+    s = 'qwerty'
+    modify()
+
+def modify():
+    global n, s
+    s = 'abcd'
+    n = 456
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16502408)
+ What you want is not possible*. You can just create a variable in the global namespace: 
+
+  myglobal = "UGHWTF"
+
+def main():
+    global myglobal # prevents creation of a local variable called myglobal
+    myglobal = "yu0 = fail it"
+    anotherfunc()
+
+def anotherfunc():
+    print myglobal
+  
+
+ DON'T DO THIS. 
+
+ The whole point of a function is that it takes parameters. Just add parameters to your functions. If you find that you need to modify a lot of functions, this is an indication that you should collect them up into a class. 
+
+  *  To elaborate on why this isn't possible: variables in python are not declared - they are created when an assignment statement is executed. This means that the following code (derived from code posted by astronautlevel) will break: 
+
+  def setcake(taste):
+    global cake
+    cake = taste
+def caketaste():
+    print cake #Output is whatever taste was
+
+caketaste()
+
+Traceback (most recent call last):
+  File "prog.py", line 7, in <module>
+    caketaste()
+  File "prog.py", line 5, in caketaste
+    print cake #Output is whatever taste was
+NameError: global name 'cake' is not defined
+  
+
+ This happens because when  caketaste  is called, no assignment to  cake  has occurred. It will only occur after  setcake  has been called. 
+
+ You can see the error here: http://ideone.com/HBRN4y 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53674072)
+ Using a main function as you told me in a comment, you could write it like this: 
+
+  def main():
+    # Here are your NOT GLOBAL variables:
+    top_stair_wide = 1
+    stair_height = 2
+    stair_count = 3
+    character = "O"
+
+    def draw_stairs(top_stair_wide, stair_height, stair_count, character):
+        for o in range(stair_count):
+            for b in range(stair_height):
+                draw_straight_line(top_stair_wide, character)
+                print("")
+            top_stair_wide += 3
+
+    # ... more definitions follow 
+
+    # Then call the functions...
+
+# Job done when you execute the program:
+main()
+  
+
+ Alternatively:  
+
+  def main(top_stair_wide, stair_height, stair_count, character): # <-- cram all the expected arguments there
+
+    def draw_stairs(top_stair_wide, stair_height, stair_count, character):
+        for o in range(stair_count):
+            for b in range(stair_height):
+                draw_straight_line(top_stair_wide, character)
+                print("")
+            top_stair_wide += 3
+
+    # ... more definitions follow 
+
+    # Then call the functions...
+
+# Job done when you execute the program:
+main(1, 2, 3, "O")
+  
+
+ It's also possible using kwargs, because then you have to know the arguments when you call main() and not when you define it: 
+
+  def main(**kwargs):
+
+    def draw_stairs(**kwargs):
+        for o in range(kwargs["stair_count"]):
+            for b in range(kwargs["stair_height"]):
+                draw_straight_line(kwargs["top_stair_wide"], kwargs["character"])
+                print("")
+            kwargs["top_stair_wide"] += 3
+
+    # ... more definitions follow 
+
+    # Then call the functions...
+    function1(**kwargs)
+    function2(**kwargs)
+    function3(**kwargs)
+
+
+# Job done when you execute the program:
+main(top_stair_wide = 1,
+     stair_height = 2,
+     stair_count = 3,
+     character = "O")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20181919)
+ Yes, it is  possible . Your code is almost right, just missing a couple of parenthesis in the function definitions. . 
+
+ Now, is that  acceptable ? In 99% of cases, no, it's not. There're many ways of passing variables and sharing data between classes, and using global variables is one of the worse ones, if not  the worst . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13034700)
+ You can think of Python global variables as "module" variables - and as such they are much more useful than the traditional "global variables" from C. 
+
+ A global variable is actually defined in a module's  __dict__  and can be accessed from outside that module as a module attribute. 
+
+ So, in your example: 
+
+  # ../myproject/main.py
+
+# Define global myList
+# global myList  - there is no "global" declaration at module level. Just inside
+# function and methods
+myList = []
+
+# Imports
+import subfile
+
+# Do something
+subfile.stuff()
+print(myList[0])
+  
+
+  
+
+  # ../myproject/subfile.py
+
+# Save "hey" into myList
+def stuff():
+     # You have to make the module main available for the 
+     # code here.
+     # Placing the import inside the function body will
+     # usually avoid import cycles - 
+     # unless you happen to call this function from 
+     # either main or subfile's body (i.e. not from inside a function or method)
+     import main
+     main.mylist.append("hey")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11552585)
+ The simplest solution is to have only a single global — or, better yet, to figure out how to pass it in to the function. Using it as a global would look like this (again, I am showing the simplest possible case, not necessarily the best use of Python): 
+
+  class Info(object):  # or whatever you want to name the container
+    """Holder for global information."""
+
+info = Info()        # single instance we will use
+
+def my_function():
+    print "Here is some info:"
+    print info.a, info.b, info.c
+
+info.a = 3
+info.b = 8
+info.c = []
+
+if __name__ == '__main__':
+    my_function()
+  
+
+ Again, I would probably pass  info  to the function instead. But since your question was about a global, it's shown here as a global. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18292873)
+ Using  eval  for delaying evaluation is bad, both in Lisp and Python. 
+
+ in Python, and in Lisp, you can delay evaluation using a closure: 
+
+  def print_it(x):
+    def f():
+        print g(x)
+    return f
+
+f = print_it(42)
+
+def g(x):
+   return x * x
+
+f()
+  
+
+ Please note that what is captured in a closure is not the  value  of a variable, but the variable itself and this is sometimes surprising: 
+
+  fa = []
+
+for x in range(10):
+    def g():
+        print x
+    fa.append(g)
+
+for f in fa:
+    f() # all of them will print 9
+
+x = 42
+
+fa[0]() # the output will be 42
+  
+
+ to solve this problem (that can also be present in Common Lisp) you may see things like: 
+
+  for x in range(10):
+    def g(x = x):
+        print x
+    fa.append(g)
+  
+
+  
+
+  (let ((a a))
+  (lambda () (print a)))
+  
+
+ Python also has a  lambda  special form for anonymous functions, but they are limited to one single expression and cannot contain any statement. A locally  def -ined function instead is a regular function without any limitations. 
+
+  for x in range(10):
+    # print is a statement in Python 2.x and cannot be in a lambda
+    fa.append(lambda x=x: sys.stdout.write(str(x) + "\n"))
+  
+
+ Finally Python 2.x has a syntax limitation and closed-over variables are read-only because if there is an assignment (or augmented-assignment) in a function there are only two possibilities: 
+
+ 
+ The variable is a global (and has been previously declared so with  global x ) 
+ The variable is a local 
+ 
+
+ and in particular it's ruled out that a variable being assigned could be a local of an enclosing function scope. 
+
+ Python 3.x removed this limitation by providing a new possible declaration  nonlocal x  and now the famous  adder  example can be implemented as 
+
+  def adder(x):
+    def f(y):
+        nonlocal x
+        x += y
+        return x
+    return f
+  
+
+
+

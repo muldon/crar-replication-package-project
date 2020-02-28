@@ -1,0 +1,259 @@
+Query: What's the most pythonic way of normalizing lineends in a string?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1749887)
+  mixed.replace('\r\n', '\n').replace('\r', '\n')
+  
+
+ should handle all possible variants. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1749553)
+ 
+   ... but this doesn't handle "mixed" text-files of utterly confused conventions (Yes, they still exist!) 
+ 
+
+ Actually it should work fine: 
+
+  >>> s = 'hello world\nline 1\r\nline 2'
+
+>>> s.splitlines()
+['hello world', 'line 1', 'line 2']
+
+>>> '\n'.join(s.splitlines())
+'hello world\nline 1\nline 2'
+  
+
+  
+
+  EDIT:  I still don't see how  splitlines()  is not working for you: 
+
+  >>> s = '''\
+... First line, with LF\n\
+... Second line, with CR\r\
+... Third line, with CRLF\r\n\
+... Two blank lines with LFs\n\
+... \n\
+... \n\
+... Two blank lines with CRs\r\
+... \r\
+... \r\
+... Two blank lines with CRLFs\r\n\
+... \r\n\
+... \r\n\
+... Three blank lines with a jumble of things:\r\n\
+... \r\
+... \r\n\
+... \n\
+... End without a newline.'''
+
+>>> s.splitlines()
+['First line, with LF', 'Second line, with CR', 'Third line, with CRLF', 'Two blank lines with LFs', '', '', 'Two blank lines with CRs', '', '', 'Two blank lines with CRLFs', '', '', 'Three blank lines with a jumble of things:', '', '', '', 'End without a newline.']
+
+>>> print '\n'.join(s.splitlines())
+First line, with LF
+Second line, with CR
+Third line, with CRLF
+Two blank lines with LFs
+
+
+Two blank lines with CRs
+
+
+Two blank lines with CRLFs
+
+
+Three blank lines with a jumble of things:
+
+
+
+End without a newline.
+  
+
+ As far as I know  splitlines()  doesn't split the list twice or anything. 
+
+ Can you paste a sample of the kind of input that's giving you trouble? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48455482)
+ Like some comments stated, regex is a neat and easy way to get what you want. If you don't mind getting lowercase results, this one should work: 
+
+  import re
+my_str = """
+...
+create table Sales ...
+create TabLE  
+ test
+create external table Persons ...
+...
+"""
+pattern = r"table\s+(\w+)\b"
+items = re.findall(pattern, my_str.lower())
+print items
+  
+
+ It captures the next word after "table   " (followed by at least one whitespace / newline). 
+
+ To get the original case of the table names: 
+
+  for x, item in enumerate(items):
+    i = my_str.lower().index(item)
+    items[x] = my_str[i:i+len(item)]
+print items
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46711759)
+ Here are more pythonic ways of max and min functions: 
+
+  def min_value(rank_norm):
+    return min([x['score'] for x in rank_norm])
+
+def max_value(rank_norm):
+    return max([x['score'] for x in rank_norm])
+  
+
+ . Also, here is normalize function with a single-line expression, this doesn't look nice, but works: 
+
+  def normalize_dict(rank_norm, min_val, max_val):
+    return [{'hello':x['hello'] , 'score':(x['score']-min_val)/(max_val - min_val)} for x in rank_norm]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35821554)
+ It is probably best to use the https://pypi.python.org/pypi/python-dateutil/2.5.0 and https://pypi.python.org/pypi/pytz packages for this purpose. This will allow you to parse a string and convert it to a datetime object with UTC timezone: 
+
+  >>> s = '2014-05-08T22:30:57-04:00'
+>>> import dateutil.parser
+>>> import pytz
+>>> pytz.UTC.normalize(dateutil.parser.parse(s))
+datetime.datetime(2014, 5, 9, 2, 30, 57, tzinfo=<UTC>)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16467503)
+ http://docs.python.org/2/library/unicodedata.html#unicodedata.normalize. 
+
+  unicodedata.normalize(form, unistr)
+  
+
+ You need to select one of the four http://en.wikipedia.org/wiki/Unicode_equivalence#Normalization. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42192335)
+ You may also want to use  
+
+  import unicodedata
+output = unicodedata.normalize('NFD', my_unicode).encode('ascii', 'ignore')
+  
+
+ how do i convert all those escape characters into their respective characters like if there is an unicode à, how do i convert that into a standard a?
+Assume you have loaded your unicode into a variable called my_unicode... normalizing à into a is this simple... 
+
+ import unicodedata
+output = unicodedata.normalize('NFD', my_unicode).encode('ascii', 'ignore')
+Explicit example... 
+
+  myfoo = u'àà'
+myfoo
+u'\xe0\xe0'
+unicodedata.normalize('NFD', myfoo).encode('ascii', 'ignore')
+'aa'
+  
+
+ check this answer it helped me a lot: https://stackoverflow.com/questions/14118352/how-to-convert-unicode-accented-characters-to-pure-ascii-without-accents 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9042633)
+ What you want to do is also known as "slugify" a string. Here's a possible solution: 
+
+  import re
+from unicodedata import normalize
+
+_punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.:]+')
+
+def slugify(text, delim=u'-'):
+    """Generates an slightly worse ASCII-only slug."""
+    result = []
+    for word in _punct_re.split(text.lower()):
+        word = normalize('NFKD', word).encode('ascii', 'ignore')
+        if word:
+            result.append(word)
+    return unicode(delim.join(result))
+  
+
+  
+
+  >>> slugify(u'My International Text: åäö')
+u'my-international-text-aao'
+  
+
+ You can also change the delimeter: 
+
+  >>> slugify(u'My International Text: åäö', delim='_')
+u'my_international_text_aao'
+  
+
+  Source:  http://flask.pocoo.org/snippets/5/ 
+
+  For Python 3:  http://pastebin.com/ft7Yb3KS (thanks https://stackoverflow.com/users/2221315/mrpoxipol). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9044621)
+ I'll throw my own (partial) solution here too: 
+
+  import unicodedata
+
+def deaccent(some_unicode_string):
+    return u''.join(c for c in unicodedata.normalize('NFD', some_unicode_string)
+               if unicodedata.category(c) != 'Mn')
+  
+
+ This does not do all you want, but gives a few nice tricks wrapped up in a convenience method:  unicode.normalise('NFD', some_unicode_string)  does a decomposition of unicode characters, for example, it breaks 'ä' to two unicode codepoints  U+03B3  and  U+0308 . 
+
+ The other method,  unicodedata.category(char) , returns the enicode character category for that particular  char . Category  Mn  contains all combining accents, thus  deaccent  removes all accents from the words. 
+
+ But note, that this is just a partial solution, it gets rid of accents. You still need some sort of whitelist of characters you want to allow after this.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16467505)
+ The  unicodedata  module offers a http://docs.python.org/2/library/unicodedata.html#unicodedata.normalize, you want to normalize to the NFC form: 
+
+  >>> unicodedata.normalize('NFC', u'\u0061\u0301')
+u'\xe1'
+>>> unicodedata.normalize('NFD', u'\u00e1')
+u'a\u0301'
+  
+
+ NFC, or 'Normal Form Composed' returns composed characters, NFD, 'Normal Form Decomposed' gives you decomposed, combined characters. 
+
+ The additional NFKC and NFKD forms deal with compatibility codepoints; e.g. U+2160 (ROMAN NUMERAL ONE) is really just the same thing as U+0049 (LATIN CAPITAL LETTER I) but present in the Unicode standard to remain compatible with encodings that treat them separately. Using either NFKC or NFKD form, in addition to composing or decomposing characters, will also replace all 'compatibility' characters with their canonical form: 
+
+  >>> unicodedata.normalize('NFC', u'\u2167')  # roman numeral VIII
+u'\u2167'
+>>> unicodedata.normalize('NFKC', u'\u2167') # roman numeral VIII
+u'VIII'
+  
+
+ Note that there is no guarantee that composed and decomposed forms are communicative; normalizing a combined character to NFC form, then converting the result back to NFD form does not always result in the same character sequence. The Unicode standard http://www.unicode.org/Public/UCD/latest/ucd/CompositionExclusions.txt; characters on this list are composable, but not decomposable back to their combined form, for various reasons. Also see the documentation on the http://www.unicode.org/reports/tr15/#Primary_Exclusion_List_Table. 
+
+
+

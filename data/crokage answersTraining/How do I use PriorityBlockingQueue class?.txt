@@ -1,0 +1,272 @@
+Query: How do I use PriorityBlockingQueue class?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8471474)
+ My solution: 
+
+  public class XThreadPoolExecutor extends ThreadPoolExecutor
+{
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
+    }
+
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue,
+        RejectedExecutionHandler handler)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
+    }
+
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue,
+        ThreadFactory threadFactory)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
+    }
+
+    public XThreadPoolExecutor(int corePoolSize, int maximumPoolSize,
+        long keepAliveTime, TimeUnit unit, PriorityBlockingQueue<Runnable> workQueue,
+        ThreadFactory threadFactory, RejectedExecutionHandler handler)
+    {
+        super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+    }
+
+    protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value)
+    {
+        return new ComparableFutureTask<>(runnable, value);
+    }
+
+    protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable)
+    {
+        return new ComparableFutureTask<>(callable);
+    }
+
+    protected class ComparableFutureTask<V>
+        extends FutureTask<V> implements Comparable<ComparableFutureTask<V>>
+    {
+        private Object object;
+        public ComparableFutureTask(Callable<V> callable)
+        {
+            super(callable);
+            object = callable;
+        }
+
+        public ComparableFutureTask(Runnable runnable, V result)
+        {
+            super(runnable, result);
+            object = runnable;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public int compareTo(ComparableFutureTask<V> o)
+        {
+            if (this == o)
+            {
+                return 0;
+            }
+            if (o == null)
+            {
+                return -1; // high priority
+            }
+            if (object != null && o.object != null)
+            {
+                if (object.getClass().equals(o.object.getClass()))
+                {
+                    if (object instanceof Comparable)
+                    {
+                        return ((Comparable) object).compareTo(o.object);
+                    }
+                }
+            }
+            return 0;
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16577733)
+ You can use these helper classes:   
+
+  public class PriorityFuture<T> implements RunnableFuture<T> {
+
+    private RunnableFuture<T> src;
+    private int priority;
+
+    public PriorityFuture(RunnableFuture<T> other, int priority) {
+        this.src = other;
+        this.priority = priority;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        return src.cancel(mayInterruptIfRunning);
+    }
+
+    public boolean isCancelled() {
+        return src.isCancelled();
+    }
+
+    public boolean isDone() {
+        return src.isDone();
+    }
+
+    public T get() throws InterruptedException, ExecutionException {
+        return src.get();
+    }
+
+    public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+        return src.get();
+    }
+
+    public void run() {
+        src.run();
+    }
+
+    public static Comparator<Runnable> COMP = new Comparator<Runnable>() {
+        public int compare(Runnable o1, Runnable o2) {
+            if (o1 == null && o2 == null)
+                return 0;
+            else if (o1 == null)
+                return -1;
+            else if (o2 == null)
+                return 1;
+            else {
+                int p1 = ((PriorityFuture<?>) o1).getPriority();
+                int p2 = ((PriorityFuture<?>) o2).getPriority();
+
+                return p1 > p2 ? 1 : (p1 == p2 ? 0 : -1);
+            }
+        }
+    };
+}
+  
+
+    
+
+  public interface PriorityCallable<T> extends Callable<T> {
+
+    int getPriority();
+
+}
+  
+
+    this helper method:   
+
+  public static ThreadPoolExecutor getPriorityExecutor(int nThreads) {
+    return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS,
+            new PriorityBlockingQueue<Runnable>(10, PriorityFuture.COMP)) {
+
+        protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
+            RunnableFuture<T> newTaskFor = super.newTaskFor(callable);
+            return new PriorityFuture<T>(newTaskFor, ((PriorityCallable<T>) callable).getPriority());
+        }
+    };
+}
+  
+
+    then use it like this:   
+
+  class LenthyJob implements PriorityCallable<Long> {
+    private int priority;
+
+    public LenthyJob(int priority) {
+        this.priority = priority;
+    }
+
+    public Long call() throws Exception {
+        System.out.println("Executing: " + priority);
+        long num = 1000000;
+        for (int i = 0; i < 1000000; i++) {
+            num *= Math.random() * 1000;
+            num /= Math.random() * 1000;
+            if (num == 0)
+                num = 1000000;
+        }
+        return num;
+    }
+
+    public int getPriority() {
+        return priority;
+    }
+}
+
+public class TestPQ {
+
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
+        ThreadPoolExecutor exec = getPriorityExecutor(2);
+
+        for (int i = 0; i < 20; i++) {
+            int priority = (int) (Math.random() * 100);
+            System.out.println("Scheduling: " + priority);
+            LenthyJob job = new LenthyJob(priority);
+            exec.submit(job);
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5485769)
+  public class ExecutorPriority {
+
+public static void main(String[] args) {
+
+    PriorityBlockingQueue<Runnable> pq = new PriorityBlockingQueue<Runnable>(20, new ComparePriority());
+
+    Executor exe = new ThreadPoolExecutor(1, 2, 10, TimeUnit.SECONDS, pq);
+    exe.execute(new RunWithPriority(2) {
+
+        @Override
+        public void run() {
+
+            System.out.println(this.getPriority() + " started");
+            try {
+                Thread.sleep(3000);
+             catch (InterruptedException ex) {
+                Logger.getLogger(ExecutorPriority.class.getName()).log(Level.SEVERE, null, ex);
+            
+            System.out.println(this.getPriority() + " finished");
+        
+    );
+    exe.execute(new RunWithPriority(10) {
+
+        @Override
+        public void run() {
+            System.out.println(this.getPriority() + " started");
+            try {
+                Thread.sleep(3000);
+             catch (InterruptedException ex) {
+                Logger.getLogger(ExecutorPriority.class.getName()).log(Level.SEVERE, null, ex);
+            
+            System.out.println(this.getPriority() + " finished");
+        
+    );
+
+
+
+private static class ComparePriority<T extends RunWithPriority> implements Comparator<T> {
+
+    @Override
+    public int compare(T o1, T o2) {
+        return o1.getPriority().compareTo(o2.getPriority());
+    
+
+  
+
+  
+
+ as you can guess RunWithPriority is an abstract class that is Runnable and has a Integer priority field 
+
+
+

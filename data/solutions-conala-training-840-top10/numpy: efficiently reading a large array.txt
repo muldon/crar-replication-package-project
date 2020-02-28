@@ -1,0 +1,291 @@
+Query: numpy: efficiently reading a large array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12015515)
+ If you're using numpy (and you probably should be), http://docs.scipy.org/doc/numpy/reference/generated/numpy.save.html/http://docs.scipy.org/doc/numpy/reference/generated/numpy.savez.html and http://docs.scipy.org/doc/numpy/reference/generated/numpy.load.html should be able to handle this pretty easily. 
+
+ For example: 
+
+  import numpy as np
+xs = np.linspace(-3, 5, 800)
+ys = np.linspace(-3, 5, 800)
+f_vals = np.random.normal(size=(xs.size, ys.size))
+np.savez('the_file.npz', xs=xs, ys=ys, f=f_vals)
+  
+
+ is quite quick, and the resulting file is less than 5mb. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22229623)
+ Check out the NumPy http://docs.scipy.org/doc/numpy/reference/generated/numpy.fromfile.html. You provide a simple type annotation about the data to be read, and the function efficiently reads it into a NumPy  ndarray  object. 
+
+  import numpy as np
+np.fromfile(file_name, dtype='<i4')
+  
+
+ You can change  dtype  to reflect size and byte order as well. http://docs.scipy.org/doc/numpy/reference/arrays.dtypes.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11680366)
+ Basically Numpy stores the arrays as flat vectors. The multiple dimensions are just an illusion created by different views and strides that the Numpy iterator uses. 
+
+ For a thorough but easy to follow explanation how Numpy internally works, see the excellent http://books.google.fi/books?id=gJrmszNHQV4C&lpg=PA307&ots=rLSYuyRaoj&dq=beautiful%20code%20numpy%20iterators&hl=fi&pg=PA303#v=onepage&q=beautiful%20code%20numpy%20iterators. 
+
+ At least Numpy  array()  and  reshape()  have an argument for C ('C'), Fortran ('F') or preserved order ('A').
+Also see the question https://stackoverflow.com/questions/7688304/how-to-force-numpy-array-order-to-fortran-style 
+
+ An example with the default C indexing (http://en.wikipedia.org/wiki/Row-major_order): 
+
+  >>> a = np.arange(12).reshape(3,4) # <- C order by default
+>>> a
+array([[ 0,  1,  2,  3],
+       [ 4,  5,  6,  7],
+       [ 8,  9, 10, 11]])
+>>> a[1]
+array([4, 5, 6, 7])
+
+>>> a.strides
+(32, 8)
+  
+
+ Indexing using Fortran order (http://en.wikipedia.org/wiki/Column-major_order): 
+
+  >>> a = np.arange(12).reshape(3,4, order='F')
+>>> a
+array([[ 0,  3,  6,  9],
+       [ 1,  4,  7, 10],
+       [ 2,  5,  8, 11]])
+>>> a[1]
+array([ 1,  4,  7, 10])
+
+>>> a.strides
+(8, 24)
+  
+
+ 
+
+ The other view 
+
+ Also, you can always get the other kind of view using the parameter T of an array: 
+
+  >>> a = np.arange(12).reshape(3,4, order='C')
+>>> a.T
+array([[ 0,  4,  8],
+       [ 1,  5,  9],
+       [ 2,  6, 10],
+       [ 3,  7, 11]])
+
+>>> a = np.arange(12).reshape(3,4, order='F')
+>>> a.T
+array([[ 0,  1,  2],
+       [ 3,  4,  5],
+       [ 6,  7,  8],
+       [ 9, 10, 11]])
+  
+
+ 
+
+ You can also manually set the strides: 
+
+  >>> a = np.arange(12).reshape(3,4, order='C')
+>>> a
+array([[ 0,  1,  2,  3],
+       [ 4,  5,  6,  7],
+       [ 8,  9, 10, 11]])
+>>> a.strides
+(32, 8)
+>>> a.strides = (8, 24)
+>>> a
+array([[ 0,  3,  6,  9],
+       [ 1,  4,  7, 10],
+       [ 2,  5,  8, 11]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4366379)
+ NumPy provides http://docs.scipy.org/doc/numpy/reference/generated/numpy.fromfile.html to read binary data. 
+
+  a = numpy.fromfile("filename", dtype=numpy.float32)
+  
+
+ will create a one-dimensional array containing your data.  To access it as a two-dimensional Fortran-ordered  n x m  matrix, you can reshape it: 
+
+  a = a.reshape((n, m), order="FORTRAN")
+  
+
+ [EDIT: The  reshape()  actually copies the data in this case (see the comments).  To do it without cpoying, use 
+
+  a = a.reshape((m, n)).T
+  
+
+ Thanks to Joe Kingtion for pointing this out.] 
+
+ But to be honest, if your matrix has several gigabytes, I would go for a HDF5 tool like http://h5py.alfven.org/ or http://www.pytables.org/moin.  Both of the tools have FAQ entries comparing the tool to the other one.  I generally prefer h5py, though PyTables seems to be more commonly used (and the scopes of both projects are slightly different). 
+
+ http://en.wikipedia.org/wiki/Hierarchical_Data_Format#Interfaces files can be written from most programming language used in data analysis.  The list of interfaces in the linked Wikipedia article is not complete, for example there is also an http://cran.r-project.org/web/packages/hdf5/index.html.  But I actually don't know which language you want to use to write the data... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43380941)
+  In [196]: rec = np.fromfile('data.b', dtype='<i,<d,<d')
+In [198]: rec
+Out[198]: 
+array([( 1,   2.3,   4.5), ( 6,   7.8,   9. ), (12,  13.4,  56.7)], 
+      dtype=[('f0', '<i4'), ('f1', '<f8'), ('f2', '<f8')])
+  
+
+ This is a 1d structured array 
+
+  In [199]: rec['f0']
+Out[199]: array([ 1,  6, 12], dtype=int32)
+In [200]: rec.shape
+Out[200]: (3,)
+In [201]: rec.dtype
+Out[201]: dtype([('f0', '<i4'), ('f1', '<f8'), ('f2', '<f8')])
+  
+
+ Note that its  tolist  looks identical to your original  records : 
+
+  In [202]: rec.tolist()
+Out[202]: [(1, 2.3, 4.5), (6, 7.8, 9.0), (12, 13.4, 56.7)]
+In [203]: records
+Out[203]: [(1, 2.3, 4.5), (6, 7.8, 9.0), (12, 13.4, 56.7)]
+  
+
+ You could create a 2d array from either list with: 
+
+  In [204]: arr2 = np.array(rec.tolist())
+In [205]: arr2
+Out[205]: 
+array([[  1. ,   2.3,   4.5],
+       [  6. ,   7.8,   9. ],
+       [ 12. ,  13.4,  56.7]])
+In [206]: arr2.shape
+Out[206]: (3, 3)
+  
+
+ There are other ways of converting a structured array to 'regular' array, but this is simplest and most consistent. 
+
+ The  tolist  of a regular array uses nested lists.  The tuples in the structured version are intended to convey a difference: 
+
+  In [207]: arr2.tolist()
+Out[207]: [[1.0, 2.3, 4.5], [6.0, 7.8, 9.0], [12.0, 13.4, 56.7]]
+  
+
+ In the structured array the first field is integer.  In the regular array the first column is same as the others, float. 
+
+ If the binary file contained all floats, you could load it as a 1d of floats and reshape 
+
+  In [208]: with open('data.f', 'wb') as f:
+     ...:         write_records(records, 'ddd', f)
+In [210]: rec2 = np.fromfile('data.f', dtype='<d')
+In [211]: rec2
+Out[211]: array([  1. ,   2.3,   4.5,   6. ,   7.8,   9. ,  12. ,  13.4,  56.7])
+  
+
+ But to take advantage of any record structure in the binary file, you have load by records as well, which means structured array: 
+
+  In [213]: rec3 = np.fromfile('data.f', dtype='d,d,d')
+In [214]: rec3
+Out[214]: 
+array([(  1.,   2.3,   4.5), (  6.,   7.8,   9. ), ( 12.,  13.4,  56.7)], 
+      dtype=[('f0', '<f8'), ('f1', '<f8'), ('f2', '<f8')])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/12011509)
+ There is no functionality in numpy to split the strings in a python list of strings into separate arrays directly. If these strings are from reading in a text file with consistent column data types, consider using  numpy.genfromtxt : 
+
+ http://docs.scipy.org/doc/numpy/reference/generated/numpy.genfromtxt.html 
+
+  Edit  or you can coerce you array into a format that  np.genfromtxt  can read as  jterrace  notes in his response. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11956632)
+ For the particular view  v  you posted, the computation can be expressed as a http://docs.scipy.org/doc/numpy/reference/generated/numpy.convolve.html#numpy-convolve with the kernel  [1, 1, 1] : 
+
+  In [78]: import numpy as np    
+
+In [80]: a = np.array([0,1,0,1,1])
+
+In [81]: b = np.convolve(a, [1,1,1], 'same') - a
+
+In [82]: b
+Out[82]: array([1, 0, 2, 1, 1])
+  
+
+ You didn't say how your  v  changes with time, but perhaps if they are similar, you can continue expressing the computation as a convolution with changes to the kernel. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48827455)
+ It seems that for large arrays https://docs.scipy.org/doc/numpy/reference/generated/numpy.repeat.html is the fastest option, despite allocating  b 's memory on the fly. 
+
+  import numpy as np
+a = np.arange(20 * 30 * 40).reshape(20, 30, 40)
+b = np.empty((16, 20, 30, 40))
+
+%timeit b[:] = a
+# 272 µs ± 22.3 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+
+%timeit np.empty((16, 20, 30, 40))[:] = a
+# 277 µs ± 19 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+
+%timeit np.repeat(a[np.newaxis, ...], repeats=16, axis=0)
+# 140 µs ± 483 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34126031)
+ As @P-i commented, the major problem is that the code creates a ton of lists, and Python spends a lot of time doing memory management.  To eliminate this, you can use numpy arrays to preallocate the data, and use its  repeat  and  tile  functions to generate the  i,j,k  values: 
+
+  # order='F' is important here so column-wise assignment can
+# occur with a stride of 1.  Switching the order results
+# in a significant performance hit.
+coords = numpy.zeros([a.size,4],'d',order='F')
+
+NI, NJ, NK = a.shape
+
+# build columns for (i,j,k) tuples using repeat and tile
+coords[:,0] = numpy.repeat(range(NI),NJ*NK)
+coords[:,1] = numpy.tile(numpy.repeat(range(NJ),NK), NI)
+coords[:,2] = numpy.tile(range(NK), NI*NJ)
+coords[:,3] = a.flatten()
+  
+
+ This results in an array where each row is  (i,j,k,value) .  It does assume that your original array is in https://en.wikipedia.org/wiki/Row-major_order  ordering (C-ordered arrays in numpy). 
+
+ In my timings, based on ten iterations in Python 3.5 on a 2013 MacBook Pro, it took about 20 seconds per transformation to run the OP's transformation and only about 8 seconds per transformation using this method. 
+
+ The output format really has to be a list, the array can be converted into a list in the final step.  However, this increased the transformation time to 13 seconds per transformation in my testing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48360686)
+ Consider HDF5. There are many options for compression via h5py python library. Two of the most popular are lzf (fast decompression, moderate compression ratio) and gzip (slower decompression, good compression ratio). With gzip, you can choose compression level. In addition, gzip and lzf allow shuffle filters to improve compression ratios. 
+
+ For dense arrays of uncompressed size ~8GB (csv), I typically see 75% reduction after applying lzf in HDF5. I don't expect so large a benefit from npy to HDF5, but it could still be significant. 
+
+ Another benefit is HDF5 supports lazy reading. In python you can do this directly through http://www.h5py.org/ or via http://dask.pydata.org/en/latest/array.html. 
+
+ If you wish to go down this route, <a href="http://docs.h5py.org/en/latest/high/dataset.html#chunked-storage" documentation  has sample high-level code. 
+
+  Disclaimer : I have no affiliation with h5py or dask. I just find these libraries useful for high-level data analysis. 
+
+
+

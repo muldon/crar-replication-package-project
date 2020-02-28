@@ -1,0 +1,293 @@
+Query: How can I "unpivot" specific columns from a pandas DataFrame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39731653)
+ you can do it this way: 
+
+  In [66]: cols2exclude = [1,4,9]
+
+In [67]: df.iloc[:, df.columns.difference(df.columns[cols2exclude])]
+Out[67]:
+    a   c   d   f   g   h   i
+0  12  37  39  46  22  71  37
+1  72   3  17  30  11  26  73
+  
+
+  
+
+  In [68]: df.iloc[:, ~df.columns.isin(df.columns[cols2exclude])]
+Out[68]:
+    a   c   d   f   g   h   i
+0  68  49  90   9  48  36  26
+1   6  72  98  49  44  10  36
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/54921666)
+ You're looking for https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.melt.html: 
+
+  df.melt(id_vars=['id', 'col1', 'col2'])
+
+   id col1 col2 variable  value
+0   1    a    e     val1      3
+1   1    a    e     val2      7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31257044)
+  print(df.loc[(df["A"] == 4) & (df["B"] == 6)].index[0])
+  
+
+  
+
+  def pairs(df, k1,k2, a, b):
+    check = df.loc[(df[k1] == a) & (df[k2] == b)]
+    return None if check.empty else check.index[0]
+  
+
+ Running it on your df: 
+
+  In [5]: pairs(df,"A","B",4,6)
+Out[5]: 1
+
+In [6]: pairs(df,"B","C",5,2 )
+Out[6]: 2
+
+In [7]: print(pairs(df,"A","B",2,1))
+None
+  
+
+ If you want all indexes use index.tolist: 
+
+  def pairs(df, k1,k2, a, b):
+    check = df.loc[(df[k1] == a) & (df[k2] == b)]
+    return None if check.empty else check.index.tolist()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/23354240)
+ This can be done with  pd.melt() : 
+
+  # value_name is 'value' by default, but setting it here to make it clear
+pd.melt(x, id_vars=['farm', 'fruit'], var_name='year', value_name='value')
+  
+
+  
+
+    farm  fruit  year  value
+0    A  apple  2014     10
+1    B  apple  2014     12
+2    A   pear  2014      6
+3    B   pear  2014      8
+4    A  apple  2015     11
+5    B  apple  2015     13
+6    A   pear  2015      7
+7    B   pear  2015      9
+
+[8 rows x 4 columns]
+  
+
+ I'm not sure how common "melt" is as the name for this kind of operation, but that's what it's called in R's  reshape2  package, which probably inspired the name here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51526927)
+ Use  set_index ,  unstack  and flatten multiindex: 
+
+  df_out = df.set_index(['id','group']).unstack()
+df_out.columns = df_out.columns.map('{0[1]}_{0[0]}'.format)
+df_out = df_out.reset_index()
+print(df_out)
+  
+
+ Output: 
+
+      id      A_value      B_value
+0   92      123.123      32019.0
+1  105     9034.000       3281.0
+2  999      421.000          NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54814863)
+ If you convert the columns to a MultiIndex you can use stack: 
+
+  In [11]: df1 = df.set_index("Hom")
+
+In [12]: df1.columns = pd.MultiIndex.from_tuples(df1.columns.map(lambda x: tuple(x.split())))
+
+In [13]: df1
+Out[13]:
+    March       April
+    Plans Ships Plans Ships
+Hom
+CAD    12     5     4    13
+USA     7     6     2    11
+CAD     4     9     6    14
+CAD    13     3     9     7
+
+In [14]: df1.stack(level=0)
+Out[14]:
+           Plans  Ships
+Hom
+CAD April      4     13
+    March     12      5
+USA April      2     11
+    March      7      6
+CAD April      6     14
+    March      4      9
+    April      9      7
+    March     13      3
+  
+
+ 
+
+  In [21]: res = df1.stack(level=0)
+
+In [22]: res.index.names = ["Hom", "Month"]
+
+In [23]: res.reset_index()
+Out[23]:
+   Hom  Month  Plans  Ships
+0  CAD  April      4     13
+1  CAD  March     12      5
+2  USA  April      2     11
+3  USA  March      7      6
+4  CAD  April      6     14
+5  CAD  March      4      9
+6  CAD  April      9      7
+7  CAD  March     13      3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25770835)
+ There is a  pandas.pivot_table  function and if you define  datadate  and  id  as indices, you can do  unstack  the dataframe. 
+
+ That'd be: 
+
+  from io import StringIO
+import pandas
+
+datatable = StringIO("""\
+datadate  | id | Value 
+1999-12-31 | 01 |  1.0 
+1999-12-31 | 02 |  0.5
+1999-12-31 | 03 |  3.2
+2000-01-04 | 01 |  1.0
+2000-01-04 | 02 |  0.7
+2000-01-04 | 03 |  3.2""")
+
+fullindex = pandas.DatetimeIndex(freq='1D', start='1999-12-31', end='2000-01-06')
+df = (
+    pandas.read_table(datatable, sep='\s+\|\s+', parse_dates=['datadate'])
+          .set_index(['datadate', 'id'])
+          .unstack(level='id')
+          .reindex(fullindex)
+          .fillna(method='ffill')
+          .stack()
+          .reset_index()
+          .rename(columns={'level_0': 'date'}) 
+)
+
+print(df)
+  
+
+ Which gives me: 
+
+           date  id  Value
+0  1999-12-31   1    1.0
+1  1999-12-31   2    0.5
+2  1999-12-31   3    3.2
+3  2000-01-01   1    1.0
+4  2000-01-01   2    0.5
+5  2000-01-01   3    3.2
+6  2000-01-02   1    1.0
+7  2000-01-02   2    0.5
+8  2000-01-02   3    3.2
+9  2000-01-03   1    1.0
+10 2000-01-03   2    0.5
+11 2000-01-03   3    3.2
+12 2000-01-04   1    1.0
+13 2000-01-04   2    0.7
+14 2000-01-04   3    3.2
+15 2000-01-05   1    1.0
+16 2000-01-05   2    0.7
+17 2000-01-05   3    3.2
+18 2000-01-06   1    1.0
+19 2000-01-06   2    0.7
+20 2000-01-06   3    3.2
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18259236)
+ You just have to do  df.unstack()  and that will create a MultiIndexed Series with month as a first level and the year as the second level index. If you want them to be columns then just call  reset_index()  after that. 
+
+<pre class="lang-py prettyprint-override"> >>> df
+      Jan  Feb
+2001    3    4
+2002    2    7
+>>> df.unstack()
+Jan  2001    3
+     2002    2
+Feb  2001    4
+     2002    7
+>>> df = df.unstack().reset_index(name='value')
+>>> df
+  level_0  level_1  value
+0     Jan     2001      3
+1     Jan     2002      2
+2     Feb     2001      4
+3     Feb     2002      7
+>>> df.rename(columns={'level_0': 'month', 'level_1': 'year'}, inplace=True)
+>>> df
+  month  year  value
+0   Jan  2001      3
+1   Jan  2002      2
+2   Feb  2001      4
+3   Feb  2002      7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33293125)
+ You're looking for http://pandas.pydata.org/pandas-docs/stable/generated/pandas.melt.html (aka "unpivot"): 
+
+  In [11]: df = pd.DataFrame([["a", "b", 43, 87, 29]], columns=["N", "P", 1, 2, 3])
+
+In [12]: pd.melt(df, id_vars=["N", "P"], value_vars=[1, 2, 3], var_name="Day")
+Out[12]:
+   N  P Day  value
+0  a  b   1     43
+1  a  b   2     87
+2  a  b   3     29
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49358136)
+ I have tried following: 
+
+  df['column']=df.column.astype('int64')
+  
+
+ . 
+
+
+

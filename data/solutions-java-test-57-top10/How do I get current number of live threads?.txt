@@ -1,0 +1,173 @@
+Query: How do I get current number of live threads?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1922300)
+  java.lang.Thread.activeCount()
+  
+
+ It will return the number of active threads in the  current thread's thread group . 
+
+ docs: http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#activeCount() 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49639343)
+ Within your running TestNG tagged test, Thread.activeCount() gives you the number of threads just in your current TestNG group. If your threadPoolSize is set to 1, this number will be 1. If your threadPoolSize is greater than 1, this number will be threadPoolSize + 1, because there is also a TestNG manager thread in addition to the pool size. For threads that you create on the fly, you need to construct them passing in your TestNG ThreadGroup. Example: 
+
+      Thread aNewWorkerThread = new Thread( Thread.currentThread().getThreadGroup(), yourRunnableThingHere ); 
+  
+
+ Those threads, when active, should then be reflected in your Thread.activeCount() return value.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50363299)
+ I think you can use  ThreadMXBean#getDaemonThreadCount()  API which returns the current number of live daemon threads. 
+
+  ManagementFactory.getThreadMXBean().getDaemonThreadCount();
+  
+
+ For more info please follow the https://docs.oracle.com/javase/7/docs/api/java/lang/management/ThreadMXBean.html#getDaemonThreadCount(). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5241460)
+ According to the javadocs, https://docs.oracle.com/javase/7/docs/api/java/lang/management/ThreadMXBean.html#getThreadCount(): 
+
+ 
+   Returns the current number of live threads including both daemon and
+  non-daemon threads. 
+ 
+
+ Therefore, the JVM could very well have 38 different threads going (mostly in the background). Tomcat makes a new thread for each request (so that it can have concurrent communication). It would make sense that these two numbers could differ. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54167180)
+ Performing multiple threaded code, computer shares threads between physical CPU cores. That means the more the number of threads exceeds number of cores, the less benefit you get from every thread. In your example the number of threads increases with number of tasks. So with growing up of the task number every CPU core forced to process the more and more threads. At the same time you may notice that difference between  numthreads = 1  and  numthreads = 4  is very small. Because in this case every core processes only few (or even just one) thread. Don't set number of threads much more than number of physical CPU threads because it doesn't make a lot of sense. 
+
+ Additionally in your example you're trying to compare how   different numbers of threads performs with different numbers of tasks  . But in order to see the efficiency of multiple threaded code you have to compare how   the different numbers of threads performs with the same number of tasks  . I would change the example the next way: 
+
+  int threadNumber = 16;
+int taskNumber = 200;
+
+//...task method
+
+final ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
+final List<Callable<Void>> tasks = new ArrayList<>();
+while (taskNumber-- > 0) {
+    tasks.add(task);
+}
+
+long start = System.currentTimeMillis();
+for (Future<Void> future : executorService.invokeAll(tasks)) {
+    future.get();
+}
+long end = System.currentTimeMillis() - start;
+System.out.println(end);
+executorService.shutdown();
+  
+
+ Try this code for  threadNumber=1  and, lets say,  threadNumber=16  and you'll see the difference. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30882997)
+ Make sure that your program is using ThreadPool, which will make efficient use of threads. 
+
+ The total thread count is number of threads started since the JVM is started. Live threads started(peak) is 126 threads so this looks normal & current live thread count is 112 this include all the threads Daemon/non-daemon threads not just started by your program but by JVM as well.  
+
+ What does it mean by each count: 
+
+  Live threads : This shows the current number of live/active threads including both daemon and non-daemon threads(Currently running). 
+
+  Live Peak : This gives the peak count of live threads since the Java virtual machine started or peak was reset. 
+
+  Daemon Threads : This gives the current number of live daemon threads. 
+
+  Total Threads : This gives the total number of threads created and also started since the Java virtual machine started. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1922298)
+ There is a static method on the  Thread  Class that will return the number of active threads controlled by the JVM: 
+
+  Thread.activeCount()  
+
+ 
+   Returns the number of active threads in the current thread's thread group. 
+ 
+
+ Additionally, external debuggers should list all active threads (and allow you to suspend any number of them) if you wish to monitor them in real-time. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14791190)
+ 
+   now, i want to only launch a new thread if my thread count is < X 
+ 
+
+ Sounds to me that what you need is a thread-pool executor.  Updates to your database can be submitted to the pool for execution and you can limit the number of concurrent requests to the database by limiting the number of threads assigned to the pool: 
+
+  // create a thread pool with a max of 4 concurrent threads
+ExecutorService threadPool = Executors.newFixedThreadPool(4);
+
+// submit your database operation to the thread-pool
+threadPool.submit(new DatabaseUpdateJob(databaseConnection, updateStatement));
+
+...
+public class DatabaseUpdateJob implements Runnable {
+    // you can construct your jobs and pass in context for them if necessary
+    public DatabaseUpdateJob(Connection dbConnection, String statement) {
+        ...
+    }
+    public void run() {
+        // use the connection here to update the database
+    }
+}
+  
+
+ If you really want to do it yourself then  Thread.activeCount()  should definitely work.  It returns the number of active threads in the current thread-group.  What you need to do is take a snapshot of the number of threads before your start your database work.  There are a number of system threads that run in the background doing various tasks that you should ignore.  Then whenever you take a new count, you can subtract the background threads and only track you database threads. 
+
+ But a thread-pool is always a good idea. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34523408)
+ You can use the  CountDownLatch . Create a  CountDownLatch  with a  fixed number of thread  value and call  countdown()  after you get the instance of the  WebDriver  and then call  await()  to wait until all the threads arrive there. 
+
+  CountDownLatch countDownLatch = new CountDownLatch(fixedNumber);
+
+private  void testSuitLogin(String driverType){
+
+  try{
+    System.out.println(Thread.currentThread().getName()+" Start Time "+System.currentTimeMillis());
+    driver = WebDriverFactory.getDriver(driverType);
+    countDownLatch.countDown();  // decreases the value of latch by 1 in each call.
+    countDownLatch.await();      //It will wait until value of the latch reaches zero.
+    System.out.println(Thread.currentThread().getName()+" End Time "+System.currentTimeMillis());
+    homePage();
+    googleSignIn();
+    driver.quit();
+  }
+  catch(Exception e){
+    if(driver==null)
+    {
+      countDownLatch.countDown();
+      totalNumberOfUsers--;
+      return ;
+    }
+  }
+}
+  
+
+
+

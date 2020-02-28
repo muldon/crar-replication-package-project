@@ -1,0 +1,148 @@
+Query: How do I calculate the MD5 digest of a string?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37337943)
+ With the byte array, result from message digest: 
+
+  ...
+byte hashgerado[] = md.digest(entrada);
+...
+
+for(byte b : hashgerado)
+    System.out.printf("%02x", Byte.toUnsignedInt(b));
+  
+
+ Result (for example): 
+89e8a9f68ad3c4bba9b9d3581cf5201d 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35664191)
+ FYI... 
+
+ In certain situations this did not work for me 
+
+  md5 = new java.math.BigInteger(1, digest.digest()).toString(16);
+  
+
+ but this did 
+
+  StringBuilder sb = new StringBuilder();
+
+for (int i = 0; i < digest.length; i++) {
+    if ((0xff & digest[i]) < 0x10) {
+        sb.append("0").append(Integer.toHexString((0xFF & digest[i])));
+    } else {
+        sb.append(Integer.toHexString(0xFF & digest[i]));
+    }
+}
+
+String result = sb.toString();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7553788)
+ You're seeing the results of calling  byte[].toString()  - which isn't showing you the actual hash of the data. You're basically getting a string which shows that you've called  toString  on a byte array (that's the  [B  part) and then the hash returned by  Object.hashCode()  (that's the hex value after the  @ ). That hash code doesn't take the  data  in the array into account. 
+
+  
+
+  System.out.println(Arrays.toString(md5.digest(byteArrayToDigest)));
+  
+
+ to see the actual  data . 
+
+ EDIT: Quick note about creating an MD5 digest from  string  data - you should always use the same encoding, explicitly, when hashing. For example: 
+
+  byte[] hash = md5.digest(text.getBytes("UTF-8"));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/415971)
+ The  MessageDigest  class can provide you with an instance of the MD5 digest. 
+
+ When working with strings and the crypto classes be sure to  always  specify the encoding you want the byte representation in. If you just use  string.getBytes()  it will use the platform default. (Not all platforms use the same defaults) 
+
+  import java.security.*;
+
+..
+
+byte[] bytesOfMessage = yourString.getBytes("UTF-8");
+
+MessageDigest md = MessageDigest.getInstance("MD5");
+byte[] thedigest = md.digest(bytesOfMessage);
+  
+
+ If you have a lot of data take a look at the  .update(byte[])  method which can be called repeatedly.   .digest()  to obtain the resulting hash. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19300946)
+ The Javadoc is pretty clear.  You can use clone only to calculate different intermediate digests using the same algorithm.  You cannot use  DigestInputStream  to calculate different digest algorithms without reading the stream multiple times.  You must use a regular  InputStream  and multiple  MessageDigest  objects; read the data once, passing each buffer to all  MessageDigest  objects to get multiple digests with different algorithms. 
+
+ You could easily encapsulate this in your own variant of  DigestInputStream , say  MultipleDigestInputStream  that follows the same general approach but accepts a collection of  MessageDigest  objects or algorithm names. 
+
+ Pseudojava (error handling omitted) 
+
+  MessageDigest sha = MessageDigest.getInstance("SHA-1");
+MessageDigest md5 = MessageDigest.getInstance("MD5");
+InputStream input = ...;
+byte[] buffer = new byte[BUFFER_SIZE];
+int len;
+while((len = input.read(buffer)) >= 0)
+{
+    sha.update(buffer,0,len);
+    md5.update(buffer,0,len);
+    ...
+}
+byte[] shaDigest = sha.digest();
+byte[] md5Digest = md5.digest();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13412049)
+ This is how I use MD5 hash. Calculate MD5 hash from string and return 32-byte hexadecimal representation. 
+
+  import java.io.UnsupportedEncodingException; 
+import java.security.MessageDigest; 
+import java.security.NoSuchAlgorithmException; 
+
+public class MySimpleMD5 { 
+
+private static String convertToHex(byte[] data) { 
+    StringBuffer buf = new StringBuffer();
+    for (int i = 0; i < data.length; i++) { 
+        int halfbyte = (data[i] >>> 4) & 0x0F;
+        int two_halfs = 0;
+        do { 
+            if ((0 <= halfbyte) && (halfbyte <= 9)) 
+                buf.append((char) ('0' + halfbyte));
+            else 
+                buf.append((char) ('a' + (halfbyte - 10)));
+            halfbyte = data[i] & 0x0F;
+        } while(two_halfs++ < 1);
+    } 
+    return buf.toString();
+} 
+
+public static String MD5(String text) 
+throws NoSuchAlgorithmException, UnsupportedEncodingException  { 
+    MessageDigest md;
+    md = MessageDigest.getInstance("MD5");
+    byte[] md5hash = new byte[32];
+    md.update(text.getBytes("iso-8859-1"), 0, text.length());
+    md5hash = md.digest();
+    return convertToHex(md5hash);
+ } 
+} 
+  
+
+
+

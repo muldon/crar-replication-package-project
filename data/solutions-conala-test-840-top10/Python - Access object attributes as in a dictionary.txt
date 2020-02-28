@@ -1,0 +1,175 @@
+Query: Python - Access object attributes as in a dictionary
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9035508)
+  getattr(my_object, my_str)
+  
+
+ http://effbot.org/zone/python-getattr.htm 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2466232)
+ You can access the attributes of an object with  __dict__ , and call the update method on it: 
+
+  >>> class Employee(object):
+...     def __init__(self, _dict):
+...         self.__dict__.update(_dict)
+... 
+
+
+>>> dict = { 'name': 'Oscar', 'lastName': 'Reyes', 'age':32 }
+
+>>> e = Employee(dict)
+
+>>> e.name
+'Oscar'
+
+>>> e.age
+32
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8189672)
+ You can do this by using class attributes rather than instance attributes: 
+
+  class Base(object):
+    foo = 5
+
+class Derived(Base):
+    """A class derived from Base.
+
+    >>> bar = Base()
+    >>> print bar.foo
+    5
+    >>> foobar = Derived()
+    >>> print foobar.foo
+    6
+    >>> print foobar.__class__.__base__.foo
+    5
+    >>> foobar.__class__.__base__.foo = 7
+    >>> bar.foo
+    7
+    """
+    foo = 6
+  
+
+ It's important to understand the distinction.  The code in your question creates classes that, when instantiated, grant to the newly created instance attributes of  foo  equal to 5 or 6.  This code, on the other hand, creates  foo  attributes of the classes themselves that are accessible from any instances thereof.  
+
+ This is actually implemented by using a dictionary for each instance, and another dictionary for each ancestor class.  If Python doesn't find a requested attribute in the instance dictionary, it looks in the class dictionary for that instance; if it's not not found there, Python will continue to search each base class for that attribute. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2466295)
+ I think that answer using  settattr  are the way to go if you really need to support  dict .   
+
+ But if  Employee  object is just a structure which you can access with dot syntax ( .name ) instead of dict syntax ( ['name'] ), you can use http://docs.python.org/dev/library/collections.html#collections.namedtuple like this: 
+
+  from collections import namedtuple
+
+Employee = namedtuple('Employee', 'name age')
+e = Employee('noname01', 6)
+print e
+#>> Employee(name='noname01', age=6)
+
+# create Employee from dictionary
+d = {'name': 'noname02', 'age': 7}
+e = Employee(**d)
+print e
+#>> Employee(name='noname02', age=7)
+print e._asdict()
+#>> {'age': 7, 'name': 'noname02'}
+  
+
+ You do have  _asdict()  method to access all properties as dictionary, but you  cannot  add additional attributes later, only during the construction. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9035524)
+ You can't do the  __dict__ -approach in general.  
+
+  getattr(myobject, my_str)
+  
+
+ If you want dict-like access, just define a class with an overloaded index-operator. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/981624)
+ Python objects store their instance variables in a dictionary that belongs to the object.  vars(x)  returns this dictionary (as does  x.__dict__ ).  dir(x) , on the other hand, returns a dictionary of  x 's "attributes, its class's attributes, and recursively the attributes of its class's base classes." 
+
+ When you access an object's attribute using the dot operator, python does a lot more than just looking up the attribute in that objects dictionary. A common case is when  x  is an object of class  C  and you call a method  m  on it. 
+
+  class C(object):
+    def m(self):
+        print "m"
+
+x = C()
+x.m()
+  
+
+ The method  m  is not stored in  x.__dict__ . It is an attribute of the class  C .
+When you call  x.m() , python will begin by looking for m in  x.__dict__ , but it won't find it. However, it knows that  x  is an instance of  C , so it will next look in  C.__dict__ , find it there, and call  m  with  x  as the first argument. 
+
+ So the difference between  vars(x)  and  dir(x)  is that  dir(x)  does the extra work of looking in  x 's class (and its bases) for attributes that are accessible from it, not just those attributes that are stored in  x 's own symbol table. In the above example,  vars(x)  returns an empty dictionary, because  x  has no instance variables. However,  dir(x)  returns 
+
+  ['__class__', '__delattr__', '__dict__', '__doc__', '__getattribute__',
+'__hash__', '__init__', '__module__', '__new__', '__reduce__',
+'__reduce_ex__', '__repr__', '__setattr__', '__str__', '__weakref__', 'm']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11637482)
+ Objects in python store their atributes (including functions) in a dict called  __dict__ . You can (but generally shouldn't) use this to access the attributes directly. If you just want a list, you can also call  dir(obj) , which returns an iterable with all the attribute names, which you could then pass to  getattr . 
+
+ However, needing to do anything with the names of the variables is usually bad design. Why not keep them in a collection? 
+
+  class Foo(object):
+    def __init__(self, **values):
+        self.special_values = values
+  
+
+ You can then iterate over the keys with  for key in obj.special_values:  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35377713)
+ The way I picture it is that an object stores it's attributes in a dictionary, which you can access via 
+
+  obj.__dict__
+  
+
+ That is a dictionary, not a string.  It is  print(obj.__dict__)  or  str(obj.__dict__)  that creates a string from a dictionary. 
+
+ The attributes can also be accessed by name, which is translated into a method call, and (effectively) dictionary access. 
+
+  obj.a => obj.__getattr__('a') <=> obj.__dict__['a'] 
+  
+
+ And as you note  vars(obj)  is another way of fetching this dictionary. 
+
+ The interpreter maintains a large number of dictionaries, including one attached to each object (with a few exceptions).  But don't confuse maintaining a dictionary with the act of displaying it.  The dictionary exists whether you print it or not. 
+
+ And as discussed in the comments, one object's dictionary can contain pointers to other objects, each of which will have their own dictionary of attributes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9557686)
+ The source of your confusion is that you have a dictionary object that has a  __dict__  attribute that also points to a dictionary.  Your object and its  __dict__  attribute are not the same dictionary.  
+
+ Most Python objects have a  __dict__  attribute that is used to store attributes of the object; these attributes are accessed using the  .  syntax (which searches the  __dict__  of your object, along with its class and the classes it is derived from). When your object  is  a dictionary, it also stores items  in itself.  These are accessed using the  [...]  syntax. 
+
+ It is possible to write  __getattr__()  and  __setattr__()  methods on your  dict  subclass that allow items in the dictionary to also be accessed using dot notation, a la JavaScript. This is generally a bad idea because Python programmers don't expect Python to act like JavaScript. 
+
+
+

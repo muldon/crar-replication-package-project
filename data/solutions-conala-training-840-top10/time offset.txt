@@ -1,0 +1,211 @@
+Query: time offset
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10238908)
+ In  python3 : 
+
+  >>> import time
+>>> from datetime import datetime
+>>> tm = '22-01-2012 22:01:30 +0530'
+>>> fmt = '%d-%m-%Y %H:%M:%S %z'
+>>> time.asctime(datetime.strptime(tm, fmt).utctimetuple())
+'Sun Jan 22 16:31:30 2012'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43914508)
+  In [149]: pd.datetime.today() - pd.DateOffset(days=10)
+Out[149]: Timestamp('2017-05-01 13:44:38.082351')
+  
+
+ you can also truncate the time: 
+
+  In [154]: (pd.datetime.today() - pd.DateOffset(days=10)).normalize()
+Out[154]: Timestamp('2017-05-01 00:00:00')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28950133)
+ If your system uses http://en.wikipedia.org/wiki/Unix_time, which
+does not count leap seconds, then the conversion can be done as follows: 
+
+ Part 1: timestamp and offset to local date 
+
+  import datetime as DT
+import calendar
+
+timestamp = 1425508527
+offset = -6
+
+date = DT.datetime(1970,1,1) + DT.timedelta(seconds=timestamp)
+print(date)
+# 2015-03-04 22:35:27
+
+localdate = date + DT.timedelta(hours=offset)
+print(localdate)
+# 2015-03-04 16:35:27
+  
+
+ Part 2: local date and offset to timestamp  
+
+  utcdate = localdate - DT.timedelta(hours=offset)
+assert date == utcdate
+
+timetuple = utcdate.utctimetuple()
+timestamp2 = calendar.timegm(timetuple)
+print(timestamp2)
+# 1425508527
+assert timestamp == timestamp2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3168394)
+ http://docs.python.org/library/time.html#time.timezone: 
+
+  import time
+
+print -time.timezone
+  
+
+ It prints UTC offset in seconds (to take into account Daylight Saving Time (DST) see http://docs.python.org/library/time.html#time.altzone: 
+
+  is_dst = time.daylight and time.localtime().tm_isdst > 0
+utc_offset = - (time.altzone if is_dst else time.timezone)
+  
+
+ where utc offset is defined via: "To get local time, add utc offset to utc time." 
+
+ In Python 3.3+ there is http://docs.python.org/3/library/time.html#time.struct_time if underlying C library supports it: 
+
+  utc_offset = time.localtime().tm_gmtoff
+  
+
+ Note:  time.daylight  may give a wrong result in http://bugs.python.org/issue1647654. 
+
+  tm_gmtoff  is used automatically by datetime if it is available on Python 3.3+: 
+
+  from datetime import datetime, timedelta, timezone
+
+d = datetime.now(timezone.utc).astimezone()
+utc_offset = d.utcoffset() // timedelta(seconds=1)
+  
+
+ To get the current UTC offset in a way that workarounds the  time.daylight  issue and that works even if  tm_gmtoff  is not available, https://stackoverflow.com/a/3168139/4279 to substruct the local and UTC time can be used: 
+
+  import time
+from datetime import datetime
+
+ts = time.time()
+utc_offset = (datetime.fromtimestamp(ts) -
+              datetime.utcfromtimestamp(ts)).total_seconds()
+  
+
+ To get UTC offset for past/future dates,  pytz  timezones could be used: 
+
+  from datetime import datetime
+from tzlocal import get_localzone # $ pip install tzlocal
+
+tz = get_localzone() # local timezone 
+d = datetime.now(tz) # or some other local date 
+utc_offset = d.utcoffset().total_seconds()
+  
+
+ It works during DST transitions, it works for past/future dates even if the local timezone had different UTC offset at the time e.g., Europe/Moscow timezone in 2010-2015 period. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12015245)
+ You can use the http://labix.org/python-dateutil/ module for this. To get the local timezone right now: 
+
+  >>> import dateutil.tz
+>>> import datetime
+>>> localtz = dateutil.tz.tzlocal()
+>>> localtz.tzname(datetime.datetime.now(localtz))
+'EDT'
+  
+
+ I am currently in Eastern Daylight Time. You can see it change back to EST in the future, after daylight savings switches back: 
+
+  >>> localtz.tzname(datetime.datetime.now(localtz) +
+                   datetime.timedelta(weeks=20))
+'EST'
+  
+
+ If you want the offset from UTC, you can use the utcoffset function. It returns a timedelta: 
+
+  >>> localtz.utcoffset(datetime.datetime.now(localtz))
+datetime.timedelta(-1, 72000)
+  
+
+ In this case, since I'm UTC-4, it returns -1 days + 20 hours. You can convert it to hours if that's what you need: 
+
+  >>> localoffset = localtz.utcoffset(datetime.datetime.now(localtz))
+>>> localoffset.total_seconds() / 3600
+-4.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5537943)
+ Have you tried using the http://pytz.sourceforge.net/ project and the http://pytz.sourceforge.net/#tzinfo-api? 
+
+ e.g. 
+
+  >>> import datetime
+>>> import pytz
+>>> pacific_now = datetime.datetime.now(pytz.timezone('US/Pacific'))
+>>> pacific_now.utcoffset().total_seconds()/60/60
+-7.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/10814747)
+ I hope this is what you're looking for: 
+
+  d = datetime.now(pytz.timezone('UTC'))   # get date in UTC format - you'll be getting it from the database
+local = d.astimezone('Asia/Kolkata')
+print local.strftime("%Y-%m-%d %H:%M:%S %z")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45755864)
+ There is no problem,  datetime  just happily reports the offset of the  tzinfo  in whatever reference frame. 
+
+ By default  pytz.timezone  doesn't give the UTC offset but the https://www.timeanddate.com/time/local-mean-time.html offset: 
+
+  >>> pytz.timezone("Europe/Athens")
+<DstTzInfo 'Europe/Athens' LMT+1:35:00 STD>
+#                          ^^^-------------------- local mean time
+  
+
+  
+
+  >>> var1 = datetime.datetime(2017,10,25,20,10,50)
+>>> var1 = pytz.timezone("Europe/Athens").localize(var1)
+>>> var1.tzinfo
+<DstTzInfo 'Europe/Athens' EEST+3:00:00 DST>
+#                          ^^^^-------------------- eastern european summer time
+  
+
+ A different offset is now reported, this time based on the EEST. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3168139)
+  gmtime()  will return the UTC time and  localtime()  will return the local time so subtracting the two should give you the utc offset. 
+
+
+

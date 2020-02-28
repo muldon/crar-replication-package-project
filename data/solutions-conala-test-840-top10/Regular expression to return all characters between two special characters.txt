@@ -1,0 +1,241 @@
+Query: Regular expression to return all characters between two special characters
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24051270)
+ Regular expressions treat the backslash specially.  The backslash disables the "magic" behavior of special characters like  * . 
+
+ To actually match a backslash, you need to put two in your raw string:  r'\\foo'  
+
+ I think what confused you is that backslashes are special in strings and also special for regular expressions.  Python has raw strings to simplify your life: in a raw string, backslashes aren't special, leaving you free to think about the special way that the actual regular expression will handle the backslash. 
+
+ The regular expression compiler will see this sequence of two characters:   \*  
+
+ It will see the backslash, and remove the backslash and treat the  *  specially (disable the "magic"). 
+
+ If you are using a raw string, it's easy to create the sequence of two characters:  r'\*'  
+
+ But if you are not using a raw string, backslashes are special inside the string, so you need to double the backslash to get one:   '\\*'  
+
+  s = '\\*'
+assert len(s) == 2
+assert s[0] == '\\'
+assert s[1] == '*'
+  
+
+ If you actually want to match the pattern  \*  then you need a backslash followed by another backslash, to get the match on an actual backslash; then a backslash followed by a  * , to get the match on an actual  * . 
+
+  p = re.compile(r'\\\*')
+assert p.search(r'\*')
+  
+
+ There are two special rules about backslash in a raw string, and the two go together: a backslash can escape a quote character, and therefore you cannot end a raw string with an odd number of backslashes. 
+
+ https://docs.python.org/2/faq/design.html#why-can-t-raw-strings-r-strings-end-with-a-backslash 
+
+ EDIT: @Charles Duffy pointed out that Python's  re  module provides a function that will properly "escape" the special characters, for the times when you want to match them exactly. 
+
+  import re
+s_pat = re.escape(r'*text*')
+assert s_pat[0] == '\\'
+assert s_pat[1] == '*'
+  
+
+ If you wanted to both match literal  *  and use the special behavior of  * , one way to do it is this: 
+
+  s_pat = '(' + re.escape(r'*text*') + ')*'
+  
+
+ This is a pattern that will match zero or more occurrences of the actual string  *text*  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25598736)
+ How about doing the regexp search for only consonants? Something like this should work: 
+
+  import re
+
+words = ["xkcd", "word", "xml-"]
+consonants_only = [x for x in words if re.search("^[bcdfghjklmnpqrstvwxyz]+$", x)]
+
+print consonants_only
+  
+
+ That will be more efficient too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24247742)
+ The below regex will print the texts which was just after to the second underscore(_), 
+
+  >>> import re
+>>> string1 = 'A_XYZ_THESE_WORDS'
+>>> string2 = 'A_ABC_THOSE_WORDS'
+>>> m = re.search(r'^[^_]*_[^_]*_(.*)$', string1)
+>>> m.group(1)
+'THESE_WORDS'
+>>> m = re.search(r'^[^_]*_[^_]*_(.*)$', string2)
+>>> m.group(1)
+'THOSE_WORDS'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9889960)
+ If there's only one of these  [.....]  tokens per line, then you don't need to use regular expressions at all: 
+
+  In [7]: mystring = "Bacon, [eggs], and spam"
+
+In [8]: mystring[ mystring.find("[")+1 : mystring.find("]") ]
+Out[8]: 'eggs'
+  
+
+ If there's more than one of these per line, then you'll need to modify Jarrod's regex  ^.*\['(..*$  to match multiple times per line, and to be non greedy. (Use the  .    .*  quantifier.) 
+
+  In [15]: mystring = "[Bacon], [eggs], and [spam]."
+
+In [16]: re.findall(r"\[(.)\]",mystring)
+Out[16]: ['Bacon', 'eggs', 'spam']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25598735)
+ Well, you know all of the consonants beforehand: 
+
+  >>> import re
+>>> words = ["xkcd", "word", "xml-"]
+>>> pattern = re.compile(r'^[bcdfghjklmnpqrstvwxyz]+$')
+>>> [word for word in words if pattern.match(word)]
+['xkcd']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46835779)
+ The regex to check for adjacent characters is 
+
+  (.)\1
+  
+
+ The period (.) . The brackets create a capturing group around that character, which is then referenced by \1. 
+
+ So, the condition would be: 
+
+  if re.search(r"(.)\1", pswrd)
+  
+
+ Note the r character before the regular expression. This makes it a  raw string.  Regular expressions should always be made raw strings. This ensures that certain special characters in the regex (like \b) are not interpreted before being passed to the re module. 
+
+ You can test the regular expression here: http://regexr.com/3h0g0 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9889668)
+ http://rubular.com/r/bgixv2J6yF will match a line and capture what you want in a group. 
+
+ You have to escape the  [  and  ]  with  \  
+
+ The documentation at the rubular.com http://rubular.com/r/bgixv2J6yF link will explain how the expression is formed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/13836171)
+ Zarkonnen's response does answer your question, but not directly. Let me try to be more direct, and see if I can grab the bounty from Zarkonnen.  
+
+ You will perhaps find this easier to understand if you stop using the terms "raw string regex" and "raw string patterns". These terms conflate two separate concepts: the representations of a particular string in Python source code, and what regular expression that string represents. 
+
+ In fact, it's helpful to think of these as two different programming languages, each with their own syntax. The Python language has source code that, among other things, builds strings with certain contents, and calls the regular expression system. The regular expression system has source code that resides in string objects, and matches strings. Both languages use backslash as an escape character. 
+
+ First, understand that a string is a sequence of characters (i.e. bytes or Unicode code points; the distinction doesn't much matter here). There are many ways to represent a string in Python source code. A  raw string  is simply one of these representations. If two representations result in the same sequence of characters, they produce equivalent behaviour. 
+
+ Imagine a 2-character string, consisting of the  backslash  character followed by the  n  character.  If you know that the character value for  backslash  is 92, and for  n  is 110, then this expression generates our string:  
+
+  s = chr(92)+chr(110)
+print len(s), s
+
+2 \n
+  
+
+ The conventional Python string notation  "\n"  does not generate this string. Instead it generates a one-character string with a newline character. The http://docs.python.org/2/reference/lexical_analysis.html#string-literals say, "The backslash (\) character is used to escape characters that otherwise have a special meaning, such as newline, backslash itself, or the quote character." 
+
+  s = "\n"
+print len(s), s
+
+1 
+ 
+  
+
+ (Note that the newline isn't visible in this example, but if you look carefully, you'll see a blank line after the "1".) 
+
+ To get our two-character string, we have to use another  backslash  character to escape the special meaning of the original  backslash  character: 
+
+  s = "\\n"
+print len(s), s
+
+2 \n
+  
+
+ What if you want to represent strings that have many  backslash  characters in them? http://docs.python.org/2/reference/lexical_analysis.html#string-literals continue, "String literals may optionally be prefixed with a letter 'r' or 'R'; such strings are called  raw strings  and use different rules for interpreting backslash escape sequences."  Here is our two-character string, using raw string representation: 
+
+  s = r"\n"
+print len(s), s
+
+2 \n
+  
+
+ So we have three different string representations, all giving the same string, or sequence of characters: 
+
+  print chr(92)+chr(110) == "\\n" == r"\n"
+True
+  
+
+ Now, let's turn to regular expressions. The http://docs.python.org/2/library/re.html#module-re says, "Regular expressions use the backslash character ('\') to indicate special forms or to allow special characters to be used without invoking their special meaning. This collides with Python’s usage of the same character for the same purpose in string literals..." 
+
+ If you want a Python regular expression object which matches a newline character, then you need a 2-character string, consisting of the  backslash  character followed by the  n  character. The following lines of code all set prog to a regular expression object which recognises a newline character: 
+
+  prog = re.compile(chr(92)+chr(110))
+prog = re.compile("\\n")
+prog = re.compile(r"\n")
+  
+
+ So why is it that http://docs.python.org/2/library/re.html#module-re?  Because regular expressions are frequently static strings, which are conveniently represented as string literals. And from the different string literal notations available, raw strings are a convenient choice, when the regular expression includes a  backslash  character. 
+
+  Questions  
+
+  Q : what about the expression  re.compile(r"\s\tWord") ?  A : It's easier to understand by separating the string from the regular expression compilation, and understanding them separately. 
+
+  s = r"\s\tWord"
+prog = re.compile(s)
+  
+
+ The string  s  contains eight characters: a  backslash , an  s , a  backslash , a  t , and then four characters  Word .  
+
+  Q : What happens to the tab and space characters?  A : At the Python language level, string  s  doesn't have  tab  and  space  character. It starts with four characters:  backslash ,  s ,  backslash ,  t  . The regular expression system, meanwhile, treats that string as source code in the regular expression language, where it means "match a string consisting of a whitespace character, a tab character, and the four characters  Word . 
+
+  Q : How do you match those if that's being treated as backlash-s and backslash-t?  A : Maybe the question is clearer if the words 'you' and 'that' are made more specific: how does the regular expression system match the expressions backlash-s and backslash-t? As 'any whitespace character' and as ' tab  character'.  
+
+  Q : Or what if you have the 3-character string backslash-n-newline?  A : In the Python language, the 3-character string backslash-n-newline can be represented as conventional string  "\\n\n" , or raw plus conventional string  r"\n" "\n" , or in other ways. The regular expression system matches the 3-character string backslash-n-newline when it finds any two consecutive  newline  characters. 
+
+ N.B. All examples and document references are to Python 2.7. 
+
+  Update : Incorporated clarifications from answers of @Vladislav Zorov and @m.buettner, and from follow-up question of @Aerovistae.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19202729)
+ The first one does contain backslash-and-n, but in regular-expression-language, backslash-and-n means newline (just like it does in Python string syntax).  That is, the string  r"\n"  does not contain an actual newline, but it contains something that tells the regular expression engine to look for actual newlines. 
+
+ If you want to search for a backslash followed by n, you need to use  r"\\n" . 
+
+ The point of the raw strings is that they block Python's basic intepretation of string escapes, allowing you to use the backslash for its regular-expression meaning.  If you don't want the regular-expression meaning, you still have to use two backslashes, as in my example above.  But without raw strings it would be even worse: if you wanted to search for literal backslash-n without a raw string, you'd have to use  "\\\\n" .  If the raw string blocked interpretation of the regular expression special characters (so that plain  "\n"  really meant backslash-n), you wouldn't have any way of using the regular expression syntax at all. 
+
+
+

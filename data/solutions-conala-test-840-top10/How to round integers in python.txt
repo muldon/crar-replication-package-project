@@ -1,0 +1,169 @@
+Query: How to round integers in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19910121)
+ This function will round either be order of magnitude (right to left) or by digits the same way that format treats floating point decimal places (left to right: 
+
+  def intround(n, p):
+    ''' rounds an intger. if "p"<0, p is a exponent of 10; if p>0, left to right digits '''
+    if p==0: return n
+    if p>0:  
+        ln=len(str(n))  
+        p=p-ln+1 if n<0 else p-ln
+    return (n + 5 * 10**(-p-1)) // 10**-p * 10**-p
+
+>>> tgt=5555555
+>>> d=2
+>>> print('\t{} rounded to {} places:\n\t{} right to left \n\t{} left to right'.format(
+        tgt,d,intround(tgt,-d), intround(tgt,d))) 
+  
+
+  
+
+  5555555 rounded to 2 places:
+5555600 right to left 
+5600000 left to right
+  
+
+ You can also use Decimal class: 
+
+  import decimal
+import sys
+
+def ri(i, prec=6):
+    ic=long if sys.version_info.major<3 else int
+    with decimal.localcontext() as lct:
+        if prec>0:
+            lct.prec=prec
+        else:
+            lct.prec=len(str(decimal.Decimal(i)))+prec  
+        n=ic(decimal.Decimal(i)+decimal.Decimal('0'))
+    return n
+  
+
+ On Python 3 you can reliably use round with negative places and get a rounded integer: 
+
+  def intround2(n, p):
+    ''' will fail with larger floating point numbers on Py2 and require a cast to an int '''
+    if p>0:
+        return round(n, p-len(str(n))+1)
+    else:
+        return round(n, p)    
+  
+
+ On Python 2, round will fail to return a proper rounder integer on larger numbers because round always returns a float: 
+
+  >>> round(2**34, -5)
+17179900000.0                     # OK
+>>> round(2**64, -5)
+1.84467440737096e+19              # wrong 
+  
+
+ The other 2 functions work on Python 2 and 3 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3349102)
+ round() can take ints and negative numbers for places, which round to the left of the decimal.  The return value is still a float, but a simple cast fixes that: 
+
+  >>> int(round(5678,-1))
+5680
+>>> int(round(5678,-2))
+5700
+>>> int(round(5678,-3))
+6000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31258675)
+ Your want "round down", and you are getting "round to even".  
+
+  ceil(x - 0.5)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3348866)
+ Actually, you could still use the round function: 
+
+  >>> print round(1123.456789, -1)
+1120.0
+  
+
+ This would round to the closest multiple of 10. To 100 would be -2 as the second argument and so forth. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3349045)
+ if you want the algebric form and still use round for it it's hard to get simpler than: 
+
+  interval = 5
+n = 4
+print(round(n/interval))*interval
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31258579)
+ The https://docs.python.org/2/library/functions.html#round do address the peculiaries of rounding floating point numbers. 
+
+ You can use the https://docs.python.org/2/library/decimal.html library to achieve what you want. 
+
+  from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
+
+round(2.675, 2)
+# output: 2.67
+
+Decimal('2.675').quantize(Decimal('1.11'), rounding=ROUND_HALF_UP)
+# output: 2.68
+
+Decimal('2.5').quantize(Decimal('1.'), rounding=ROUND_HALF_DOWN)
+# output: 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26562115)
+ If you want a simple solution and don't care about performance, you could use a function like this to convert to integer, round, and convert back to float: 
+
+  def round_exact(number, decimal_places=0):
+    """Round the number to the given number of decimal places by converting to 
+    and from integers to avoid floating point error."""
+    factor = 10**(decimal_places + 1)
+    rounded_int = int(number * factor)
+    if rounded_int % 10 >= 5:
+        # Round up
+        return (int(rounded_int//10) + 1) / float(factor//10)
+    # Round down
+    return int(rounded_int//10) / float(factor//10)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30679795)
+ About the  round(..  function returning a float 
+
+ That float (double-precision in Python is always a perfect representation of an integer, as long as it's in the range [-2<sup>53</sup>..2<sup>53</sup>]. (Pedants pay attention: it's not two's complement in doubles, so the range is symmetric about zero. 
+
+ See the https://stackoverflow.com/a/3387715/1143274 for details. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31258563)
+ Python 3 uses a different rounding behaviour compared to Python 2: it now uses so-called "banker's rounding" (https://en.wikipedia.org/wiki/Rounding#Round_half_to_even): when the integer part is odd, the number is rounded away from zero; when the integer part is even, is it rounded towards zero. 
+
+ The reason for this is to avoid a bias, when all values at .5 are rounded away from zero (and then e.g. summed). 
+
+ This is the behaviour you are seeing, and it is in fact consistent. It's perhaps just different than what you are used to. 
+
+
+

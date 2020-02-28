@@ -1,0 +1,374 @@
+Query: Python, running command line tools in parallel
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9555046)
+ Use the  Pool  object from the  multiprocessing  module. You can then use e.g.  Pool.map()  to do parallel processing. An example would be my markphotos script (see below), where a function is called multiple times in parallel to each process a picture. 
+
+  #! /usr/bin/env python
+# -*- coding: utf-8 -*-
+# Adds my copyright notice to photos.
+#
+# Author: R.F. Smith <rsmith@xs4all.nl>
+# $Date: 2012-10-28 17:00:24 +0100 $
+#
+# To the extent possible under law, Roland Smith has waived all copyright and
+# related or neighboring rights to markphotos.py. This work is published from
+# the Netherlands. See http://creativecommons.org/publicdomain/zero/1.0/
+
+import sys
+import subprocess
+from multiprocessing import Pool, Lock
+from os import utime, devnull
+import os.path
+from time import mktime
+
+globallock = Lock() 
+
+def processfile(name):
+    """Adds copyright notice to the file.
+
+    Arguments:
+    name -- file to modify
+    """
+    args = ['exiftool', '-CreateDate', name]
+    createdate = subprocess.check_output(args)
+    fields = createdate.split(":") #pylint: disable=E1103
+    year = int(fields[1])
+    cr = "R.F. Smith <rsmith@xs4all.nl> http://rsmith.home.xs4all.nl/"
+    cmt = "Copyright © {} {}".format(year, cr)
+    args = ['exiftool', '-Copyright="Copyright (C) {} {}"'.format(year, cr),
+            '-Comment="{}"'.format(cmt), '-overwrite_original', '-q', name]
+    rv = subprocess.call(args)
+    modtime = int(mktime((year, int(fields[2]), int(fields[3][:2]),
+                          int(fields[3][3:]), int(fields[4]), int(fields[5]),
+                          0,0,-1)))
+    utime(name, (modtime, modtime))
+    globallock.acquire()
+    if rv == 0:
+        print "File '{}' processed.".format(name)
+    else:
+        print "Error when processing file '{}'".format(name)
+    globallock.release()
+
+def checkfor(args):
+    """Make sure that a program necessary for using this script is
+    available.
+
+    Arguments:
+    args -- list of commands to pass to subprocess.call.
+    """
+    if isinstance(args, str):
+        args = args.split()
+    try:
+        with open(devnull, 'w') as f:
+            subprocess.call(args, stderr=subprocess.STDOUT, stdout=f)
+    except:
+        print "Required program '{}' not found! exiting.".format(args[0])
+        sys.exit(1)
+
+def main(argv):
+    """Main program.
+
+    Arguments:
+    argv -- command line arguments
+    """
+    if len(argv) == 1:
+        binary = os.path.basename(argv[0])
+        print "Usage: {} [file ...]".format(binary)
+        sys.exit(0)
+    checkfor(['exiftool',  '-ver'])
+    p = Pool()
+    p.map(processfile, argv[1:])
+    p.close()
+
+if __name__ == '__main__':
+    main(sys.argv)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9554739)
+ If you want to run commandline tools as separate processes, just use  os.system  (or better: The  subprocess  module) to start them asynchronously.  
+
+  subprocess.call("command -flags arguments &", shell=True)
+  
+
+  
+
+  subprocess.call("start command -flags arguments", shell=True)
+  
+
+ As for knowing when a command has finished: Under unix you could get set up with  wait  etc., but if you're writing the commandline scripts, I'd just have them write a message into a file, and monitor the file from the calling python script. 
+
+ @James Youngman proposed a solution to your second question: Synchronization. If you want to control your processes from python, you could start them asynchronously with Popen.  
+
+  p1 = subprocess.Popen("command1 -flags arguments")
+p2 = subprocess.Popen("command2 -flags arguments")
+  
+
+ Beware that if you use Popen and your processes write a lot of data to stdout, your program will deadlock. Be sure to redirect all output to a log file.  
+
+  p1  and  p2  are objects that you can use to keep tabs on your processes.  p1.poll()  will not block, but will return None if the process is still running. It will return the exit status when it is done, so you can check if it is zero. 
+
+  while True:
+    time.sleep(60)
+    for proc in [p1, p2]:
+        status = proc.poll()
+        if status == None:
+            continue
+        elif status == 0:
+            # harvest the answers
+        else:
+            print "command1 failed with status", status
+  
+
+ The above is just a model: As written, it will never exit, and it will keep "harvesting" the results of completed processes. But I trust you get the idea. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13325415)
+ Depending on your needs, you can use many tools. The simplest will probably be using http://www.gnu.org/software/parallel/.  make  can run tasks in parallel with its  -j  switch. If the tasks you try to run are more complex and diverse, a real queueing system might help, e.g. https://ssl.drqueue.org/redmine/projects/drqueue/wiki/Documentation. There are many more tools, http://www.gnu.org/software/parallel/man.html#differences_between_gnu_parallel_and_alternatives lists them nicely. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48764305)
+ Option 1: use in https://www.gnu.org/software/parallel/ tool. 
+
+ 
+   GNU parallel is a shell tool for executing jobs in parallel using one or more computers. A job can be a single command or a small script that has to be run for each of the lines in the input. The typical input is a list of files, a list of hosts, a list of users, a list of URLs, or a list of tables. A job can also be a command that reads from a pipe. GNU parallel can then split the input and pipe it into commands in parallel.  
+ 
+
+ Option 2: manage jobs manually 
+To run a job in background just append  &  in the end of command. 
+
+  Useful commands:  
+
+  jobs -r              # list of running
+kill -SIGSTOP %N     # suspend job N
+kill -SIGCONT %N     # resume job N
+  
+
+  Example:  
+
+  $ sleep 30 & # <- run in background
+$ sleep 60 & # <- run in background
+$ sleep 60 & # <- run in background
+
+# list of running jobs
+$ jobs -r
+[1]   Running                 sleep 30 &
+[2]-  Running                 sleep 60 &
+[3]+  Running                 sleep 40 &
+
+# kill job [3]
+$ kill %3
+
+# list of jobs
+$ jobs
+[1]   Running                 sleep 30 &
+[2]-  Running                 sleep 60 &
+[3]+  Terminated              sleep 40
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47955094)
+ With GNU Parallel it looks like this: 
+
+  #!/bin/bash
+cd /scripts/cloud01/floating_list
+
+rm -rf ./reports/openstack_reports/
+mkdir -p ./reports/openstack_reports/
+
+source ../creds/base
+doit() {
+  source ../creds/"$1"
+  python ../tools/openstack_resource_list.py > ./reports/openstack_reports/"$1".html
+}
+env_parallel doit ::: {A..T}
+lftp -f ./lftp_script
+  
+
+  env_parallel  copies the environment into each command - including functions. It then runs  parallel  which runs one job per core in parallel.  
+
+ Depending on the task it may be faster or slower to run more or fewer in parallel. Adjust with  -j8  for 8 jobs in parallel or  -j200%  for 2 jobs per core. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39799144)
+ Try running each process in the background by adding  &  to the end of the command. 
+
+  python abc.py p1 p4 &
+
+python xyz.py p2 p3 &
+  
+
+ http://www.hacktux.com/bash/ampersand 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44133043)
+ I had very similiar issue running Python 3.5 (Anaconda), Windows 10 64bit, Microsoft Visual Studio 2017 Professional Edition.  
+
+ Did you try to  enable a 64-Bit Visual C++ Toolset on the Command Line ?
+To do this, run      vcvars64.bat  on your command line first.
+In my case the localization is: 
+
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build
+  
+
+ This was sufficient for me and solved my problem. 
+
+ In addition, I see some users have to https://stackoverflow.com/questions/38290169/cannot-find-corecrt-h-universalcrt-includepath-is-wrong (I have it already). Check if you also have it: 
+
+ 
+ Run Visual Studio er. 
+ . 
+ Go to "Individual Components" tab. 
+ Scroll down to "Compilers, build tools and runtimes". 
+ Tick "Windows Universal CRT SDK". 
+ . 
+ 
+
+ PS: for convenience I recommend using powershell. A script for setting  vcvars64.bat  example from https://stackoverflow.com/questions/2124753/how-i-can-use-powershell-with-the-visual-studio-command-prompt: 
+
+  pushd "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build\"
+cmd /c "vcvars64.bat&set" |
+foreach {
+  if ($_ -match "=") {
+    $v = $_.split("="); set-item -force -path "ENV:\$($v[0])"  -value "$($v[1])"
+  }
+}
+popd
+Write-Host "`nVisual Studio 2017 Command Prompt variables set." -ForegroundColor Yellow
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3885913)
+ It's not quite clear (at least to me) what you mean by using "none of the command-line tools".  
+
+ To run a program in a subprocess, one usually uses the  subprocess  module. However, if both the calling and the callee are python scripts, there is another alternative, which is to use the  multiprocessing  module.  
+
+ For example, you can organize foo.py like this: 
+
+  def main():
+    ...
+
+if __name__=='__main__':
+    main()
+  
+
+ Then in the calling script, test.py: 
+
+  import multiprocessing as mp
+import foo
+proc=mp.Process(target=foo.main)
+proc.start()
+# Do stuff while foo.main is running
+# Wait until foo.main has ended
+proc.join()    
+# Continue doing more stuff
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53139716)
+ If you are absolutely intent on doing this in Python, then please just disregard my answer. If you are interested in getting the job done simply and fast, read on... 
+
+ I would suggest  GNU Parallel  if you have lots of things to be done in parallel and even more so as CPUs become  "fatter"  with more cores rather than  "taller"  with higher clock rates (GHz). 
+
+ At its simplest, you can use  ImageMagick  just from the command line in Linux, macOS and Windows like this to resize a bunch of images: 
+
+  magick mogrify -resize 128x128\! *.jpg
+  
+
+ If you have hundreds of images, you would be better running that in parallel which would be: 
+
+  parallel magick mogrify -resize 128x128\! ::: *.jpg
+  
+
+ If you have millions of images, the expansion of  *.jpg  will overflow your shell's command buffer, so you can use the following to feed the image names in on  stdin  instead of passing them as parameters: 
+
+  find -iname \*.jpg -print0 | parallel -0 -X --eta magick mogrify -resize 128x128\!
+  
+
+ There are two  "tricks"  here: 
+
+ 
+  I use  find ... -print0  along with  parallel -0  to null-terminate filenames so there are no problems with spaces in them,  
+  I use  parallel -X  which means, rather than start a whole new  mogrify  process for each image,  GNU Parallel  works out how many filenames  mogrify  can accept, and gives it that many in batches.  
+ 
+
+ I commend both tools to you. 
+
+ 
+
+ Whilst the  ImageMagick  aspects of the above answer work on Windows, I don't use Windows and I am unsure about using  GNU Parallel  there. I  think  it maybe runs under  git-bash  and/or maybe under  Cygwin  - you could try asking a separate question - they are free! 
+
+ As regards the ImageMagick part, I think you can get a listing of all the JPEG filenames in a file using this command: 
+
+  DIR /S /B *.JPG > filenames.txt
+  
+
+ You can then  probably  process them (not in parallel) like this: 
+
+  magick mogrify -resize 128x128\! @filenames.txt
+  
+
+ And if you find out how to run  GNU Parallel  on Windows, you can  probably  process them in parallel using something like this: 
+
+  parallel --eta -a filenames.txt magick mogrify -resize 128x128\!
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48858221)
+ GNU Parallel is made for you: 
+
+  cat the_file | parallel
+  
+
+ By default it will run one job per cpu-core. This can be adjusted with  --jobs . 
+
+ GNU Parallel is a general parallelizer and makes is easy to run jobs in parallel on the same machine or on multiple machines you have ssh access to. 
+
+ If you have 32 different jobs you want to run on 4 CPUs, a straight forward way to parallelize is to run 8 jobs on each CPU: 
+
+   
+
+ GNU Parallel instead spawns a new process when one finishes - keeping the CPUs active and thus saving time: 
+
+   
+
+  Installation  
+
+ For security reasons you should install GNU Parallel with your package manager, but if GNU Parallel is not packaged for your distribution, you can do a personal installation, which does not require root access. It can be done in 10 seconds by doing this: 
+
+  (wget -O - pi.dk/3 || curl pi.dk/3/ || fetch -o - http://pi.dk/3) | bash
+  
+
+ For other installation options see http://git.savannah.gnu.org/cgit/parallel.git/tree/README 
+
+  Learn more  
+
+ See more examples: http://www.gnu.org/software/parallel/man.html 
+
+ Watch the intro videos: https://www.youtube.com/playlist?list=PL284C9FF2488BC6D1 
+
+ Walk through the tutorial: http://www.gnu.org/software/parallel/parallel_tutorial.html 
+
+ Sign up for the email list to get support: https://lists.gnu.org/mailman/listinfo/parallel 
+
+
+

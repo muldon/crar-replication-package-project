@@ -1,0 +1,64 @@
+Query: Create a File Lock on a File
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34718685)
+ The event is triggered when a file is created. The file needs to be created before it can be written to. A file doesn't simply appear once it is fully written, it appears once it is created. 
+
+ What you can do is once you get the creation event: 
+
+ 
+ Create a https://docs.oracle.com/javase/7/docs/api/java/io/File.html object to point to the file 
+ Create a https://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileChannel.html for random access using https://docs.oracle.com/javase/7/docs/api/java/io/RandomAccessFile.html with  rw  mode (so read & write access) 
+ https://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileChannel.html#lock%28%29 the channel. This will block until the file is free for read/write access (read the more general <a href="https://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileChannel.html#lock%28long,%20long,%20boolean%29"  method for more info) 
+ When the lock is acquired, your file was released by the process that wrote the file 
+ 
+
+ A simplified example: 
+
+  File lockFile = new File( "file_to_lock" );
+FileChannel channel = new RandomAccessFile( lockFile, "rw" ).getChannel( );
+channel.lock( );
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14353423)
+ maybe you can try file lock.  each file can be a file lock. 
+
+  RandomAccessFile file = new RandomAccessFile(some_file, "rw");
+FileChannel fc = file.getChannel();
+FileLock lock = fc.tryLock();
+....
+lock.release()
+  
+
+ when you write screanshot to a file such as A.shot, you create the file A.shot, and hold the file lock of A.shot, then write data into it. when the file is finished, release the file lock. 
+
+ the rename process should try to get the file lock first, if succeed, then do rename work.
+if the file lock can not be got (as the write thread have not released the lock), then wait. 
+
+ hope it's useful.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1390669)
+ Your best bet is to set an exclusive lock on the file. If file is open by other processes, you will get an exception. For example, 
+
+  File file = new File(fileName);
+FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+// Get an exclusive lock on the whole file
+FileLock lock = channel.lock();
+try {
+    lock = channel.tryLock();
+    // Ok. You get the lock
+} catch (OverlappingFileLockException e) {
+    // File is open by someone else
+} finally {
+    lock.release();
+}
+  
+
+
+

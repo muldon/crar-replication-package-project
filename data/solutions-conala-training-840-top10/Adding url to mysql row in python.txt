@@ -1,0 +1,265 @@
+Query: Adding url to mysql row in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8380935)
+ You should use the http://docs.python.org/library/urlparse.html to parse the jdbc string. 
+
+  from urlparse import urlparse
+jdbc = "jdbc:mysql://www.myurl.com:3306"
+result=  urlparse(jdbc)
+
+
+MySQLdb.connect(host=result.host,
+                user=result.username,
+                passwd=result.password,
+                db="web3db4")
+  
+
+ 
+
+ Not sure how you are planing on passing the db.. but if you add it I can help you with that as well.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13042034)
+ I was able to replicate your problem like this: 
+
+  mysql> create table `index` (url varchar(50));
+Query OK, 0 rows affected (0.05 sec)
+
+mysql> insert into index(url) values ('http://www.google.com');
+ERROR 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'index(url) values ('http://www.google.com')' at line 1
+
+mysql> insert into `index`(url) values ('http://www.google.com');
+Query OK, 1 row affected (0.00 sec)
+  
+
+ 
+
+  index  is a keyword in MySQL. Your life will be easier if you do not use it as a table name.
+However, if you really want to, you can use it, but then you have to quote it: 
+
+  cursor.execute("""INSERT INTO `index`(url) VALUES(%s)""", (url,))
+  
+
+ 
+
+ PS: No need to call  
+
+  url = mdb.escape_string("http://www.google.com")
+  
+
+ MySQLdb will do that automatically for you when you call 
+
+  cursor.execute("""INSERT INTO index(url) VALUES(%s)""", (url,))
+  
+
+ In fact, since  cursor.execute  calls  mdb.escape_string  for you, doing it yourself could cause undesired values to be inserted into the database depending on the value of  url : 
+
+  In [105]: MySQLdb.escape_string("That's all folks")
+Out[105]: "That\\'s all folks"
+
+In [106]: MySQLdb.escape_string(MySQLdb.escape_string("That's all folks"))
+Out[106]: "That\\\\\\'s all folks"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27121110)
+  cursor.execute  handles MySQL escaping if you use it correctly. http://mysql-python.sourceforge.net/MySQLdb.html#some-examples 
+
+ The basic idea is to use  %s  in the raw SQL string where you currently are including the raw values, and then pass a second argument to  cursor.execute()  which is a tuple (or array) of the values in order. In your case, this would look like: 
+
+  url = 'ftp://ftp.ncbi.nlm.nih.gov/pub/pmc/0a/39/Arthritis_Res_2000_Jun_5_2%284%29_315-326.tar.gz'
+md5 = 'b6ba3adde8de87e4dc255092b04d07ea'
+host = 'ftp.ncbi.nlm.nih.gov'
+content_sha1 = '9aeab4412cc9b1add84a6d2bca574664e193b56e'
+add_date = '2012-05-15 00:00:00'
+sql = "INSERT INTO main_document SET url = %s, md5 = %s, host = %s, content_sha1 = %s, add_date = %s"
+cursor.execute(sql, (url, md5, host, content_sha1, add_date))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31043747)
+ Check the connection, are you sure you run your mysql at port 80?  
+
+ As I wrote in the comments, I doubt it runs port 80, this is the url to your phpMyAdmin and not the core mysql database server. Normally the web and database run on different machines, different IP addresses etc. Is this a hosted environment? Or do you run this in your local machine. 
+
+ If it is your local machine then changing to port 3306 should work. 
+
+ If it is a hosted environment by a hosting partner then you need to check the JDBC url from them. As you wrote it is XXXX hosted partner. Then check your XXX and it will provide you a XXX jdbc url for your mysql, and be sure to grant access to the user so you can logon to the mysql from your workstation remotly. The mysql url/host could be something like this NNNN-aaaa-bbbb-cccc-dddd.xxx.domain.xx 
+
+ Also did you try the https://github.com/PyMySQL/PyMySQL  
+
+  import pymysql
+db = pymysql.connect(host='10.0.0.140',user='root',passwd='password')
+cursor = db.cursor()
+query = ("SHOW DATABASES")
+cursor.execute(query)
+for r in cursor:
+print r
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54709385)
+ From the https://bugs.mysql.com/bug.php?id=58637, which is linked in the MySQL documentation page that flags the  INSERT ... ON DUPLICATE KEY UPDATE  as unsafe : 
+
+ 
+   When the table has more than one unique or primary key, this statement is sensitive to the order in which the storage engines checks the keys. Depending on this order, the storage engine may determine different rows to mysql, and hence mysql can update different rows [...] The order that the storage engine checks keys is not deterministic. 
+ 
+
+ I understand that your table has an autoincremented primary key, and that you are planning to add a unique key on the url column. Because the primary key is autoincremented, you will not pass it as a parameter for  INSERT  commands, as shown in your SQL command. Hence MySQL will not need to check for duplicate on this column ; it will only check for duplicates on  url . As a consequence, this  INSERT  should be safe. 
+
+ Other remarks regarding your question. 
+
+ 
+  you don't need to update the  url  command on duplicate keys (we know it is the same)  
+  The purpose of the  WHERE  clause in your query is unclear, are you sure that it is needed ?  
+  You will need to remove the duplicates before you enable the unique constraint on URL.   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20124807)
+ Write the populating in the  __init__ : 
+
+  def __init__(self):
+    super(ProductsSpider,self).__init__()
+    self.start_urls = get_start_urls()
+  
+
+ Assuming  get_start_urls()  returns the urls. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36528885)
+ Adding  cursor(MySQLdb.cursors.DictCursor)  means you get a dict returned in place of the  tuples  you would normally get so you need to access by key: 
+
+  for row in data:
+    print(row["X"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27310886)
+ Use this query: 
+
+  insert into test (age,name) values(%s,%s)
+  
+
+ Your code will look like: 
+
+  record = [12, 'Tom']
+cursor.execute("insert into test (age,name) values(%s,%s)", record)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7045865)
+  >>> import sqlalchemy as sa
+>>> import numpy as np
+>>> import time, datetime
+>>> import urllib
+  
+
+ . 
+
+  >>> datestr2timestamp = lambda d: time.mktime(time.strptime(d,"%Y-%m-%d"))
+>>> def npvector_to_sadict(vector):
+...     row = dict(zip(("open", "high", "low", "close", "volume", "adj_close"),
+...                        vector[1:]))
+...     row['date'] = datetime.date.fromtimestamp(vector[0])
+...     return row
+... 
+  
+
+  
+
+  >>> url = "http://ichart.yahoo.com/table.csv?a=2&c=2011&b=30&e=7&d=7&g=d&f=2011&s=msft&ignore=.csv"
+>>> f = urllib.urlopen(url)
+>>> title = f.readline().strip().split(",")
+>>> data = np.loadtxt(f, dtype=np.float, delimiter=",", converters={0: datestr2timestamp})
+  
+
+ define what the database table looks like 
+
+  >>> metadata = sa.MetaData()
+>>> stockdata = sa.Table('stockdata', metadata,
+...                      sa.Column('date', sa.Date),
+...                      sa.Column('open', sa.Float),
+...                      sa.Column('high', sa.Float),
+...                      sa.Column('low', sa.Float),
+...                      sa.Column('close', sa.Float),
+...                      sa.Column('volume', sa.Float),
+...                      sa.Column('adj_close', sa.Float))
+  
+
+ connect to the database.  you can change this to  mysql://user:password@host/  for mysql databases 
+
+  >>> engine = sa.create_engine("sqlite:///:memory:")
+  
+
+ only for demonstration, skip this if you already have the table created. 
+
+  >>> metadata.create_all(engine)
+  
+
+ insert the data into the database: 
+
+  >>> engine.execute(stockdata.insert(), [npvector_to_sadict(datum) for datum in data])
+<sqlalchemy.engine.base.ResultProxy object at 0x23ea150>
+  
+
+ verify that it was inserted 
+
+  >>> print data.shape[0], engine.execute(sa.select([sa.func.count(stockdata.c.close)])).scalar()
+90 90
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29688863)
+ Mysql has a  REPLACE  function. 
+
+ The most efficient way to do this would be: 
+
+  cursor.execute("UPDATE company SET name = replace(name, ',', '')")
+db.commit()
+  
+
+ If you want to pull the rows into python and then edit the string, you can do so like this: 
+
+  corrected_names = []
+for row in cursor.execute('SELECT name FROM company'):
+    corrected_names.append(row[0].replace(',', ''))
+  
+
+ this puts all the corrected names in a new list. 
+
+ however, this approach can still be improved upon. 
+
+  corrected_rows = []
+for row in cursor.execute('SELECT id, name FROM company'):
+    corrected_rows.append((row[0], row[1].replace(',', '')))
+  
+
+ Here we're querying the primary key, as well as the field we're interested in, and then adding the edited row to our list. So now  corrected_rows  is a list of tuples. 
+
+ After we're done editing the fields as we please, we can update the some or all of the rows in the database because we have the primary key. 
+
+ This method gives the greatest flexibility. 
+
+
+

@@ -1,0 +1,219 @@
+Query: What is the most pythonic way to exclude elements of a list that start with a specific character?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11791601)
+  [x for x in my_list if not x.startswith('#')]
+  
+
+ That's the most pythonic way of doing it. Any way of doing this will end up using a loop in either Python or C. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11791671)
+  There is  filter  builtin: 
+
+  filter(lambda s: not s.startswith('#'), somestrings)
+  
+
+ Note that in Python 3 it returns iterable, not a list, and so you may have to wrap it with  list() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20638064)
+ You can't exclude patterns with the  glob  function, globs only allow for  inclusion  patterns. https://en.wikipedia.org/wiki/Glob_(programming)#Syntax is very limited (even a  [!..  character class  must  match a character, so it is an  inclusion pattern  for every character that is not in the class). 
+
+ You'll have to do your own filtering; a list comprehension usually works nicely here: 
+
+  files = [fn for fn in glob('somepath/*.txt') 
+         if not os.path.basename(fn).startswith('eph')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33415978)
+ It isn't clear, why second parentheses doesn't match. Maybe because char  ! . 
+
+ Then you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.extract.html with regular expression. 
+
+ Regular expression  \(([A-Za-z0-9 _]+)\)  means: 
+
+ 
+  \(  matches a literal  (  character 
+  (  begins a new group 
+  [A-Za-z0-9 _]  is a character set matching any letter (capital or lower case), digit or underscore and space 
+  +  matches the preceding element (the character set) one or more times. 
+  )  ends the group 
+  \)  matches a literal  )  character 
+ 
+
+ Second parentheses isn't matched, because regex exclude character  !  - it isn't in brackets  [A-Za-z0-9 _] .
+ 
+
+  import pandas as pd
+import numpy as np
+import io
+
+temp=u"""(info) text (yay!)
+I love text
+Text is fun
+(more info) more text
+lotsa text (boo!)"""
+
+df = pd.read_csv(io.StringIO(temp), header=None, names=['original'])
+print df
+#                  original
+#0       (info) text (yay!)
+#1              I love text
+#2              Text is fun
+#3  (more info) more text
+#4        lotsa text (boo!)
+
+df['col1'] = df['original'].str.extract(r"\(([A-Za-z0-9 _]+)\)")
+df['col2'] = df['original'].str.replace(r"\(([A-Za-z0-9 _]+)\)", "")
+print df
+#                original       col1               col2
+#0     (info) text (yay!)       info        text (yay!)
+#1            I love text        NaN        I love text
+#2            Text is fun        NaN        Text is fun
+#3  (more info) more text  more info          more text
+#4      lotsa text (boo!)        NaN  lotsa text (boo!)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2194103)
+ You could also use a http://docs.python.org/tutorial/datastructures.html#list-comprehensions. 
+
+  cleaned_list = [filename for filename in files if not filename.startswith('doc')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34709735)
+ The  range  function works like this: 
+
+  i = lowerBound
+while True:
+     if(i < upperBound):
+         range_list.append(i)
+         i += step
+     else:
+         break
+  
+
+ This is why  range(0, 105, 5) == range(0, 101, 5)  
+
+ and the correct way for exclude upperBound : 
+
+  range(lowerBound, upperBound+step, step)
+  
+
+ From Python doc: 
+
+ 
+   The full form returns a list of plain integers [start, start + step,
+  start + 2 * step, ...]. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47832486)
+ Okay, IIUC, use  string.punctuation  and perform replacement with  replace  -  
+
+  import string
+data1.replace(r'[{}]'.format(string.punctuation), '', regex=True)
+
+             0
+0  привет Вася
+1     как дела
+2         уиии 
+  
+
+  
+
+  string.punctuation
+'!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'
+  
+
+ 
+
+ If you want to exclude a particular character / set of chars, here's one way to do it, using  set.difference  - 
+
+  c = set(string.punctuation)
+p_to_exclude = ['?', ...]
+
+c = c.difference(p_to_exclude)
+  
+
+ Now, you can use  c  as before -  
+
+  data1.replace(r'[{}]'.format(re.escape(''.join(c))), '', regex=True)
+             0
+0  привет Вася
+1    как дела?
+2         уиии
+  
+
+ Another thing here is to use  re.escape , because  [  and  ]  are considered metacharacters, and need to be escaped. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40348740)
+ A function that iterates through all elements until it finds the character. As soon as it finds it, it returns the position. To find the psotion you can use the https://docs.python.org/2/library/functions.html#enumerate fucntion which returns a tuple containing a count (from start which defaults to 0) and the values obtained from iterating over sequence 
+
+  def find_position(symbol,lst):
+    for index, my_list in enumerate(s):
+        for i,item in enumerate(my_list):
+            if symbol == item:
+                return "{},{}".format(index,i)
+    return "Not found"    
+
+s = [['.','M','M','G','G'],
+              ['.','.','.','.','h'],  
+              ['B','B','B','.','h']]
+a =  find_position("h",s)  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53950542)
+ I was able to accomplish the desired transformation with a regular expression: 
+
+  import re
+capitalized = re.sub(
+    '(^|[-/])\s*([A-Za-z])', lambda match: match[0].upper(), phrase)
+  
+
+ The expression says "anywhere you match either the start of the string,  ^ , or a dash or slash followed by maybe some space and a word character, replace the word character with its uppercase." 
+
+ https://repl.it/repls/VainBetterBetatest 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52728011)
+ You may use 
+
+  ^\d+ +(?<=.{11})
+  
+
+ See the https://regex101.com/r/hl8n4e/1 
+
+  Details  
+
+ 
+  ^  - start of string 
+  \d+ +  - 1+ digits and then 1+ spaces 
+  (?<=.{11})  - a positive lookbehind check that requires exactly 11 chars immediately to the left of the current location. 
+ 
+
+
+

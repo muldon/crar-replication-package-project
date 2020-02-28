@@ -1,0 +1,152 @@
+Query: Generate random numbers with a given (numerical) distribution
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4266126)
+ you might want to have a look at NumPy http://docs.scipy.org/doc/numpy/reference/routines.random.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20307541)
+ Maybe it is kind of late. But you can use http://docs.scipy.org/doc/numpy/reference/generated/numpy.random.choice.html#numpy.random.choice, passing the  p  parameter: 
+
+  val = numpy.random.choice(numpy.arange(1, 7), p=[0.1, 0.05, 0.05, 0.2, 0.4, 0.2])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25473456)
+ In general, you want to have the inverse cumulative probability density function. Once you have that, then generating the random numbers along the distribution is simple: 
+
+  import random
+
+def sample(n):
+    return [ icdf(random.random()) for _ in range(n) ]
+  
+
+ Or, if you use NumPy: 
+
+  import numpy as np
+
+def sample(n):
+    return icdf(np.random.random(n))
+  
+
+ In both cases  icdf  is the inverse cumulative distribution function which accepts a value between 0 and 1 and outputs the corresponding value from the distribution. 
+
+ To illustrate the nature of  icdf , we'll take a simple uniform distribution between values 10 and 12 as an example: 
+
+ 
+  probability distribution function is 0.5 between 10 and 12, zero elsewhere  
+  cumulative distribution function is 0 below 10 (no samples below 10), 1 above 12 (no samples above 12) and increases linearly between the values (integral of the PDF)  
+  inverse cumulative distribution function is only defined between 0 and 1. At 0 it is 10, at 12 it is 1, and changes linearly between the values  
+ 
+
+ Of course, the difficult part is obtaining the inverse cumulative density function. It really depends on your distribution, sometimes you may have an analytical function, sometimes you may want to resort to interpolation. Numerical methods may be useful, as numerical integration can be used to create the CDF and interpolation can be used to invert it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36861107)
+ based on other solutions, you generate accumulative distribution (as integer or float whatever you like), then you can use bisect to make it fast  
+
+ this is a simple example (I used integers here) 
+
+  l=[(20, 'foo'), (60, 'banana'), (10, 'monkey'), (10, 'monkey2')]
+def get_cdf(l):
+    ret=[]
+    c=0
+    for i in l: c+=i[0]; ret.append((c, i[1]))
+    return ret
+
+def get_random_item(cdf):
+    return cdf[bisect.bisect_left(cdf, (random.randint(0, cdf[-1][0]),))][1]
+
+cdf=get_cdf(l)
+for i in range(100): print get_random_item(cdf),
+  
+
+ the  get_cdf  function would convert it from 20, 60, 10, 10 into 20, 20+60, 20+60+10, 20+60+10+10 
+
+ now we pick a random number up to 20+60+10+10 using  random.randint  then we use bisect to get the actual value in a fast way 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4266645)
+ http://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.rv_discrete.html might be what you want.  You can supply your probabilities via the  values  parameter.  You can then use the  rvs()  method of the distribution object to generate random numbers. 
+
+ As pointed out by Eugene Pakhomov in the comments, you can also pass a  p  keyword parameter to https://docs.scipy.org/doc/numpy/reference/generated/numpy.random.choice.html, e.g. 
+
+  numpy.random.choice(numpy.arange(1, 7), p=[0.1, 0.05, 0.05, 0.2, 0.4, 0.2])
+  
+
+ If you are using Python 3.6 or above, you can use  random.choices()  from the standard library – see the https://stackoverflow.com/a/41852266/5987. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4266562)
+ An advantage to generating the list using CDF is that you can use binary search. While you need O(n) time and space for preprocessing, you can get k numbers in O(k log n). Since normal Python lists are inefficient, you can use  array  module. 
+
+ If you insist on constant space, you can do the following; O(n) time, O(1) space. 
+
+  def random_distr(l):
+    r = random.uniform(0, 1)
+    s = 0
+    for item, prob in l:
+        s += prob
+        if s >= r:
+            return item
+    return item  # Might occur because of floating point inaccuracies
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4266278)
+ (OK, I know you are asking for shrink-wrap, but maybe those home-grown solutions just weren't succinct enough for your liking.  
+
+  pdf = [(1, 0.1), (2, 0.05), (3, 0.05), (4, 0.2), (5, 0.4), (6, 0.2)]
+cdf = [(i, sum(p for j,p in pdf if j < i)) for i,_ in pdf]
+R = max(i for r in [random.random()] for i,c in cdf if c <= r)
+  
+
+ I pseudo-confirmed that this works by eyeballing the output of this expression: 
+
+  sorted(max(i for r in [random.random()] for i,c in cdf if c <= r)
+       for _ in range(1000))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4266294)
+ Make a list of items, based on their  weights : 
+
+  items = [1, 2, 3, 4, 5, 6]
+probabilities= [0.1, 0.05, 0.05, 0.2, 0.4, 0.2]
+# if the list of probs is normalized (sum(probs) == 1), omit this part
+prob = sum(probabilities) # find sum of probs, to normalize them
+c = (1.0)/prob # a multiplier to make a list of normalized probs
+probabilities = map(lambda x: c*x, probabilities)
+print probabilities
+
+ml = max(probabilities, key=lambda x: len(str(x)) - str(x).find('.'))
+ml = len(str(ml)) - str(ml).find('.') -1
+amounts = [ int(x*(10**ml)) for x in probabilities]
+itemsList = list()
+for i in range(0, len(items)): # iterate through original items
+  itemsList += items[i:i+1]*amounts[i]
+
+# choose from itemsList randomly
+print itemsList
+  
+
+ An optimization may be to normalize amounts by the greatest common divisor, to make the target list smaller. 
+
+ Also, https://stackoverflow.com/questions/2570690/python-algorithm-to-randomly-select-a-key-based-on-proportionality-weight might be interesting. 
+
+
+

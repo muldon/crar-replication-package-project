@@ -1,0 +1,170 @@
+Query: How do I create an Excel document using Apache POI?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52397229)
+  Required jars:  
+poi-3.17.jar 
+poi-examples-3.17.jar 
+poi-excelant-3.17.jar 
+poi-ooxml-3.17.jar 
+poi-ooxml-schemas-3.15.0.jar 
+dom4j-1.6.1.jar 
+poi-scratchpad-3.17.jar 
+xmlbeans-2.6.0.jar  
+
+      /**
+     * Excel to HTML
+     * 
+     */
+    public static void excel2Html(String filename, String htmlid, String ctxPath) throws Exception{
+        InputStream input=new FileInputStream(filename);
+         HSSFWorkbook excelBook=new HSSFWorkbook(input);
+         ExcelToHtmlConverter excelToHtmlConverter = new ExcelToHtmlConverter(DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument());
+         excelToHtmlConverter.processWorkbook(excelBook);
+         List pics = excelBook.getAllPictures();
+         if (pics != null) {
+             for (int i = 0; i < pics.size(); i++) {
+                 Picture pic = (Picture) pics.get (i);
+                 try {
+                     pic.writeImageContent(new FileOutputStream (ctxPath + pic.suggestFullFileName() ) );
+                 } catch (FileNotFoundException e) {
+                     e.printStackTrace();
+                 }
+             }
+         }
+         Document htmlDocument = excelToHtmlConverter.getDocument();
+         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+         DOMSource domSource = new DOMSource (htmlDocument);
+         StreamResult streamResult = new StreamResult(outStream);
+         TransformerFactory tf = TransformerFactory.newInstance();
+         Transformer serializer = tf.newTransformer();
+         serializer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+         serializer.setOutputProperty(OutputKeys.INDENT, "yes");
+         serializer.setOutputProperty(OutputKeys.METHOD, "html");
+         serializer.transform (domSource, streamResult);
+         outStream.close();
+
+        OutputStream os = new FileOutputStream(new File(ctxPath, htmlid+".html"));
+        final PrintStream printStream = new PrintStream(os);
+        printStream.print(new String(outStream.toByteArray()));
+        printStream.close();
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6858571)
+ The workaround: 
+
+   XSSFSheet sheet = workbook.createSheet();
+ sheet.getCTWorksheet().getSheetViews().getSheetViewArray(0).setRightToLeft(true);
+  
+
+ Source: http://thread.gmane.org/gmane.comp.jakarta.poi.user/17099/focus=17110 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41877197)
+ You need to write your excel to disk after you create the sheets, rows and cells. 
+
+  public WriteExcel(String FilePath) throws IOException
+
+{
+    this.FilePath=FilePath;
+}
+
+//Write to a specific Cell
+
+public void writeToCell(String SheetName, int RowNum, int ColNum, String Data) throws IOException
+{
+    fout=new FileOutputStream(FilePath);
+    wb=new XSSFWorkbook();
+    ws=wb.createSheet(SheetName);
+    xr=ws.createRow(RowNum);
+    xc=xr.createCell(ColNum);
+    xc.setCellValue(Data);
+    wb.write(fout);
+    fout.close();
+} 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35705763)
+ Yes, Apache POI allows you to create a hyperlink to another sheet in the same workbook.  According to the http://poi.apache.org/spreadsheet/quick-guide.html#Hyperlinks: 
+
+  cell = sheet.createRow(3).createCell((short)0);
+cell.setCellValue("Worksheet Link");
+Hyperlink link2 = createHelper.createHyperlink(Hyperlink.LINK_DOCUMENT);
+link2.setAddress("'Target Sheet'!A1");
+cell.setHyperlink(link2);
+cell.setCellStyle(hlink_style);
+  
+
+ This creates a cell with a hyperlink in it of type  LINK_DOCUMENT , with an address of a cell reference, which can be in the same sheet or another sheet.  Then it sets the cell style to an existing cell style (created earlier in the code sample), so that it looks like a hyperlink. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6743942)
+  sheet.getPrintSetup().setLandscape(true);
+sheet.getPrintSetup().setPaperSize(HSSFPrintSetup.A5_PAPERSIZE); 
+  
+
+ http://poi.apache.org/apidocs/org/apache/poi/hssf/usermodel/HSSFPrintSetup.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21977740)
+ Here is snippet to help you: 
+
+  public void write() throws IOException, WriteException {
+    File file = new File("file_location");
+    WorkbookSettings wbSettings = new WorkbookSettings();
+    wbSettings.setLocale(new Locale("en", "EN"));
+    WritableWorkbook wb= Workbook.createWorkbook(file, wbSettings);
+    wb.createSheet("My Spreadsheet", 0);
+    WritableSheet excel = wb.getSheet(0);
+    createLabel(excel);
+    createContent(excel);
+    wb.write();
+    wb.close();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3354828)
+ This will be extremely complicated to do from scratch, as you will have to figure out what needs to go in the Excel file to create the charts. I would go a different route. 
+
+ Create an Excel file that includes a macro that creates the Bar Chart etc for some data (using Excel in the usual way). Then use Apache POI to create a file with the data you want and start Excel from Java, executing the macro that creates the charts. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49155783)
+  wb.setForceFormulaRecalculation(true);
+// replace "wb" with your HSSFWorkbook/XSSFWorkbook object
+  
+
+ https://poi.apache.org/apidocs/org/apache/poi/hssf/usermodel/HSSFWorkbook.html#setForceFormulaRecalculation-boolean- 
+
+ https://poi.apache.org/apidocs/org/apache/poi/xssf/usermodel/XSSFWorkbook.html#setForceFormulaRecalculation-boolean- 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10394177)
+ In poi-3.8 support for charts seems to be coming.  
+
+ See http://mail-archives.apache.org/mod_mbox/poi-dev/201204.mbox/%3CCAHpuNmv-S8iVMWDCKXutN3q4V66WjUuQDWpTYFtY6UFUhhDeYw%40mail.gmail.com%3E. 
+
+ And in particular, https://svn.apache.org/repos/asf/poi/trunk/src/examples/src/org/apache/poi/xssf/usermodel/examples/ScatterChart.java. 
+
+
+

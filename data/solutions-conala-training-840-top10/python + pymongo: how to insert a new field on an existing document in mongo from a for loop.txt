@@ -1,0 +1,310 @@
+Query: python + pymongo: how to insert a new field on an existing document in mongo from a for loop
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15666285)
+ You should execute an update query like this: 
+
+  db.Doc.update({"_id": b["_id"]}, {"$set": {"geolocCountry": myGeolocCountry}})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53595198)
+ For  pymongo > 3  
+
+  db.Doc.update_one({"_id": b["_id"]}, {"$set": {"geolocCountry": myGeolocCountry}})
+  
+
+ In case of multiple updates: 
+
+  db.Doc.update_many({"geolocCountry": {"$exists": False}}, {"$set": {"geolocCountry": myGeolocCountry}})
+  
+
+ For  pymongo < 3  
+
+ above/previous answers are correct 
+
+  db.Doc.update({"_id": b["_id"]}, {"$set": {"geolocCountry": myGeolocCountry}})
+  
+
+ In case of multiple updates: 
+
+  db.Doc.update({"geolocCountry": {"$exists": False}}, {"$set": {"geolocCountry": myGeolocCountry}})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15666303)
+ You have to use the function http://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.update in order to update records in your collection. 
+
+ With update you can specify a query (just like you have above with  collection.find()  but also provide a second dict that defines how you want to update the documents found in the query.
+ 
+
+  db.Docs.update({"geolocCountry":{"$exists":False}}, {"$set": "geolocCountry": myGeolocCountry})
+  
+
+ Check out the API for the rest of the arguments. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36434473)
+ You need to loop over the cursor and update each document using the  $set  update operator. Of course to do this you use "bulk" operations for maximum efficiency. That being said the approach will differ depending on your MongoDB server version and your PyMongo version. 
+
+ From MongoDB 3.2 you need to use https://docs.mongodb.org/manual/core/bulk-write-operations/#bulk-write-operations and the https://docs.mongodb.org/manual/reference/method/db.collection.bulkWrite/#db.collection.bulkWrite method. 
+
+  var requests = [];
+var cursor = db.collection.find( { "field.1": { "$exists": true } }, { "field": 1 } );
+cursor.forEach( document => { 
+    requests.push({ 
+        "updateOne": {
+            "filter" : { "_id": document._id },
+            "update" : { "field": { "$set": document.field[0] } }
+        }
+    });
+    if (requests.length === 1000) {
+        db.collection.bulkWrite(requests);
+        requests = [];
+    }
+});
+
+if (requests.length > 0) {
+    db.collection.bulkWrite(requests);
+}
+  
+
+ This query using the  PyMongo 3.0  driver which provides the you need to use the https://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.bulk_write method gives the following: 
+
+  from pymongo import UpdateOne
+
+
+requests = [];
+cursor = db.collection.find({"field.1": {"$exists": True}}, {"field": 1})
+for document in cursor:
+    requests.append(UpdateOne({'_id': document['_id']}, {'$set': {'field': document['field'][0]}}))
+    if len(requests) == 1000:
+        # Execute per 1000 operations
+        db.collection.bulk_write(requests)
+        requests = []
+if len(requests) > 0:
+
+    # clean up queues
+    db.collection.bulk_write(requests)
+  
+
+ 
+
+ From MongoDB 2.6 you need to use the now deprecated https://docs.mongodb.org/manual/reference/method/Bulk/#bulk API. 
+
+  var bulk = db.collection.initializeUnorderedBulkOp();
+var count = 0;
+
+// cursor is the same as in the previous version using MongoDB 3.2
+cursor.forEach(function(document) { 
+    bulk.find( { "_id": document._id } ).updateOne( { "$set": { "field": document.field[0] } } ); 
+    count++;
+    if (count % 1000 === 0) {
+        bulk.execute();
+        bulk = db.collection.initializedUnorderedBulkOp();
+    }
+});
+
+// Again clean up queues
+if (count > 0 ) {
+    bulk.execute();
+}
+  
+
+ Translate into Python gives the following. 
+
+  bulk = db.collection.initialize_unordered_bulk_op()
+count = 0
+
+for doc in cursor:
+    bulk.find({'_id': doc['_id']}).update_one({'$set': {'field': doc['field'][0]}})
+    count = count + 1
+    if count == 1000:
+        bulk.execute()
+        bulk = db.collection.initialize_unordered_bulk_op()
+
+if count > 0:
+    bulk.execute()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14470294)
+ http://api.mongodb.org/python/current/tutorial.html#getting-a-database 
+
+  import pymongo
+from pymongo import MongoClient
+connection = MongoClient()
+db = connection.mydatabase
+  
+
+ http://api.mongodb.org/python/current/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient.database_names 
+
+  import pymongo
+from pymongo import MongoClient
+connection = MongoClient()
+connection.database_names()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30787769)
+ This solution above is correct for older versions of MongoDB and the pymongo driver but it no longer works with pymongo3 and MongoDB3+ You now need to add  document_class=OrderedDict  to the MongoClient constructor.  Modifying the above answer for pymongo3 compatibility. 
+
+  from collections import OrderedDict
+from pymongo import MongoClient
+import bson
+
+client = MongoClient(document_class=OrderedDict)
+sample_db = client['sample']
+test_col = sample_db['test']
+
+test_col.drop()
+
+data = OrderedDict([("one", 1), ("two", 2), ("three", 3), ("four", 4)])
+test_col.insert(data)
+print(list(test_col.find({}, {'_id': 0})))
+
+test_col.drop()
+
+data = bson.son.SON([("one", 1), ("two", 2), ("three", 3), ("four", 4)])
+test_col.insert(data)
+print(list(test_col.find({}, {'_id': 0})))
+  
+
+ Output: 
+
+  [OrderedDict([(u'one', 1), (u'two', 2), (u'three', 3), (u'four', 4)])]
+[OrderedDict([(u'one', 1), (u'two', 2), (u'three', 3), (u'four', 4)])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14026508)
+ It looks like you want python code to pass the current time to mongo in a pymongo call.  
+
+  >>> from datetime import datetime
+>>> datetime.now()
+datetime.datetime(2012, 12, 24, 18, 33, 46, 266943)
+  
+
+ Complete code looks like this: 
+
+  import pymongo
+from datetime import datetime
+
+class AccountsDB():
+    def __init__(self):
+        pass
+    def store_info(self, user_info=None):
+        try:
+            conn = pymongo.Connection('localhost', 27017)
+            db_name = 'accountsdb'
+            coll_name = 'user_info'
+            db = conn[db_name]
+            coll = db[coll_name]
+            print "Successfully connected to '%s'" % db_name
+            if user_info is not None:
+                user_info['created_time'] = datetime.now()
+                print user_info
+                coll.insert(user_info)
+            else:
+                print 'No user_info'
+            print "Data where stored in database"
+        except:
+            print "Some Error Occured"
+
+a = AccountsDB()
+a.store_info({})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32187330)
+ yes you have to specify an ObjectId instance as follows:  
+
+  from bson.objectid import ObjectId
+db.mycollection.update({ '_id': ObjectId("55d49338b9796c337c894df3"),  {'$set': { "details.model": "14Q22" } }) 
+  
+
+ 
+ also notice that mycollection.update althought it works is deprecated
+due to introduction of new CRUD operations, better use
+mycollection.update_one or mycollection.find_one_and_update 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31138455)
+ The only thing you could do better would be to define a function like: 
+
+  def make_sure_exists(story, stories_col):
+    data = stories_col.find_one({'story': story})
+    if data is not None:
+        return data.['_id']
+    return stories_col.insert_one({'story': story}).inserted_id
+  
+
+ Unless you have a new enough version of mongo in which case you can use the http://docs.mongodb.org/manual/reference/operator/update/setOnInsert/ operation: 
+
+  story = "this is a very long story"
+id = stories_col.find_one_and_update({
+    'story': story,
+}, {
+    'story': { '$setOnInsert': story }
+}, upsert=True, return_document=ReturnDocument.AFTER)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39555281)
+ This should give you the idea how to do it   
+
+  import pymongo
+
+client = pymongo.MongoClient('yourHost', 30000) # adjust to your needs
+db = client.so
+coll = db.yourcollection
+
+# show initial data
+for doc in coll.find():
+    print(doc)
+
+# update data
+places_visited = [
+    "Palace of Dob",
+    "Palace of Victoria",
+    "Sahara Desert"
+]
+coll.update({}, { "$set": { "Places Visited": places_visited } }, multi=True)
+
+# show updated data
+for doc in coll.find():
+    print(doc)  
+  
+
+ which for your sample data should give output similar to this   
+
+<pre class="lang-none prettyprint-override"> daxaholic$ python3 main.py 
+{'name': 'Bunty', 'Basic Intro': 'A.B.C.D.', '_id': '4564345343'}
+{'name': 'Humty', 'Basic Intro': 'B.C.D.', '_id': '45657865745'}
+{'name': 'Bunty', 'Places Visited': ['Palace of Dob', 'Palace of Victoria', 'Sahara Desert'], 'Basic Intro': 'A.B.C.D.', '_id': '4564345343'}
+{'name': 'Humty', 'Places Visited': ['Palace of Dob', 'Palace of Victoria', 'Sahara Desert'], 'Basic Intro': 'B.C.D.', '_id': '45657865745'}  
+  
+
+ For further information see the https://docs.mongodb.com/manual/reference/method/db.collection.update/#db.collection.update about  update  
+
+
+

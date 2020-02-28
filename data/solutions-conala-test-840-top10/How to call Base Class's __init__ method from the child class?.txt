@@ -1,0 +1,276 @@
+Query: How to call Base Class's __init__ method from the child class?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19205942)
+ You can call  the super class's constructor like this 
+
+  class A(object):
+    def __init__(self, number):
+        print "parent", number
+
+class B(A):
+    def __init__(self):
+        super(B, self).__init__(5)
+
+b = B()
+  
+
+  NOTE:  
+
+ This will work only when the parent class inherits  object  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19205946)
+ You could use  super(ChildClass, self).__init__()  
+
+  class BaseClass(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
+class ChildClass(BaseClass):
+    def __init__(self, *args, **kwargs):
+        super(ChildClass, self).__init__(*args, **kwargs)
+  
+
+ Your indentation is incorrect, here's the modified code: 
+
+  class Car(object):
+    condition = "new"
+
+    def __init__(self, model, color, mpg):
+        self.model = model
+        self.color = color
+        self.mpg   = mpg
+
+class ElectricCar(Car):
+    def __init__(self, battery_type, model, color, mpg):
+        self.battery_type=battery_type
+        super(ElectricCar, self).__init__(model, color, mpg)
+
+car = ElectricCar('battery', 'ford', 'golden', 10)
+print car.__dict__
+  
+
+ Here's the output: 
+
+  {'color': 'golden', 'mpg': 10, 'model': 'ford', 'battery_type': 'battery'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44450518)
+ You need to pass cls in init method instead of self. Below is the solution of your problem: 
+
+  def init(cls):
+    super(type(cls), cls).__init__()
+
+B = type('B',(A,),{'__init__':init})
+b = B()
+"I am in init of A.."
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32688823)
+ The main difference is that  ChildA.__init__  will unconditionally call  Base.__init__  whereas  ChildB.__init__  will call  __init__  in  whatever class happens to be  ChildB  ancestor in  self 's line of ancestors 
+(which may differ from what you expect).  
+
+ If you add a  ClassC  that uses multiple inheritance:  
+
+  class Mixin(Base):
+  def __init__(self):
+    print "Mixin stuff"
+    super(Mixin, self).__init__()
+
+class ChildC(ChildB, Mixin):  # Mixin is now between ChildB and Base
+  pass
+
+ChildC()
+help(ChildC) # shows that the the Method Resolution Order is ChildC->ChildB->Mixin->Base
+  
+
+ then   Base  is no longer the parent of  ChildB   for  ChildC  instances. Now  super(ChildB, self)  will point to  Mixin  if  self  is a  ChildC  instance. 
+
+ You have inserted  Mixin  in between  ChildB  and  Base . And you can take advantage of it with  super()  
+
+ So if you are designed your classes so that they can be used in a Cooperative Multiple Inheritance scenario, you use  super  because you don't really know who is going to be the ancestor at runtime.  
+
+ The https://rhettinger.wordpress.com/2011/05/26/super-considered-super/ and https://youtu.be/EiOglTERPEo explain this pretty well.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35357148)
+ If you are using Python 3, it is recommended to simply call super() without any argument: 
+
+  class Car(object):
+    condition = "new"
+
+    def __init__(self, model, color, mpg):
+        self.model = model
+        self.color = color
+        self.mpg   = mpg
+
+class ElectricCar(Car):
+    def __init__(self, battery_type, model, color, mpg):
+        self.battery_type=battery_type
+        super().__init__(model, color, mpg)
+
+car = ElectricCar('battery', 'ford', 'golden', 10)
+print car.__dict__
+  
+
+ Do not call super with  class  as it may lead to infinite recursion exceptions as per https://stackoverflow.com/a/19776143/541420. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44450515)
+ You need to call it like so:  super(B, self).__init__() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46943772)
+ To avoid confusion it is useful to know that you can invoke the base_class  __init__()  method if the child_class does not have an  __init__()  class.  
+
+ Example: 
+
+  class parent:
+  def __init__(self, a=1, b=0):
+    self.a = a
+    self.b = b
+
+class child(parent):
+  def me(self):
+    pass
+
+p = child(5, 4)
+q = child(7)
+z= child()
+
+print p.a # prints 5
+print q.b # prints 0
+print z.a # prints 1
+  
+
+ In fact the MRO in python will look for  __init__()  in the parent class when can not find it in the children class. You need to invoke the parent class constructor directly if you have already an  __init__()  method in the children class.  
+
+ For example the following code will return an error:
+        class parent:
+          def  init (self, a=1, b=0):
+            self.a = a
+            self.b = b 
+
+      class child(parent):
+      def __init__(self):
+        pass
+      def me(self):
+        pass
+
+    p = child(5, 4) # Error: constructor gets one argument 3 is provided.
+    q = child(7)  # Error: constructor gets one argument 2 is provided.
+
+    z= child()
+    print z.a # Error: No attribute named as a can be found.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45001548)
+ I may still not fully understand, but this seems to do what I (think) you want: 
+
+  class Base(object):
+    def __init__(self):
+        print("Base.__init__() called")
+        self.my_data = 0
+        self.other_stuff()
+        self.my_rebind_function()
+
+    def other_stuff(self):
+        """ empty """
+
+    def my_rebind_function(self):
+        """ empty """
+
+class Child(Base):
+    def __init__(self):
+        super(Child, self).__init__()
+
+    def other_stuff(self):
+        print("In Child.other_stuff() doing other stuff I want done in Child class")
+
+    def my_rebind_function(self):
+        print("In Child.my_rebind_function() doing stuff with self.my_data")
+
+child = Child()
+  
+
+ Output: 
+
+<pre class="lang-none prettyprint-override"> Base.__init__() called
+In Child.other_stuff() doing other stuff I want done in Child class
+In Child.my_rebind_function() doing stuff with self.my_data
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32377132)
+ You might consider https://stackoverflow.com/a/14973879/5265467 to mark  __init__  as abstract, and then go ahead and invoke the superclass  __init__  from the subclass (and, as https://stackoverflow.com/a/32372250/5265467, give the superclass  __init__  a trivial implementation of  pass ): 
+
+  from abc import ABCMeta, abstractmethod
+
+
+class AbstractBase(object, metaclass=ABCMeta):
+    @abstractmethod  # This method must be overridden...
+    def __init__(self):
+        print("...but can still be called via super by subclasses have shared construction logic")
+        pass
+
+
+class RealChild(AbstractBase):
+    def __init__(self):
+        super().__init__()  # Won't do anything, UNTIL the day you decide all subclasses of AbstractBase need shared logic
+        print('do stuff')
+
+
+child = RealChild()
+  
+
+ If you try to instantiate via  parent = AbstractBase()  or  parent = AbstractBase.__new__(AbstractBase) , you'll get an error: 
+
+ 
+   TypeError: Can't instantiate abstract class AbstractBase with abstract methods  init  
+ 
+
+ So you've got your uninstantiable abstract safety, but at the same time you are still well set up to alter all child class construction by altering base class construction, as is right and proper. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49587602)
+ Perhaps a clearer implementation for your case is using **kwargs  combined with new added arguments  in your derived class as in: 
+
+  class Parent:
+    def __init__(self, a, b, c):
+        self.a = a
+        self.b = b
+        self.c = c
+
+
+class Child(Parent):
+    def __init__(self, d, **kwargs):
+        super(Child, self).__init__(**kwargs)
+        self.d = d
+  
+
+ By this method you avoid the code duplication but preserve the implicit addition of arguments in your derived class. 
+
+
+

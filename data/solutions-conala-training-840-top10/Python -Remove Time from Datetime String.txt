@@ -1,0 +1,203 @@
+Query: Python -Remove Time from Datetime String
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26154047)
+  print then.date()
+  
+
+ What you want is a datetime.date object. What you have is a datetime.datetime object. You can either change the object when you print as per above, or do the following when creating the object: 
+
+  then = datetime.datetime.strptime(when, '%Y-%m-%d').date()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19533985)
+ Because  split  will only work on a String not  datetime.datetime . Here this will clear  out your confusion -  
+
+  hussain@work-desktop:~$ python
+Python 2.7.1+ (r271:86832, Sep 27 2012, 21:16:52) 
+[GCC 4.5.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from datetime import datetime
+>>> test = datetime.now()
+>>> print test
+2013-10-23 11:49:28.385757
+>>> test.split('.')[0]
+Traceback (most recent call last):
+File "<stdin>", line 1, in <module>
+AttributeError: 'datetime.datetime' object has no attribute 'split'
+>>> type(test)
+<type 'datetime.datetime'>
+>>> test.strftime('%Y-%m-%d %H:%M:%S')
+'2013-10-23 11:49:28'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36367685)
+ To find a date/time in an arbitrary text, you could try https://github.com/bear/parsedatetime: 
+
+  >>> import parsedatetime as pdt # $ pip install parsedatetime
+>>> text_with_date = "2014-12-04 04:07:59 <font color='green'> info:</font> One, two, three, four, five."
+>>> pdt.Calendar().nlp(text_with_date)
+((datetime.datetime(2014, 12, 4, 4, 7, 59), 3, 0, 19, '2014-12-04 04:07:59'),)
+  
+
+ Given a  datetime  object, call  .date()  method, to get only the date part. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29310819)
+ You're calling  datetime.datetime.strftime , which requires as its first argument a  datetime.datetime  instance, because it's an  unbound method ; but you're passing it a string instead of a datetime instance, whence the obvious error. 
+
+ You can work purely at a string level if that's the result you want; with the data you give as an example,  date_str.split()[0]  for example would be exactly the  2015-02-21  string you appear to require. 
+
+ Or, you  can  use  datetime , but then you need to  parse  the string first, not  format  it -- hence, str p time,  not  str f time: 
+
+  dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+date = dt.date()
+  
+
+ if it's a  datetime.date  object you want (but if all you want is the string form of the date, such an approach might be "overkill":-). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45651020)
+ You want to convert the string to a datetime like object first. The problem with your string is that the timezone is in a format that  datetime  doesn't recognise.  
+
+ You could use pandas  Timestamp   
+
+  import pandas as pd
+
+ts = pd.Timestamp(string).tz_convert("UTC")
+output = ts.strftime("%Y-%m-%dT%H:%M:%S")
+  
+
+ Alternatively, if you don't want to install/use Pandas, could convert the string format, and then use  datetime . 
+
+  import datetime
+import pytz
+import re
+
+# Remove the ':' from the timezone, if it's there.
+string = re.sub("\+(?P<hour>\d{2}):(?P<minute>\d{2})$", "+\g<hour>\g<minute>" , string)
+# Create the datetime object.
+dt = datetime.datetime.strptime(string, "%Y-%m-%dT%H:%M:%S%z")
+# Convert to UTC
+dt = dt.astimezone(pytz.UTC)
+output = dt.strftime("%Y-%m-%dT%H:%M:%S")
+  
+
+ If you're using python 2.7, and can't specify  %z  when calling  strptime  the standard workaround is to do this: 
+
+  def parse(string):
+    dt = datetime.strptime(string[0:19],'%Y-%m-%dT%H:%M:%S')
+    if string[19] == "+":
+        dt -= datetime.timedelta(hours=int(string[20:22]), 
+                                 minutes=int(string[22:]))
+    elif t[19]=='-':
+        dt += datetime.timedelta(hours=int(string[20:22]),
+                                 minutes=int(string[22:]))
+    return dt
+  
+
+ The advantage of the methods above, vs Stefano's answer, is that they will work with an arbitrary offset. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36362288)
+ If you know the location in the string and the date formatting, you can use slicing together with  strptime : 
+
+  import datetime as dt
+
+>>> dt.datetime.strptime(string[:10], '%Y-%m-%d').date()
+datetime.date(2014, 12, 4)
+  
+
+ If you want to use a package such as pandas: 
+
+  >>> pd.to_datetime(string[:10])
+Timestamp('2014-12-04 00:00:00')
+  
+
+ You can also use the https://pypi.python.org/pypi/python-dateutil package: 
+
+  from dateutil.parser import parse
+
+parse(string[:10]).date()
+datetime.date(2014, 12, 4)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51651619)
+ You can also convert to  datetime  without string concatenation, by combining  datetime  and  timedelta  objects. Combined with https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.pop.html, you can remove the source series simultaneously: 
+
+  df['DateTime'] = pd.to_datetime(df.pop('Date')) + pd.to_timedelta(df.pop('Time'))
+
+print(df)
+
+             DateTime
+0 2013-01-06 23:00:00
+1 2013-02-06 01:00:00
+2 2013-02-06 21:00:00
+3 2013-02-06 22:00:00
+4 2013-02-06 23:00:00
+5 2013-03-06 01:00:00
+6 2013-03-06 21:00:00
+7 2013-03-06 22:00:00
+8 2013-03-06 23:00:00
+9 2013-04-06 01:00:00
+
+print(df.dtypes)
+
+DateTime    datetime64[ns]
+dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30130823)
+  feedparser  does provide the original datetime string (just remove the  _parsed  suffix from the attribute name), so if you know the format of the string, you can parse it into a tz-aware datetime object yourself.  
+
+ For example, with your code, you can get the tz-aware object as such: 
+
+  datetime.datetime.strptime(d.entries[0].published, '%a, %d %b %Y %H:%M:%S %z')
+  
+
+ for more reference on  strptime() , see https://docs.python.org/2/library/datetime.html#strftime-and-strptime-behavior 
+
+ EDIT: Since Python 2.x doesn't support  %z  directive, use  python-dateutil  instead 
+
+  pip install python-dateutil
+  
+
+  
+
+  from dateutil import parser
+datetime_rss = parser.parse(d.entries[0].published)
+  
+
+ documentation at https://dateutil.readthedocs.org/en/latest/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23723026)
+ Using https://labix.org/python-dateutil: 
+
+  >>> import dateutil.parser
+>>> dateutil.parser.parse('2014-05-18T12:19:24+04:00')
+datetime.datetime(2014, 5, 18, 12, 19, 24, tzinfo=tzoffset(None, 14400))
+  
+
+
+

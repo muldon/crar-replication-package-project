@@ -1,0 +1,173 @@
+Query: Precision in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6663334)
+  
+
+  >>> from decimal import Decimal    
+>>> Decimal(2.675)
+Decimal('2.67499999999999982236431605997495353221893310546875')
+  
+
+ http://docs.python.org/tutorial/floatingpoint.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/54528193)
+ How about  print '{:10.{precision}f}'.format(x, precision=precision) , where  precision  is a value defined elsewhere? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36599411)
+ The  %  operator has the following behavior, like you observed: 
+
+  >>> "%.f" % 1.23
+'1'
+  
+
+ The parser goes through the format string, with the precision being https://github.com/python/cpython/blob/3.3/Objects/unicodeobject.c#L13548.   . , the precision https://github.com/python/cpython/blob/3.3/Objects/unicodeobject.c#L13656. The arguments will be passed to the https://github.com/python/cpython/blob/3.3/Objects/unicodeobject.c#L13285 which uses the default precision  6  if no precision is given, and no  .  is used. 
+
+ An interesting note is that https://docs.python.org/2/library/stdtypes.html#str.format will actually https://github.com/python/cpython/blob/3.3/Python/formatter_unicode.c#L235 in this case, probably for easier implementation and not letting people rely on unspecified behavior: 
+
+  >>> "{:.f}".format(1.23)
+Traceback (most recent call last):
+  File "<ipython-input-6-677ba2e4a680>", line 1, in <module>
+    "{:.f}".format(1.23)
+ValueError: Format specifier missing precision
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25273745)
+ I may have misunderstood, but is using  format  with a suitable precision modifier what you are asking for? 
+
+<pre class="lang-none prettyprint-override"> >>> "{0:6g}".format(1.31851694616581e24)
+'1.31852e+24'
+  
+
+ Change the  6  to control the number of significant figures 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6663292)
+ Python's built-in  float  type has double precision (it's a C  double  in CPython, a Java  double  in Jython). If you need more precision, get http://numpy.scipy.org/ and use its  numpy.float128 . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1719903)
+ Python has a built-in library for arbitrary-precision calculations: Decimal. For example: 
+
+  >>>from decimal import Decimal, getcontext
+>>>getcontext().prec = 50
+>>>x = Decimal(1)/Decimal(7)
+>>>x
+Decimal('0.14285714285714285714285714285714285714285714285714')
+>>>str(x)
+'0.14285714285714285714285714285714285714285714285714'
+  
+
+ Look at the http://docs.python.org/library/decimal.html for more details. You can change the precision to be as high as you need. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39284216)
+  
+
+  >>> sizes = ['999.992 MB', '2.488 GB', '401 KB']
+  
+
+ First agree on what 'precision' means. Since your input is a float, it is a fair assumption that 'precision' is limited to the input precision.  
+
+ To calculate, first convert to base bytes (know though that your actual precision is no better than the input precision): 
+
+  >>> defs={'KB':1024, 'MB':1024**2, 'GB':1024**3, 'TB':1024**4} 
+>>> bytes=[float(lh)*defs[rh] for lh, rh in [e.split() for e in sizes]]
+>>> bytes
+[1048567611.392, 2671469658.112, 410624.0]
+  
+
+ Then convert to magnitude desired: 
+
+  >>> sd='GB'
+>>> ['{:0.2} {}'.format(e/defs[sd], sd) for e in bytes]
+['0.98 GB', '2.5 GB', '0.00038 GB']
+>>> sd='MB'
+>>> ['{:0.2} {}'.format(e/defs[sd], sd) for e in bytes]
+['1e+03 MB', '2.5e+03 MB', '0.39 MB']
+>>> sd='TB'
+>>> ['{:0.2} {}'.format(e/defs[sd], sd) for e in bytes]
+['0.00095 TB', '0.0024 TB', '3.7e-07 TB']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36598811)
+ The docs for precision https://docs.python.org/3/library/string.html#grammar-token-precision don't mention a default if the precision is ommitted. I can only assume it just works this way because it does! 
+
+ The docs give the default precision for a %f as 6 in the format specification mini language <a href="https://docs.python.org/2/library/string.html#format-specification-mini-language" . Maybe by specifying a precision with the . and then by omitting an integer value, the interpreter assumes it should be zero? 
+
+ This may even behave differently on different interpreters. . 
+
+ Interestingly, using str.format throws a nice ValueError in my 2.7 interpreter: 
+
+  >>> f = 234.12345676
+>>> "{:.f}".format(f)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+ValueError: Format specifier missing precision
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35805613)
+ 
+   can i set the precision of a variable before setting the value? 
+ 
+
+ Use the https://docs.python.org/3/library/decimal.html module which, unlike https://docs.python.org/3/library/functions.html?highlight=float#float, offers arbitrary precision and can represent decimal numbers exactly: 
+
+  >>> from decimal import Decimal, getcontext
+>>> 
+>>> getcontext().prec = 5
+>>> 
+>>> a = Decimal(1)
+>>> 
+>>> for x in range(5):
+...     a += Decimal(0.1)
+...     print(a)
+... 
+1.1000
+1.2000
+1.3000
+1.4000
+1.5000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1719806)
+ You could multiply the numerator by a large 10^N and stick with arbitrary-precision integers. 
+
+ <b>EDIT</b> 
+
+ i mean: 
+
+  > def digits(a,b,n=50): return a*10**n/b
+.
+> digits(1,7)
+14285714285714285714285714285714285714285714285714L
+  
+
+ Python's integers are arbitrary precision. Python's floats are never arbitrary precision. (you'd have to use Decimal, as another answer has pointed out) 
+
+
+

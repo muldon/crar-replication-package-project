@@ -1,0 +1,295 @@
+Query: How to truncate a string using str.format in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48560618)
+ The precision trick (using a precision format) doesn't work. Only works to truncate the end of the string. 
+
+ a workaround would be to slice the string  before  passing it to  str.format : 
+
+  >>> '{pathname:>2}'.format(pathname='abcde'[-2:])
+'de'
+>>> '{pathname:>2}'.format(pathname='e'[-2:])
+' e'
+  
+
+ since you cannot control the arguments passed to  format , you could create a subclass of  str  and redefine format so when it meets  pathname  in the keyword arguments it truncates, then calls original  str.format  method. 
+
+ Small self-contained example: 
+
+  class TruncatePathnameStr(str):
+    def format(self,*args,**kwargs):
+        if "pathname" in kwargs:
+            # truncate
+            kwargs["pathname"] = kwargs["pathname"][-2:]
+        return str.format(self,*args,**kwargs)
+
+s = TruncatePathnameStr('##{pathname:>4}##')
+
+print(s.format(pathname='abcde'))
+  
+
+  
+
+  ##  de##
+  
+
+ use it in your real-life example: 
+
+  logging.basicConfig(stream=sys.stdout, level=logging.INFO,style='{',
+                    format=TruncatePathnameStr('{pathname:>90}{lineno:4d}{msg}'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47824606)
+ You can construct a function to truncate strings that are too long, and wrap that around the format inputs. 
+
+  def truncate(*inputs, max_length=18):
+    return tuple(s[:max_length] for s in inputs)
+
+STRING_FORMATTER = '{0:13}{1:18}{2:18}{3:30}{4:10}\n'
+content = STRING_FORMATTER.format(
+    *truncate('addr', 'bit', 'value', 'name', 'type'))
+content = content + STRING_FORMATTER.format(
+    *truncate('0123', 'LONG STRING THAT EXCEEDS 18 SPACES!!!!!!!!!!!!!!!!', '', '', 'reg'))
+content = content + STRING_FORMATTER.format(
+    *truncate('00', '0', '0xAD', 'NAME', 'bit'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54013786)
+ Short answer:</h3>
+
+  >>> d
+Decimal('1E-14')
+>>> '{:f}'.format(d)
+'0.00000000000001'
+  
+
+ Long answer:</h3>
+
+ As @BrandonRhodes pointed out https://www.python.org/dev/peps/pep-3101/#format-specifiers (which is the string format PEP) states: 
+
+ 
+   The syntax for format specifiers is open-ended, since a class can
+  override the standard format specifiers. In such cases, the
+  str.format() method merely passes all of the characters between the
+  first colon and the matching brace to the relevant underlying
+  formatting method. 
+ 
+
+ And thus, the  Decimal.__format__  method is what python's string format will utilize to generate the  str  representation of the  Decimal  value.  Basically  Decimal  overrides the formatting to be "smart" but will default to whatever values the format string sets (ie  {:.4f}  will truncate the decimal to 4 places). 
+
+ Here's why you can trust it (snippet from  decimal.py:Decimal.__format__ ): 
+
+  # PEP 3101 support.  the _localeconv keyword argument should be
+# considered private: it's provided for ease of testing only.
+def __format__(self, specifier, context=None, _localeconv=None):
+    #
+    # ...implementation snipped.
+    #
+
+    # figure out placement of the decimal point
+    leftdigits = self._exp + len(self._int)
+    if spec['type'] in 'eE':
+        if not self and precision is not None:
+            dotplace = 1 - precision
+        else:
+            dotplace = 1
+    elif spec['type'] in 'fF%':
+        dotplace = leftdigits
+    elif spec['type'] in 'gG':
+        if self._exp <= 0 and leftdigits > -6:
+            dotplace = leftdigits
+        else:
+            dotplace = 1
+
+    # find digits before and after decimal point, and get exponent
+    if dotplace < 0:
+        intpart = '0'
+        fracpart = '0'*(-dotplace) + self._int
+    elif dotplace > len(self._int):
+        intpart = self._int + '0'*(dotplace-len(self._int))
+        fracpart = ''
+    else:
+        intpart = self._int[:dotplace] or '0'
+        fracpart = self._int[dotplace:]
+    exp = leftdigits-dotplace
+
+    # done with the decimal-specific stuff;  hand over the rest
+    # of the formatting to the _format_number function
+    return _format_number(self._sign, intpart, fracpart, exp, spec)
+  
+
+ Long story short, the  Decimal.__format__  method will calculate the necessary padding to represent the number before and after the decimal based upon exponentiation provided from  Decimal._exp  (in your example, 14 significant digits). 
+
+  >>> d._exp
+-14
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37975336)
+ Is subclassing  str  an option? 
+
+  foo="c1e33f6717b9d0125b53688d315aff9cf8dd9977"
+
+class CustomStr(str):
+    def __format__(self, spec):
+        if spec == 'trunc_left':
+            return self[-8:]
+        else:
+            return super().__format__(spec)
+
+s = CustomStr(foo)
+
+print('{}'.format(s))
+print('{:trunc_left}'.format(s))
+  
+
+ From there, you can do something working like so: 
+
+  import os
+
+class CustomStr(str):
+    def __format__(self, spec): 
+       return self[-8:]
+
+class OsEnvironWrapper(dict):
+    def __init__(self, environ):
+        self.environ = environ
+
+    def __getitem__(self, key):
+        if key == 'git_sha':
+            return CustomStr(self.environ[key])
+        else:
+            return self.environ[key]
+
+os_environ = OsEnvironWrapper(os.environ)
+print('foo {git_sha}'.format(**os_environ))
+  
+
+ I know, the wrapper is barely acceptable, but you can tweak it to be transparent by emulating a container type properly. 
+
+ [edit] See Jim's solution for a variant that does not subclass  str  or  dict . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37148551)
+ You can use  format : 
+
+  ram1 = '3941'
+print '{0:0>5s}'.format(ram1)
+## 03941
+  
+
+ where the characters after  :  describe the format (0-padded 5-character long string). 
+
+ You can also use  zfill : 
+
+  print ram1.zfill(5)
+## 03941
+  
+
+ In case you need to truncate your string, you can use the following format: 
+
+  print '{:.5s}'.format('039410')
+## 03941
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/24076314)
+ Use  .precision  instead: 
+
+  >>> '{:5.5}'.format('aaabbbccc')
+'aaabb'
+  
+
+ According to the documentation of the https://docs.python.org/3/library/string.html#format-specification-mini-language: 
+
+ 
+   The  precision  is a decimal number indicating how many digits should be displayed after the decimal point for a floating point value formatted with  'f'  and  'F' , or before and after the decimal point for a floating point value formatted with  'g'  or  'G' .  For non-number types the field indicates the maximum field size - in other words, how many characters will be used from the field content.  The  precision  is not allowed for integer values. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37976797)
+ So here is my solution, with thanks to @JacquesGaudin and folks on #Python for providing much guidance... 
+
+  class MyStr(object):
+    """Additional format string options."""
+    def __init__(self, obj):
+        super(MyStr, self).__init__()
+        self.obj = obj
+
+    def __format__(self, spec):
+        if spec.startswith("ltrunc."):
+            offset = int(spec[7:])
+            return self.obj[offset:]
+        else:
+            return self.obj.__format__(spec)
+  
+
+ So this works when doing this: 
+
+  >>> f = {k: MyStr(v) for k, v in os.environ.items()} 
+>>> "{PATH:ltrunc.-8}".format(**f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26176667)
+ The two implementations are quite separate, and some warts in the  %  implementation were ironed out. Using  %d  for floats may mask problems in your code, where you thought you had integers but got floating point values instead. Imagine a value of  1.999999  and only seeing 1 instead of 2 as  %d  truncates the value. 
+
+ As such, the  float.__format__()  hook method called by  str.format()  to do the actual conversion work does not support the  d  format and throws an exception instead. 
+
+ You can use the  {:.0f}  format to explicitly display (rounded) floating point values with no decimal numbers: 
+
+  >>> '{:.0f}'.format(1.234)
+'1'
+>>> '{:.0f}'.format(1.534)
+'2'
+  
+
+ or use  int()  before formatting to explicitly  truncate  your floating point number. 
+
+ As a side note, if all you are doing is formatting a number as a string (and not  interpolating  into a larger string), use the https://docs.python.org/2/library/functions.html#format: 
+
+  >>> format(1.234, '.0f')
+'1'
+  
+
+ This communicates your intent better and is a little faster to boot. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20544889)
+ with  str : 
+
+  d = str(0.989434)
+print float(d[:d.find('.')+3])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33976189)
+ I think your error  Unknown format code for type str   means that your values in  row  are not numbers but strings. You should convert it using  float  first. 
+
+   for row in reader:
+    rowvals = [float(x) for x in row]
+    print .... 
+  
+
+
+

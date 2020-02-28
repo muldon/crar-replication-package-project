@@ -1,0 +1,418 @@
+Query: How do I INSERT INTO t1 (SELECT * FROM t2) in SQLAlchemy?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17995969)
+ As of 0.8.3, you can now do this directly in sqlalchemy: http://docs.sqlalchemy.org/en/latest/core/dml.html?highlight=from_select#sqlalchemy.sql.expression.Insert.from_select: 
+
+  sel = select([table1.c.a, table1.c.b]).where(table1.c.c > 5)
+ins = table2.insert().from_select(['a', 'b'], sel)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1849474)
+ SQLalchemy doesn't build this construct for you. You can use the query from text. 
+
+  session.execute('INSERT INTO t1 (SELECT * FROM t2)')
+  
+
+ 
+
+ EDIT: 
+
+ More than one year later, but now on sqlalchemy 0.6+ http://www.sqlalchemy.org/docs/core/compiler.html#compiling-sub-elements-of-a-custom-expression-construct: 
+
+  from sqlalchemy.ext import compiler
+from sqlalchemy.sql.expression import Executable, ClauseElement
+
+class InsertFromSelect(Executable, ClauseElement):
+    def __init__(self, table, select):
+        self.table = table
+        self.select = select
+
+@compiler.compiles(InsertFromSelect)
+def visit_insert_from_select(element, compiler, **kw):
+    return "INSERT INTO %s (%s)" % (
+        compiler.process(element.table, asfrom=True),
+        compiler.process(element.select)
+    )
+
+insert = InsertFromSelect(t1, select([t1]).where(t1.c.x>5))
+print insert
+  
+
+  
+
+  "INSERT INTO mytable (SELECT mytable.x, mytable.y, mytable.z FROM mytable WHERE mytable.x > :x_1)"
+  
+
+ 
+
+ Another EDIT: 
+
+ Now, 4 years later, the syntax is incorporated in SQLAlchemy 0.9, and backported to 0.8.3; You can create any  select()  and then use the new  from_select()  method of  Insert  objects: 
+
+  >>> from sqlalchemy.sql import table, column
+>>> t1 = table('t1', column('a'), column('b'))
+>>> t2 = table('t2', column('x'), column('y'))
+>>> print(t1.insert().from_select(['a', 'b'], t2.select().where(t2.c.y == 5)))
+INSERT INTO t1 (a, b) SELECT t2.x, t2.y
+FROM t2
+WHERE t2.y = :y_1
+  
+
+ http://docs.sqlalchemy.org/en/latest/changelog/migration_09.html#insert-from-select. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4751553)
+ As Noslko pointed out in comment, you can now get rid of raw sql:
+http://www.sqlalchemy.org/docs/core/compiler.html#compiling-sub-elements-of-a-custom-expression-construct 
+
+  
+
+  from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.expression import Executable, ClauseElement
+
+class InsertFromSelect(Executable, ClauseElement):
+    def __init__(self, table, select):
+        self.table = table
+        self.select = select
+
+@compiles(InsertFromSelect)
+def visit_insert_from_select(element, compiler, **kw):
+    return "INSERT INTO %s (%s)" % (
+        compiler.process(element.table, asfrom=True),
+        compiler.process(element.select)
+    )
+
+insert = InsertFromSelect(t1, select([t1]).where(t1.c.x>5))
+print insert
+  
+
+  
+
+  
+
+  INSERT INTO mytable (SELECT mytable.x, mytable.y, mytable.z FROM mytable WHERE mytable.x > :x_1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13057009)
+ What you are missing is a correlation between the innermost sub-query and the next level up; without the correlation, SQLAlchemy will include the  t1  alias in the innermost sub-query: 
+
+  >>> print str(q1)
+SELECT t3.id AS t3_id 
+FROM tbl AS t3, tbl AS t1 
+WHERE t3.id < t1.id ORDER BY t3.id DESC
+ LIMIT ? OFFSET ?
+>>> print str(q1.correlate(t1))
+SELECT t3.id AS t3_id 
+FROM tbl AS t3 
+WHERE t3.id < t1.id ORDER BY t3.id DESC
+ LIMIT ? OFFSET ?
+  
+
+ Note that  tbl AS t1  is now missing from the query. From the http://docs.sqlalchemy.org/en/rel_0_7/orm/query.html#sqlalchemy.orm.query.Query.correlate: 
+
+ 
+   Return a Query construct which will correlate the given FROM clauses to that of an enclosing Query or select(). 
+ 
+
+ Thus,  t1  is assumed to be part of the enclosing query, and isn't listed in the query itself. 
+
+ Now your query works: 
+
+  >>> q1 = session.query(t3.c.id).filter(t3.c.id < t1.c.id).order_by(t3.c.id.desc()).\
+...              limit(1).correlate(t1)
+>>> q2 = session.query(t2.c.id).filter(t2.c.id == q1, t1.c.id.in_([4, 8]))
+>>> q3 = session.query(table).filter(
+...                                or_(table.c.id.in_(q2), table.c.id.in_([0, 8])))
+>>> print list(q3)
+2012-10-24 22:16:22,239 INFO sqlalchemy.engine.base.Engine SELECT tbl.id AS tbl_id 
+FROM tbl 
+WHERE tbl.id IN (SELECT t2.id AS t2_id 
+FROM tbl AS t2, tbl AS t1 
+WHERE t2.id = (SELECT t3.id AS t3_id 
+FROM tbl AS t3 
+WHERE t3.id < t1.id ORDER BY t3.id DESC
+ LIMIT ? OFFSET ?) AND t1.id IN (?, ?)) OR tbl.id IN (?, ?)
+2012-10-24 22:16:22,239 INFO sqlalchemy.engine.base.Engine (1, 0, 4, 8, 0, 8)
+[(0,), (2,), (6,), (8,)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44122638)
+ This is to merge selected columns from two tables. 
+
+ If  table_1  contains  t1_a,t1_b,t1_c....t1_z  columns,
+and  table_2  contains  t2_a, t2_b, t2_c..., id,..t2_z  columns,
+and only t1_a, id, t2_a are required in the final table, then 
+
+  mergedCSV = table_1[['t1_a','id']].merge(table_2[['t2_a','id']], on = 'id',how = 'left')
+# save resulting output file    
+mergedCSV.to_csv('output.csv',index = False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13057443)
+ I'm only kinda sure I understand the query you're asking for.  Lets break it down, though: 
+
+ 
+   the goal from this query is to select IDs 0 and 8, as well as the IDs just before 4 and 8. 
+ 
+
+ It looks like you want to query for two kinds of things, and then combine them.  The proper operator for that is  union .  Do the simple queries and add them up at the end.  I'll start with the second bit, "ids just before X". 
+
+ To start with; lets look at the all the ids that are before some given value.  For this, we'll join the table on itself with a  < : 
+
+  # select t1.id t1_id, t2.id t2_id from tbl t1 join tbl t2 on t1.id < t2.id;
+ t1_id | t2_id 
+-------+-------
+     0 |     2
+     0 |     4
+     0 |     6
+     0 |     8
+     2 |     4
+     2 |     6
+     2 |     8
+     4 |     6
+     4 |     8
+     6 |     8
+(10 rows)
+  
+
+ That certainly gives us all of the pairs of rows where the left is less than the right.  Of all of them, we want the rows for a given t2_id that is as high as possible;  We'll group by t2_id and select the maximum t1_id 
+
+  # select max(t1.id), t2.id from tbl t1 join tbl t2 on t1.id < t2.id group by t2.id;
+ max | id 
+-----+-------
+   0 |     2
+   2 |     4
+   4 |     6
+   6 |     8
+(4 rows)
+  
+
+ Your query, using a  limit , could achieve this, but its usually a good idea to avoid using this technique when alternatives exist because partitioning does not have good, portable support across Database implementations.  Sqlite can use this technique, but postgresql doesn't like it, it uses a technique called "analytic queries" (which are both standardised and more general).  MySQL can do neither.  The above query, though, works consistently across all sql database engines. 
+
+ the rest of the work is just using  in  or other equivalent filtering queries and are not difficult to express in sqlalchemy.  The boilerplate... 
+
+  >>> import sqlalchemy as sa
+>>> from sqlalchemy.orm import Query
+>>> engine = sa.create_engine('sqlite:///:memory:')
+>>> meta = sa.MetaData(bind=engine)
+>>> table = sa.Table('tbl', meta, sa.Column('id', sa.Integer))
+>>> meta.create_all()
+
+>>> table.insert().execute([{'id':i} for i in range(0, 10, 2)])
+
+>>> t1 = table.alias()
+>>> t2 = table.alias()
+
+>>> before_filter = [4, 8]
+  
+
+ First interesting bit is we give the 'max(id)' expression a name.  this is needed so that we can refer to it more than once, and to lift it out of a subquery. 
+
+  >>> c1 = sa.func.max(t1.c.id).label('max_id')
+>>> #                                ^^^^^^
+  
+
+ The 'heavy lifting' portion of the query, join the above aliases, group and select the max 
+
+  >>> q1 = Query([c1, t2.c.id]) \
+...      .join((t2, t1.c.id < t2.c.id)) \
+...      .group_by(t2.c.id) \
+...      .filter(t2.c.id.in_(before_filter))
+  
+
+ Because we'll be using a union, we need this to produce the right number of fields: we wrap it in a subquery and project down to the only  column we're interested in.  This will have the name we gave it in the above  label()  call. 
+
+  >>> q2 = Query(q1.subquery().c.max_id)
+>>> #                          ^^^^^^
+  
+
+ The other half of the union is much simpler: 
+
+  >>> t3 = table.alias()
+>>> exact_filter = [0, 8]
+>>> q3 = Query(t3).filter(t3.c.id.in_(exact_filter))
+  
+
+ All that's left is to combine them: 
+
+  >>> q4 = q2.union(q3)
+>>> engine.execute(q4.statement).fetchall()
+[(0,), (2,), (6,), (8,)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21204417)
+  merge()  can't do this kind of join, but you can use  searchsorted() : 
+
+ Create some random timestamps:  t1 ,  t2 , there are in ascending order: 
+
+  import pandas as pd
+import numpy as np
+np.random.seed(0)
+
+base = np.array(["2013-01-01 00:00:00"], "datetime64[ns]")
+
+a = (np.random.rand(30)*1000000*1000).astype(np.int64)*1000000
+t1 = base + a
+t1.sort()
+
+b = (np.random.rand(10)*1000000*1000).astype(np.int64)*1000000
+t2 = base + b
+t2.sort()
+  
+
+ call  searchsorted()  to find index in  t1  for every value in  t2 : 
+
+  idx = np.searchsorted(t1, t2) - 1
+mask = idx >= 0
+
+df = pd.DataFrame({"t1":t1[idx][mask], "t2":t2[mask]})
+  
+
+ here is the output: 
+
+                           t1                         t2
+0 2013-01-02 06:49:13.287000 2013-01-03 16:29:15.612000
+1 2013-01-05 16:33:07.211000 2013-01-05 21:42:30.332000
+2 2013-01-07 04:47:24.561000 2013-01-07 04:53:53.948000
+3 2013-01-07 14:26:03.376000 2013-01-07 17:01:35.722000
+4 2013-01-07 14:26:03.376000 2013-01-07 18:22:13.996000
+5 2013-01-07 14:26:03.376000 2013-01-07 18:33:55.497000
+6 2013-01-08 02:24:54.113000 2013-01-08 12:23:40.299000
+7 2013-01-08 21:39:49.366000 2013-01-09 14:03:53.689000
+8 2013-01-11 08:06:36.638000 2013-01-11 13:09:08.078000
+  
+
+ To view this result by graph: 
+
+  import pylab as pl
+pl.figure(figsize=(18, 4))
+pl.vlines(pd.Series(t1), 0, 1, colors="g", lw=1)
+pl.vlines(df.t1, 0.3, 0.7, colors="r", lw=2)
+pl.vlines(df.t2, 0.3, 0.7, colors="b", lw=2)
+pl.margins(0.02)
+  
+
+ output: 
+
+   
+
+ The green lines are  t1 , blue lines are  t2 , red lines are selected from  t1  for every  t2 . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/47540820)
+ 
+   I have 4 lists: t1, x1(t1), t2, x2(t2). t1 and t2 have different
+  length, and so do x1 and x2. I want to add up the values of x1 and x2
+  in which t1 and t2 intersect and for those values where t2 and t1
+  don't intersect just append their values in two new lists x and t. 
+ 
+
+  t1 = [0.0, 20.0, 40.0, 50.0, 60.0, 80.0]
+x1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+t2 = [40.0, 50.0, 80.0]
+x2 = [7.0, 8.0, 9.0]
+  
+
+ First thing, create dictionaries for the data you have "key" and "value" pairs, instead of trying to mangle a common index around: 
+
+  data1 = dict(zip(t1, x1))
+data2 = dict(zip(t2, x2))
+  
+
+ Now, just create a dictionary out of these two, by combining their keys: 
+
+  data3 = {key: data1.get(key, 0) + data2.get(key, 0)  for key in set(list(data1.keys()) + list(data2.keys()))}
+  
+
+ And there is your data.
+If you will really need then as lists: 
+
+  t = data3.keys()
+x = data3.values()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5899095)
+ Your best choice is http://docs.scipy.org/doc/numpy/reference/generated/numpy.searchsorted.html: 
+
+  d1[numpy.searchsorted(t1, t2, side="right") - 1]
+  
+
+ This will search the indices where the values of  t2  would have to be inserted into  t1  to maintain order.  The  side="right"  and  - 1  bits are to ensure exactly the specified behaviour. 
+
+  Edit : To get rows of NaNs where the condition  t1[j] <= t2[i]  can't be satisfied, you could use 
+
+  nan_row = numpy.repeat(numpy.nan, d1.shape[1])
+d1_nan = numpy.vstack((nan_row, d1))
+d2 = d1_nan[numpy.searchsorted(t1, t2, side="right")]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22003655)
+ Replacing my earlier answer -- here is a good general solution. 
+
+ Having input tables that look like this: 
+
+  sqlite> select * from t1;
+meow        mix         please      delivery  
+----------  ----------  ----------  ----------
+1           123         abc                   
+2           234         bcd         two       
+3           345         cde                   
+  
+
+  
+
+  sqlite> select * from t2;
+meow        mix         please      delivery  
+----------  ----------  ----------  ----------
+1           345         cde                   
+2           123         abc         one       
+3           234         bcd         two       
+4           456         def         four      
+  
+
+ You can get records that are in t2 / not in t1 (ignoring PK's) like this: 
+
+  select sum(q1.db), mix, please, delivery from (select 1 as db, mix, please,
+delivery from t1 union all select 2 as db, mix, please, delivery from t2) q1
+group by mix, please, delivery having sum(db)=2; 
+
+sum(q1.db)  mix         please      delivery  
+----------  ----------  ----------  ----------
+2           123         abc         one       
+2           456         def         four      
+  
+
+ You can do different set operations by changing the value in the having clause.   SUM(DB)=1  returns records in 1 / not in 2;  SUM(DB)=2  returns records in 2 / not in 1;  SUM(DB)=1 OR SUM(DB)=2  returns records that exist in either but not both;   SUM(DB)=3  returns records that exist in both. 
+
+ The only thing this doesn't do for you is return the PK.  This can't be done in the query I've written because the  GROUP BY    SUM  operations only work on common / aggregated data,  the PK fields are by definition unique.  If you know the combination of non-PK fields is unique within each DB, you could use the returned records to create a new query to find the PK as well. 
+
+ Note this approach extends nicely to more than 2 tables.  By making the db field a power of 2, you can operate on any number of tables.  E.g. if you did 1 as db for t1, 2 as db for t2, 4 as db for t3, 8 as db for t4, you could find any intersection / difference of the tables you want by changing the having condition -- e.g.  HAVING SUM(DB)=5  would return records that are in t1  t3 but not in t2 or t4. 
+
+
+

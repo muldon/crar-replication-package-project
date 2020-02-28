@@ -1,0 +1,308 @@
+Query: How do I upload file to FTP server?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11555318)
+ By using commons-net-3.0.jar provided by Apache you can communicate with Server with FTP. 
+
+ FTPUtils Class is having core methods like connect,disconnect,upload and download methods.
+and FTPMain having main method to upload file. 
+
+  
+
+  package com.ftpclient.test;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FTPUtils {
+    public static void ftpConnect(FTPClient ftpclient, String host, String username, String password) throws IOException {
+        System.out.println("FTPUtils :: Logging in FTP..");
+        try{
+            ftpclient.connect(host);
+            if (!ftpclient.login(username, password)) {
+                throw new IOException("Supplied wrong credentials to FTP Server");
+            }
+
+            if (ftpclient.getReplyCode() != 0) {
+                System.out.println(ftpclient.getReplyString());
+            }
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP Client is not able to Connect to host");
+            throw new IOException("FTP Client is not able to Connect to host");
+        }
+        System.out.println("FTPUtils :: FTP Login Successful..");
+    }
+
+    /**
+     * disconnect to FTP server
+     * 
+     * @param ftpclient is Object which is having details of FTP server like IP, user name and password
+     * @throws IOException throws Exception
+     */
+    public static void ftpDisConnect(FTPClient ftpclient) throws IOException {
+        System.out.println("FTPUtils :: FTP Logging out..");
+        ftpclient.logout();
+        ftpclient.disconnect();
+        System.out.println("FTPUtils :: FTP Disconnected Successfully..");
+    }
+
+    /**
+     * download's file from source path to destination path by using FTP Client.
+     * 
+     * @param ftpclient is Object which is having details of FTP server like IP, user name and password
+     * @param sourcePath is String from where to download's file
+     * @param destinationPath is String to where to download's file.
+     * @return boolean true if download's with out any fail else false
+     * @throws IOException will throw any problem with file system
+     */
+    public static boolean downloadFile(FTPClient ftpclient, String sourcePath, String destinationPath) throws IOException {
+        System.out.println("FTPUtils :: RemoteFile download starts ..FTP SOURCE " + sourcePath + " DESTINATION " + destinationPath);
+        FileOutputStream fos = null;
+        boolean result = false;
+        try{            
+            ftpclient.setFileTransferMode(FTP.BINARY_FILE_TYPE);
+            ftpclient.setFileType(FTP.BINARY_FILE_TYPE);
+            File fDestination = new File(destinationPath);
+            fos = new FileOutputStream(fDestination);
+            result = ftpclient.retrieveFile(sourcePath, fos);
+            if (result) {
+                System.out.println("FTPUtils :: RemoteFile download Completed..FTP " + sourcePath);
+            }
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP is not able to Download the files from host");
+            throw new IOException("FTP is not able to Download the files from host");
+        }finally{
+            fos.close();
+        }
+        return result;
+    }
+
+    /**
+     * @param ftpclient
+     * @param sourcePath
+     * @param destinationPath
+     * @throws IOException
+     */
+    public static void uploadFile(FTPClient ftpclient, String sourcePath, String destinationPath) throws IOException {
+        FileInputStream fis = null;
+        try {
+            //
+            // Create an InputStream of the file to be uploaded
+            //
+            fis = new FileInputStream(sourcePath);
+
+            //
+            // Store file to server
+            //
+            ftpclient.storeFile(destinationPath, fis);
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP is not able to upload the files from host");
+            throw new IOException("FTP is not able to upload the files from host");
+        }finally{
+            fis.close();
+        }
+    }
+}
+  
+
+  
+
+  import java.io.IOException;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FTPMain {
+    public static void main(String[] str){
+        FTPClient ftpclient = new FTPClient();
+        try {
+            FTPUtils.ftpConnect(ftpclient, "ipaddress", "username", "password");
+            FTPUtils.uploadFile(ftpclient, "sourcePath", "destinationPath");
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6528005)
+ I have used the EDT FTP package, a free GPL library for FTP in Java: http://www.enterprisedt.com/products/edtftpj/overview.html 
+
+ Here is a code sample, from the Demo.java class they provide: 
+
+  ftp = new FTPClient();
+ftp.setRemoteHost("hostname");
+
+// connect
+ftp.connect();
+
+// login
+ftp.login("user", "password");
+
+// set up passive ASCII transfers
+ftp.setConnectMode(FTPConnectMode.PASV);
+ftp.setType(FTPTransferType.ASCII);
+
+// get directory and print it to console            
+String[] files = ftp.dir(".", true);
+for (int i = 0; i < files.length; i++)
+    log.debug(files[i]);
+
+// copy file to server 
+ftp.put("test.txt", "test.txt");
+
+// copy file from server
+ftp.get("test.txt" + ".copy", "test.txt");
+
+// delete file from server
+ftp.delete("test.txt");
+
+// Shut down client                
+ftp.quit();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6528143)
+ Check out http://www.sauronsoftware.it/projects/ftp4j/ as well... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6790857)
+ You can use http://commons.apache.org/net/apidocs/org/apache/commons/net/ftp/FTPClient.html to do this and all other commands on FTP.
+Use it something like this: 
+
+  ...
+FTPClient client = new FTPClient();
+client.connect(host, port);
+client.login(loginname, password);
+client.deleteFile(fileNameOnServer);
+client.disconnect();
+...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11555398)
+ We've been using http://commons.apache.org/net/ library, and I can recommend it. Example of usage: (I've dropped try-catch block and check whether FtpClient is connected) 
+
+  import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
+..
+private FTPClient ftpClient; //needs to be initialized
+..
+ftpClient.setConnectTimeout(timeout);
+ftpClient.setDataTimeout(timeout);
+ftpClient.setDefaultTimeout(timeout);
+ftpClient.connect(hostname, port);
+ftpClient.setSoTimeout(timeout);
+ftpClient.login(username, password);
+ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE); // or FtpClient.ASCII_FILE_TYPE, up to you
+ftpClient.changeWorkingDirectory(destFolder);
+srcFile = new File("local file path.."); // replace with actual path
+FileInputStream fis = new FileInputStream(srcFile);
+ftpClient.storeFile(filename, fis);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19361304)
+ I was having the same problem. The file created but size 0 KB. after setting mode to passive, my file successfully transferred to FTP Server. Infact there are 3 things we have to take care while uploading file on FTP Server. 
+
+ 1). set file type to BINARY 
+
+  objFtpClient.setFileType(FTP.BINARY_FILE_TYPE);
+  
+
+ 2). set File Transfer Mode to BINARY 
+
+  objFtpClient.setFileTransferMode(FTP.BINARY_FILE_TYPE);
+  
+
+ 3). set Mode to Passive (i dont know what it does internally. but it works...!) 
+
+  objFtpClient.enterLocalPassiveMode();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17454648)
+ Use Apache commons lib has this utility org.apache.commons.net.ftp.FTPClient: 
+
+ http://commons.apache.org/ 
+
+  import org.apache.commons.net.ftp.FTPClient;
+FTPClient client = new FTPClient();
+String sFTP = "ftp.miservidor.com";
+String sUser = "usuario";
+String sPassword = "password";
+
+try {
+    client.connect(sFTP);
+    boolean login = client.login(sUser,sPassword);
+} catch (IOException ioe) {}
+  
+
+ Full example: http://www.google.es/url?sa=t&rct=j&q=&esrc=s&source=web&cd=2&ved=0CD8QFjAB&url=http%3A%2F%2Fcommons.apache.org%2Fproper%2Fcommons-net%2Fexamples%2Fftp%2FFTPClientExample.java&ei=JGLUUdsrotHsBtj9gNgI&usg=AFQjCNHymPhHZOKh2S4yuLMTYHTVTnQ02g&sig2=8kJSz_Gl-vsPECe8sIxLGA&bvm=bv.48705608,d.ZGU&cad=rja 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/15276688)
+ Apparently, you use the same FtpClient for the two upload processes. 
+
+ You should re-instantiate a new FtpClient to open a new socket and allow several files being downloaded at the same time: 
+
+   FtpClient ftpClient = new FtpClient() ;
+ ...
+ //Opens a new socket
+ ftpClient.connect("ftp.example.com");
+ ...
+
+ Runnable run = new ThreadUpload(JFrameClass.this, ftpClient);
+ new Thread(run).start();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7427578)
+ I solved the problem using the suggestion in this thread: 
+
+ https://stackoverflow.com/questions/3145768/transfer-raw-binary-with-apache-commons-net-ftpclient 
+
+ All I needed to do was setting binary file mode for non . 
+
+  if (fileExtension.equals("txt")) {
+    ftpClient.setFileType(FTPClient.ASCII_FILE_TYPE);
+} else {
+    ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE);
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47311146)
+ Upload an empty "in-memory file", like this: 
+
+  InputStream bin = ByteArrayInputStream(new byte[0]);
+ftpClient.storeFile("/remote/path/emptyfile", bin);
+  
+
+
+

@@ -1,0 +1,237 @@
+Query: Adding calculated column(s) to a dataframe in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25340336)
+ For the second part of your question, you can also use  shift , for example: 
+
+  df['t-1'] = df['t'].shift(1)
+  
+
+  t-1  would then contain the values from t one row above. 
+
+ http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.shift.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36749919)
+ You can use http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.where.html for that: 
+
+  import numpy as np
+import pandas as pd
+df = pd.DataFrame(np.random.randint(10, size=(10,2)), columns = ["A", "B"])
+df
+Out[46]: 
+   A  B
+0  2  8
+1  9  5
+2  4  4
+3  6  0
+4  5  5
+5  0  8
+6  7  9
+7  6  3
+8  0  9
+9  0  9
+  
+
+ 
+
+  df["C"] = np.where(df["A"] > df["B"], True, False)
+df
+Out[48]: 
+   A  B      C
+0  2  8  False
+1  9  5   True
+2  4  4  False
+3  6  0   True
+4  5  5  False
+5  0  8  False
+6  7  9  False
+7  6  3   True
+8  0  9  False
+9  0  9  False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41247803)
+ You should not use apply at all here. You should write the new column as one vectorized operation that looks something like this. 
+
+  clean['v'] = clean['orbital_period'] ** (1/3.0) / clean['star_mass'] ** (1/3.0) *day_sec/(Msun**(1/3.0))
+  
+
+ Which looks like it can be reduced to the following: 
+
+  power = 1/3.0
+(clean.orbital_period / (clean.star_mass * Msun)) ** power * day_sec
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12377080)
+ You could have  is_hammer  in terms of  row["Open"]  etc. as follows 
+
+  def is_hammer(rOpen,rLow,rClose,rHigh):
+    return lower_wick_at_least_twice_real_body(rOpen,rLow,rClose) \
+       and closed_in_top_half_of_range(rHigh,rLow,rClose)
+  
+
+ Then you can use map: 
+
+  df["isHammer"] = map(is_hammer, df["Open"], df["Low"], df["Close"], df["High"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54362719)
+ You can use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.expanding.html#pandas.DataFrame.expanding: 
+
+  df2 = df.groupby('unit')['A'].expanding().mean().reset_index()
+df['Expected'] = df2['A']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49463089)
+ You can convert boolean mask to  integer  and then to  string : 
+
+  rawData['small'] = (rawData['value'] < 5).astype(int).astype(str)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54362640)
+ Divide http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.DataFrameGroupBy.cumsum.html with counter by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.cumcount.html: 
+
+  g = df.groupby('unit')['A']
+df['Expected'] = g.cumsum().div(g.cumcount() + 1)
+print (df)
+  unit   A  Expected
+0  T10   8       8.0
+1  T10   7       7.5
+2  T10  12       9.0
+3  T11  10      10.0
+4  T11   6       8.0
+5  T12  17      17.0
+6  T12   7      12.0
+7  T12   3       9.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12377083)
+ The exact code will vary for each of the columns you want to do, but it's likely you'll want to use the  map  and  apply  functions.  In some cases you can just compute using the existing columns directly, since the columns are Pandas Series objects, which also work as Numpy arrays, which automatically work element-wise for usual mathematical operations. 
+
+  >>> d
+    A   B  C
+0  11  13  5
+1   6   7  4
+2   8   3  6
+3   4   8  7
+4   0   1  7
+>>> (d.A + d.B) / d.C
+0    4.800000
+1    3.250000
+2    1.833333
+3    1.714286
+4    0.142857
+>>> d.A > d.C
+0     True
+1     True
+2     True
+3    False
+4    False
+  
+
+ If you need to use operations like max and min within a row, you can use  apply  with  axis=1  to apply any function you like to each row.  Here's an example that computes  min(A, B)-C , which seems to be like your "lower wick": 
+
+  >>> d.apply(lambda row: min([row['A'], row['B']])-row['C'], axis=1)
+0    6
+1    2
+2   -3
+3   -3
+4   -7
+  
+
+ Hopefully that gives you some idea of how to proceed. 
+
+ Edit: to compare rows against neighboring rows, the simplest approach is to slice the columns you want to compare, leaving off the beginning/end, and then compare the resulting slices.  For instance, this will tell you for which rows the element in column A is less than the next row's element in column C: 
+
+  d['A'][:-1] < d['C'][1:]
+  
+
+ and this does it the other way, telling you which rows have A less than the preceding row's C: 
+
+  d['A'][1:] < d['C'][:-1]
+  
+
+ Doing  ['A"][:-1]  slices off the last element of column A, and doing  ['C'][1:]  slices off the first element of column C, so when you line these two up and compare them, you're comparing each element in A with the C from the following row. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24976429)
+ When you call  iterrows()  you are getting copies of each row and cannot assign back to the larger dataframe.  In general, you should be trying to using vectorized methods, rather than iterating over the rows. 
+
+ So for example in this case, to parse the 'birthday' column, you could do something like this:  For the rows that have a length of 10, the string will parsed into a datetime, otherwise it will be filled with a missing value. 
+
+  import numpy as np
+import pandas as pd
+df['birthday'] = np.where(df['birthday'].str.len() == 10, pd.to_datetime(df['birthday']), '')
+  
+
+ To calculate the ages, you can use  .apply , which applies a function over each row of a series. 
+So if you wrapped your age calculation in a function: 
+
+  def calculate_age(birthdayDate, today):
+    if pd.isnull(birthdayDate):
+        return np.nan
+    else:
+        return today.year - birthdayDate.year - 
+                ((today.month, today.day) < (birthdayDate.month, birthdayDate.day))
+  
+
+ Then, you could calculate the age column like this: 
+
+  today = date.today()
+df['age'] = df['birthday'].apply(lambda x: calculate_age(x, today))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35014195)
+ IIUC you can use http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.where.html and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.isin.html: 
+
+  df['new'] = np.where(df['type'].isin(['t1']), df.A/df.C, df.B/df.C )
+print df
+  name type   A     B    C        new
+0   n1   t1   1    32    3   0.333333
+1   n2   t1  52  2437    3  17.333333
+2   n3   t2  21     0  100   0.000000
+3   n4   t1  53  2005    2  26.500000
+4   n5   t2  34     1  200   0.005000
+  
+
+ Or better and safer http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.isin.html: 
+
+  df.loc[df['type'].isin(['t1']), 'new'] = df.A / df.C
+df.loc[df['type'].isin(['t2']), 'new'] = df.B / df.C
+print df
+  name type   A     B    C        new
+0   n1   t1   1    32    3   0.333333
+1   n2   t1  52  2437    3  17.333333
+2   n3   t2  21     0  100   0.000000
+3   n4   t1  53  2005    2  26.500000
+4   n5   t2  34     1  200   0.005000
+  
+
+
+

@@ -1,0 +1,227 @@
+Query: How to binarize the values in a pandas DataFrame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40717255)
+ You can convert it to boolean then multiply by 1.   
+
+  import pandas as pd
+df = pd.DataFrame({'number': [12, 89, 12, 56, 62, 2, 657, 5, 73]})
+df['binary'] = (df.number < 15)*1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38705943)
+ My preference is  pd.get_dummies() . Yes, there is sklearn method.  
+
+   
+
+  >>> from sklearn.preprocessing import OneHotEncoder
+>>> enc = OneHotEncoder()
+>>> enc.fit([[0, 0, 3], [1, 1, 0], [0, 2, 1], [1, 0, 2]])  
+OneHotEncoder(categorical_features='all', dtype=<... 'float'>,
+       handle_unknown='error', n_values='auto', sparse=True)
+>>> enc.n_values_
+array([2, 3, 4])
+>>> enc.feature_indices_
+array([0, 2, 5, 9])
+>>> enc.transform([[0, 1, 1]]).toarray()
+array([[ 1.,  0.,  0.,  1.,  0.,  0.,  1.,  0.,  0.]])
+  
+
+ http://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38704643)
+ Yes, there is a better way to do this.  It's called  pd.get_dummies  
+
+  pd.get_dummies(df)
+  
+
+ https://i.stack.imgur.com/kG6CP.png 
+
+ To replicate what you have: 
+
+  order = ['Gender', 'Male', 'Female', 'Unknown']
+pd.concat([df, pd.get_dummies(df, '', '').astype(int)], axis=1)[order]
+  
+
+ <a href="https://i.stack.imgur.com/Addwl.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37001535)
+ pandas  DataFrame 's also have a http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.dot.html method. 
+
+  
+
+  df.dot(df)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48472165)
+ Specify the column as well, as so: 
+
+  data_df.loc[data_df["mean radius"] > 12.0, "mean radius"] = 0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27730012)
+ You can use http://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html for this: 
+
+  >>> import numpy as np
+>>> import scipy.sparse
+>>> mat = scipy.sparse.csr_matrix(np.array([[4, 0, 3, 5],
+         [0, 2, 6, 0],
+         [7, 0, 1, 0]])).todense()
+>>> np.where(np.logical_and(mat <= 2, mat !=0), 1, 0)
+matrix([[0, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51424385)
+  You need to use  label_binarize  function and then you can plot a multi-class ROC.  
+
+  Example using Iris data:  
+
+  import matplotlib.pyplot as plt
+from sklearn import svm, datasets
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
+from sklearn.metrics import roc_curve, auc
+from sklearn.multiclass import OneVsRestClassifier
+
+iris = datasets.load_iris()
+X = iris.data
+y = iris.target
+
+# Binarize the output
+y = label_binarize(y, classes=[0, 1, 2])
+n_classes = y.shape[1]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5, random_state=0)
+
+classifier = OneVsRestClassifier(svm.SVC(kernel='linear', probability=True,
+                                 random_state=0))
+y_score = classifier.fit(X_train, y_train).decision_function(X_test)
+
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+for i in range(n_classes):
+    fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+colors = cycle(['blue', 'red', 'green'])
+for i, color in zip(range(n_classes), colors):
+    plt.plot(fpr[i], tpr[i], color=color, lw=lw,
+             label='ROC curve of class {0} (area = {1:0.2f})'
+             ''.format(i, roc_auc[i]))
+plt.plot([0, 1], [0, 1], 'k--', lw=lw)
+plt.xlim([-0.05, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic for multi-class data')
+plt.legend(loc="lower right")
+plt.show()
+  
+
+ https://i.stack.imgur.com/ExF13.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39735878)
+ Casting to boolean will result in  True  for anything that is not zero &mdash; and  False  for any zero entry. If you then cast to integer, you get ones and zeroes. 
+
+  import io
+import pandas as pd
+
+data = io.StringIO('''\
+word1 word2 word3
+0.0   0.3   1.0
+0.1   0.0   0.5
+''')
+df = pd.read_csv(data, delim_whitespace=True)
+
+res = df.astype(bool).astype(int)
+print(res)
+  
+
+ Output: 
+
+     word1  word2  word3
+0      0      1      1
+1      1      0      1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51424871)
+  You can use  label_binarizer  this way and get the desired plot as output.  
+
+   Example using Iris data:   
+
+  import matplotlib.pyplot as plt
+from sklearn import svm, datasets
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
+from sklearn.metrics import roc_curve, auc
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.model_selection import cross_val_predict
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+
+iris = datasets.load_iris()
+X = iris.data
+y = iris.target
+
+# Binarize the output
+y_bin = label_binarize(y, classes=[0, 1, 2])
+n_classes = y_bin.shape[1]
+
+pipe= Pipeline([('scaler', StandardScaler()), ('clf', LogisticRegression())])
+# or
+#clf = OneVsRestClassifier(LogisticRegression())
+#pipe= Pipeline([('scaler', StandardScaler()), ('clf', clf)])
+y_score = cross_val_predict(pipe, X, y, cv=10 ,method='predict_proba')
+
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+for i in range(n_classes):
+    fpr[i], tpr[i], _ = roc_curve(y_bin[:, i], y_score[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+colors = cycle(['blue', 'red', 'green'])
+for i, color in zip(range(n_classes), colors):
+    plt.plot(fpr[i], tpr[i], color=color, lw=lw,
+             label='ROC curve of class {0} (area = {1:0.2f})'
+             ''.format(i, roc_auc[i]))
+plt.plot([0, 1], [0, 1], 'k--', lw=lw)
+plt.xlim([-0.05, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic for multi-class data')
+plt.legend(loc="lower right")
+plt.show()
+  
+
+ https://i.stack.imgur.com/gPNjp.png 
+
+
+

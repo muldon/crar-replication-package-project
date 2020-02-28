@@ -1,0 +1,135 @@
+Query: How to start a background process in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3595867)
+  
+
+  import subprocess
+from multiprocessing import Process
+
+Process(target=subprocess.call, args=(('ls', '-l', ), )).start()
+  
+
+ It's not all that elegant, but it fulfils all your requirements. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32628540)
+ To run the Python script inline within the same interpreter you can use  execfile : 
+
+ https://docs.python.org/2/library/functions.html#execfile 
+
+ Python 3 equivalent: 
+
+ https://stackoverflow.com/questions/436198/what-is-an-alternative-to-execfile-in-python-3-0 
+
+ To start a script as a background service it is best to use external tool like Linux's  systemd  or http://supervisord.org/ for this purpose. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3595852)
+  
+
+  subprocess.Popen(["background-process", "arguments"])
+  
+
+ If you want to check later whether the background process completed its job, retain a reference to the Popen object and use it's  poll()  method. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13593257)
+ I found this https://stackoverflow.com/questions/89228/calling-an-external-command-in-python#2251026: 
+
+ On windows (win xp), the parent process will not finish until the  longtask.py  has finished its work. It is not what you want in CGI-script. The problem is not specific to Python, in PHP community the problems are the same. 
+
+ The solution is to pass  DETACHED_PROCESS  https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx to the underlying  CreateProcess  function in win API. If you happen to have installed pywin32 you can import the flag from the win32process module, otherwise you should define it yourself: 
+
+  DETACHED_PROCESS = 0x00000008
+
+pid = subprocess.Popen([sys.executable, "longtask.py"],
+                       creationflags=DETACHED_PROCESS).pid
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11493570)
+ @warwaruk makes a useful suggestion; Twisted XML-RPC is simple and robust. However, if you simply want to run and manage a python process in the 'background' take a look at http://supervisord.org/. It is a simple process management system. 
+
+  $ pip install supervisor
+$ echo_supervisord_conf > /etc/supervisord.conf
+  
+
+ Edit that config file to add a definition of your process thus... 
+
+    [program:mycoolproc]
+  directory=/path/to/my/script/dir
+  command=python MyXmlrpcServer.py
+  
+
+ Start supervisord and start your process 
+
+  $ supervisord
+$ supervisorctl start mycoolproc
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7224186)
+ While https://stackoverflow.com/questions/1196074/starting-a-background-process-in-python/1196122#1196122's solution works, the newer way of doing things (and the way the documentation recommends) is to use the  subprocess  module. For simple commands its equivalent, but it offers more options if you want to do something complicated. 
+
+ Example for your case: 
+
+  import subprocess
+subprocess.Popen(["rm","-r","some.file"])
+  
+
+ This should run  rm -r somefile  in the background.   But be wary:  subprocess.Popen()  only runs a process in the background if nothing in the python script depends on the output of the command being run:  
+
+ For example, the following command will  not  run in the background: 
+
+  import subprocess
+ls_output=subprocess.Popen(["ls", "-a"], stdout=subprocess.PIPE)
+  
+
+ See  the documentation http://docs.python.org/library/subprocess.html#module-subprocess. 
+
+ Also, a point of clarification: "Background" purely a shell concept: what you probably want is to spawn a new process. I've used "background" here to refer to shell-background-like behavior, but don't mistake this for the process actually being in the background. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9126061)
+ If you really want to run it as fast as possible, there is an alternative to using  cron  which is write the python program as an endless loop and then start it as a background process using  nohup python script.py & . The output of the python process will then be written in  nohup.out . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1196112)
+ You probably want the answer to https://stackoverflow.com/questions/89228/how-to-call-external-command-in-python/92395#92395. 
+
+ The simplest approach is to use the  os.system  function, e.g.: 
+
+  import os
+os.system("some_command &")
+  
+
+ Basically, whatever you pass to the  system  function will be executed the same as if you'd passed it to the shell in a script. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8711418)
+ Yes, start the process with : 
+
+  p=subprocess.Popen([list for the script to execute], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+  
+
+ You can then read from  p.stdout  and  p.stderr  to watch for your sentinel and write to  p.stdin  to send messages to the child process.  If you are running on a posix system, you might consider using pexpect instead; it doesn't support MS Windows, but it handles communicating with child processes better than subprocess. 
+
+
+

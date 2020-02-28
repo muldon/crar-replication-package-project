@@ -1,0 +1,203 @@
+Query: Python - how to refer to relative paths of resources when working with code repository
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1270970)
+ Try to use a filename relative to the current files path. Example for '. 
+
+  fn = os.path.join(os.path.dirname(__file__), 'my_file')
+  
+
+ In Python 3.4+ you can also use https://docs.python.org/3/library/pathlib.htm: 
+
+  fn = pathlib.Path(__file__).parent / 'my_file'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1271027)
+  import os
+cwd = os.getcwd()
+path = os.path.join(cwd, "my_file")
+f = open(path)
+  
+
+ You also try to normalize your  cwd  using  os.path.abspath(os.getcwd()) . More info http://docs.python.org/library/os.path.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43012055)
+ In Python, paths are relative to the   current working directory  , which in most cases is the directory from which you run your program. The  current working directory  is very likely not as same as the directory of your module file, so using a path relative to your current module file is always a bad choice. 
+
+ Using absolute path should be the best solution: 
+
+  import os
+package_dir = os.path.dirname(os.path.abspath(__file__))
+thefile = os.path.join(package_dir,'test.cvs')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1271580)
+ I often use something similar to this: 
+
+  import os
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'datadir'))
+
+# if you have more paths to set, you might want to shorten this as
+here = lambda x: os.path.abspath(os.path.join(os.path.dirname(__file__), x))
+DATA_DIR = here('datadir') 
+
+pathjoin = os.path.join
+# ...
+# later in script
+for fn in os.listdir(DATA_DIR):
+    f = open(pathjoin(DATA_DIR, fn))
+    # ...
+  
+
+  
+
+  __file__
+  
+
+ holds the file name of the script you write that code in, so you can make paths relative to script, but still written with absolute paths. It works quite well for several reasons: 
+
+ 
+ path is absolute, but still relative 
+ the project can still be deployed in a relative container 
+ 
+
+ But you need to watch for platform compatibility - Windows' os.pathsep is different than UNIX. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9177940)
+ If you are using setup tools or distribute (a setup.py install) then the "right" way to access these packaged resources seem to be using package_resources. 
+
+ In your case the example would be 
+
+  import pkg_resources
+my_data = pkg_resources.resource_string(__name__, "foo.dat")
+  
+
+ Which of course reads the resource and the read binary data would be the value of my_data 
+
+ If you just need the filename you could also use 
+
+  resource_filename(package_or_requirement, resource_name)
+  
+
+ Example: 
+
+  resource_filename("MyPackage","foo.dat")
+  
+
+ The advantage is that its guaranteed to work even if it is an archive distribution like an egg.  
+
+ See http://packages.python.org/distribute/pkg_resources.html#resourcemanager-api 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1270975)
+ You can use the build in  __file__  variable. It contains the path of the current file. I would implement getBaseOfProject in a module in the root of your project. There I would get the path part of  __file__  and would return that. This method can then be used everywhere in your project. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1011366)
+ If you want to reference files from the  foo/package1/resources  folder you would want to use the  __file__  variable of the module. Inside  foo/package1/__init__.py : 
+
+  from os import path
+resources_dir = path.join(path.dirname(__file__), 'resources')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32698989)
+ I just wrote a small python module for this task:
+https://github.com/MaxNoe/python-gitpath 
+
+ Install with  pip install git+https://github.com/maxnoe/python-gitpath  
+
+ Usage: 
+
+  import gitpath
+
+print(gitpath.root())
+print(gitpath.abspath('myfile.txt'))
+  
+
+  gitpath.abspath(relative_path)  will return the absolute path on your machine 
+for a path given relative to the root of the git repository. 
+
+ The code to get the root is partially derived from Ryne Everetts comment: 
+
+  from subprocess import check_output, CalledProcessError
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def root():
+    ''' returns the absolute path of the repository root '''
+    try:
+        base = check_output('git rev-parse --show-toplevel', shell=True)
+    except CalledProcessError:
+        raise IOError('Current working directory is not a git repository')
+    return base.decode('utf-8').strip()
+  
+
+ The caching makes the second call to  root()  ca. 3500 times faster (measured with  ipython  and  %%timeit ) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20885799)
+ Assuming your template is located inside your module's package at this path: 
+
+  <your_package>/templates/temp_file
+  
+
+ the correct way to read your template is to use <a href=http://setuptools.readthedocs.io/en/latest/pkg_resources.html#basic-resource-access rel=noreferrer> pkg_resources   package from  setuptools  distribution: 
+
+<pre class=lang-py prettyprint-override> import pkg_resources
+
+resource_package = __name__  # Could be any module/package name
+resource_path = '/'.join(('templates', 'temp_file'))  # Do not use os.path.join()
+template = pkg_resources.resource_string(resource_package, resource_path)
+# or for a file-like stream:
+template = pkg_resources.resource_stream(resource_package, resource_path)
+  
+
+ 
+    Tip:   
+  This will read data even if your distribution is zipped, so you may set    zip_safe=True  in your  setup.py , and/or use the long-awaited <a href=https://docs.python.org/3.5/library/zipapp.html#module-zipapp rel=noreferrer> zipapp  packer  from  python-3.5  to create self-contained distributions. 
+ 
+
+ According to the Setuptools/ pkg_resources  docs, do not use  os.path.join : 
+
+ 
+   <a href=https://setuptools.readthedocs.io/en/latest/pkg_resources.html#basic-resource-access rel=noreferrer>Basic Resource Access </h3>
+  
+   Note that resource names must be  / -separated paths and cannot be absolute (i.e. no leading  / ) or contain relative names like  .. . Do  not  use  os.path  routines to manipulate resource paths, as they are  not  filesystem paths. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36209089)
+ This code will return the absolute path to the main script. 
+
+  import os
+def whereAmI():
+    return os.path.dirname(os.path.realpath(__import__("__main__").__file__))
+  
+
+ This will work even in a module. 
+
+
+

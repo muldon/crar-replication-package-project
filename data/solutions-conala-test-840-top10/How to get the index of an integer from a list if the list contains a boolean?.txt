@@ -1,0 +1,267 @@
+Query: How to get the index of an integer from a list if the list contains a boolean?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30843812)
+ Booleans  are  integers in Python, and this is why you can use them just like any integer: 
+
+  >>> 1 + True
+2
+>>> [1][False]
+1
+  
+
+ [this doesn't mean you should :)] 
+
+ This is due to the fact that  bool  is a subclass of  int , and almost always a boolean will behave just like 0 or 1 (except when it is cast to string - you will get  "False"  and  "True"  instead). 
+
+ Here is one more idea how you can achieve what you want (however, try to rethink you logic taking into account information above): 
+
+  >>> class force_int(int):
+...     def __eq__(self, other):
+...         return int(self) == other and not isinstance(other, bool)
+... 
+>>> force_int(1) == True
+False
+>>> lst.index(force_int(1))
+2
+  
+
+ This code redefines  int 's method, which is used to compare elements in the  index  method, to ignore booleans. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52497206)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.isin.html for boolean mask and cast it to integer -  True/False s to  1/0 s: 
+
+  L = [4,5,6]
+df['flag'] = df.index.isin(L).astype(int)
+print (df)
+       quantity  flag
+index                
+0            12     0
+1            45     0
+2            56     0
+3            55     0
+4            65     1
+5            43     1
+6            23     1
+7            34     0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30843245)
+ Here is a very simple naive one-liner solution using https://docs.python.org/2/library/functions.html#map and https://docs.python.org/2/library/functions.html#zip: 
+
+  >>> zip(map(type, lst), lst).index((int, 1))
+2
+  
+
+ Here we map the type of each element and create a new list by zipping the types with the elements and ask for the index of  (type, value) . 
+
+ And here is a generic iterative solution using the same technique: 
+
+  >>> from itertools import imap, izip
+>>> def index(xs, x):
+...     it = (i for i, (t, e) in enumerate(izip(imap(type, xs), xs)) if (t, e) == x)
+...     try:
+...             return next(it)
+...     except StopIteration:
+...             raise ValueError(x)
+... 
+>>> index(lst, (int, 1))
+2
+  
+
+ Here we basically do the  same thing  but iteratively so as to not cost us much in terms of memory/space efficiency. We an iterator of the same expression from above but using https://docs.python.org/2/library/itertools.html#itertools.imap and https://docs.python.org/2/library/itertools.html#itertools.izip instead and build a custom index function that returns the next value from the iterator or a raise a  ValueError  if there is no match. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52426889)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html with https://docs.scipy.org/doc/numpy/reference/generated/numpy.any.html per  index  ( axis=0 ): 
+
+  result = df1.loc[:, np.any(df2.values,axis=0)]
+print (result)
+     Value1  Value  Value4
+IDs                       
+AB        1      1       5
+BC        2      2       3
+BG        1      4       1
+RF        2      2       7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30843199)
+ The https://docs.python.org/3/library/stdtypes.html#lists says that  
+
+ 
+   Lists are mutable sequences, typically used to store collections of
+  homogeneous items (where the precise degree of similarity will vary by
+  application). 
+ 
+
+ You shouldn't store heterogeneous data in lists.
+The implementation of  list.index  only performs the comparison using  Py_EQ  ( ==  operator). In your case that comparison returns truthy value because  True  and  False  have values of the integers 1 and 0, respectively (https://docs.python.org/3/library/functions.html#bool after all). 
+
+ However, you could use generator expression and the https://docs.python.org/3/library/functions.html#next (to get the first value from the generator) like this: 
+
+  In [4]: next(i for i, x in enumerate(lst) if not isinstance(x, bool) and x == 1)
+Out[4]: 2
+  
+
+ Here we check if  x  is an instance of  bool   before  comparing  x  to 1.  
+
+ Keep in mind that  next  can raise  StopIteration , in that case it may be desired to (re-)raise  ValueError  (to mimic the behavior of  list.index ). 
+
+ Wrapping this all in a function: 
+
+  def index_same_type(it, val):
+    gen = (i for i, x in enumerate(it) if type(x) is type(val) and x == val)
+    try:
+        return next(gen)
+    except StopIteration:
+        raise ValueError('{!r} is not in iterable'.format(val)) from None
+  
+
+ Some examples: 
+
+  In [34]: index_same_type(lst, 1)
+Out[34]: 2
+
+In [35]: index_same_type(lst, True)
+Out[35]: 0
+
+In [37]: index_same_type(lst, 42)
+ValueError: 42 is not in iterable
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36005816)
+ You could use a mask generated from the index directly. 
+
+  In [22]: mask = pairs.index.str.contains("USD")
+In [23]: pairs[mask]
+Out[23]: 
+               count  mean
+Currency Pair             
+USD.CAD            1   3.6
+EUR.USD            8   3.6
+GBP.USD            2   2.7
+  
+
+ No need to reindex anything. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40794609)
+  In [304]: ['a','b','c'][[2,1,0]]
+---------------------------------------------------------------------------
+TypeError                                 Traceback (most recent call last)
+<ipython-input-304-c04b1f0621a3> in <module>()
+----> 1 ['a','b','c'][[2,1,0]]
+
+TypeError: list indices must be integers or slices, not list
+  
+
+ List comprehension route 
+
+  In [306]: [i for i,j in zip(['a','b','c'],[True, False, True]) if j]
+Out[306]: ['a', 'c']
+  
+
+  
+
+  In [308]: np.array(['a','b','c'])[np.array([True, False, True])]
+Out[308]: 
+array(['a', 'c'], 
+      dtype='<U1')
+  
+
+ back to list: 
+
+  In [309]: np.array(['a','b','c'])[np.array([True, False, True])].tolist()
+Out[309]: ['a', 'c']
+  
+
+ but be careful if your list contains objects, as opposed to numbers or strings.  This might not preserve the links. 
+
+ The  operator  module has a  itemgetter  function 
+
+  In [321]: operator.itemgetter(*[2,0,1])(list('abc'))
+Out[321]: ('c', 'a', 'b')
+  
+
+ But under the covers it is just a list comprehension like iterator.  And I don't offhand see a boolean version. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38665567)
+ If you prefer the  indexer  way, you can convert your boolean list to numpy array: 
+
+  print x[nd.array(mask)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44927333)
+ The beauty of pandas is that you can often avoid using loops. Sorting the data into integers/non-integers may be achieved by doing the modulo 1 operation and checking zero equivalence  %1==0  producing a DataFrame of True/False values in the variable  intcheck . Then just get the  True  rows which are the integers from the original DataFrame. Placing a  ~  in front inverts the boolean to get the non-integer values. 
+
+  import pandas as pd
+
+d =[["79th St & Private Dr - 5022 W"        ,1.5],
+    ["79th St & Allison Ave"                ,1.5],
+    ["Allison Ave & 81st St"                ,1  ],
+    ["81st St & Norfolk St"                 ,1  ],
+    ["Norfolk St & Private Dr - 8178 N"     ,1  ],
+    ["Norfolk St & 84th St"                 ,1  ],
+    ["Moller Rd & 86th St"                  ,1.5],
+    ["Zionsville Rd & 86th St"              ,1.5]]
+
+df = pd.DataFrame(d, columns=['DESCRIPTION','RATE'])
+df = df.set_index('DESCRIPTION')
+
+intcheck = (df.RATE%1)==0
+
+print(df[intcheck])
+
+#                                   RATE
+# DESCRIPTION                           
+# Allison Ave & 81st St              1.0
+# 81st St & Norfolk St               1.0
+# Norfolk St & Private Dr - 8178 N   1.0
+# Norfolk St & 84th St               1.0
+
+print(df[~intcheck])
+
+#                                RATE
+# DESCRIPTION                        
+# 79th St & Private Dr - 5022 W   1.5
+# 79th St & Allison Ave           1.5
+# Moller Rd & 86th St             1.5
+# Zionsville Rd & 86th St         1.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40800749)
+  map(x.__getitem__,np.where(mask)[0])    
+
+ Or if you want list comprehension 
+
+  [x[i] for i in np.where(mask)[0]]  
+
+ This keeps you from having to iterate over the whole list, especially if  mask  is sparse. 
+
+
+

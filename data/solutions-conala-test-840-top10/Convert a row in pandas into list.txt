@@ -1,0 +1,228 @@
+Query: Convert a row in pandas into list
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42202892)
+ You can use: 
+
+  df = pd.DataFrame([A])
+print (df)
+   0  1  2    3 4
+0  1  d  p  bab  
+  
+
+ If all values are strings: 
+
+  df = pd.DataFrame(np.array(A).reshape(-1,len(A)))
+print (df)
+
+   0  1  2    3 4
+0  1  d  p  bab  
+  
+
+ Thank you https://stackoverflow.com/questions/42202872/how-to-convert-list-to-row-dataframe-with-pandas/42202892#comment71567050_42202892: 
+
+  df = pd.DataFrame(A).T
+print (df)
+   0  1  2    3 4
+0  1  d  p  bab  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50347105)
+ You can use: 
+
+  In [127]: df['test'] = df.values.tolist()
+
+In [128]: df
+Out[128]: 
+   0  1  2  3  4             test
+0  0  8  3  2  5  [0, 8, 3, 2, 5]
+1  1  1  2  2  4  [1, 1, 2, 2, 4]
+2  0  8  9  6  4  [0, 8, 9, 6, 4]
+3  2  7  6  1  9  [2, 7, 6, 1, 9]
+4  8  9  1  5  6  [8, 9, 1, 5, 6]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51313245)
+  m = np.array([[1, 2], [11, 22]])
+pd.DataFrame({'col':[z for z in m]})
+
+    col
+0   [1, 2]
+1   [11, 22]
+  
+
+ Or, as per @pault 
+
+  pd.DataFrame({'col':list(m)})
+
+    col
+0   [1, 2]
+1   [11, 22]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28443409)
+ The way I did it was split the list into seperate columns, and then  melt ed it to put each timestamp in a separate row. 
+
+  In [48]: df = pd.DataFrame([[1,2,[1,2,4]],[4,5,[1,3]],],columns=['a','b','TimeStamp'])
+    ...: df
+Out[48]: 
+   a  b  TimeStamp
+0  1  2  [1, 2, 4]
+1  4  5     [1, 3]
+  
+
+ You can convert the column to a list and then back to a  DataFrame  to split it into columns: 
+
+  In [53]: TScolumns = pd.DataFrame(df.TimeStamp.tolist(), )
+    ...: TScolumns
+Out[53]: 
+   0  1   2
+0  1  2   4
+1  1  3 NaN
+  
+
+  
+
+  In [90]: df = df.drop('TimeStamp',axis=1)
+In [58]: split = pd.concat([df, TScolumns], axis=1)
+    ...: split
+Out[58]: 
+   a  b  0  1   2
+0  1  2  1  2   4
+1  4  5  1  3 NaN
+  
+
+ Finally, use  melt  to get it into the shape you want: 
+
+  In [89]: pd.melt(split, id_vars=['a', 'b'], value_name='TimeStamp')
+Out[89]: 
+   a  b variable  TimeStamp
+0  1  2        0          1
+1  4  5        0          1
+2  1  2        1          2
+3  4  5        1          3
+4  1  2        2          4
+5  4  5        2        NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46024583)
+ You can use list comprehensions with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iterrows.html or  transpose  DataFrame for process each row separately. 
+
+ First http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.sort_values.html, remove NaNs by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dropna.html and get  index  to  list  (columns are converted to index, because each row is converted to  Series ). 
+
+ For select only first and second value add  [] : 
+
+  L = [ x.sort_values().dropna().index.tolist() for idx, x in df.iterrows()]
+print (L)
+[['Y', 'X', 'Z'], ['Z', 'X'], ['X', 'Y', 'Z'], ['Z']]
+
+L1 = [ x.sort_values().dropna().index[:2].tolist() for idx, x in df.iterrows()]
+print (L1)
+[['Y', 'X'], ['Z', 'X'], ['X', 'Y'], ['Z']]
+  
+
+ 
+
+  df1 = df.T
+L = [ df1[x].sort_values().dropna().index.tolist() for x in df1]
+print (L)
+[['Y', 'X', 'Z'], ['Z', 'X'], ['X', 'Y', 'Z'], ['Z']]
+
+L1 = [ df1[x].sort_values().dropna().index[:2].tolist() for x in df1]
+print (L1)
+[['Y', 'X'], ['Z', 'X'], ['X', 'Y'], ['Z']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47547450)
+ You can convert  Series  to  DataFrame , then to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_records.html and last convert to  tuples : 
+
+  t = [tuple(x) for x in s.reset_index().to_records(index=False)]
+print (t)
+[(0, 21, 1.0), (0, 22, 1.0), (0, 23, 1.0), 
+ (0, 24, 1.0), (0, 26, 1.0), (0, 27, 1.0), (0, 28, 1.0)]
+  
+
+ Alternative: 
+
+  t1 = s.to_frame().set_index(0, append=True).index.tolist()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45322663)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html with  list comprehension : 
+
+  df = pd.concat([pd.DataFrame(x) for x in df['b']], keys=df['a'])
+       .reset_index(level=1, drop=True).reset_index()
+
+print (df)
+   a   c   d
+0  1   1   5
+1  1   3   7
+2  2  10  50
+  
+
+ EDIT: 
+
+ If index is unique, then is possible use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.join.html for all columns: 
+
+  df1 = pd.concat([pd.DataFrame(x) for x in df['b']], keys=df.index)
+        .reset_index(level=1,drop=True)
+df = df.drop('b', axis=1).join(df1).reset_index(drop=True)
+print (df)
+   a   c   d
+0  1   1   5
+1  1   3   7
+2  2  10  50
+  
+
+ I try simplify solution: 
+
+  l = df['b'].str.len()
+df1 = pd.DataFrame(np.concatenate(df['b']).tolist(), index=np.repeat(df.index, l))
+df = df.drop('b', axis=1).join(df1).reset_index(drop=True)
+print (df)
+   a   c   d
+0  1   1   5
+1  1   3   7
+2  2  10  50
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34238431)
+ You get a nested list because you select a sub data frame. 
+
+ This takes a row, which can be converted to a list without flattening: 
+
+  df.loc[0, :].values.tolist()
+[1, 9, 'a']
+  
+
+ How about slicing the list: 
+
+  df_note.values.tolist()[0]
+[4, 6]
+  
+
+ The values are stored in an NumPy array. So you do not convert them. Pandas uses a lot of NumPy under the hood. The attribute access  df_note.values  is just a different name for part of the data frame.  
+
+
+

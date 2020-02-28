@@ -1,0 +1,241 @@
+Query: Sort list of mixed strings based on digits
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39129940)
+ If you don't want to use regex 
+
+  >>> l = ['12-foo', '1-bar', '2-bar', 'foo-11', 'bar-3', 'foo-4', 'foobar-5', '6-foo', '7-bar']
+
+>>> sorted(l, key = lambda x: int(''.join(filter(str.isdigit, x))))
+
+['1-bar', '2-bar', 'bar-3', 'foo-4', 'foobar-5', '6-foo', '7-bar', 'foo-11', '12-foo']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39129897)
+ One solution is the following regex extraction: 
+
+  sorted(l, key=lambda x: int(re.search('\d+', x).group(0)))
+  
+
+ 
+
+  >>> l
+['12-foo', '1-bar', '2-bar', 'foo-11', 'bar-3', 'foo-4', 'foobar-5', '6-foo', '7-bar']
+>>> sorted(l, key=lambda x: int(re.search('\d+', x).group(0)))
+['1-bar', '2-bar', 'bar-3', 'foo-4', 'foobar-5', '6-foo', '7-bar', 'foo-11', '12-foo']
+  
+
+ The  key  is the extracted digit (converted to  int  to avoid sorting lexographically). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31306975)
+ If the numbers are not single digits, you can try - 
+
+  >>> l = ["Tiger 6", "Shark 4", "Cyborg 8", "Temporary 12"]
+>>> l.sort(key = lambda x: int(x.rsplit(' ',1)[1]))
+>>> l
+['Shark 4', 'Tiger 6', 'Cyborg 8', 'Temporary 12']
+  
+
+  str.rsplit(s, n)  function starts splitting the string at the end towards start of the string and stops after n splits. In the above case, it only splits the string once, at a space. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31306961)
+ 
+   I am trying to write a program that orders a list of strings based on the last character in the item. 
+ 
+
+  >>> s = ["Tiger 6", "Shark 4", "Cyborg 8"]
+>>> sorted(s, key=lambda x: int(x[-1]))
+['Shark 4', 'Tiger 6', 'Cyborg 8']
+  
+
+ Try this if there are more num of digits at the last. 
+
+  >>> import re
+>>> sorted(s, key=lambda x: int(re.search(r'\d+$',x).group()))
+['Shark 4', 'Tiger 6', 'Cyborg 8']
+  
+
+  re.search(r'\d+$',x).group()  helps to fetch the number present at the last irrespective of preceding space.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4318182)
+ 
+   is there an easy way to do this? 
+ 
+
+ No 
+
+ It's perfectly unclear what the real rules are.  The "some have 3 digits and some have 4" isn't really a very precise or complete specification.  All your examples show 4 letters in front of the digits.   
+
+  import re
+key_pat = re.compile(r"^(\D+)(\d+)$")
+def key(item):
+    m = key_pat.match(item)
+    return m.group(1), int(m.group(2))
+  
+
+ That  key  function might do what you want.  .  Or maybe the pattern is really  r"^(.*)(\d{3,4})$"  or maybe the rules are even more obscure. 
+
+  >>> data= ['asdf123', 'asdf1234', 'asdf111', 'asdf124']
+>>> data.sort( key=key )
+>>> data
+['asdf111', 'asdf123', 'asdf124', 'asdf1234']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50138669)
+ This does it: 
+
+  to_sort = ['16:11:40.894 0,Type=IsXover,Count=201,lr-isD=3',
+           '16:11:40.894 0,Type=IsXover,Count=54,lp-xsD=1',
+           '16:11:40.894 0,Type=IsXover,Count=1,lp-isD=2',
+           '16:11:40.894 0,Type=IsXover,Count=3075,lp-gsD=5']
+def key(x:str):
+    return int(x.partition("Count=")[2].partition(",")[0])
+
+print(sorted(to_sort, key=key))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40738555)
+ In the simple case where you just want to sort trailing digits numerically and their non-digit prefixes alphabetically, you need a key function which splits each item into non-digit and digit components as follows: 
+
+  'AB123' -> ['AB', 123]
+'CD'    -> ['CD']
+'456'   -> ['', 456]
+  
+
+ 
+     Note:  In the last case, the empty string  ''  is not strictly necessary in CPython 2.x, as integers sort before strings – but that's an implementation detail rather than a guarantee of the language, and in Python 3.x it  is  necessary, because strings and integers can't be compared at all.  
+ 
+
+ You can build such a key function using a list comprehension and https://docs.python.org/3/library/re.html#re.split: 
+
+  import re
+
+def trailing_digits(x):
+   return [
+       int(g) if g.isdigit() else g
+       for g in re.split(r'(\d+)$', x)
+   ]
+  
+
+ Here it is in action: 
+
+  >>> s1 = ['11', '2', 'A', 'B', 'B1', 'B11', 'B2', 'B21', 'C', 'C11', 'C2']
+  
+
+  
+
+  >>> sorted(s1, key=trailing_digits)
+['2', '11', 'A', 'B', 'B1', 'B2', 'B11', 'B21', 'C', 'C2', 'C11']
+  
+
+ Once you add the restriction that only strings with a particular prefix or prefixes have their trailing digits sorted numerically, things get a little more complicated. 
+
+ The following function builds and returns a key function which fulfils the requirement: 
+
+  def prefixed_digits(*prefixes):
+    disjunction = '|'.join('^' + re.escape(p) for p in prefixes)
+    pattern = re.compile(r'(?<=%s)(\d+)$' % disjunction)
+    def key(x):
+        return [
+            int(g) if g.isdigit() else g
+            for g in re.split(pattern, x)
+        ]
+    return key
+  
+
+ The main difference here is that a precompiled regex is created (containing a lookbehind constructed from the supplied prefix or prefixes), and a key function using that regex is returned. 
+
+ Here are some usage examples: 
+
+  >>> s2 = ['A', 'B', 'B11', 'B2', 'B21', 'C', 'C11', 'C2', 'D12', 'D2']
+  
+
+  
+
+  >>> sorted(s2, key=prefixed_digits('B'))
+['A', 'B', 'B2', 'B11', 'B21', 'C', 'C11', 'C2', 'D12', 'D2']
+  
+
+  
+
+  >>> sorted(s2, key=prefixed_digits('B', 'C'))
+['A', 'B', 'B2', 'B11', 'B21', 'C', 'C2', 'C11', 'D12', 'D2']
+  
+
+  
+
+  >>> sorted(s2, key=prefixed_digits('B', 'D'))
+['A', 'B', 'B2', 'B11', 'B21', 'C', 'C11', 'C2', 'D2', 'D12']
+  
+
+ If called with no arguments,  prefixed_digits()  returns a key function which behaves identically to  trailing_digits : 
+
+  >>> sorted(s1, key=prefixed_digits())
+['2', '11', 'A', 'B', 'B1', 'B2', 'B11', 'B21', 'C', 'C2', 'C11']
+  
+
+  Caveats:  
+
+ 
+  Due to a restriction in Python's  re  module regarding lookbhehind syntax, multiple prefixes must have the same length.  
+  In Python 2.x, strings which are purely numeric will be sorted numerically regardless of which prefixes are supplied to  prefixed_digits() . In Python 3, they'll cause an exception (except when called with no arguments, or in the special case of  key=prefixed_digits('')  – which will sort purely numeric strings numerically, and prefixed strings alphabetically). Fixing that may be possible with a significantly more complex regex, but I gave up trying after about twenty minutes.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40851681)
+ Use a key function that returns a tuple of the sum of the digits and the string itself 
+
+  def ordered_weights(s):
+    spl = s.split()
+    spl.sort(key=lambda x: (sum(map(int, x)), x))
+    return ' '.join(spl)
+  
+
+ tuples are sorted such that if the first elements are equal then the second elements are compared and so forth. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4318104)
+ The issue is that the sorting is  alphabetical here since they are strings . Each sequence of character is compared before moving to next character. 
+
+  >>> 'a1234' < 'a124'  <----- positionally '3' is less than '4' 
+True
+>>> 
+  
+
+ You will need to due  numeric sorting  to get the desired output. 
+
+  >>> x = ['asdf123', 'asdf1234', 'asdf111', 'asdf124']
+>>> y = [ int(t[4:]) for t in x]
+>>> z = sorted(y)
+>>> z
+[111, 123, 124, 1234]
+>>> l = ['asdf'+str(t) for t in z]
+>>> l
+['asdf111', 'asdf123', 'asdf124', 'asdf1234']
+>>> 
+  
+
+
+

@@ -1,0 +1,287 @@
+Query: Calcuate mean for selected rows for selected columns in pandas data frame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36454695)
+ You can select specific columns from a DataFrame by passing a list of indices to  .iloc , for example: 
+
+  df.iloc[:, [2,5,6,7,8]]
+  
+
+ Will return a DataFrame containing those numbered columns (note: This uses 0-based indexing, so  2  refers to the 3rd column.) 
+
+ To take a mean down of that column, you could use: 
+
+  # Mean along 0 (vertical) axis: return mean for specified columns, calculated across all rows
+df.iloc[:, [2,5,6,7,8]].mean(axis=0) 
+  
+
+ To take a mean across that column, you could use: 
+
+  # Mean along 1 (horizontal) axis: return mean for each row, calculated across specified columns
+df.iloc[:, [2,5,6,7,8]].mean(axis=1)
+  
+
+ You can also supply specific indices for both axes to return a subset of the table: 
+
+  df.iloc[[1,2,3,4], [2,5,6,7,8]]
+  
+
+ For your specific example, you would do: 
+
+  import pandas as pd
+import numpy as np
+
+df = pd.DataFrame( 
+np.array([[1,2,3,0,5],[1,2,3,4,5],[1,1,1,6,1],[1,0,0,0,0]]),
+columns=["a","b","c","d","q"],
+index = [0,1,2,3]
+)
+
+#I want mean of 0, 2, 3 rows for each a, b, d columns
+#. a b d
+#0 1 1 2
+
+df.iloc[ [0,2,3], [0,1,3] ].mean(axis=0)
+  
+
+ Which outputs: 
+
+  a    1.0
+b    1.0
+d    2.0
+dtype: float64
+  
+
+ Alternatively, to access via column names, first select on those: 
+
+  df[ ['a','b','d'] ].iloc[ [0,1,3] ].mean(axis=0)
+  
+
+ To answer the second part of your question (from the comments) you can join multiple DataFrames together using  pd.concat . It is faster to accumulate the frames in a list and then pass to  pd.concat  in one go, e.g. 
+
+  dfs = []
+for ix in idxs:
+    dfm = df.iloc[ [0,2,3], ix ].mean(axis=0)
+    dfs.append(dfm)
+
+dfm_summary = pd.concat(dfs, axis=1) # Stack horizontally
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36454852)
+ To select the rows of your dataframe you can use iloc, you can then select the columns you want using square brackets. 
+
+ For example: 
+
+   df = pd.DataFrame(data=[[1,2,3]]*5, index=range(3, 8), columns = ['a','b','c'])
+  
+
+ gives the following dataframe: 
+
+     a  b  c
+3  1  2  3
+4  1  2  3
+5  1  2  3
+6  1  2  3
+7  1  2  3
+  
+
+ to select only the 3d and fifth row you can do: 
+
+  df.iloc[[2,4]]
+  
+
+ which returns: 
+
+     a  b  c
+5  1  2  3
+7  1  2  3
+  
+
+ if you then want to select only columns b and c you use the following command: 
+
+  df[['b', 'c']].iloc[[2,4]]
+  
+
+  
+
+     b  c
+5  2  3
+7  2  3
+  
+
+ To then get the mean of this subset of your dataframe you can use the df.mean function. If you want the means of the columns you can specify axis=0, if you want the means of the rows you can specify axis=1 
+
+ thus: 
+
+  df[['b', 'c']].iloc[[2,4]].mean(axis=0)
+  
+
+ returns: 
+
+  b    2
+c    3
+  
+
+ As we should expect from the input dataframe. 
+
+ For your code you can then do: 
+
+   df[column_list].iloc[row_index_list].mean(axis=0)
+  
+
+ EDIT after comment:
+New question in comment:
+I have to store these means in another df/matrix. I have L1, L2, L3, L4...LX lists which tells me the index whose mean I need for columns C[1, 2, 3]. For ex: L1 = [0, 2, 3] , means I need mean of rows 0,2,3 and store it in 1st row of a new df/matrix. Then L2 = [1,4] for which again I will calculate mean and store it in 2nd row of the new df/matrix. Similarly till LX, I want the new df to have X rows and len(C) columns. Columns for L1..LX will remain same.  
+
+ Answer: 
+
+ If i understand correctly, the following code should do the trick (Same df as above, as columns I took 'a' and 'b': 
+
+ first you loop over all the lists of rows, collection all the means as pd.series, then you concatenate the resulting list of series over axis=1, followed by taking the transpose to get it in the right format. 
+
+  dfs = list()
+for l in L:
+    dfs.append(df[['a', 'b']].iloc[l].mean(axis=0))
+
+mean_matrix = pd.concat(dfs, axis=1).T
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54060342)
+ Use: 
+
+  df = pd.DataFrame({
+         'a':[np.nan] * 2 + [0]*4 + [np.nan] * 13,
+         'c':[np.nan] * 6 + [400] * 7+ [np.nan] * 6,
+         'd':[np.nan] * 13 + [300] * 6,
+         'e':[3,4,5,6,8,10,
+              11,54,56,46,95,89,45
+              ,4,5,6,8,10,11]
+})
+#print (df)
+  
+
+ 
+
+  df1 = df[['a','c','d']]
+s = df1.ffill(axis=1).iloc[:, -1].fillna(-1)
+#create groups by consecutive values
+m = s.ne(s.shift()).cumsum()
+
+#get means per groups with transform and set only last value of group to new column
+df['mean_e'] = np.where(~m.duplicated(keep='last') & ~df1.isnull().all(axis=1), 
+                        df['e'].groupby(m).transform('mean'), 
+                        np.nan)
+  
+
+ 
+
+  print (df)
+      a      c      d   e     mean_e
+0   NaN    NaN    NaN   3        NaN
+1   NaN    NaN    NaN   4        NaN
+2   0.0    NaN    NaN   5        NaN
+3   0.0    NaN    NaN   6        NaN
+4   0.0    NaN    NaN   8        NaN
+5   0.0    NaN    NaN  10   7.250000
+6   NaN  400.0    NaN  11        NaN
+7   NaN  400.0    NaN  54        NaN
+8   NaN  400.0    NaN  56        NaN
+9   NaN  400.0    NaN  46        NaN
+10  NaN  400.0    NaN  95        NaN
+11  NaN  400.0    NaN  89        NaN
+12  NaN  400.0    NaN  45  56.571429
+13  NaN    NaN  300.0   4        NaN
+14  NaN    NaN  300.0   5        NaN
+15  NaN    NaN  300.0   6        NaN
+16  NaN    NaN  300.0   8        NaN
+17  NaN    NaN  300.0  10        NaN
+18  NaN    NaN  300.0  11   7.333333
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44502790)
+  df.set_index('Person').stack().groupby(level=0).mean().to_frame()
+  
+
+ Output: 
+
+  Person
+Person A    3.8
+Person B    2.6
+dtype: float64
+  
+
+  
+
+  df.melt(id_vars='Person').groupby('Person')['value'].mean().to_frame()
+  
+
+ Output: 
+
+  Person
+Person A    3.8
+Person B    2.6
+Name: value, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50636082)
+ Try adding the to data frames together then use the pandas http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.apply.html?highlight=apply function then add a  lambda  in it then divide  x  with two: 
+
+  import pandas as pd
+df1 = pd.DataFrame({'A': [2,2]})
+df2 = pd.DataFrame({'A': [4,4]})
+print((df1+df2).apply(lambda x: x/2))
+  
+
+ Output: 
+
+     A
+0  3.0
+1  3.0
+  
+
+  Note: this is just with a dummy data frame  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40074796)
+ Iterating through the rows doesn't take advantage of Pandas' strengths.  If you want to do something with a column based on values of another column, you can use http://pandas.pydata.org/pandas-docs/version/0.17.1/generated/pandas.DataFrame.loc.html: 
+
+  dataFrame.loc[dataFrame['Dates'] == 'Oct-16', 'Score 1']
+  
+
+   .loc[]  selects the rows you want, using your specified criteria ( dataFrame['Dates'] == 'Oct-16' ).  The second part specifies the column you want ( Score 1 ).  Then if you want to get the mean, you can just put  .mean()  on the end: 
+
+  dataFrame.loc[dataFrame['Dates'] == 'Oct-16', 'Score 1'].mean()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44502820)
+ You can use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.fillna.html to force those value at -1 to cancel their weight:  
+
+  df.set_index('Person').stack().groupby(level=0).mean()
+  
+
+ output :  
+
+  Person       
+Person A  3.8
+Person B  2.6
+  
+
+
+

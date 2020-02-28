@@ -1,0 +1,192 @@
+Query: How to get the highest element in absolute value in a numpy matrix?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17794279)
+ The only thing that I could think of, which looks even worse, is: 
+
+  xmax=x[np.unravel_index(abs(x).argmax(), x.shape)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23465376)
+ I was looking for a way to get the signed values of the maximum absolute values of an N-dimensional array along a specified axis, which none of these answers handle. So, I put together a function to do it.  
+
+  def maxabs(a, axis=None):
+    """Return slice of a, keeping only those values that are furthest away
+    from 0 along axis"""
+    maxa = a.max(axis=axis)
+    mina = a.min(axis=axis)
+    p = abs(maxa) > abs(mina) # bool, or indices where +ve values win
+    n = abs(mina) > abs(maxa) # bool, or indices where -ve values win
+    if axis == None:
+        if p: return maxa
+        else: return mina
+    shape = list(a.shape)
+    shape.pop(axis)
+    out = np.zeros(shape, dtype=a.dtype)
+    out[p] = maxa[p]
+    out[n] = mina[n]
+    return out
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27903986)
+ The value you're looking for has to be either  x.max()  or  x.min()  so you could do 
+
+  max(x.min(), x.max(), key=abs)
+  
+
+ which is similar to aestrivex's solution but perhaps more readable? Note this will return the minimum in the case where  x.min()  and  x.max()  have the same absolute value e.g.  -5  and  5 . If you have a preference just order the inputs to  max  accordingly.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33359549)
+ The absolute sign in the mean absolute error is in each entry in the sum, so you can't check whether  mae < 0  after you summed it up - you need to put it inside the sum! 
+
+ Hence you should have something like 
+
+  mae = np.sum(np.absolute((imageB.astype("float") - imageA.astype("float")))
+  
+
+ Where  np.absolute(matrix)  calculates the absolute value element-wise. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54323219)
+ If you can use numpy: 
+
+  import numpy as np
+print(A[np.argmax(B)])
+  
+
+  np.argmax  returns the index of the max element. And we can simply use that index to access  A 's element. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39152275)
+ This one computes the absolute max'es fast - respecting an arbitrary  axis  argument in the same way as  np.max  and  np.argmax  themselves do. 
+
+  def absmaxND(a, axis=None):
+    amax = a.max(axis)
+    amin = a.min(axis)
+    return np.where(-amin > amax, amin, amax)
+  
+
+ For long arrays its about 2.5x faster than  a.flat[abs(a).argmax()]  even for the simple case  axis=None  - because it doesn't render abs() of the original big array. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11115594)
+ Numpy will be faster. 
+
+  import numpy as np
+
+m = np.array(matrix) * np.diag(len(matrix)) # set the upper triangle to zero
+for top_value in sorted((np.unique(m)), reverse=True)[1:6]:
+    print top_value, zip(*np.where(m == top_value))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/53860923)
+ There is a nice option in NumPy called https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.diag_indices.html which returns you the indices of diagonal elements of a 2-d array. Using this, you can get the sum of diagonal elements and subtract it from the sum of complete array  np.sum(arr)  to get the sum of off diagonal elements without using any explicit for-loops. To get the absolute sum, you simply use  np.abs  to get absolute values of each element and then perform the task as follows. 
+
+  Example  
+
+  import numpy as np
+arr = np.random.randint(1, 20, size=(3,3)) # Define a random 2d array
+print (arr)
+dia = np.diag_indices(3) # indices of diagonal elements
+dia_sum = sum(arr[dia]) # sum of diagonal elements
+off_dia_sum = np.sum(arr) - dia_sum # subtract the diagonal sum from total array sum
+print (off_dia_sum)
+  
+
+ 
+
+  [[12 19 10]
+ [ 3 13 18]
+ [16 16  6]]
+82
+  
+
+  Alternate 1  
+
+ You can also use simply  np.trace  to get the sum of diagonal elements and then subtract it from the total array sum to get the sum of the off-diagonal elements. 
+
+  off_dia_sum = np.sum(arr) - np.trace(arr)
+  
+
+  Alternate 2  
+
+ Using  np.diagonal  to get the diagonal elements and then take the sum and subtract from the total sum as  
+
+  dia_sum = sum(np.diagonal(arr))
+off_dia_sum = np.sum(arr) - dia_sum
+  
+
+  Alternate 3  
+
+ Using list comprehension you can do the following where you only store the elements in the list if it is off diagonal, which means if both indices  i  and  j  are not equal.  
+
+  size = len(arr)
+off_dia_sum = sum([arr[i][j] for i in range(size) for j in range(size) if i!=j])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32944538)
+ You appear to have created  A  using the  matrix  type, while  B  is of the  ndarray  type ( np.random.random_integers  returns an array, not a matrix). The operator  *  performs matrix multiplication for the former and element-wise multiplication for the latter. 
+
+ From the http://docs.scipy.org/doc/numpy/reference/generated/numpy.matrix.html of  np.matrix : 
+
+ 
+   A matrix is a specialized 2-D array that retains its 2-D nature through operations. It has certain special operators, such as * (matrix multiplication) and ** (matrix power).  
+ 
+
+ As an aside, if you use two different types in the same operation, NumPy will use the operator belonging to the element with the highest priority: 
+
+  >>> A = np.matrix('1 2 3;3 4 7;8 9 6') 
+>>> B = np.array(A) # B is of array type, A is of matrix type
+>>> A * B
+matrix([[ 31,  37,  35],
+        [ 71,  85,  79],
+        [ 83, 106, 123]])
+
+>>> B * A
+matrix([[ 31,  37,  35],
+        [ 71,  85,  79],
+        [ 83, 106, 123]])
+
+>>> A.__array_priority__
+10.0
+>>> B.__array_priority__
+0.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/17395578)
+ Note that the presence of the zeros doesn't affect which row has the highest mean because all rows have the same number of elements. Therefore, we just take the mean of each row, and then ask for the index of the largest element. 
+
+  #Take the mean along the 1st index, ie collapse into a Nx1 array of means
+means = np.mean(complete_matrix, 1)
+#Now just get the index of the largest mean
+idx = np.argmax(means)
+  
+
+ idx is now the index of the row with the highest mean! 
+
+
+

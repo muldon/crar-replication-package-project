@@ -1,0 +1,335 @@
+Query: How can I send a signal from a python program?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20972299)
+ You can use https://docs.python.org/library/os.html#os.kill: 
+
+  os.kill(os.getpid(), signal.SIGUSR1)
+  
+
+ Put this anywhere in your code that you want to send the signal from. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32993349)
+ I have had a similar question and I was using signal: 
+
+  import signal
+
+def signal_handler(signal_number, frame):
+    print "Proceed ..."
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.pause()
+  
+
+ So you register a handler for the signal SIGINT and pause waiting for any signal. Now from outside your program (e.g. in bash), you can run  kill -2 <python_pid> , which will send signal 2 (i.e. SIGINT) to your python program. Your program will call your registered handler and proceed running. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33234915)
+ I think "signal" module is what you are looking for, 
+
+  def handler(signum, frame):
+    print 'Signal handler called with signal', signum
+
+signal.signal(signal.SIGABRT, handler)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15080563)
+ If you are willing to catch  SIGALRM  instead of  SIGUSR1 , try: 
+
+  signal.alarm(10)
+  
+
+ Otherwise, you'll need to start another thread: 
+
+  import time, os, signal, threading
+pid = os.getpid()
+thread = threading.Thread(
+  target=lambda: (
+    time.sleep(10),
+    os.kill(pid, signal.SIGUSR1)))
+thread.start()
+  
+
+ Thus, this program: 
+
+  import signal
+import os
+import time
+
+def receive_signal(signum, stack):
+    print 'Received:', signum
+
+signal.signal(signal.SIGUSR1, receive_signal)
+signal.signal(signal.SIGUSR2, receive_signal)
+signal.signal(signal.SIGALRM, receive_signal)  # <-- THIS LINE ADDED
+
+print 'My PID is:', os.getpid()
+
+signal.alarm(10)                               # <-- THIS LINE ADDED
+
+while True:
+    print 'Waiting...'
+    time.sleep(3)
+  
+
+ produces this output: 
+
+  $ python /tmp/x.py 
+My PID is: 3029
+Waiting...
+Waiting...
+Waiting...
+Waiting...
+Received: 14
+Waiting...
+Waiting...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3364112)
+ Use http://docs.python.org/library/os.html#os.kill to send signals.  The signals are defined in the http://docs.python.org/library/signal.html#module-signal module.  You'll just need to get the pid of the daemon in some way. 
+
+ One more thing - you can use the signal module to register signal handlers as well. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17459389)
+ You can add a signal handler to the Python script that sends this information to the terminal, or to a file, then hit ^C in the terminal to send the signal to the process.  
+
+  import signal
+
+def print_linenum(signum, frame):
+    print "Currently at line", frame.f_lineno
+
+signal.signal(signal.SIGINT, print_linenum)
+  
+
+ You could also use some other signal and use the  kill  command to send the signal, if you need ^C to be able to interrupt the script, or set a  signal.alarm()  to print the information periodically, e.g. once a second. 
+
+ You could print out other things from the stack frame if you like; there's a lot there. See the attributes of  frame  objects http://docs.python.org/2/library/inspect.html#types-and-members. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/24574672)
+ Firstly I'm not certain that you need a second thread to set the shutdown_flag.  Why not set it directly in the SIGTERM handler? 
+
+ An alternative is to raise an exception from the  SIGTERM  handler, which will be propagated up the stack.  Assuming you've got proper exception handling (e.g. with  with / contextmanager  and  try: ... finally:  blocks) this should be a fairly graceful shutdown, similar to if you were to  Ctrl-C  your program. 
+
+ Example program  signals-test.py : 
+
+  #!/usr/bin/python
+
+from time import sleep
+import signal
+import sys
+
+
+def sigterm_handler(_signo, _stack_frame):
+    # Raises SystemExit(0):
+    sys.exit(0)
+
+if sys.argv[1] == "handle_signal":
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
+try:
+    print "Hello"
+    i = 0
+    while True:
+        i += 1
+        print "Iteration #%i" % i
+        sleep(1)
+finally:
+    print "Goodbye"
+  
+
+ Now see the Ctrl-C behaviour: 
+
+  $ ./signals-test.py default
+Hello
+Iteration #1
+Iteration #2
+Iteration #3
+Iteration #4
+^CGoodbye
+Traceback (most recent call last):
+  File "./signals-test.py", line 21, in <module>
+    sleep(1)
+KeyboardInterrupt
+$ echo $?
+1
+  
+
+ This time I send it  SIGTERM  after 4 iterations with  kill $(ps aux | grep signals-test | awk '/python/ {print $2}') : 
+
+  $ ./signals-test.py default
+Hello
+Iteration #1
+Iteration #2
+Iteration #3
+Iteration #4
+Terminated
+$ echo $?
+143
+  
+
+ This time I enable my custom  SIGTERM  handler and send it  SIGTERM : 
+
+  $ ./signals-test.py handle_signal
+Hello
+Iteration #1
+Iteration #2
+Iteration #3
+Iteration #4
+Goodbye
+$ echo $?
+0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38075468)
+ According to the code you posted, the worker will call  Popen  set the signal handler and then it will exit.  
+
+ The subsequent call to  os.kill  in your code will send the signal to an already expired process. 
+
+ In general, it's better not to use signals to communicate between processes but rather using  Pipe  or  Queue . 
+
+ The following example is more robust and flexible as it allows you to send different commands to the worker. 
+
+  import subprocess
+import multiprocessing
+
+def worker(queue):
+    p = subprocess.Popen(['omxplayer', '1.mov'], stdin = subprocess.PIPE)
+
+    while 1:
+         message = queue.get()  # blocks until new message
+         p.stdin.write(message)
+
+def main():
+    queue = multiprocessing.Queue()
+    w = multiprocessing.Process(target=worker, args=(queue,))
+    w.start()
+    queue.put('q')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/25653567)
+ Note that  atexit  functions are not called when the program is interrupted, only when it finishes normally. More specifically, from the doc: 
+
+ 
+   Functions thus registered are automatically executed upon normal
+  interpreter termination. 
+ 
+
+ You need to catch the proper signal with the  signal  module 
+
+  $ cat t.py 
+import signal
+
+
+def say_bye(signum, frame):
+    print " Goodbye "
+    exit(1)
+
+signal.signal(signal.SIGINT, say_bye)
+
+a = 1
+b = 0
+while a==1:
+    b += 1
+  
+
+ This program starts an infinite loop, but it has registered a signal handler for SIGINT, the signal which is sent when the user hits <kbd>Ctrl</kbd>+<kbd>C</kbd>. 
+
+  $ python t.py 
+^C Goodbye 
+$ 
+  
+
+ Note that without the  exit(1)  command, the program would not be terminated by <kbd>Ctrl</kbd>+<kbd>C</kbd>: 
+
+  $ python t.py
+^C Goodbye 
+^C Goodbye 
+^C Goodbye 
+^C Goodbye 
+^Z
+[1]+  Stopped                 python t.py
+  
+
+ I needed here to send another signal (SIGSTOP) to stop it. 
+
+ After I hit <kbd>Ctrl</kbd>+<kbd>C</kbd>, the Goodby message is displayed. You can do the same with SIGTERM, the signal sent with the  kill  command: 
+
+  $ cat t.py 
+import signal
+
+
+def say_bye(signum, frame):
+    print " Goodbye "
+    exit(1)
+
+signal.signal(signal.SIGTERM, say_bye)
+
+a = 1
+b = 0
+while a==1:
+    b += 1
+  
+
+ The above codes gives: 
+
+  $ python t.py & PID=$! ; sleep 1 && kill $PID
+[1] 94883
+ Goodbye 
+[1]+  Exit 1                  python t.py
+francois@macdam:~ $ 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6747510)
+ Ctrl-C sends SIGINT to the entire foreground process group.  That means it gets send to your Twisted program and to the sleep child process. 
+
+ If you want to kill the sleep process whenever the Python process is going to exit, then you may want a  before shutdown  trigger: 
+
+  def killSleep():
+    # Do it, somehow
+
+reactor.addSystemEventTrigger('before', 'shutdown', killSleep)
+  
+
+ As your example code is written,  killSleep  is difficult to implement.   getProcessOutput  doesn't give you something that easily allows the child to be killed (for example, you don't know its pid).  If you use  reactor.spawnProcess  and a custom  ProcessProtocol , this problem is solved though - the  ProcessProtocol  will be connected to a process transport which has a  signalProcess  method which you can use to send a SIGTERM (or whatever you like) to the child process. 
+
+ You could also ignore SIGINT and this point and then manually deliver it to the whole process group: 
+
+  import os, signal
+
+def killGroup():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    os.kill(-os.getpgid(os.getpid()), signal.SIGINT)
+
+reactor.addSystemEventTrigger('before', 'shutdown', killGroup)
+  
+
+ Ignore SIGINT because the Twisted process is already shutting down and another signal won't do any good (and will probably confuse it or at least lead to spurious errors being reported).  Sending a signal to  -os.getpgid(os.getpid())  is how to send it to your entire process group. 
+
+
+

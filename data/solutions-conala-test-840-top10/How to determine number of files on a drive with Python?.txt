@@ -1,0 +1,336 @@
+Query: How to determine number of files on a drive with Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/577322)
+ If traversing the directory tree is an option (would be slower than querying the drive directly): 
+
+  import os
+
+dirs = 0
+files = 0
+
+for r, d, f in os.walk('/path/to/drive'):
+  dirs += len(d)
+  files += len(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/585629)
+ You could use a number from a previous  rsync  run. It is quick, portable, and for  10**6  files and any reasonable backup strategy it will give you  1%  or better precision. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/574270)
+ The right answer for your purpose is to live without a progress bar once, store the number rsync came up with and assume you have the same number of files as last time for each successive backup. 
+
+ I didn't believe it, but this seems to work on Linux: 
+
+  os.statvfs('/').f_files - os.statvfs('/').f_ffree
+  
+
+ This computes the total number of file blocks minus the free file blocks. It seems to show results for the whole filesystem even if you point it at another directory. os.statvfs is implemented on Unix only. 
+
+ OK, I admit, I didn't actually let the 'slow, correct' way finish before marveling at the fast method. Just a few drawbacks: I suspect  .f_files  would also count directories, and the result is probably totally wrong. It might work to count the files the slow way, once, and adjust the result from the 'fast' way? 
+
+  
+
+  import os
+files = sum(len(filenames) for path, dirnames, filenames in os.walk("/"))
+  
+
+  os.walk  returns a 3-tuple (dirpath, dirnames, filenames) for each directory in the filesystem starting at the given path. This will probably take a long time for  "/" , but you knew that already. 
+
+ The easy way: 
+
+ Let's face it, nobody knows or cares how many files they really have, it's a humdrum and nugatory statistic. You can add this cool 'number of files' feature to your program with this code: 
+
+  import random
+num_files = random.randint(69000, 4000000)
+  
+
+ Let us know if any of these methods works for you. 
+
+ See also https://stackoverflow.com/questions/577761/how-do-i-prevent-pythons-os-walk-from-walking-across-mount-points 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36184478)
+ The file is downloading, but the example given by google doesn't do anything with the file. 
+
+ You simply need to return the contents of the BytesIO buffer like this (just adding a return at the end)... 
+
+  def download_file(service, file_id):
+    request = service.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+        print("Download %d%%." % int(status.progress() * 100))
+    return fh.getvalue()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17030773)
+ Here's some example code to determine the drive type for every active logical drive on Windows, using  ctypes ... 
+
+  import ctypes
+
+# Drive types
+DRIVE_UNKNOWN     = 0  # The drive type cannot be determined.
+DRIVE_NO_ROOT_DIR = 1  # The root path is invalid; for example, there is no volume mounted at the specified path.
+DRIVE_REMOVABLE   = 2  # The drive has removable media; for example, a floppy drive, thumb drive, or flash card reader.
+DRIVE_FIXED       = 3  # The drive has fixed media; for example, a hard disk drive or flash drive.
+DRIVE_REMOTE      = 4  # The drive is a remote (network) drive.
+DRIVE_CDROM       = 5  # The drive is a CD-ROM drive.
+DRIVE_RAMDISK     = 6  # The drive is a RAM disk.
+
+# Map drive types to strings
+DRIVE_TYPE_MAP = { DRIVE_UNKNOWN     : 'DRIVE_UNKNOWN',
+                   DRIVE_NO_ROOT_DIR : 'DRIVE_NO_ROOT_DIR',
+                   DRIVE_REMOVABLE   : 'DRIVE_REMOVABLE',
+                   DRIVE_FIXED       : 'DRIVE_FIXED',
+                   DRIVE_REMOTE      : 'DRIVE_REMOTE',
+                   DRIVE_CDROM       : 'DRIVE_CDROM',
+                   DRIVE_RAMDISK     : 'DRIVE_RAMDISK'}
+
+
+# Return list of tuples mapping drive letters to drive types
+def get_drive_info():
+    result = []
+    bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+    for i in range(26):
+        bit = 2 ** i
+        if bit & bitmask:
+            drive_letter = '%s:' % chr(65 + i)
+            drive_type = ctypes.windll.kernel32.GetDriveTypeA('%s\\' % drive_letter)
+            result.append((drive_letter, drive_type))
+    return result
+
+
+# Test
+if __name__ == '__main__':
+    drive_info = get_drive_info()
+    for drive_letter, drive_type in drive_info:
+        print '%s = %s' % (drive_letter, DRIVE_TYPE_MAP[drive_type])
+    removable_drives = [drive_letter for drive_letter, drive_type in drive_info if drive_type == DRIVE_REMOVABLE]
+    print 'removable_drives = %r' % removable_drives
+  
+
+ ...which prints... 
+
+  C: = DRIVE_FIXED
+D: = DRIVE_FIXED
+E: = DRIVE_CDROM
+removable_drives = []
+  
+
+ ...before inserting a USB stick and... 
+
+  C: = DRIVE_FIXED
+D: = DRIVE_FIXED
+E: = DRIVE_CDROM
+F: = DRIVE_REMOVABLE
+removable_drives = ['F:']
+  
+
+ .... 
+
+ Once you've got the list of removable drives, you can simply use http://docs.python.org/2/library/os.html#os.walk on each drive. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/24637803)
+ Here is a solution to display the number of pages of a PDF file in Drive, split it into separate PDFs for each page and insert the newly created PDFs back into Drive. 
+
+ To execute the following code you will need to define a project in the Google Developer Console. You can create a new one at https://console.developers.google.com/project if you do not already have one. 
+
+ Once your project is created, click on it to open the Project Dashboard. Go to  APIS & Auth  >  Credentials  and create a new OAuth Client ID for an installed application if you do not already have one for this project. Replace client_id, client_secret and redirect_uri in the code below with respectively the Client ID, the Client Secret and the first redirect URI listed. 
+
+ The program will first open a page in your web browser to obtain a verification code required to create a new OAuth token. It will then ask for the fileId of a PDF file in your drive, will display the number of pages of this PDF and insert each page as a separate PDF back in your drive. 
+
+  from cStringIO import StringIO
+import os
+import webbrowser
+
+from apiclient.discovery import build
+from apiclient.http import MediaInMemoryUpload
+import httplib2
+from oauth2client.client import OAuth2WebServerFlow
+import pyPdf
+
+
+CLIENT_ID = 'client_id'
+CLIENT_SECRET = 'client_secret'
+OAUTH_SCOPE = 'https://www.googleapis.com/auth/drive'
+REDIRECT_URI = 'redirect_url'
+
+
+class GoogleDriveManager(object):
+
+  def __init__(self):
+    # Create new Google Drive credentials.
+    flow = OAuth2WebServerFlow(
+        CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPE, REDIRECT_URI)
+    authorize_url = flow.step1_get_authorize_url()
+    webbrowser.open(authorize_url)
+    code = raw_input('Enter verification code: ').strip()
+    self._credentials = flow.step2_exchange(code)
+
+  def GetFile(self, file_id):
+    http = httplib2.Http()
+    http = self._credentials.authorize(http)
+    drive_service = build('drive', 'v2', http=http)
+    url = drive_service.files().get(fileId=file_id).execute()['downloadUrl']
+    return http.request(url, "GET")[1]
+
+  def GetFileName(self, file_id):
+    http = httplib2.Http()
+    http = self._credentials.authorize(http)
+    drive_service = build('drive', 'v2', http=http)
+    return drive_service.files().get(fileId=file_id).execute()['title']
+
+  def InsertFile(self, file_name, data, mimeType):
+    http = httplib2.Http()
+    http = self._credentials.authorize(http)
+    drive_service = build('drive', 'v2', http=http)
+    media_body = MediaInMemoryUpload(
+        data, mimetype='text/plain', resumable=True)
+    body = {
+      'title': file_name,
+      'mimeType': mimeType
+    }
+    drive_service.files().insert(body=body, media_body=media_body).execute()
+
+
+if __name__ == '__main__':
+  # Create a drive manager.
+  drive_manager = GoogleDriveManager()
+  file_id = raw_input('Enter the file id of the pdf file: ').strip()
+  file_name, ext = os.path.splitext(drive_manager.GetFileName(file_id))
+  # Download the pdf file.
+  pdf_data = drive_manager.GetFile(file_id)
+  pdf = pyPdf.PdfFileReader(StringIO(pdf_data))
+  print "Number of pages: %d" % pdf.getNumPages()
+  for i in xrange(pdf.getNumPages()):
+    writer = pyPdf.PdfFileWriter()
+    writer.addPage(pdf.getPage(i))
+    page_data = StringIO()
+    writer.write(page_data)
+    drive_manager.InsertFile(
+        file_name + '-' + str(i) + ext, page_data.getvalue(), 'application/pdf')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36238405)
+ Changing from BytesIO to FileIO allowed the file to actually be downloaded. This was the line I modified my code to: 
+
+  fh = io.FileIO(filename, 'wb')
+  
+
+ Here is the complete code that allowed me to download the file: 
+
+  def download_file(file_id, mimeType, filename):
+    if "google-apps" in mimeType:
+        # skip google files
+        return
+    request = drive_service.files().get_media(fileId=file_id)
+    fh = io.FileIO(filename, 'wb')
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+        print "Download %d%%." % int(status.progress() * 100)
+
+
+if __name__ == '__main__':
+    flow = client.flow_from_clientsecrets(
+      'client_secrets.json',
+      scope='https://www.googleapis.com/auth/drive.readonly',
+      redirect_uri='urn:ietf:wg:oauth:2.0:oob')
+
+    auth_uri = flow.step1_get_authorize_url()
+    webbrowser.open(auth_uri)
+
+    print auth_uri
+
+    auth_code = raw_input('Enter the auth code: ')
+
+    credentials = flow.step2_exchange(auth_code)
+    http_auth = credentials.authorize(httplib2.Http())
+
+    drive_service = discovery.build('drive', 'v3', http_auth)
+    files = drive_service.files().list().execute()
+    for f in files['files']:
+        print f['name']
+        download_file(f['id'], f['mimeType'], f['name'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46181060)
+ https://developers.google.com/drive/v3/web/migration 
+
+ To fetch all available fields of the resource you can set  fields  to  * . 
+
+ For example: 
+
+  query = drive.files().list(
+    pageSize = 10,
+    corpora = 'teamDrive',
+    supportsTeamDriveItems = True,
+    includeTeamDrives = True,
+    teamDriveId = "...",
+    fields="*"  # or maybe "files(id,name,capabilities/canShare),nextPageToken"
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/13649631)
+ I'm going to assume you can get a list of network filesystems and their base mount points, which you could get from parsing mount or df. If that's the case you should be able to do everything you want to do with a few different functions from  http://docs.python.org/2/library/os.path.html  
+
+ This will take a filename and a path that's a network filesystem. The path.realpath will convert symlinks to absolute path of the file they're linked to.  
+
+  def is_netfile(fname, netfs):
+    fname = path.realpath(fname)
+    netfs = path.realpath(netfs)
+    if path.commonprefix([ netfs, fname ]) == netfs:
+        return True
+    else:
+        return False
+  
+
+ You could take his an use it along with http://docs.python.org/2/library/os.html#os.walk to move through the directory structure and capture all the files that are or link to files on a specific network fileshare 
+
+  start_dir = '/some/starting/dir'
+net1 = '/some/network/filesystem'
+remote_files = []
+
+for root, dirs, files in os.walk(start_dir):
+    for f in files:
+        if is_netfile( path.join(root,f), net1):
+            remote_files.append( path.join(root,f))
+
+print remote_files
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/591452)
+ You'll have to call the win32 API: http://msdn.microsoft.com/en-us/library/aa385474(VS.85). 
+
+
+

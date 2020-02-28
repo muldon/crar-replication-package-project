@@ -1,0 +1,276 @@
+Query: How to get a list of matchable characters from a regex class
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40094676)
+  import re
+
+x = '123456789ABCDE'
+pattern = r'[\dA-C]'
+print(re.findall(pattern,x))    
+#prints ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C']
+  
+
+ Is this what you are looking for?  
+
+ If you don't have  x  and just want to match ascii characters you can use : 
+
+  import re
+import string
+
+x = string.ascii_uppercase + string.digits
+pattern = r'[\dA-C]'
+print(re.findall(pattern,x))    
+  
+
+ If you want to take inputs for the pattern you can simply just do: 
+
+   pattern = input() #with either one from above
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40094825)
+ I think what you are looking for is https://docs.python.org/2/library/string.html#string.printable which returns all the printable characters in Python. For example: 
+
+  >>> import string
+>>> string.printable
+'0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\x0b\x0c'
+  
+
+ Now to check content satisfied by your regex, you may do: 
+
+  >>> import re
+>>> x = string.printable
+>>> pattern = r'[\dA-C]'
+>>> print(re.findall(pattern, x))
+['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C']
+  
+
+  string.printable  is a combination of  digits, letters, punctuation,  and  whitespace . Also check https://docs.python.org/2/library/string.html#string-constants for complete list of constants available with https://docs.python.org/2/library/string.html module. 
+
+ 
+
+  In case you need the list of all  unicode  characters , you may do: 
+
+  import sys
+unicode_list = [chr(i) for i in range(sys.maxunicode)]
+  
+
+  Note:  It will be a huge list, and console might get stuck for a while to give the result as value of  sys.maxunicode  is: 
+
+  >>> sys.maxunicode
+1114111
+  
+
+ In case you are dealing with some specific unicode formats, refer http://billposer.org/Linguistics/Computation/UnicodeRanges.html for limiting the ranges you are interested in. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17979150)
+ Negate the character class: 
+
+  >>> illegals = re.compile("[^abc]")
+>>> finder = re.finditer(illegals, "abcdefg")
+>>> [match.group() for match in finder]
+['d', 'e', 'f', 'g']
+  
+
+ If you can't do that (and you're only dealing with one-character length matches), you could 
+
+  >>> legals = re.compile("[abc]")
+>>> remains = legals.sub("", "abcdefg")
+>>> [char for char in remains]
+['d', 'e', 'f', 'g']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40095866)
+ You probably hoped to just extract them from the regexp itself, but it's not that easy: Consider specifications like  \S , which doesn't match a contiguous range of characters, negated specifications like  [^abc\d] , and of course goodies like  (?![aeiou])\w  (which matches any single letter  except  the five vowels given). So it's far simpler to just try out each candidate character against your regexp. 
+
+ But checking all Unicode codepoints is not very practical, both because of the large number of tests and because the result could be a very large list: A character class regexp might contain specifications like  \w ,
+which can match an enormous number of characters from all over the Unicode table. Or it could contain a negated specification like  [^abc\d] ,
+which matches even more.  So let's assume that you can restrict your interest to a particular
+subset of the
+Unicode range. After consulting a https://en.wikipedia.org/wiki/Unicode_block#collapsibleTable0,
+you might decide, for the sake of example, that you are interested in the ranges [0000-024F]
+(Basic and Extended Latin) and [0590-074F] (Hebrew and Arabic). 
+
+ You can then churn through each of these unicode codepoints,
+checking which ones are matched by your regexp: 
+
+  import re
+
+myregexp = r"[\dA-C]"
+interest = [ (0x0000, 0x024F),
+             (0x0590, 0x06FF) ]
+
+
+pattern = re.compile(myregexp)
+matched = []    
+for low, high in interest:
+    matched.extend(chr(p) for p in range(low, high+1) if pattern.match(chr(p)))
+
+>>> print("".join(matched))
+0123456789ABC٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37082083)
+ Your pattern matches the whole contents inside the square brackets, while you seem to want to only get the character chunks that consist of word and hyphen characters. 
+
+ Use 
+
+  pattern = re.compile(r"[\w-]+")
+  
+
+ See the https://regex101.com/r/yK4pJ1/1 
+
+ See the http://ideone.com/ghjK73: 
+
+  import re
+pattern = re.compile(r"[\w-]+")
+string = '[ 1234, jack, 1987-09-02]'
+ret = pattern.findall(string)
+print(ret)
+# => ['1234', 'jack', '1987-09-02']
+  
+
+ Pattern details:  [\w-]  is a character class matching a word character (a digit, letter or underscore) one or more number of times (due to the  +  quantifier). 
+
+  An alternative solution : Match optional whitespaces and then match and capture all non-comma symbols with 
+
+  pattern = re.compile(r"\s*([^[\],]+)")
+  
+
+ See another https://regex101.com/r/xD0hH8/1 and http://ideone.com/NZX1yc demos.  re.findall  only returns captured values into Groups 1+, so only what was captured with  (...)  (i.e. all 1+ characters other than  ] ,  [  and  ,  will be returned). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29852697)
+ I think the way to see the difference between the two is through the following examples: 
+
+  >>> re.findall(r'ab{3,5}?', 'abbbbb')
+['abbb']
+>>> re.findall(r'ab{3}', 'abbbbb')
+['abbb']
+  
+
+ Those two runs give the same results as expected, but let's see some differences. 
+
+ Difference 1: A range quantifier on a subpattern lets you match a large range of patterns containing that subpattern. This lets you find matches where there normally wouldn't be any if you used an exact quantifier: 
+
+  >>> re.findall(r'ab{3,5}?c', 'abbbbbc')
+['abbbbbc']
+>>> re.findall(r'ab{3}c', 'abbbbbc')
+[]
+  
+
+ Difference 2: Greedy doesn't necessarily mean "match the shortest subpattern possible". It's actually a bit more like "match the shortest subpattern possible starting from the leftmost unmatched index that can possibly start off a match": 
+
+  >>> re.findall(r'b{3,5}?c', 'bbbbbc')
+['bbbbbc']
+>>> re.findall(r'b{3}c', 'bbbbbc')
+['bbbc']
+  
+
+ The way I think of regex is as a construct that scans the string from left to right with two iterators that point to indices in the string. The first iterator marks the beginning of the next possible pattern. The second iterator goes through the suffix of the substring starting from the first iterator and tries to complete the pattern.  The first iterator only advances when the construct determines that the regex pattern cannot possibly match a string starting from that index.  Thus, defining a range for your quantifier will make it so that the first iterator will keep matching sub-patterns beyond the minimum value specified  even if the quantifier is non-greedy . 
+
+ A non-greedy regex will stop its second iterator as  soon  as the pattern can stop, but a greedy regex will "save" the position of a matched pattern and keep searching for a longer one. If a longer pattern is found, then it uses that one instead, if it's not found, then it uses the shorter one that it saved in memory earlier. 
+
+ That's why you see the possibly surprising result with 'b{3,5}?. Although the regex is greedy, it will still never advance its first iterator until the pattern match fails, and that's why the substring with 5 'b' characters is matched by the non-greedy regex  even though its not the shortest pattern matchable .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49605740)
+ You have two problems.  First, you are confounding a regex character class with an alternation.  Your current lookbehind does not mean what you think: 
+
+  (?<=[it|that|here|there|he|she])
+  
+
+ This means that the previous  character  was one of the characters in the class,  not  one of the words.   
+
+  [aehirst|]
+  
+
+ But even fixing this won't work, because  re.sub  does not support variable width lookbehinds.  We can workaround this by capturing the previous term and then using it in the replacement: 
+
+  re.sub("(it|that|here|there|he|she)'s", '\\1 is', line1, flags=re.IGNORECASE)
+
+It is done. But there is some more you have to do. Gary's dog is in the precinct.
+Get it home. It is too far. There is rain
+  
+
+ http://rextester.com/BVVPO49408 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43147265)
+ If you don't want to use an external library, as a pythonic way you can simply use regular expressions and  re.findall()  with a proper regex to find the emojies: 
+
+  In [74]: import re
+In [75]: re.findall(r'[^\w\s,]', a_list[0])
+Out[75]: ['', '', '', '', '', '']
+  
+
+ The regular expression  r'[^\w\s,]'  is a negated character class that matches any character that is not a word character, whitespace or comma. 
+
+ As I mentioned in comment, a text is generally contain word characters and punctuation which will be easily dealt with by this approach, for other cases you can just add them to the character class manually. Note that since you can specify a range of characters in character class you can even make it shorter and more flexible. 
+
+ Another solution is instead of a negated character class that excludes the non-emoji characters use a character class that accepts emojies ( []  without  ^ ). Since there are a lot of emojis http://apps.timwhitlock.info/emoji/tables/unicode, you just need to add the ranges to the character class. If you want to match more emojies here is a good reference contain all the standard emojies with the respective range for different emojies http://apps.timwhitlock.info/emoji/tables/unicode: 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11550772)
+  print re.findall(r'\W+', DATA)  # note, UPPER-case "W"
+  
+
+ yields the list you are looking for: 
+
+  [', ', ' - ', ' ', ' ', ' ', ' ', '!?']
+  
+
+ I used  \W+  rather than  \w+  which negates the character class you were using. 
+
+     \w  Matches word characters, i.e., letters, digits, and underscores.
+   \W  Matches non-word characters, i.e., the negated version of \w
+  
+
+ This http://networking.ringofsaturn.com/Web/regex.php might be helpful in selecting the best character classes/meta characters for your regular expression searches/matches. Also, see this http://www.tutorialspoint.com/python/python_reg_expressions.htm for more information (esp the reference section toward the bottom of the page) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16810321)
+ For Unicode compliance, you need to use 
+
+  regex = re.compile(r"[^\W\d_]", re.UNICODE)
+  
+
+ Unicode character properties (like  \p{L} ) are not supported by the current Python regex engine. 
+
+  Explanation:  
+
+  \w  matches (if the Unicode flag is set) any letter, digit or underscore. 
+
+  [^\W]  matches the same thing, but with the negated character class, we can now subtract characters we don't want included: 
+
+  [^\W\d_]  matches whatever  \w  matches, but without digits ( \d ) or underscore ( _ ). 
+
+  >>> import re
+>>> regex = re.compile(r"[^\W\d_]", re.UNICODE)
+>>> regex.findall("aä12_")
+['a', 'ä']
+  
+
+
+

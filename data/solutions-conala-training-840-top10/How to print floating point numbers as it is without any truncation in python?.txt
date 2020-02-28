@@ -1,0 +1,297 @@
+Query: How to print floating point numbers as it is without any truncation in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20050962)
+  
+
+  >>> print('{:.100f}'.format(0.0000002345E-60))
+0.0000000000000000000000000000000000000000000000000000000000000000002344999999999999860343602938602754
+  
+
+ As you might notice from the ouput, it’s not really that clear how you want to do it. Due to the float representation you lose precision and can’t really represent the number precisely. As such it’s not really clear where you want the number to stop displaying. 
+
+ Also note that the exponentional representation is often used to more explicitely show the number of http://en.wikipedia.org/wiki/Significant_figures the number has. 
+
+ You could also use  decimal  to not lose the precision due to the float type: 
+
+  >>> from decimal import Decimal
+>>> d = Decimal('0.0000002345E-60')
+>>> p = abs(d.as_tuple().exponent)
+>>> print(('{:.%df}' % p).format(d))
+0.0000000000000000000000000000000000000000000000000000000000000000002345
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51908244)
+ You have to calculate the number of digits yourself. For four significant digits, this would be 
+
+  number = 0.000000002343245345
+digits = 4 - int(math.ceil(math.log10(number)))
+print("{:.{}f}".format(number, digits))
+# 0.000000002343
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51908245)
+ Here is some code that usually does what you want. 
+
+  x = 0.000000002343245345
+n = 4
+
+from math import log10, floor
+
+print('{:.{}f}'.format(x, n - floor(log10(x)) - 1))
+  
+
+ Note that, due to the lack of exactness in floating-point arithmetic, that this may occasionally give a wrong answer. For example, the  floor(log10())  may be one off from what is expected at or very near negative powers of 10 such as  0.1 ,  0.01 ,  0.001 , and so on. My code seems to work well with those values but that is not guaranteed. 
+
+ Also, there is no reasonable answer for some combinations of  x  and  n . For example, what do you expect to result from  x = 200000  and  n = 4 ? There is no good answer, and my code gives the error 
+
+  ValueError: Format specifier missing precision
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21942935)
+ One viable option which works without regex and with negative numbers greater than 10 
+
+  k = -.1337
+("%.4f" % k).replace("-0","-").lstrip("0")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44642918)
+  
+
+  print(' '.join("{:10.04f}".format(x) for x in numbers))
+  
+
+ See https://www.tutorialspoint.com/python/string_join.htm 
+
+ Within the join(), we apply the format to each element in the list of numbers. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8498373)
+ Check out the decimal module. It should be able to put it out in the format you want. 
+
+ http://docs.python.org/library/decimal.html 
+
+ For what you are describing (engineering notation), there is a to_eng_string() method. 
+
+  EDIT  
+
+ In light of your clarification, you can build the number in parts: 
+
+  myNumber = 1.2e-8
+myBase = 1e-12
+mantissa = myNumber/myBase
+print "{0:1}{1:s}".format(mantissa, "{0:1}".format(myBase)[1:])
+  
+
+ Which would print:
+    12000.0e-12 
+
+ If you knew you would always go to an integer number for the mantissa, you could adjust the format accordingly.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44643004)
+ The print built-in methon has an "end" keyword argument which defaults to a linebreak. You just need to replace it with a space or tab, like so: 
+
+  print("{:10.04f}".format(x), end="\t")
+  
+
+ Check https://docs.python.org/3/library/functions.html?highlight=print#print for more information on it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/23643211)
+  import re
+re.sub("^(\-?)0\.", r'\1.', "%.4f" % k)
+  
+
+ This is short, simple and I can't find a scenario for which it doesn't work. 
+
+ Examples: 
+
+  >>> import re
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % 0)
+'.0000'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % 0.1337)
+'.1337'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % 1.337)
+'1.3370'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % -0)
+'.0000'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % -0.1337)
+'-.1337'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % -1.337)
+'-1.3370'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % 10.337)
+'10.3370'
+>>> re.sub("^(\-?)0\.", r'\1.', "%.4f" % -10.337)
+'-10.3370'
+  
+
+  Edit :
+If you are only considering numbers > -10 and < 10 The following will work: 
+
+  ("%.4f", k).replace('0.', '.')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/783927)
+ First, the function, for those who just want some copy-and-paste code: 
+
+  def truncate(f, n):
+    '''Truncates/pads a float f to n decimal places without rounding'''
+    s = '{}'.format(f)
+    if 'e' in s or 'E' in s:
+        return '{0:.{1}f}'.format(f, n)
+    i, p, d = s.partition('.')
+    return '.'.join([i, (d+'0'*n)[:n]])
+  
+
+ This is valid in Python 2.7 and 3.1+. For older versions, it's not possible to get the same "intelligent rounding" effect (at least, not without a lot of complicated code), but rounding to 12 decimal places before truncation will work much of the time: 
+
+  def truncate(f, n):
+    '''Truncates/pads a float f to n decimal places without rounding'''
+    s = '%.12f' % f
+    i, p, d = s.partition('.')
+    return '.'.join([i, (d+'0'*n)[:n]])
+  
+
+ Explanation 
+
+ The core of the underlying method is to convert the value to a string at full precision and then just chop off everything beyond the desired number of characters. The latter step is easy; it can be done either with string manipulation 
+
+  i, p, d = s.partition('.')
+'.'.join([i, (d+'0'*n)[:n]])
+  
+
+ or the  decimal  module 
+
+  str(Decimal(s).quantize(Decimal((0, (1,), -n)), rounding=ROUND_DOWN))
+  
+
+ The first step, converting to a string, is quite difficult because there are some pairs of floating point literals (i.e. what you write in the source code) which both produce the same binary representation and yet should be truncated differently. For example, consider 0.3 and 0.29999999999999998. If you write  0.3  in a Python program, the compiler encodes it using the IEEE floating-point format into the sequence of bits (assuming a 64-bit float) 
+
+  0011111111010011001100110011001100110011001100110011001100110011
+  
+
+ This is the closest value to 0.3 that can accurately be represented as an IEEE float. But if you write  0.29999999999999998  in a Python program, the compiler translates it into  exactly the same value . In one case, you meant it to be truncated (to one digit) as  0.3 , whereas in the other case you meant it to be truncated as  0.2 , but Python can only give one answer. This is a fundamental limitation of Python, or indeed any programming language without lazy evaluation. The truncation function only has access to the binary value stored in the computer's memory, not the string you actually typed into the source code.<sup>1</sup> 
+
+ If you decode the sequence of bits back into a decimal number, again using the IEEE 64-bit floating-point format, you get 
+
+  0.2999999999999999888977697537484345957637...
+  
+
+ so a naive implementation would come up with  0.2  even though that's probably not what you want. For more on floating-point representation error, https://docs.python.org/3/tutorial/floatingpoint.html. 
+
+ It's very rare to be working with a floating-point value that is so close to a round number and yet is  intentionally  not equal to that round number. So when truncating, it probably makes sense to choose the "nicest" decimal representation out of all that could correspond to the value in memory. Python 2.7 and up (but not 3.0) includes a https://bugs.python.org/issue1580, which we can access through the default string formatting operation. 
+
+  '{}'.format(f)
+  
+
+ The only caveat is that this acts like a  g  format specification, in the sense that it uses exponential notation ( 1.23e+4 ) if the number is large or small enough. So the method has to catch this case and handle it differently. There are a few cases where using an  f  format specification instead causes a problem, such as trying to truncate  3e-10  to 28 digits of precision (it produces  0.0000000002999999999999999980 ), and I'm not yet sure how best to handle those. 
+
+ If you actually  are  working with  float s that are very close to round numbers but intentionally not equal to them (like 0.29999999999999998 or 99.959999999999994), this will produce some false positives, i.e. it'll round numbers that you didn't want rounded. In that case the solution is to specify a fixed precision. 
+
+  '{0:.{1}f}'.format(f, sys.float_info.dig + n + 2)
+  
+
+ The number of digits of precision to use here doesn't really matter, it only needs to be large enough to ensure that any rounding performed in the string conversion doesn't "bump up" the value to its nice decimal representation. I think  sys.float_info.dig + n + 2  may be enough in all cases, but if not that  2  might have to be increased, and it doesn't hurt to do so. 
+
+ In earlier versions of Python (up to 2.6, or 3.0), the floating point number formatting was a lot more crude, and would regularly produce things like 
+
+  >>> 1.1
+1.1000000000000001
+  
+
+ If this is your situation, if you  do  want to use "nice" decimal representations for truncation, all you can do (as far as I know) is pick some number of digits, less than the full precision representable by a  float , and round the number to that many digits before truncating it. A typical choice is 12, 
+
+  '%.12f' % f
+  
+
+ but you can adjust this to suit the numbers you're using. 
+
+ 
+
+ <sup>1</sup>Well... I lied. Technically, you  can  instruct Python to re-parse its own source code and extract the part corresponding to the first argument you pass to the truncation function. If that argument is a floating-point literal, you can just cut it off a certain number of places after the decimal point and return that. However this strategy doesn't work if the argument is a variable, which makes it fairly useless. The following is presented for entertainment value only: 
+
+  def trunc_introspect(f, n):
+    '''Truncates/pads the float f to n decimal places by looking at the caller's source code'''
+    current_frame = None
+    caller_frame = None
+    s = inspect.stack()
+    try:
+        current_frame = s[0]
+        caller_frame = s[1]
+        gen = tokenize.tokenize(io.BytesIO(caller_frame[4][caller_frame[5]].encode('utf-8')).readline)
+        for token_type, token_string, _, _, _ in gen:
+            if token_type == tokenize.NAME and token_string == current_frame[3]:
+                next(gen) # left parenthesis
+                token_type, token_string, _, _, _ = next(gen) # float literal
+                if token_type == tokenize.NUMBER:
+                    try:
+                        cut_point = token_string.index('.') + n + 1
+                    except ValueError: # no decimal in string
+                        return token_string + '.' + '0' * n
+                    else:
+                        if len(token_string) < cut_point:
+                            token_string += '0' * (cut_point - len(token_string))
+                        return token_string[:cut_point]
+                else:
+                    raise ValueError('Unable to find floating-point literal (this probably means you called {} with a variable)'.format(current_frame[3]))
+                break
+    finally:
+        del s, current_frame, caller_frame
+  
+
+ Generalizing this to handle the case where you pass in a variable seems like a lost cause, since you'd have to trace backwards through the program's execution until you find the floating-point literal which gave the variable its value. If there even is one. Most variables will be initialized from user input or mathematical expressions, in which case the binary representation is all there is. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40661224)
+ Only floating point numbers are represented using scientific notation in Python; integers are always represented as-is. 
+
+ How a floating point number is represented in Python 2.7 depends on whether it's represented using https://docs.python.org/2/library/functions.html#func-repr (for instance, directly in the console or as a member of a collection) or https://docs.python.org/2/library/functions.html#str (e.g. with the  print  statement). 
+
+ With  repr() , floating point numbers are represented using scientific notation if they are either less than  0.0001  ( 1e-4 ) or at least  1e16 : 
+
+  >>> 1e-4
+0.0001
+>>> 0.00009999
+9.999e-05
+>>> 1e16-2
+9999999999999998.0
+>>> 10000000000000000.0
+1e+16
+  
+
+ With  str() , the upper limit is approximately  1e11 : 
+
+  >>> print 1e11-1
+99999999999.0
+>>> print 100000000000.0
+1e+11
+  
+
+ Note: in Python 3,  str()  now represents floating point numbers in the same way as  repr() . 
+
+
+

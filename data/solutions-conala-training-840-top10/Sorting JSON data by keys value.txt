@@ -1,0 +1,310 @@
+Query: Sorting JSON data by keys value
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51420692)
+ You can sort json data using simple json.dumps as  
+
+  sotred_json = json.dumps(values, sort_keys=True)
+  
+
+ If you want no need to sort simply provide 
+
+  unsotred_json = json.dumps(values)  
+  
+
+  
+
+  unsotred_json = json.dumps(values, sort_keys=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13438666)
+ You could use list-comprehension and  sorted()  function for this: 
+
+  # filter  json_object['results']  first, as some of the items are missing the key 'year'
+
+In [33]: results = [x for x in json_object['results'] if 'year' in x]
+
+In [34]: sorted(results, key=lambda x: x['year'])
+  
+
+    
+
+  In [79]: from operator import itemgetter
+
+In [80]: sorted(results, key=itemgetter('year'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34148872)
+ If you have control over how the data is aggregated, https://stackoverflow.com/questions/34116081/how-do-i-sort-a-keylist-dictionary-in-python/34116185#34116185, and the IP would be a  value  inside the data dict  {..., 'ip': '127.0.0.1'} , not a  key  in the container parent dict 
+
+ Convert to a container that preserves element order 
+
+ You can only sort a structure that maintains elements order, like a  list  e.g. there are  dict  implementation that maintain order like  OrderedDict  e.g. 
+
+ You can always convert to those (might not be your first choice if slow/big data) 
+
+  Converting to a list [(key, value), ...] or list [value, ...]  
+
+ A possible way is to retrieve all values in the dict and then return a list of those values, sorted by your field of choice 
+
+ You can also sort the  (key, value)  returned  by ips_data.items() , but that's going to create a new list.  key  being the IP, and  value  being the IP data 
+
+  sorted_list_of_keyvalues = sorted(ips_data.items(), key=item[1]['data_two'])
+  
+
+ The list above in the form of  [(key1, value1), (key2, value2), ...]  
+
+ You can also pluck the values and remove the keys 
+
+  sorted_list_of_values = [item[1] for item in sorted_list_of_keyvalues]
+  
+
+ This list is in the form of  [value1, value2, ...]  
+
+ Note that you might think that you can sort by just value instead of (key. value), but your data has the IP in they key and you might want to keep that. 
+
+  Converting to an OrderedDict  
+
+ If you absolutely want to keep the structure as a dict, you can use an  OrderedDict  
+
+  from collections import OrderedDict
+ordered_items = sorted(ips_data.items(), key=lambda item: item[1]['data_two'])
+ordered_ips_data_dict = OrderedDict(ordered_items)
+  
+
+ The ordered dict behaves just like a dict, but keys and items iteration will maintain the order of elements. 
+
+ Or, Keep a sorted list of keys, and process in that order 
+
+ Or alternatively, you can sort the keys of that dict into a list, then you can process the dict in that order. Advantage is you don't have to copy/convert the data 
+
+  >>> ips_data = {
+... "1.2.3.4": {
+...     "data_one": 1,
+...     "data_two": 8,
+...     "list_one": [],
+...     "list_two": [
+...         "item_one"
+...     ],
+...     "data_three": "string1"
+... },
+... "5.6.7.8": {
+...     "data_one": 1,
+...     "data_two": 9,
+...     "list_two": [
+...         "item_one"
+...     ],
+...     "data_three": "string1",
+...     "data_four": "string2",
+...     "data_five": "string3"
+... }
+... }
+>>> ips_data.keys()
+['1.2.3.4', '5.6.7.8']
+>>> ips = ips_data.keys()
+  
+
+ Now you can sort the keys by the field  data_two  
+
+  >>> sorted_ips = sorted(ips, key=lambda ip: ips_data[ip]['data_two'], reverse=True)
+>>> sorted_ips
+['5.6.7.8', '1.2.3.4']
+  
+
+ Having sorted keys, you can do what you want to your dict, in that sorted keys order, e.g. processing it in this order might be more efficient than copying the dict into a new structure like a list 
+
+  # Trivial example of processing that just puts the values into a list   
+>>> [ips_data[ip] for ip in sorted_ips]
+[{'data_three': 'string1', 'data_two': 9, 'data_five': 'string3', 'data_four': 'string2', 'list_two': ['item_one'], 'data_one': 1}, {'list_two': ['item_one'], 'data_two': 8, 'data_one': 1, 'data_three': 'string1', 'list_one': []}]
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31350283)
+ how about this one: 
+
+  import json
+import collections
+a = '''
+    {"clips": 
+        { 
+        "0":{"name": "Please", "id": 1,},
+        "1": {"name": "Print", "id": 2,},
+        "10": {"name": "me", "id": 3,},
+        "2": {"name": "in order", "id": 4,}
+    }}
+'''
+
+#replace comas before } otherwise json.loads will fail
+a = a.replace(',}','}')
+
+#parse json
+a = json.loads(a)
+
+#converting keys to int
+a['clips'] = {int(k):v for k,v in a['clips'].items()}
+
+#sorting
+a['clips'] = collections.OrderedDict(sorted(a['clips'].items()))
+
+print a
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34148917)
+ .  Below will get you a sorted list of tuples, with the key in the 0th position and the value (which is a dictionary) in the 1st position.  You should be able to use this to do what you'd like afterward. 
+
+  entries = sorted(json_data.items(), key=lambda items: items[1]['data_two'])
+  
+
+ So for example 
+
+  { "k1": {"data_one": 1, "data_two": 50 ...}, "k2": {"data_one": 50, "data_two": 2}}
+  
+
+  
+
+  [("k2", {..."data_two": 2...}), ("k1", {..."data_two": 50...})]
+  
+
+ Hope that helps! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13438611)
+ To sort a list of dictionaries, use a  methodcaller  with the key on which to sort; you want to sort the  results  list, not the contained dictionaries. Moreover, some of the entries do not  have  a year, and that could lead to errors: 
+
+  from operator import methodcaller
+
+for row in sorted(json_object['results'], key=methodcaller('get', 'year', None)):
+    # process the row dictionary
+  
+
+ The  methodcaller  definition will basically do a  entry.get('year', None)  for each entry in  json_object['results'] , giving the  sorted  method the value to sort on. 
+
+ You should  not  use  readlines()  to read your JSON response, it'll mis-interpret newlines. Let the  json  library do the reading instead (note the  .load() , no  s  at the end): 
+
+  response = urllib2.urlopen(request)
+json_object = json.load(response)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54424462)
+ Try sorted(mydict.items()) without the dict() function. This worked for me: 
+
+  mydict ={"item_0": "apples"}
+print(mydict)
+mydict.update(item_1 = "banana")
+print(mydict)
+mydict.update(item_2 = "oranges")
+print(mydict)
+mydict.update(item_3 = "peaches")
+print(mydict)
+mydict.update(item_4 = "tangerines")
+print(sorted(mydict.items()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54424356)
+ You can use  sorted  function something like this: 
+
+  dict(sorted(mydict.items()))
+  
+
+ Sample output: 
+
+  >>> mydict={'item_2': 'apples', 'item_3': 'banana', 'item_0': 'oranges', 'item_1': 'peaches', 'item_4': 'tangerines'}
+>>> mydict
+{'item_2': 'apples', 'item_3': 'banana', 'item_0': 'oranges', 'item_1': 'peaches', 'item_4': 'tangerines'}
+>>> dict(sorted(mydict.items()))
+{'item_0': 'oranges', 'item_1': 'peaches', 'item_2': 'apples', 'item_3': 'banana', 'item_4': 'tangerines'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18871434)
+ Since python dicts are unordered collections, use http://docs.python.org/2/library/collections.html#collections.OrderedDict with a custom sort: 
+
+  from collections import OrderedDict
+import json
+
+allsites = [
+    {
+        'A5': 'G',
+        'A10': 'G',
+        'site': 'example1.com',
+        'A1': 'G'
+    },
+    {
+        'A5': 'R',
+        'A10': 'Y',
+        'site': 'example2.com',
+        'A1': 'G'
+    }
+]
+
+sort_order = ['site', 'A1', 'A5', 'A10']
+allsites_ordered = [OrderedDict(sorted(item.iteritems(), key=lambda (k, v): sort_order.index(k)))
+                    for item in allsites]
+
+data = {'Author': "joe", 'data': allsites_ordered}
+print json.dumps(data, indent=4, separators=(',', ': '))
+  
+
+ prints: 
+
+  {
+    "data": [
+        {
+            "site": "example1.com",
+            "A1": "G",
+            "A5": "G",
+            "A10": "G"
+        },
+        {
+            "site": "example2.com",
+            "A1": "G",
+            "A5": "R",
+            "A10": "Y"
+        }
+    ],
+    "Author": "joe"
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10720186)
+ Try https://docs.python.org/2/library/collections.html#collections.OrderedDict from the standard library https://docs.python.org/2/library/collections.html:  
+
+  >>> import json
+>>> from collections import OrderedDict
+>>> values = OrderedDict([('profile','testprofile'), 
+                          ('format', 'RSA_RC4_Sealed'), 
+                          ('enc_key', '...'), 
+                          ('request', '...')])
+>>> json.dumps(values, sort_keys=False)
+'{"profile": "testprofile", "format": "RSA_RC4_Sealed", "enc_key": "...", "request": "..."}'
+  
+
+ Unfortunately this feature is  New in version 2.7  for  collections  
+
+
+

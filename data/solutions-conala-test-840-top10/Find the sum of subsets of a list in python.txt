@@ -1,0 +1,520 @@
+Query: Find the sum of subsets of a list in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3421173)
+ This problem reduces to the http://en.wikipedia.org/wiki/Knapsack_problem, where you are trying to find a set with an exact sum. The solution depends on the constraints, in the general case this problem is NP-Complete. 
+
+ However, if the maximum search sum (let's call it  S ) is not too high, then you can solve the problem using dynamic programming. I will explain it using a recursive function and http://en.wikipedia.org/wiki/Memoization, which is easier to understand than a bottom-up approach. 
+
+ Let's code a function  f(v, i, S) , such that it returns the number of subsets in  v[i:]  that sums exactly to  S . To solve it recursively, first we have to analyze the base (i.e.:  v[i:]  is empty): 
+
+ 
+  S == 0: The only subset of  []  has sum 0, so it is a valid subset. Because of this, the function should return 1.  
+  = 0: As the only subset of  []  has sum 0, there is not a valid subset. Because of this, the function should return 0.  
+ 
+
+ Then, let's analyze the recursive case (i.e.:  v[i:]  is not empty). There are two choices: include the number  v[i]  in the current subset, or not include it. If we include  v[i] , then we are looking subsets that have sum  S - v[i] , otherwise, we are still looking for subsets with sum  S . The function  f  might be implemented in the following way: 
+
+  def f(v, i, S):
+  if i >= len(v): return 1 if S == 0 else 0
+  count = f(v, i + 1, S)
+  count += f(v, i + 1, S - v[i])
+  return count
+
+v = [1, 2, 3, 10]
+sum = 12
+print(f(v, 0, sum))
+  
+
+ By checking  f(v, 0, S) > 0 , you can know if there is a solution to your problem. However, this code is too slow, each recursive call spawns two new calls, which leads to an O(2^n) algorithm. Now, we can apply http://en.wikipedia.org/wiki/Memoization to make it run in time O(n*S), which is faster if  S  is not too big: 
+
+  def f(v, i, S, memo):
+  if i >= len(v): return 1 if S == 0 else 0
+  if (i, S) not in memo:  # <-- Check if value has not been calculated.
+    count = f(v, i + 1, S, memo)
+    count += f(v, i + 1, S - v[i], memo)
+    memo[(i, S)] = count  # <-- Memoize calculated result.
+  return memo[(i, S)]     # <-- Return memoized value.
+
+v = [1, 2, 3, 10]
+sum = 12
+memo = dict()
+print(f(v, 0, sum, memo))
+  
+
+ Now, it is possible to code a function  g  that returns one subset that sums  S . To do this, it is enough to add elements only if there is at least one solution including them: 
+
+  def f(v, i, S, memo):
+  # ... same as before ...
+
+def g(v, S, memo):
+  subset = []
+  for i, x in enumerate(v):
+    # Check if there is still a solution if we include v[i]
+    if f(v, i + 1, S - x, memo) > 0:
+      subset.append(x)
+      S -= x
+  return subset
+
+v = [1, 2, 3, 10]
+sum = 12
+memo = dict()
+if f(v, 0, sum, memo) == 0: print("There are no valid subsets.")
+else: print(g(v, sum, memo))
+  
+
+ Disclaimer: This solution says there are two subsets of [10, 10] that sums 10. This is because it assumes that the first ten is different to the second ten. The algorithm can be fixed to assume that both tens are equal (and thus answer one), but that is a bit more complicated. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30461795)
+<pre class="lang-py prettyprint-override"> from itertools import permutations
+
+a = range(2)
+
+
+# get all the possible combinations
+
+indexes = ','.join([str(i) for i in range(len(a))])+","
+comb = []
+perms = [''.join(p) for p in permutations(indexes)]
+for x in perms:
+    candidate = [[int(i) for i in  list(s)] if len(s) !=0 else [] for s in x.split(',') ]
+    if candidate not in comb and [row[::-1] for row in candidate] not in comb:
+        comb.append(candidate)
+
+for item in comb:
+    print item
+  
+
+
+
+<pre class="lang-py prettyprint-override"> >>
+ [[0], [1], []]
+ [[0], [], [1]]
+ [[0, 1], [], []]
+ [[], [0, 1], []]
+ [[], [0], [1]]
+ [[], [1], [0]]
+ [[], [], [0, 1]]
+ [[1], [0], []]
+ [[1], [], [0]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8331319)
+ This is equivalent to the problem described in https://stackoverflow.com/questions/7825323 and can use a similar solution. 
+
+ To elaborate: 
+
+  def allSum(number):
+    for solution in possibilites(range(1, number+1), number):
+        expanded = []
+        for value, qty in zip(range(1, number+1), solution):
+            expanded.extend([value]*qty)
+        yield expanded
+  
+
+ That translates this question into that question and back again. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8331308)
+ Here's some code I saw a few years ago that does the trick: 
+
+  >>> def partitions(n):
+        if n:
+            for subpart in partitions(n-1):
+                yield [1] + subpart
+                if subpart and (len(subpart) < 2 or subpart[1] > subpart[0]):
+                    yield [subpart[0] + 1] + subpart[1:]
+        else:
+            yield []
+
+>>> print list(partitions(4))
+[[1, 1, 1, 1], [1, 1, 2], [2, 2], [1, 3], [4]]
+  
+
+ Additional References: 
+
+ 
+ http://mathworld.wolfram.com/Partition.html 
+ http://en.wikipedia.org/wiki/Partition_(number_theory) 
+ http://www.site.uottawa.ca/~ivan/F49-int-part.pdf 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8331073)
+ Here is an alternate approach which works by taking a list of all 1s and recursively collapsing it by adding subsequent elements, this should be more efficient than generating all possible subsets: 
+
+  def allSum(number):
+    def _collapse(lst):
+        yield lst
+        while len(lst) > 1:
+            lst = lst[:-2] + [lst[-2] + lst[-1]]
+            for prefix in _collapse(lst[:-1]):
+                if not prefix or prefix[-1] <= lst[-1]:
+                    yield prefix + [lst[-1]]
+    return list(_collapse([1] * number))
+
+>>> allSum(4)
+[[1, 1, 1, 1], [1, 1, 2], [2, 2], [1, 3], [4]]
+>>> allSum(5)
+[[1, 1, 1, 1, 1], [1, 1, 1, 2], [1, 2, 2], [1, 1, 3], [2, 3], [1, 4], [5]]
+  
+
+ You can strip off the last value if you don't want the trivial case.  If you will just be looping over the results remove the  list  call and just return the generator. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8010491)
+ Looping through all  n ! permutations is much too expensive. Instead, generate all 2^ n  subsets. 
+
+  from itertools import chain, combinations
+
+def weight(A):
+    return sum(weights[x] for x in A)
+
+# Copied from example at http://docs.python.org/library/itertools.html
+def powerset(iterable):
+    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in xrange(len(s) + 1))
+
+[x for x in powerset({'A', 'B', 'C', 'D', 'E'}) if weight(x) == W]
+  
+
+  
+
+  [('A', 'D'), ('C', 'B'), ('C', 'E'), ('A', 'B', 'E'), ('B', 'E', 'D')]
+  
+
+ This can be converted to sorted tuples by changing the return part of the list comprehension to  tuple(sorted(x)) , or by replacing the  list  call in  powerset  with one to  sorted . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6133486)
+  weekly = [ sum(visitors[x:x+7]) for x in range(0, len(daily), 7)]
+  
+
+ Or slightly less densely: 
+
+  weekly = []
+for x in range(0, len(daily), 7):
+     weekly.append( sum(visitors[x:x+7]) )
+  
+
+ Alternatively, using the numpy module. 
+
+  by_week = numpy.reshape(visitors, (7, -1))
+weekly = numpy.sum( by_week, axis = 1)
+  
+
+ Note that this requires the number of elements in visitor be a multiple of 7. It also requires that you install numpy. However, its probably also more efficient then the other approaches. 
+
+ Or for itertools code bonus: 
+
+  def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.izip_longest(fillvalue=fillvalue, *args)
+
+weekly = map(sum, grouper(7, visitors, 0))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42423305)
+ This is known as the subset-sum problem and it is a well known NP-complete problem. So basically there is no efficient solution. See for example https://en.wikipedia.org/wiki/Subset_sum_problem 
+
+ However If your number N is not too large, there is a pseudo polynomial algorithms, using dynamic programming:
+You read the list A from left to right and keep the list of the sum which are doable and smaller than N. If you know the number which are doable for a given A, you can easily get those which are doable for A + [a]. . It will typically be fast enough for a problem of the size you gave there. 
+
+ Here is a Python quick solution: 
+
+  def subsetsum(A, N):
+    res = {0 : []}
+    for i in A:
+        newres = dict(res)
+        for v, l in res.items():
+            if v+i < N:
+                newres[v+i] = l+[i]
+            elif v+i == N:
+                return l+[i]
+        res = newres
+    return None
+  
+
+  
+
+  >>> A = [8, 9, 15, 15, 33, 36, 39, 45, 46, 60, 68, 73, 80, 92, 96]
+>>> subsetsum(A, 183)
+[15, 15, 33, 36, 39, 45]
+  
+
+ 
+
+ After OP edit: 
+
+ Now I correctly understand you problem, I'll still think that your problem can be solved efficiently, provided you have an efficient subset-sum solver: I'd use divide and conquer solution on B: 
+
+ 
+ cut B into two approximately equal pieces B1 and B2 
+ use your subset-sum solver to search among A for all subsets S whose sum are equal to sum(B1). 
+ for each such S:
+
+ 
+ call recursively solve(S, B1) and solve(A - S, B2) 
+ if both succeed you have a solution 
+  
+ 
+
+ However, your (71, 10) problem below is out of reach for the dynamic programming solution I suggested. 
+
+ 
+
+ By the way, here is a quick solution of your problem  not  using divide and conquer, but which contains the correct adaptation of my dynamic solver to get all solutions:     
+
+  class NotFound(BaseException):
+    pass
+
+from collections import defaultdict
+def subset_all_sums(A, N):
+    res = defaultdict(set, {0 : {()}})
+    for nn, i in enumerate(A):
+        # perform a deep copy of res
+        newres = defaultdict(set)
+        for v, l in res.items():
+            newres[v] |= set(l)
+            for v, l in res.items():
+                if v+i <= N:
+                    for s in l:
+                        newres[v+i].add(s+(i,))
+                        res = newres
+                        return res[N]
+
+def list_difference(l1, l2):
+    ## Similar to merge.
+    res = []
+    i1 = 0; i2 = 0
+    while i1 < len(l1) and i2 < len(l2):
+        if l1[i1] == l2[i2]:
+            i1 += 1
+            i2 += 1
+        elif l1[i1] < l2[i2]:
+            res.append(l1[i1])
+            i1 += 1
+        else:
+            raise NotFound
+            while i1 < len(l1):
+                res.append(l1[i1])
+                i1 += 1
+                return res
+
+def solve(A, B):
+    assert sum(A) == sum(B)
+    if not B:
+        return [[]]
+        res = []
+        ss = subset_all_sums(A, B[0])
+        for s in ss:
+            rem = list_difference(A, s)
+            for sol in solve(rem, B[1:]):
+                res.append([s]+sol)
+                return res
+  
+
+ : 
+
+  >>> solve(A, B)
+[[(15, 33, 39, 96), (36,), (8, 15, 60, 68, 80), (9, 46, 73), (45, 92)],
+ [(15, 33, 39, 96), (36,), (8, 9, 15, 46, 73, 80), (60, 68), (45, 92)],
+ [(8, 15, 15, 33, 39, 73), (36,), (9, 46, 80, 96), (60, 68), (45, 92)],
+ [(15, 15, 73, 80), (36,), (8, 9, 33, 39, 46, 96), (60, 68), (45, 92)],
+ [(15, 15, 73, 80), (36,), (9, 39, 45, 46, 92), (60, 68), (8, 33, 96)],
+ [(8, 33, 46, 96), (36,), (9, 15, 15, 39, 73, 80), (60, 68), (45, 92)],
+ [(8, 33, 46, 96), (36,), (15, 15, 60, 68, 73), (9, 39, 80), (45, 92)],
+ [(9, 15, 33, 46, 80), (36,), (8, 15, 39, 73, 96), (60, 68), (45, 92)],
+ [(45, 46, 92), (36,), (8, 15, 39, 73, 96), (60, 68), (9, 15, 33, 80)],
+ [(45, 46, 92), (36,), (8, 15, 39, 73, 96), (15, 33, 80), (9, 60, 68)],
+ [(45, 46, 92), (36,), (15, 15, 60, 68, 73), (9, 39, 80), (8, 33, 96)],
+ [(45, 46, 92), (36,), (9, 15, 15, 39, 73, 80), (60, 68), (8, 33, 96)],
+ [(9, 46, 60, 68), (36,), (8, 15, 39, 73, 96), (15, 33, 80), (45, 92)]]
+
+>>> %timeit solve(A, B)
+100 loops, best of 3: 10.5 ms per loop
+  
+
+ So it is quite fast for this size of problem, though noting is optimized here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50067572)
+ There may be a smarter way to just find the minimal number of sets, but here's some code which uses Knuth's Algorithm X to do the Exact Cover operation, and a function I wrote last year to generate subsets whose sums are less than a given value. My test code first finds a solution for the data given in the question, and then it finds a solution for a larger random list. It finds the solution for [1, 2, 3, 4, 5] with maximum sum 10 almost instantly, but it takes almost 20 seconds on my old 32 bit 2GHz machine to solve the larger problem. 
+
+ This code just prints a single solution that is of the minimum size, but it wouldn't be hard to modify it to print all solutions that are of the minimum size. 
+
+  """ Find the minimal number of subsets of a set of integers
+    which conform to these constraints:
+
+    The sum of each subset does not exceed a value, k.
+    Each element from the full set is only used once in any of the subsets.
+    All values from the full set must be present in some subset.
+
+    See https://stackoverflow.com/q/50066757/4014959
+
+    Uses Knuth's Algorithm X for the exact cover problem,
+    using dicts instead of doubly linked circular lists.
+    Written by Ali Assaf
+
+    From http://www.cs.mcgill.ca/~aassaf9/python/algorithm_x.html
+    and http://www.cs.mcgill.ca/~aassaf9/python/sudoku.txt
+
+    Written by PM 2Ring 2018.04.28
+"""
+
+from itertools import product
+from random import seed, sample
+from operator import itemgetter
+
+#Algorithm X functions
+def solve(X, Y, solution):
+    if X:
+        c = min(X, key=lambda c: len(X[c]))
+        for r in list(X[c]):
+            solution.append(r)
+            cols = select(X, Y, r)
+            yield from solve(X, Y, solution)
+            deselect(X, Y, r, cols)
+            solution.pop()
+    else:
+        yield list(solution)
+
+def select(X, Y, r):
+    cols = []
+    for j in Y[r]:
+        for i in X[j]:
+            for k in Y[i]:
+                if k != j:
+                    X[k].remove(i)
+        cols.append(X.pop(j))
+    return cols
+
+def deselect(X, Y, r, cols):
+    for j in reversed(Y[r]):
+        X[j] = cols.pop()
+        for i in X[j]:
+            for k in Y[i]:
+                if k != j:
+                    X[k].add(i)
+
+#Invert subset collection
+def exact_cover(X, Y):
+    newX = {j: set() for j in X}
+    for i, row in Y.items():
+        for j in row:
+            newX[j].add(i)
+    return newX
+
+#----------------------------------------------------------------------
+
+def subset_sums(seq, goal):
+    totkey = itemgetter(1)
+    # Store each subset as a (sequence, sum) tuple
+    subsets = [([], 0)]
+    for x in seq:
+        subgoal = goal - x
+        temp = []
+        for subseq, subtot in subsets:
+            if subtot <= subgoal:
+                temp.append((subseq + [x], subtot + x))
+            else:
+                break
+        subsets.extend(temp)
+        subsets.sort(key=totkey)
+
+    for subseq, _ in subsets:
+        yield tuple(subseq)
+
+#----------------------------------------------------------------------
+
+# Tests
+
+nums = [1, 2, 3, 4, 5]
+k = 10
+print("Numbers:", nums, "k:", k)
+
+Y = {u: u for u in subset_sums(nums, k)}
+X = exact_cover(nums, Y)
+minset = min(solve(X, Y, []), key=len)
+print("Minimal:", minset, len(minset))
+
+# Now test with a larger list of random data
+seed(42)
+hi = 20
+k = 2 * hi
+size = 10
+
+nums = sorted(sample(range(1, hi+1), size))
+print("\nNumbers:", nums, "k:", k)
+
+Y = {u: u for u in subset_sums(nums, k)}
+X = exact_cover(nums, Y)
+minset = min(solve(X, Y, []), key=len)
+print("Minimal:", minset, len(minset))
+  
+
+  output  
+
+  Numbers: [1, 2, 3, 4, 5] k: 10
+Minimal: [(2, 3, 5), (1, 4)] 2
+
+Numbers: [1, 2, 3, 4, 8, 9, 11, 12, 17, 18] k: 40
+Minimal: [(1, 8, 9, 18), (4, 11, 17), (2, 3, 12)] 3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25496044)
+ Let's write a recursive function to output all combinations of all subsets of a list. 
+
+ For a given list, the combinations are the the list itself, plus all combinations of the list minus each member. That's easy to translate straight to Python: 
+
+  def combinations(seq):
+    yield seq
+    for i in range(len(seq)):
+        for combination in combinations(seq[:i] + seq[i+1:]):
+            yield combination
+  
+
+ However, this will obviously yield duplicates. For example, the list  [1, 2, 3]  contains both  [1, 2]  and  [1, 3] , and they both contain  [1] . So, how do you eliminate those duplicates? Simple, just tell each sub-list how many elements to skip: 
+
+  def combinations(seq, toskip=0):
+    yield seq
+    for i in range(toskip, len(seq)):
+        for combination in combinations(seq[:i] + seq[i+1:], i):
+            yield combination
+  
+
+ 
+
+ Now, you want to sum all combinations? That's easy: 
+
+  >>> a = [1, 2, 3]
+>>> map(sum, combinations(a))
+[6, 5, 3, 0, 2, 4, 1, 3]
+  
+
+
+

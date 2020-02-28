@@ -1,0 +1,429 @@
+Query: Limit the number of sentences in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3329432)
+ Ignoring considerations such as when a  .  constitutes the end of sentence: 
+
+  import re
+' '.join(re.split(r'(?<=[.?!])\s+', phrase, 2)[:-1])
+  
+
+ EDIT: Another approach that just occurred to me is this: 
+
+  re.match(r'(.*?[.?!](?:\s+.*?[.?!]){0,1})', phrase).group(1)
+  
+
+ Notes: 
+
+ 
+ Whereas the first solution lets you replace the 2 with some other number to choose a different number of sentences, in the second solution, you change the 1 in  {0,1}  to one less than the number of sentences you want to extract. 
+ The second solution isn't quite as robust in handling, e.g., empty strings, or strings with no punctuation. It could be made so, but the regex would be even more complex than it is already, and I would favour the slightly less efficient first solution over an unreadable mess. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3329429)
+ I solved it like this: http://nedbatchelder.com/blog/200804/separating_sentences.html, though a comment on that post also points to http://www.nltk.org/code, though I don't know how to find the sentence segmenter on their site... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45472264)
+ The problem is not with  itertools : itertools works lazily: it produces iterables. The problem is that you first want to put all these elements in a list. As a result all the combinations have to exist at the same time. This obviously requires more memory than doing this in an iterative way since in the latter case, the memory of a previous combination can be reused. 
+
+ If you thus want to print all combinations,  without storing them , you can use: 
+
+  with open(in_file) as f:
+        lis = list(f)
+for x in itertools.product(*map(set, zip(*map(str.split, lis)))):
+    print(' '.join(x))
+  
+
+ In case you want to store them, you can limit the number by using  itertools.islice : 
+
+  <b>from itertools import islice, product</b>
+
+X = []
+with open(in_file) as f:
+        lis = list(f)
+X += [' '.join(x) for x in <b>islice(</b>product(*map(set, zip(*map(str.split, lis))))<b>,1000000)</b>])  
+
+ Here we thus limit the number of products to 1'000'000. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8057105)
+ First, I see no reason to defer the breaking out of loop if the maximum length is reached to the next iteration. 
+
+ So, altering your code, I come up with the following code: 
+
+  s_tuples = [('Where are you',1),('What about the next day',2),('When is the next event',3)]
+
+
+def get_words_number(s):
+    return len(s.split())
+
+
+def truncate(s_tuples, max_length):
+    tot_len = 0
+    output = []
+    for s in s_tuples:
+        output.append(s[0])
+        tot_len += get_words_number(s[0])
+        if tot_len >= max_length:
+            break
+    return ' '.join(output)
+
+
+print truncate(s_tuples,3)
+  
+
+ Second, I really don't like that a temporary object  output  is created. We can feed the  join  method with the iterator which iterates over the initial list without duplicating the information. 
+
+  def truncate(s_tuples, max_length):
+
+    def stop_iterator(s_tuples):
+        tot_len = 0
+        for s,num in s_tuples:
+            yield s
+            tot_len += get_words_number(s)
+            if tot_len >= max_length:
+                break
+
+    return ' '.join(stop_iterator(s_tuples))
+
+
+print truncate(s_tuples,3)
+  
+
+ Also, in your examples, the output is slightly bigger than the set maximum of words. If you want the number of words to be always less that the limit (but still the maximum possible), than just put  yield  after checking against the limit: 
+
+  def truncate(s_tuples, max_length):
+
+    def stop_iterator(s_tuples):
+        tot_len = 0
+        for s,num in s_tuples:
+            tot_len += get_words_number(s)
+            if tot_len >= max_length:
+                if tot_len == max_length:
+                    yield s
+                break
+            yield s
+
+    return ' '.join(stop_iterator(s_tuples))
+
+
+print truncate(s_tuples,5)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/23120787)
+ Use  re.split()  with a limit: 
+
+   space_split = re.compile(r'\s+(?=[A-Z])')
+ result = space_split.split(inputstring, 1)
+  
+
+  
+
+  >>> import re
+>>> space_split = re.compile(r'\s+(?=[A-Z])')
+>>> l = ["Tough Fox", "Nice White Cat", "This is a lazy Dog" ]
+>>> for i in l:
+...     print space_split.split(i, 1)
+... 
+['Tough', 'Fox']
+['Nice', 'White Cat']
+['This is a lazy', 'Dog']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26320709)
+ You are trying to use a string method on the wrong object;  words  is list object  containing  strings. Use the method on each individual element instead: 
+
+  words2 = [word.capitalize() for word in words]
+  
+
+ But this would be applying the  wrong  transformation; you don't want to capitalise the whole sentence, but  just  the first letter.  str.capitalize()  would lowercase  everything else , including the  J  in  Joe : 
+
+  >>> 'my name is Joe'.capitalize()
+'My name is joe'    
+  
+
+ Limit yourself to the  first letter only , and then add back the rest of the string unchanged: 
+
+  words2 = [word[0].capitalize() + word[1:] for word in words]
+  
+
+ Next, a list object has no  .join()  method either; that too is a string method: 
+
+  string2 = '. '.join(words2)
+  
+
+ This'll join the strings in  words2  with the  '. '  . 
+
+ You'll probably want to use better variable names here; your strings are sentences, not words, so your code could do better reflecting that. 
+
+ Together that makes your function: 
+
+  def sentenceCapitalizer (string1: str):
+    sentences = string1.split(". ")
+    sentences2 = [sentence[0].capitalize() + sentence[1:] for sentence in sentences]
+    string2 = '. '.join(sentences2)
+    return string2
+  
+
+  
+
+  >>> def sentenceCapitalizer (string1: str):
+...     sentences = string1.split(". ")
+...     sentences2 = [sentence[0].capitalize() + sentence[1:] for sentence in sentences]
+...     string2 = '. '.join(sentences2)
+...     return string2
+... 
+>>> print (sentenceCapitalizer("hello. my name is Joe. what is your name?"))
+Hello. My name is Joe. What is your name?
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54732096)
+   .count  the spaces (separating words):  [s for s in sentences if s.count(' ') == max(s.count(' ') for s in sentences)]  ( s[0]  if you have each sentence in a separate list and maybe getting  max  first to save time) 
+
+ If your words can also be separated by any punctuation, you will probably want to use  re , as in your example, just  findall ing on  every sentence , like this: 
+
+  import re
+pattern = re.compile(r'\w+')
+# note I changed some stuff to have words only separated by punctuation
+sentences = [["I like:apple"], ["I (really)like playing basketball"], ["how are you doing"]]
+current_s = []
+current_len = 0
+for s in sentences:
+    no = len(pattern.findall(s[0]))  # [0] because you have each sentence in a separate list
+    if no == current_len:
+        current_s.append(s)
+    elif no > current_len:
+        current_s = [s]
+        current_len = no
+print('the most number of words is', current_len)
+print('\n'.join(current_s))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52708232)
+ You can first split the text into sentences, then find all sentences (with their indices) that contain the substring you are looking for. Then just slice the sentences around any found sentences. 
+
+ Here's an example (using https://www.nltk.org/api/nltk.tokenize.html?highlight=sent_tokenize#nltk.tokenize.sent_tokenize): 
+
+  from nltk.tokenize import sent_tokenize
+
+text = "In addition, participation in life situations can be somewhat impaired because of communicative disabilities associated with the disorder and parents’ lack of resources for overcoming this aspect of the disability (i.e. communication devices). The attitudes of service providers are also important. The Australian Rett syndrome research program is based on a biopsychosocial model which integrates aspects of both medical and social models of disability and functioning. The investigation of environmental factors such as equipment and support available to individuals and families and the social capital of the communities in which they live is likely to be integral to understanding the burden of this disorder. The program will use the ICF framework to identify those factors determined to be most beneficial and cost effective in optimising health, function and quality of life for the affected child and her family."
+sentences = sent_tokenize(text)
+
+sub = "biopsychosocial model"
+matching_indices = [i for i, sentence in enumerate(sentences) if sub in sentence]
+
+n_sent_padding = 1
+displayed_sentences = [
+    ' '.join(sentences[i-n_sent_padding:i+n_sent_padding+1])
+    for i in matching_indices
+]
+  
+
+ This will find the index of each sentence that contains the substring (placed in  matching_indices ) and then  displayed_sentences  contains the sentences before and after the matching sentence (number according to  n_sent_padding . 
+
+ Then  displayed_sentences  is: 
+
+  ['The attitudes of service providers are also important. The Australian Rett syndrome research program is based on a biopsychosocial model which integrates aspects of both medical and social models of disability and functioning. The investigation of environmental factors such as equipment and support available to individuals and families and the social capital of the communities in which they live is likely to be integral to understanding the burden of this disorder.']
+  
+
+ Pay attention to how nltk splits sentences: sometimes it does it kind of weirdly (e.g. splitting on the period in 'Mr.'). https://stackoverflow.com/questions/14095971/how-to-tweak-the-nltk-sentence-tokenizer is about how to tweak the sentence tokenizer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52252922)
+ TL;DR 
+
+ NLTK was reading the list of tokens into a string and before passing it to the CoreNLP server. And CoreNLP retokenize the inputs and concatenated the number-like tokens with  \xa0  (non-breaking space). 
+
+ 
+
+ In Long 
+
+ Lets walk through the code, if we look at the  tag()  function from  CoreNLPParser , we see that it calls the  tag_sents()  function and converted the input list of strings into a string before calling the  raw_tag_sents()  which allows  CoreNLPParser  to re-tokenized the input, see https://github.com/nltk/nltk/blob/develop/nltk/parse/corenlp.py#L348: 
+
+  def tag_sents(self, sentences):
+    """
+    Tag multiple sentences.
+    Takes multiple sentences as a list where each sentence is a list of
+    tokens.
+
+    :param sentences: Input sentences to tag
+    :type sentences: list(list(str))
+    :rtype: list(list(tuple(str, str))
+    """
+    # Converting list(list(str)) -> list(str)
+    sentences = (' '.join(words) for words in sentences)
+    return [sentences[0] for sentences in self.raw_tag_sents(sentences)]
+
+def tag(self, sentence):
+    """
+    Tag a list of tokens.
+    :rtype: list(tuple(str, str))
+    >>> parser = CoreNLPParser(url='http://localhost:9000', tagtype='ner')
+    >>> tokens = 'Rami Eid is studying at Stony Brook University in NY'.split()
+    >>> parser.tag(tokens)
+    [('Rami', 'PERSON'), ('Eid', 'PERSON'), ('is', 'O'), ('studying', 'O'), ('at', 'O'), ('Stony', 'ORGANIZATION'),
+    ('Brook', 'ORGANIZATION'), ('University', 'ORGANIZATION'), ('in', 'O'), ('NY', 'O')]
+    >>> parser = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
+    >>> tokens = "What is the airspeed of an unladen swallow ?".split()
+    >>> parser.tag(tokens)
+    [('What', 'WP'), ('is', 'VBZ'), ('the', 'DT'),
+    ('airspeed', 'NN'), ('of', 'IN'), ('an', 'DT'),
+    ('unladen', 'JJ'), ('swallow', 'VB'), ('?', '.')]
+    """
+    return self.tag_sents([sentence])[0]
+  
+
+ And when calling then the  raw_tag_sents()  passes the input to the server using the  api_call() : 
+
+  def raw_tag_sents(self, sentences):
+    """
+    Tag multiple sentences.
+    Takes multiple sentences as a list where each sentence is a string.
+
+    :param sentences: Input sentences to tag
+    :type sentences: list(str)
+    :rtype: list(list(list(tuple(str, str)))
+    """
+    default_properties = {'ssplit.isOneSentence': 'true',
+                          'annotators': 'tokenize,ssplit,' }
+
+    # Supports only 'pos' or 'ner' tags.
+    assert self.tagtype in ['pos', 'ner']
+    default_properties['annotators'] += self.tagtype
+    for sentence in sentences:
+        tagged_data = self.api_call(sentence, properties=default_properties)
+        yield [[(token['word'], token[self.tagtype]) for token in tagged_sentence['tokens']]
+                for tagged_sentence in tagged_data['sentences']]
+  
+
+  So the question is how to resolve the problem and get the tokens as it's passed in?  
+
+ If we look at the options for the Tokenizer in CoreNLP, we see the  tokenize.whitespace  option: 
+
+ 
+ https://stanfordnlp.github.io/CoreNLP/tokenize.html#options 
+ https://stackoverflow.com/questions/36440495/preventing-tokens-from-containing-a-space-in-stanford-corenlp  
+ 
+
+ If we make some changes to the allow additional  properties  before calling  api_call() , we can enforce the tokens as it's passed to the CoreNLP server joined by whitespaces, e.g. changes to the code: 
+
+  def tag_sents(self, sentences, properties=None):
+    """
+    Tag multiple sentences.
+
+    Takes multiple sentences as a list where each sentence is a list of
+    tokens.
+
+    :param sentences: Input sentences to tag
+    :type sentences: list(list(str))
+    :rtype: list(list(tuple(str, str))
+    """
+    # Converting list(list(str)) -> list(str)
+    sentences = (' '.join(words) for words in sentences)
+    if properties == None:
+        properties = {'tokenize.whitespace':'true'}
+    return [sentences[0] for sentences in self.raw_tag_sents(sentences, properties)]
+
+def tag(self, sentence, properties=None):
+    """
+    Tag a list of tokens.
+
+    :rtype: list(tuple(str, str))
+
+    >>> parser = CoreNLPParser(url='http://localhost:9000', tagtype='ner')
+    >>> tokens = 'Rami Eid is studying at Stony Brook University in NY'.split()
+    >>> parser.tag(tokens)
+    [('Rami', 'PERSON'), ('Eid', 'PERSON'), ('is', 'O'), ('studying', 'O'), ('at', 'O'), ('Stony', 'ORGANIZATION'),
+    ('Brook', 'ORGANIZATION'), ('University', 'ORGANIZATION'), ('in', 'O'), ('NY', 'O')]
+
+    >>> parser = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
+    >>> tokens = "What is the airspeed of an unladen swallow ?".split()
+    >>> parser.tag(tokens)
+    [('What', 'WP'), ('is', 'VBZ'), ('the', 'DT'),
+    ('airspeed', 'NN'), ('of', 'IN'), ('an', 'DT'),
+    ('unladen', 'JJ'), ('swallow', 'VB'), ('?', '.')]
+    """
+    return self.tag_sents([sentence], properties)[0]
+
+def raw_tag_sents(self, sentences, properties=None):
+    """
+    Tag multiple sentences.
+
+    Takes multiple sentences as a list where each sentence is a string.
+
+    :param sentences: Input sentences to tag
+    :type sentences: list(str)
+    :rtype: list(list(list(tuple(str, str)))
+    """
+    default_properties = {'ssplit.isOneSentence': 'true',
+                          'annotators': 'tokenize,ssplit,' }
+
+    default_properties.update(properties or {})
+
+    # Supports only 'pos' or 'ner' tags.
+    assert self.tagtype in ['pos', 'ner']
+    default_properties['annotators'] += self.tagtype
+    for sentence in sentences:
+        tagged_data = self.api_call(sentence, properties=default_properties)
+        yield [[(token['word'], token[self.tagtype]) for token in tagged_sentence['tokens']]
+                for tagged_sentence in tagged_data['sentences']]
+  
+
+ After changing the above code: 
+
+  >>> from nltk.parse.corenlp import CoreNLPParser
+>>> ner_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='ner')
+>>> sent = ['my', 'phone', 'number', 'is', '1111', '1111', '1111']
+>>> ner_tagger.tag(sent)
+[('my', 'O'), ('phone', 'O'), ('number', 'O'), ('is', 'O'), ('1111', 'DATE'), ('1111', 'DATE'), ('1111', 'DATE')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14680001)
+ Something like this should work 
+
+  def _splicegen(maxchars, stringlist):
+    """
+    Return a list of slices to print based on maxchars string-length boundary.
+    """
+    runningcount = 0  # start at 0
+    tmpslice = []  # tmp list where we append slice numbers.
+    for i, item in enumerate(stringlist):
+        runningcount += len(item)
+        if runningcount <= int(maxchars):
+            tmpslice.append(i)
+        else:
+            yield tmpslice
+            tmpslice = [i]
+            runningcount = len(item)
+    yield(tmpslice)
+  
+
+ Also see the http://docs.python.org/2/library/textwrap.html module 
+
+
+

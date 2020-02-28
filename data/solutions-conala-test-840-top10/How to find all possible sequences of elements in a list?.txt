@@ -1,0 +1,384 @@
+Query: How to find all possible sequences of elements in a list?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9040964)
+ You are looking for permutations, something like this should work:  
+
+  import itertools
+itertools.permutations([2,3,4])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9042127)
+  
+
+  def unique_perms(elems):
+    """returns non-duplicate permutations 
+       if duplicate elements exist in `elems`
+    """
+    from itertools import permutations
+    return list(set(permutations(elems)))
+  
+
+ But if you're doing something like this: 
+
+  print len(unique_perms(elems))
+  
+
+ Then try this: 
+
+  def fac(n):
+    """n!"""
+    if n == 1: return n
+    return n * fac(n -1)
+
+def unique_perm_count(elems)
+    n = len(elems)
+    return fac(2 * n) / fac(n) ** 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9040952)
+ You can do this easily using http://docs.python.org/library/itertools.html#itertools.permutations: 
+
+  >>> from itertools import permutations
+>>> list(permutations([2, 3, 4]))
+[(2, 3, 4), (2, 4, 3), (3, 2, 4), (3, 4, 2), (4, 2, 3), (4, 3, 2)]
+  
+
+ And if for some reason you need lists instead of tuples: 
+
+  >>> map(list, permutations([2, 3, 4]))
+[[2, 3, 4], [2, 4, 3], [3, 2, 4], [3, 4, 2], [4, 2, 3], [4, 3, 2]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31098702)
+  def explore(n, terms, seqs):
+
+    if not terms:  # if all terms have been processed, you found a solution
+        return {tuple(sum(sorted(seqs), []))}
+
+    result = set()
+
+    for ix, seq in enumerate(seqs):
+
+        new_seqs = list(seqs)
+        new_seqs[ix] = seq + [terms[0]]
+
+        if len(seq) == 0:  # if you are adding to an empty sequence
+            if ix == 0 or len(seqs[ix - 1]) > 0:  # be sure previous is not empty
+                result.update(explore(n, terms[1:], new_seqs))
+            break  # don't bother checking following seqs, they are empty
+
+        elif len(seq) == 1:  # you can always add to 1-element seq
+            result.update(explore(n, terms[1:], new_seqs))
+
+        elif len(seq) < n and seq[-1] * 2 == seq[-2] + terms[0]:  # is arithmetic?
+            result.update(explore(n, terms[1:], new_seqs))
+
+    return result
+
+m = int(raw_input())
+terms = sorted(map(int, raw_input().split()))
+seqs = [[] for _ in range(m)]
+
+result = explore(len(terms) / m, terms, seqs)
+
+for solution in result:
+    print(" ".join(map(str, solution)))
+  
+
+ Here is a (incomplete) solution, which should help you. The idea is that you create the division of terms into sequences  seqs  (initially empty) and try to put terms in ascending order into one of the seqs so that 
+
+ 
+ each seq is an arithmetic sequence 
+ first elements of seqs are in ascending order 
+ all empty seqs are after all non-empty seqs 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48881972)
+ seperate this into logical functions: 
+
+ 
+ Find out which sequences start with the same element 
+ Find the common elements 
+ 
+
+ same start: 
+
+ Can be done easily with a  defaultdict  
+
+  from collections import defaultdict
+def same_start(sequences):
+    same_start = defaultdict(list)
+    for seq in sequences:
+        same_start[seq[0]].append(seq)
+    return same_start.values()
+  
+
+ 
+  list(same_start(sequences.values()))
+  
+ 
+
+  [[[1, 3, 5, 6, 8, 12, 15, 17, 18],
+  [1, 3, 5, 6, 9, 13, 14, 16, 19],
+  [1, 3, 5, 6, 9, 13, 14, 20, 25]],
+ [[0, 2, 4, 7, 11], [0, 2, 4, 10, 20]],
+ [[21, 23, 26]]]
+  
+
+ Find the common elements: 
+
+ a simple generator that yields values as long as they are all the same 
+
+  def get_beginning(sequences):
+    for values in zip(*sequences):
+        v0 = values[0]
+        if not all(i == v0 for i in values):
+            return
+        yield v0
+  
+
+ aggregating 
+
+  def aggregate(same_start):
+    for seq in same_start:
+        if len(seq) < 2:
+            yield  seq[0]
+            continue
+        start = list(get_beginning(seq))
+        yield start
+        yield from (i[len(start):] for i in seq)
+  
+
+ 
+  list(aggregate(same_start(sequences.values())))
+  
+ 
+
+  [[1, 3, 5, 6],
+ [8, 12, 15, 17, 18],
+ [9, 13, 14, 16, 19],
+ [9, 13, 14, 20, 25],
+ [0, 2, 4],
+ [7, 11],
+ [10, 20],
+ [21, 23, 26]]
+  
+
+ Further on 
+
+ If you want to combine sequences  18  and  25 , then you can do something like this 
+
+  def combine(sequences):
+    while True:
+        s = same_start(sequences)
+        if all(len(i) == 1 for i in s):
+            return sequences
+        sequences = tuple(aggregate(s))
+  
+
+ 
+  {i[-1]: i for i in combine(sequences.values())}
+  
+ 
+
+  {4: [0, 2, 4],
+ 6: [1, 3, 5, 6],
+ 11: [7, 11],
+ 14: [9, 13, 14],
+ 18: [8, 12, 15, 17, 18],
+ 19: [16, 19],
+ 20: [10, 20],
+ 25: [20, 25],
+ 26: [21, 23, 26]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3856483)
+ The simplest thing to do seems to be to loop through the list once, building any sequences you can find and then print the longest one. 
+
+  a = [2, 3, 5, 6, 6, 7, 10, 11, 13, 14, 15, 16, 16, 17, 18, 20, 21]
+
+seqlist = [] # List of Sequences
+seq = []     # Current Sequence
+last = -1
+
+for item in a:
+   # Start a new sequence if the gap from the last item is too big
+   if item - last > 1:
+       seqlist.append(seq)
+       seq = []
+
+   # only add item to the sequence if it's not the same as the last
+   if item != last:
+        seq.append(item)
+
+   last = item
+
+# Print longest sequence found
+print max(seqlist)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31099830)
+ You could use itertools.combinations with a Counter dict sorting the list in descending order: 
+
+  from itertools import combinations
+from collections import Counter
+def arith_seq(l, m):
+    l.sort(reverse=True)
+    terms = len(l) // m
+    combs = filter(lambda x: all((x[i + 1] - x[i] == x[1] - x[0]
+                                       for i in range(len(x) - 1))), combinations(l, terms))
+    out = []
+    cn = Counter(l)
+    for ele in combs:
+        if all(cn[c] > 0 for c in ele):
+            out.append(ele[::-1])
+            for c in ele:
+                cn[c] -= 1
+    out.sort()
+    return out
+  
+
+ Output: 
+
+  In [15]: ms = [2, 3, 4, 3, 3]
+In [16]: for l, m in zip(lsts, ms):
+            print(arith_seq(l, m))
+   ....:     
+[(1, 4, 7), (8, 12, 16)]
+[(2, 4, 6), (8, 15, 22), (10, 11, 12)]
+[(10, 90, 170, 250), (20, 24, 28, 32), (36, 41, 46, 51), (40, 50, 60, 70)]
+[(33, 44, 55, 66), (60, 120, 180, 240), (100, 200, 300, 400)]
+[(100, 150, 200, 250), (100, 300, 500, 700), (100, 900, 1700, 2500)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32883199)
+ don't try to be so magical: two loops will do what you want; one over possible sequence starts, the inner over possible sequence lengths: 
+
+  x = "AIR" # strings are iterables/sequences, too!
+all_words = []
+for begin in xrange(len(x)):
+    for length in xrange(1,len(x) - begin+1):
+        all_words.append(x[begin:begin+length])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48881655)
+ Using some functional tools this is what I came up with (assuming sequences are sorted). The gist is in  find_longest_prefixes : 
+
+  #!/usr/bin/env python
+from itertools import chain, takewhile
+from collections import defaultdict
+
+sequences = {
+    18: [1, 3, 5, 6, 8, 12, 15, 17, 18],
+    19: [1, 3, 5, 6, 9, 13, 14, 16, 19],
+    25: [1, 3, 5, 6, 9, 13, 14, 20, 25],
+    11: [0, 2, 4, 7, 11],
+    20: [0, 2, 4, 10, 20],
+    26: [21, 23, 26],
+}
+
+def flatmap(f, it):
+    return chain.from_iterable(map(f, it))
+
+def all_items_equal(items):
+    return len(set(items)) == 1
+
+def group_by_first_item(ls):
+    groups = defaultdict(list)
+    for l in ls:
+        groups[l[0]].append(l)
+    return groups.values()
+
+def find_longest_prefixes(ls):
+    # takewhile gives us common prefix easily
+    longest_prefix = list(takewhile(all_items_equal, zip(*ls)))
+    if longest_prefix:
+       yield tuple(vs[0] for vs in longest_prefix)
+    # yield suffix per iterable
+    leftovers = filter(None, tuple(l[len(longest_prefix):] for l in ls))
+    leftover_groups = group_by_first_item(leftovers)
+    yield from flatmap(find_longest_prefixes, leftover_groups)
+
+# apply the prefix finder to all groups
+all_sequences = find_longest_prefixes(sequences.values())
+
+# create the result structure expected
+results = {v[-1]: v for v in all_sequences}
+
+print(results)
+  
+
+ The value for result is then: 
+
+  {4: (0, 2, 4),
+ 6: (1, 3, 5, 6),
+ 11: (7, 11),
+ 18: (8, 12, 15, 17, 18),
+ 19: (9, 13, 14, 16, 19),
+ 20: (10, 20),
+ 25: (9, 13, 14, 20, 25),
+ 26: (21, 23, 26)}
+  
+
+ Note that these are tuples which I prefer for their immutability. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44594284)
+ Creating 3 lists of two elements would not over-complicate the code at all. https://docs.python.org/3/library/functions.html#zip trivially (making X sequences of Y elements into Y sequences of X elements), making it easy to use  itertools.product : 
+
+  import itertools
+
+a = [1,2,3]
+b = [4,5,6]
+
+# Unpacking result of zip(a, b) means you automatically pass
+# (1, 4), (2, 5), (3, 6)
+# as the arguments to itertools.product
+output = list(itertools.product(*zip(a, b)))
+
+print(*output, sep="\n")
+  
+
+ Which outputs: 
+
+  (1, 2, 3)
+(1, 2, 6)
+(1, 5, 3)
+(1, 5, 6)
+(4, 2, 3)
+(4, 2, 6)
+(4, 5, 3)
+(4, 5, 6)
+  
+
+ Different ordering than your example output, but it's the same set of possible replacements. 
+
+
+

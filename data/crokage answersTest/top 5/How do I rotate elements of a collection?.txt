@@ -1,0 +1,191 @@
+Query: How do I rotate elements of a collection?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18330087)
+ Consider the following Util method http://docs.oracle.com/javase/tutorial/collections/interfaces/collection.html 
+
+ 
+   The following method shows you how to use an Iterator to filter an arbitrary Collection — that is, traverse the collection removing specific elements. 
+ 
+
+  static void filter(Collection<?> c) {
+    for (Iterator<?> it = c.iterator(); it.hasNext(); )
+        if (!cond(it.next()))
+            it.remove();
+}
+  
+
+ This simple piece of  code is polymorphic , which means that it works for any  Collection  regardless of  implementation . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27813883)
+ Two issues: 
+
+ 
+ You are trying to get sublist from 3 to 1 which should be vice versa. So you could check min and max and then try to get sublist. 
+  Your sublist call will bring you element say from index 1 to n-1 i.e. if you pass 3, you will get just two elements i.e. index 1 and 2 and not the third one. See this http://docs.oracle.com/javase/7/docs/api/java/util/List.html#subList(int,%20int) for details. You could do something like: 
+
+  List<String> list = new ArrayList<String>(Arrays.asList("Periodic", "Multiple", "Single", "Subsequent", "Consecutive"));
+int indexOfSubName = 0;
+int indexOfMultipleName = 0;
+for (int i = 0; i < list.size(); i++) {
+    String name = list.get(i);
+    if (name.equalsIgnoreCase("Subsequent")) {
+        indexOfSubName = list.indexOf(name);
+    }
+    if (name.equalsIgnoreCase("Multiple")) {
+        indexOfMultipleName = list.indexOf(name);
+    }
+}
+int min = Math.min(indexOfMultipleName, indexOfSubName);
+int max = Math.max(indexOfMultipleName, indexOfSubName);
+Collections.rotate(list.subList(min, max+1), 1);
+System.out.println(list);
+   
+ 
+
+ if you run this, you will get output as what you need: 
+
+  [Periodic, Subsequent, Multiple, Single, Consecutive]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32247759)
+ Let the  collection  be any collection ( Collection<T> collection ). 
+
+  E list = factory.get();
+List<T> colAsList = new ArrayList<>(collection);
+for (int i = 0; i < size; i++) {
+    int r = MathUtils.randomInt(0, colAsList.size() - 1);
+    list.add(colAsList.remove(r));
+}
+collection.removeAll(list);
+return list;
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/993069)
+ There are two issues here: 
+
+ The first issue is, adding to an  Collection  after an  Iterator  is returned. As mentioned, there is no defined behavior when the underlying  Collection  is modified, as noted in the documentation for  Iterator.remove : 
+
+ 
+   ... The behavior of an iterator is
+  unspecified if the underlying
+  collection is modified while the
+  iteration is in progress in any way
+  other than by calling this method. 
+ 
+
+ The second issue is, even if an  Iterator  could be obtained, and then return to the same element the  Iterator  was at, there is no guarantee about the order of the iteratation, as noted in the http://docs.oracle.com/javase/7/docs/api/java/util/Collection.html#iterator() method documentation: 
+
+ 
+   ... There are no guarantees concerning the
+  order in which the elements are
+  returned (unless this collection is an
+  instance of some class that provides a
+  guarantee). 
+ 
+
+ For example, let's say we have the list  [1, 2, 3, 4] . 
+
+ Let's say  5  was added when the  Iterator  was at  3 , and somehow, we get an  Iterator  that can resume the iteration from  4 . However, there is no guarentee that  5  will come after  4 . The iteration order may be  [5, 1, 2, 3, 4]  -- then the iterator will still miss the element  5 . 
+
+ As there is no guarantee to the behavior, one cannot assume that things will happen in a certain way. 
+
+ One alternative could be to have a separate  Collection  to which the newly created elements can be added to, and then iterating over those elements: 
+
+  Collection<String> list = Arrays.asList(new String[]{"Hello", "World!"});
+Collection<String> additionalList = new ArrayList<String>();
+
+for (String s : list) {
+    // Found a need to add a new element to iterate over,
+    // so add it to another list that will be iterated later:
+    additionalList.add(s);
+}
+
+for (String s : additionalList) {
+    // Iterate over the elements that needs to be iterated over:
+    System.out.println(s);
+}
+  
+
+  Edit  
+
+ Elaborating on https://stackoverflow.com/questions/993025/java-adding-elements-to-a-collection-during-iteration/993036#993036, it is possible to queue up the elements that we want to iterate over into a queue, and remove the elements while the queue has elements. This will allow the "iteration" over the new elements in addition to the original elements. 
+
+ . 
+
+ Conceptually, if we have the following elements in the queue: 
+
+  [1, 2, 3, 4]  
+
+ And, when we remove  1 , we decide to add  42 , the queue will be as the following: 
+
+  [2, 3, 4, 42]  
+
+ As the queue is a http://en.wikipedia.org/wiki/FIFO (first-in, first-out) data structure, this ordering is typical. (As noted in the documentation for the http://docs.oracle.com/javase/7/docs/api/java/util/Queue.html interface, this is not a necessity of a  Queue . Take the case of http://docs.oracle.com/javase/7/docs/api/java/util/PriorityQueue.html which orders the elements by their natural ordering, so that's not FIFO.) 
+
+ The following is an example using a http://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html (which is a http://docs.oracle.com/javase/7/docs/api/java/util/Queue.html) in order to go through all the elements along with additional elements added during the dequeing. Similar to the example above, the element  42  is added when the element  2  is removed: 
+
+  Queue<Integer> queue = new LinkedList<Integer>();
+queue.add(1);
+queue.add(2);
+queue.add(3);
+queue.add(4);
+
+while (!queue.isEmpty()) {
+    Integer i = queue.remove();
+    if (i == 2)
+        queue.add(42);
+
+    System.out.println(i);
+}
+  
+
+ The result is the following: 
+
+  1
+2
+3
+4
+42
+  
+
+ As hoped, the element  42  which was added when we hit  2  appeared. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/993177)
+ Using iterators...no, I don't think so. You'll have to hack together something like this: 
+
+      Collection< String > collection = new ArrayList< String >( Arrays.asList( "foo", "bar", "baz" ) );
+    int i = 0;
+    while ( i < collection.size() ) {
+
+        String curItem = collection.toArray( new String[ collection.size() ] )[ i ];
+        if ( curItem.equals( "foo" ) ) {
+            collection.add( "added-item-1" );
+        }
+        if ( curItem.equals( "added-item-1" ) ) {
+            collection.add( "added-item-2" );
+        }
+
+        i++;
+    }
+
+    System.out.println( collection );
+  
+
+ Which yeilds: 
+[foo, bar, baz, added-item-1, added-item-2] 
+
+
+

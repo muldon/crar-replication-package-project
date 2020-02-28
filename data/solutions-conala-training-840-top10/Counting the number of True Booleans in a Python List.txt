@@ -1,0 +1,162 @@
+Query: Counting the number of True Booleans in a Python List
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12765840)
+  True  is equal to  1 . 
+
+  >>> sum([True, True, False, False, False, True])
+3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12765842)
+ You can use  sum() : 
+
+  >>> sum([True, True, False, False, False, True])
+3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12766783)
+  list  has a  count  method: 
+
+  >>> [True,True,False].count(True)
+2
+  
+
+ This is actually more efficient than  sum , as well as being more explicit about the intent, so there's no reason to use  sum : 
+
+  In [1]: import random
+
+In [2]: x = [random.choice([True, False]) for i in range(100)]
+
+In [3]: %timeit x.count(True)
+970 ns ± 41.1 ns per loop (mean ± std. dev. of 7 runs, 1000000 loops each)
+
+In [4]: %timeit sum(x)
+1.72 µs ± 161 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12789109)
+ It is safer to run through  bool  first. This is easily done: 
+
+  >>> sum(map(bool,[True, True, False, False, False, True]))
+3
+  
+
+ Then you will catch everything that Python considers True or False into the appropriate bucket: 
+
+  >>> allTrue=[True, not False, True+1,'0', ' ', 1, [0], {0:0}, set([0])]
+>>> list(map(bool,allTrue))
+[True, True, True, True, True, True, True, True, True]
+  
+
+ If you prefer, you can use a comprehension: 
+
+  >>> allFalse=['',[],{},False,0,set(),(), not True, True-1]
+>>> [bool(i) for i in allFalse]
+[False, False, False, False, False, False, False, False, False]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1608053)
+  
+
+  num_true = sum(1 for condition in d.values() if condition)
+  
+
+ For conciseness (this works because True is a subclass of int with a value 1): 
+
+  num_true = sum(d.values())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54220184)
+ Notice that subtracting  True  ( 1 ) from  False  ( 0 ) in integer terms gives  -1 : 
+
+  res = df['Col1'].astype(int).diff().eq(-1).sum()  # 3
+  
+
+ To apply across a Boolean dataframe, you can construct a series mapping label to count: 
+
+  res = df.astype(int).diff().eq(-1).sum()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49790892)
+  Approach #1  
+
+ Perform element-wise comparison for non-equality and then get  ANY  reduction along last axis and finally count - 
+
+  (a!=b).any(-1).sum()
+  
+
+  Approach #2  
+
+ Probably faster one with  np.count_nonzero  for counting booleans - 
+
+  np.count_nonzero((a!=b).any(-1))
+  
+
+  Approach #3  
+
+ Much faster one with  views  - 
+
+  # https://stackoverflow.com/a/45313353/ @Divakar
+def view1D(a, b): # a, b are arrays
+    a = np.ascontiguousarray(a)
+    b = np.ascontiguousarray(b)
+    void_dt = np.dtype((np.void, a.dtype.itemsize * a.shape[1]))
+    return a.view(void_dt).ravel(),  b.view(void_dt).ravel()
+
+a1D,b1D = view1D(a,b)
+out = np.count_nonzero(a1D!=b1D)
+  
+
+  
+
+  In [32]: np.random.seed(0)
+    ...: m,n = 10000,100
+    ...: a = np.random.randint(0,9,(m,n))
+    ...: b = a.copy()
+    ...: 
+    ...: # Let's set 10% of rows as different ones
+    ...: b[np.random.choice(len(a), len(a)//10, replace=0)] = 0
+
+In [33]: %timeit (a!=b).any(-1).sum() # app#1 from this soln
+    ...: %timeit np.count_nonzero((a!=b).any(-1)) # app#2
+    ...: %timeit np.any(a - b, axis=1).sum() # @Graipher's soln
+1000 loops, best of 3: 1.14 ms per loop
+1000 loops, best of 3: 1.08 ms per loop
+100 loops, best of 3: 2.33 ms per loop
+
+In [34]: %%timeit  # app#3
+    ...: a1D,b1D = view1D(a,b)
+    ...: out = np.count_nonzero((a1D!=b1D).any(-1))
+1000 loops, best of 3: 797 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12766101)
+ I prefer  len([b for b in boollist if b is True])  (or the generator-expression equivalent), as it's quite self-explanatory. Less 'magical' than the answer proposed by Ignacio Vazquez-Abrams. 
+
+ Alternatively, you can do this, which still assumes that bool is convertable to int, but makes no assumptions about the value of True:
+ ntrue = sum(boollist) / int(True)  
+
+
+

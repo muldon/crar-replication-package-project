@@ -1,0 +1,278 @@
+Query: Python requests library how to pass Authorization header with single token
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/47681229)
+ This worked for me: 
+
+  access_token = #yourAccessTokenHere#
+
+result = requests.post(url,
+      headers={'Content-Type':'application/json',
+               'Authorization': 'Bearer {}'.format(access_token)})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47043335)
+ You can also set headers for the entire session: 
+
+  TOKEN = 'abcd0123'
+HEADERS = {'Authorization': 'token {}'.format(TOKEN)}
+
+with requests.Session() as s:
+
+    s.headers.update(HEADERS)
+    resp = s.get('http://example.com/')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19072991)
+ In python: 
+
+  ('<MY_TOKEN>')
+  
+
+  
+
+  '<MY_TOKEN>'
+  
+
+ And requests interprets 
+
+  ('TOK', '<MY_TOKEN>')
+  
+
+ As you wanting requests to use Basic Authentication and craft an authorization header like so: 
+
+  'VE9LOjxNWV9UT0tFTj4K'
+  
+
+ Which is the base64 representation of  'TOK:<MY_TOKEN>'  
+
+ To pass your own header you pass in a dictionary like so: 
+
+  r = requests.get('<MY_URI>', headers={'Authorization': 'TOK:<MY_TOKEN>'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30910035)
+ I was looking for something similar and came across http://docs.python-requests.org/en/latest/user/authentication/. It looks like in the first option you mentioned 
+
+  r = requests.get('<MY_URI>',auth=('<MY_TOKEN>'))
+  
+
+ "auth" takes two parameters: username and password, so the actual statement should be 
+
+  r=requests.get('<MY_URI>',auth=('<YOUR_USERNAME>','<YOUR_PASSWORD>')
+  
+
+ In my case, there was no password, so I left the second parameter in auth field empty as shown below: 
+
+  r=requests.get('<MY_URI',auth=('MY_USERNAME',''))
+  
+
+ Hope this helps somebody :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17428134)
+ What you're missing is the auth type. Your  Authorization  header should be created like this: 
+
+  r.headers['Authorization'] = b"Basic " + base64.b64encode(auth_string)
+  
+
+ You can also achieve the same passing by a tuple as  auth  parameter with: 
+
+  requests.get(url, auth=(username+"/token", token))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36333090)
+ To answer the first half of your question:  
+
+ 
+   how can I send the token with post request to my api 
+ 
+
+ You can use the Python http://docs.python-requests.org/en/master/user/authentication/ library. For the django-rest-framework TokenAuthentication, the token needs to be passed in the header and prefixed by the string  Token  (http://www.django-rest-framework.org/api-guide/authentication/#tokenauthentication): 
+
+  import requests
+mytoken = "4652400bd6c3df8eaa360d26560ab59c81e0a164"
+myurl = "http://localhost:8000/api/user_list"
+
+# A get request (json example):
+response = requests.get(myurl, headers={'Authorization': 'Token {}'.format(mytoken)})
+data = response.json()
+
+# A post request:
+data = { < your post data >}
+requests.post(myurl, data=data, headers={'Authorization': 'Token {}'.format(mytoken)})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50401998)
+ Yes, you can use the HTTP header  Authorization: Bearer <access_token>  with requests or any library you want. 
+
+ Service account 
+
+  from google.oauth2 import service_account
+
+credentials = service_account.Credentials.from_service_account_file(
+    'services.json',
+    scopes=['https://www.googleapis.com/auth/devstorage.read_only'],
+)
+
+# Copy access token
+bearer_token = credentials.token
+  
+
+ User account credentials 
+
+  import json
+
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+
+flow = InstalledAppFlow.from_client_secrets_file(
+    'test.json',
+    'https://www.googleapis.com/auth/devstorage.read_only'
+)
+
+# Construct cache path for oauth2 token
+oauth2_cache_path = 'test-oauth2.json'
+
+credentials = None
+
+try:
+    # Try to load existing oauth2 token
+    with open(oauth2_cache_path, 'r') as f:
+        credentials = Credentials(**json.load(f))
+except (OSError, IOError) as e:
+    pass
+
+if not credentials or not credentials.valid:
+    credentials = flow.run_console()
+
+    with open(oauth2_cache_path, 'w+') as f:
+        f.write(json.dumps({
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes,
+        }))
+
+# Copy access token
+bearer_token = credentials.token
+  
+
+ Use requests lib 
+
+  import requests
+
+# Send request
+response = requests.get(
+    'https://www.googleapis.com/storage/v1/<endpoint>?access_token=%s'
+    % bearer_token)
+# OR
+response = requests.get(
+    'https://www.googleapis.com/storage/v1/<endpoint>',
+    headers={'Authorization': 'Bearer %s' % bearer_token})
+  
+
+ Use googleapiclient lib 
+
+ I recommend you to use build() method and not requests directly because the google library do some checks before sending your API call (like checking params, endpoint, auth and the method you use). This library also raise exceptions when error is detected. 
+
+  from googleapiclient.discovery import build
+
+storage = build('storage', 'v1', credentials=credentials)
+print(storage.objects().get(bucket='bucket', object='file_path').execute())
+  
+
+ More informations here : https://developers.google.com/identity/protocols/OAuth2WebServer#callinganapi (click on "HTTP/REST" tab) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21590966)
+ I prefer using the third-party http://docs.python-requests.org/en/latest/ module. You do indeed need to follow the documentation and use the Authorization: Header documented in http://strava.github.io/api/v3/activities/#get-details 
+
+<p http://docs.python-requests.org/en/latest/api/. We can then create a dict where the key is  Authorization  and its value is a single string  Bearer access_token  
+
+  #install requests from pip if you want
+import requests as r
+url = 'https://www.strava.com/api/v3/activities/108838256'
+header = {'Authorization': 'Bearer access_token'}
+r.get(url, headers=header).json()
+  
+
+ If you really want to use urllib2 
+
+  #using urllib2
+import urllib2
+req = urllib.Request(url)
+req.add_header('Authorization', 'Bearer access_token')
+resp = urllib2.urlopen(req)
+content = resp.read()
+  
+
+ Just remember  access_token  needs to be the literal string value, eg acc09cds09c097d9c097v9 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50796739)
+ You can pass jwt token in auth header as depicted here. 
+https://i.stack.imgur.com/Reluy.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/15697218)
+ I'm the author and maintainer of rauth. 
+
+ Rauth no longer enforces a  redirect_uri , so if your provider allows it then you can forgo using it. However if you ultimate goal is not to setup a server, this should be doable even with a  redirect_uri  required by the provider. You can, for example, redirect to localhost where you could setup a minimal server using Flask or if the provider allows it, some other, arbitrary URL, e.g. Facebook provides https://www.facebook.com/connect/login_success.html for this purpose. And the provider you're using might have a similar scheme. https://github.com/litl/rauth/tree/master/examples/facebook-cli.py with rauth. 
+
+ Another option is to use Bearer Auth with grant_type=password. All OAuth 2.0 providers are  supposed  to support Bearer Auth, but may not implement the password grant_type. This does not require a  redirect_uri , instead you end up passing the server your user credentials and it should return an access token to you. If your provider allows Bearer Auth with grant_type of password, this is probably the ideal for you. Rauth 0.5.3 attempts to use Bearer Auth by default so all you have to do is pass in the grant_type. Be sure to update before giving this a go. 
+
+ Here's a simple example: 
+
+  # assume you have constructed an OAuth2Service object and bound it to `serv`
+
+params = {'grant_type': 'password',
+          'username': 'foo',
+          'password': 'hunter2'}
+
+s = service.get_auth_session(params=params)
+r = s.get('https://example.com/api/some/endpoint')
+  
+
+ Depending on the provider and what you want to do, it may require a little more investigation. However, hopefully this gives you something to start with. 
+
+  Edit  
+
+ I think my comment about password grant_type is a little confusing: I seem to be implying you have to use it with Bearer Auth (here by Bearer Auth I mean affixing the access token in the Authorization header in the Bearer format), but actually you don't. It's acceptable, although discouraged, to send the credentials along in the entity method[1]. If you're using rauth and find that authentication is not working as expected, you may need to disable Bearer Auth like this: 
+
+  s = service.get_auth_session('/some/resource',
+                             data={'code': code},
+                             bearer_auth=False)
+  
+
+ From the spec: 
+
+ [1] "Clients SHOULD make authenticated requests with a bearer token using the Authorization request header field with the Bearer HTTP authorization scheme. Resource servers MUST support this method." 
+
+
+

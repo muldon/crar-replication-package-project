@@ -1,0 +1,257 @@
+Query: applying regex to a pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49823695)
+ Use  pandas.DataFrame.replace  with  regex=True  
+
+  df.replace('^.*:\s*(.*)', r'\1', regex=True)
+  
+
+ Notice that my pattern uses parentheses to capture the part after the  ':'  and uses a raw string  r'\1'  to reference that capture group. 
+
+ 
+
+  
+
+  df = pd.DataFrame([
+    [np.nan, 'thing1: hello'],
+    ['thing2: world', np.nan]
+], columns=['extdkey1', 'extdkey2'])
+
+df
+
+        extdkey1       extdkey2
+0            NaN  thing1: hello
+1  thing2: world            NaN
+  
+
+ 
+
+  df.replace('^.*:\s*(.*)', r'\1', regex=True)
+
+  extdkey1 extdkey2
+0      NaN    hello
+1    world      NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22591024)
+ You could use http://pandas.pydata.org/pandas-docs/stable/basics.html#vectorized-string-methods: 
+
+  import pandas as pd
+
+df = pd.DataFrame(['$40,000*','$40000 conditions attached'], columns=['P'])
+print(df)
+#                             P
+# 0                    $40,000*
+# 1  $40000 conditions attached
+
+df['P'] = df['P'].str.replace(r'\D+', '').astype('int')
+print(df)
+  
+
+  
+
+         P
+0  40000
+1  40000
+  
+
+ since  \D  matches any https://docs.python.org/3/library/re.html#regular-expression-syntax. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36865738)
+ The asked problem can be solved by writing the following code : 
+
+  import re
+def split_it(year):
+    x = re.findall('([\d]{4})', year)
+    if x :
+      return(x.group())
+
+df['Season2'] = df['Season'].apply(split_it)
+  
+
+ You were facing this problem as some rows didn't had year in the string 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22588340)
+ You could remove all the non-digits using  re.sub() : 
+
+  value = re.sub(r"[^0-9]+", "", value)
+  
+
+ http://regex101.com/r/yS7lG7 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51642689)
+ The regex groups the digits on either side of the '.' ignoring all non-digits. The code uses these groups to create the required output. https://regex101.com/r/bo97D9/1 
+
+  import pandas as pd
+
+def clean_input(m):
+    print(m.group(0))
+    if m:
+        val = m.group(1)
+        if m.group(2):
+            val = val + '.' +m.group(2)
+    return val
+
+a = pd.DataFrame({'colA':
+   ['7.8.',
+    '5..3',
+    '%3.2',
+    '   ',
+    '3.*8',
+    '3.8*',
+    '140',
+    '5.5.',
+    '14.5 of HGB',
+    '>14.5',
+    '<14.5',
+    '14,5',
+   '14. 5']})
+a['colA'].str.replace('[^d]*(d+)[^d]*:.)?[^d]*(d)*[^d]*', clean_input)
+  
+
+ Output: 
+
+  0      7.8
+1      5.3
+2      3.2
+3         
+4      3.8
+5      3.8
+6      140
+7      5.5
+8     14.5
+9     14.5
+10    14.5
+11    14.5
+12    14.5
+  
+
+ Regex explanation: 
+
+ 
+  d  - matches a digit  
+  [^<pattern>]  - matches any character except the
+  
+  [^d]  - matches any character except for digits.  
+  [^d]+ - matches one or more of the above.  
+  :)  - is non-capturing group where the matched characters are not captured.  
+  <pattern>?   . 
+  .    .  is a meta character, it has to be escaped with    
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41609175)
+ You could use pandas' replace method; also you may want to keep the thousands separator ',' and the decimal place separator '.' 
+
+  import pandas as pd
+
+df = pd.DataFrame(['$40,000.32*','$40000 conditions attached'], columns=['pricing'])
+df['pricing'].replace(to_replace="\$([0-9,\.]+).*", value=r"\1", regex=True, inplace=True)
+print(df)
+pricing
+0  40,000.32
+1      40000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34968414)
+ You don't need regex for this. This should work: 
+
+  df['col'] = df['col']..  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/25293078)
+ When I try (a variant of) your code I get  NameErr: name 'x' is not defined -- which it isn't. 
+
+ You could use either 
+
+  df['Season2'] = df['Season'].apply(split_it)
+  
+
+  
+
+  df['Season2'] = df['Season'].apply(lambda x: split_it(x))
+  
+
+ but the second one is just a longer and slower way to write the first one, so there's not much point (unless you have other arguments to handle, which we don't here.)  Your function will return a  list , though: 
+
+  >>> df["Season"].apply(split_it)
+74     [1982]
+84     [1982]
+176    [1982]
+177    [1983]
+243    [1982]
+Name: Season, dtype: object
+  
+
+ .  FWIW, I'd use vectized string operations and do something like 
+
+  >>> df["Season"].str[:4].astype(int)
+74     1982
+84     1982
+176    1982
+177    1983
+243    1982
+Name: Season, dtype: int64
+  
+
+  
+
+  >>> df["Season"].str.split("-").str[0].astype(int)
+74     1982
+84     1982
+176    1982
+177    1983
+243    1982
+Name: Season, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45079519)
+ You need to change the  \D  into its equivalent  [^\d]  and add these chars to the http://www.regular-expressions.info/charclass.html#negated: 
+
+  df['A1'].replace(regex=True,inplace=True,to_replace=r'[^\d,.]',value=r'')
+                                                      ^^^^^^^ 
+  
+
+ The  \D  matches any non-digits (so,  .  and  ,  are matched) while  [^\d,.]  matches any char that is not a digit,  .  and  , . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48971264)
+ I believe you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.replace.html with  regex=True  for replace substrings: 
+
+  df_c = df_c.replace(',', '', regex=True)
+  
+
+ If want apply replace only to some columns: 
+
+  cols = ['Year','Month','Title','Term']
+
+df_c[cols] = df_c[cols].replace(',', '', regex=True)
+  
+
+
+

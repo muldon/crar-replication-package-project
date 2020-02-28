@@ -1,0 +1,82 @@
+Query: How do I copy a file in JDK 7?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25309586)
+ You seem on to something interesting. Under Linux someone is allowed to be holding a file handle to the original file, when you open it, actually deleting the directory entry and starting afresh. This does not bother the original file (handle). On closing than, maybe some disk directory work happens. 
+
+ Test it with IOUtils.copyLarge and Files.copy: 
+
+  Path target = Paths.get("/home/d1x/temp/500mb.out");
+Files.copy(fis, target, StandardCopyOption.REPLACE_EXISTING);
+  
+
+ (I once saw a IOUtils.copy that just called copyLarge, but Files.copy should act nice.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8756390)
+ The native zip support in jre can do it.  
+
+  void substitute(ZipInputStream zis, ZipOutputStream zos) {
+  for (ZipEntry ze = zis.getNextEntry(); ze != null; ze = zis.getNextEntry()) {
+    if (ze.getName() is what you want to copy) {
+      zos.putNextEntry(ze)
+      Array[Byte] buffer = new Array[Byte](1024)
+      for (int read = zis.read(buffer); read != -1; read = zis.read(buffer)) {
+        zos.write(buffer, 0, read)
+      }
+      zos.closeEntry
+    }
+  }
+  zos.close()
+  zis.close()
+}
+  
+
+ Note: the data inside zip file is decompressed and compressed again. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2548388)
+ This is the preferred way to copy a file since JDK 1.4 and later 
+
+  public static void copyFile(final File sourceFile, final File destFile) throws IOException
+{
+    if (!destFile.exists())
+    {
+        destFile.createNewFile();
+    }
+
+    FileChannel source = null;
+    FileChannel destination = null;
+    try
+    {
+        source = new FileInputStream(sourceFile).getChannel();
+        destination = new FileOutputStream(destFile).getChannel();
+        destination.transferFrom(source, 0, source.size());
+    }
+    finally
+    {
+       source.close();
+       destination.close();
+    }
+}
+  
+
+ http://java.sun.com/javase/6/docs/api/java/nio/channels/FileChannel.html#transferFrom%28java.nio.channels.ReadableByteChannel,%20long,%20long%29 
+
+ 
+   ... This method is potentially much
+  more efficient than a simple loop that
+  reads from this channel and writes to
+  the target channel. Many operating
+  systems can transfer bytes directly
+  from the filesystem cache to the
+  target channel without actually
+  copying them. ... 
+ 
+
+
+

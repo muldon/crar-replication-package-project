@@ -1,0 +1,200 @@
+Query: How to get the index with the key in Python dictionary?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14539017)
+ Use OrderedDicts: http://docs.python.org/2/library/collections.html#collections.OrderedDict 
+
+  >>> x = OrderedDict((("a", "1"), ("c", '3'), ("b", "2")))
+>>> x["d"] = 4
+>>> x.keys().index("d")
+3
+>>> x.keys().index("c")
+1
+  
+
+ For those using Python 3 
+
+  >>> list(x.keys()).index("c")
+1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11632945)
+ Python dictionaries have a key and a value, what you are asking for is what key(s) point to a given value. 
+
+ You can only do this in a loop: 
+
+  [k for (k, v) in i.iteritems() if v == 0]
+  
+
+ Note that there can be more than one key per value in a dict;  {'a': 0, 'b': 0}  is perfectly legal. 
+
+ If you want ordering you either need to use a list or a http://docs.python.org/library/collections.html#collections.OrderedDict instead: 
+
+  items = ['a', 'b', 'c']
+items.index('a') # gives 0
+items[0]         # gives 'a'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10841196)
+ Here is a somewhat convoluted approach:  
+
+ 
+ Assign an index to each key, storing it with the value in the dictionary. 
+ Keep an integer representing the next index (let's call this next_index). 
+ Keep a linked list of removed indices (gaps). 
+ Keep a dictionary mapping the indices to keys. 
+ When adding a key, check the use (and remove) the first index in the linked list as the index, or if the list is empty use and increment next_index. Then add the key, value, and index to the dictionary ( dictionary[key] = (index, value) ) and add the key to the index-to-key dictionary ( indexdict[index] = key ). 
+ When removing a key, get the index from the dictionary, remove the key from the dictionary, remove the index from the index-to-key dictionary, and insert the index to the front of the linked list. 
+ To get a random key, get a random integer using something like  random.randrange(0, next_index) . If the index is not in the key-to-index dictionary, re-try (this should be rare). 
+ 
+
+ Here is an implementation: 
+
+  import random
+
+class RandomDict(object):
+    def __init__(self): # O(1)
+        self.dictionary = {}
+        self.indexdict = {}
+        self.next_index = 0
+        self.removed_indices = None
+        self.len = 0
+
+    def __len__(self): # might as well include this
+        return self.len
+
+    def __getitem__(self, key): # O(1)
+        return self.dictionary[key][1]
+
+    def __setitem__(self, key, value): # O(1)
+        if key in self.dictionary: # O(1)
+            self.dictionary[key][1] = value # O(1)
+            return
+        if self.removed_indices is None:
+            index = self.next_index
+            self.next_index += 1
+        else:
+            index = self.removed_indices[0]
+            self.removed_indices = self.removed_indices[1]
+        self.dictionary[key] = [index, value] # O(1)
+        self.indexdict[index] = key # O(1)
+        self.len += 1
+
+    def __delitem__(self, key): # O(1)
+        index = self.dictionary[key][0] # O(1)
+        del self.dictionary[key] # O(1)
+        del self.indexdict[index] # O(1)
+        self.removed_indices = (index, self.removed_indices)
+        self.len -= 1
+
+    def random_key(self): # O(log(next_item/len))
+        if self.len == 0: # which is usually close to O(1)
+            raise KeyError
+        while True:
+            r = random.randrange(0, self.next_index)
+            if r in self.indexdict:
+                return self.indexdict[r]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22518718)
+ You can get a list of keys, pick the key by index, then access that key. 
+
+  print(dd[dd.keys()[0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15123364)
+ If you really just want a random value from the available key range, use  random.choice  on the dictionary's values (converted to list form, if Python 3). 
+
+  >>> from random import choice
+>>> d = {1: 'a', 2: 'b', 3: 'c'}
+>>>> choice(list(d.values()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11632943)
+ By definition dictionaries are unordered, and therefore cannot be indexed. For that kind of functionality use an ordered dictionary. http://docs.python.org/library/collections.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49076816)
+ As of Python 3.6, dictionaries now https://mail.python.org/pipermail/python-dev/2016-September/146327.html.  So using Python 3.6+, you could get the index by converting the  dict_keys  to a list. 
+
+  dictionary = {'test':{1,3}, 'test2':{2}, 'test3':{2,3}}
+
+if 'test' in dictionary:
+   print(list(dictionary).index('test'))
+  
+
+ As another example, the following demonstrates how to find the index for a few keys of interest. 
+
+  key_list = list(dictionary)
+keys_of_interest = ['test2', 'test3']
+
+for key in keys_of_interest:
+    print('key: {}, index: {}'.format(key, key_list.index(key)))
+  
+
+ The output from this would be 
+
+  key: test2, index: 1
+key: test3, index: 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36090227)
+ For Python <3.6, you cannot do this because dictionaries in Python have no order to them, so items don't have an index. You could use an  OrderedDict  from the  collections  library instead though, and pass it a tuple of tuples: 
+
+  >>> import collections
+>>> d = collections.OrderedDict((('test',{1,3}),('test2',{2}),('test3',{2,3})))
+>>> d.keys().index('test3') # Replace with list(d.keys()).index("test3") for Python 3
+2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36091349)
+ You can just build an index : 
+
+  ind= {k:i for i,k in enumerate(dictionary.keys())}
+  
+
+ then  ind['test3']  will be 2, with O(1) access time. 
+
+ This is robust while keys are fixed.  If you add/remove keys, you have to rebuild the index.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/18031305)
+ I tried below hope it help you, by getting the keys of dictionary and then if the first index of the key is your start with character then extend the list with the key dictionary list. 
+
+  n='s' # your start with character
+result=[] # your output
+
+for d in dict1.keys():
+    if n == d[0]:
+        result.extend(dict1[d])
+
+print result
+  
+
+
+

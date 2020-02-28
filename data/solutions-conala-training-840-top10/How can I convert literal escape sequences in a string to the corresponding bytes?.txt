@@ -1,0 +1,354 @@
+Query: How can I convert literal escape sequences in a string to the corresponding bytes?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41557523)
+ Using  unicode_escape  
+
+  TL;DR  You can decode bytes using the  unicode_escape  encoding to convert  \xXX  and  \uXXXX  escape sequences to the corresponding characters: 
+
+  >>> r'\xc3\x85lesund'.encode('utf-8').decode('unicode_escape').encode('latin-1')
+b'\xc3\x85lesund'
+  
+
+ 
+
+ First, encode the string to bytes so it can be decoded: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8')
+b'\\xc3\\x85\xe3\x81\x82'
+  
+
+ (I changed the string to show that this process works even for characters outside of Latin-1.) 
+
+ Here's how each character is encoded (note that あ is encoded into multiple bytes): 
+
+ 
+  \  (U+005C) -> 0x5c 
+  x  (U+0078) -> 0x78 
+  c  (U+0063) -> 0x63 
+  3  (U+0033) -> 0x33 
+  \  (U+005C) -> 0x5c 
+  x  (U+0078) -> 0x78 
+  8  (U+0038) -> 0x38 
+  5  (U+0035) -> 0x35 
+  あ  (U+3042) -> 0xe3, 0x81, 0x82 
+ 
+
+ Next, decode the bytes as  unicode_escape  to replace each escape sequence with its corresponding character: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8').decode('unicode_escape')
+'Ã\x85ã\x81\x82'
+  
+
+ Each escape sequence is converted to a separate character; each byte that is not part of an escape sequence is converted to the character with the corresponding ordinal value: 
+
+ 
+  \\xc3  -> U+00C3 
+  \\x85  -> U+0085 
+  \xe3  -> U+00E3 
+  \x81  -> U+0081 
+  \x82  -> U+0082 
+ 
+
+ Finally, encode the string to bytes again: 
+
+  >>> r'\xc3\x85あ'.encode('utf-8').decode('unicode_escape').encode('latin-1')
+b'\xc3\x85\xe3\x81\x82'
+  
+
+ Encoding as Latin-1 simply converts each character to its ordinal value: 
+
+ 
+ U+00C3 -> 0xc3 
+ U+0085 -> 0x85 
+ U+00E3 -> 0xe3 
+ U+0081 -> 0x81 
+ U+0082 -> 0x82 
+ 
+
+ And voilà, we have the byte sequence you're looking for. 
+
+ Using  codecs.escape_decode  
+
+ As an alternative, you can use the  codecs.escape_decode  method to interpret escape sequences in a bytes to bytes conversion, as https://stackoverflow.com/users/2626865/user19087 posted in https://stackoverflow.com/a/37059682 to a similar question: 
+
+  >>> import codecs
+>>> codecs.escape_decode(r'\xc3\x85lesund'.encode('utf-8'))[0]
+b'\xc3\x85lesund'
+  
+
+ However,  codecs.escape_decode  is undocumented, so I wouldn't recommend using it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26311382)
+  ...decode('unicode-escape')  will give you string  '\xe2\x99\xac' . 
+
+  >>> s = '\\xe2\\x99\\xac'
+>>> s.encode().decode('unicode-escape')
+'â\x99¬'
+>>> _ == '\xe2\x99\xac'
+True
+  
+
+ You need to decode it. But to decode it, encode it first with  latin1  (or  iso-8859-1 ) to preserve the bytes. 
+
+  >>> s = '\\xe2\\x99\\xac'
+>>> s.encode().decode('unicode-escape').encode('latin1').decode('utf-8')
+'♬'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50774436)
+  UTF-8 specific interpretation: 
+I assume you have the unicode point represented in hexadecimal in UTF-8 stored as a string in a variable (c). And you want to determine the corresponding character. Then the following code snippet shows how to do it: 
+
+  >>> import binascii
+>>> cp2chr = lambda c: binascii.unhexlify(c.zfill(len(c) + (len(c) & 1))).decode('utf-8')
+>>> cp2chr('C484')
+'Ą'
+  
+
+  Explanation:   zfill  prepends a zero if the number of characters is odd.  binascii.unhexlify  basically takes two characters each, interprets them as hexadecimal numbers and make them one byte. All those bytes are merged to a bytes array. Finally  str.decode('utf-8')  interprets those bytes as UTF-8 encoded data and returns it as string. 
+
+  >>> cp2chr('00C4')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 1, in <lambda>
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc4 in position 1: unexpected end of data
+  
+
+ Your provided example, however, is not valid UTF-8 data. See https://en.wikipedia.org/wiki/UTF-8#Description to identify valid byte sequences.  C4  has bit structure  11000100 , is therefore a continuation byte and requires another character afterwards. 
+
+  Encoding independent interpretation: 
+So you might be looking for interpretation of unicode points independent of the encoding. Then you are looking for the  raw_unicode_escape  encoding: 
+
+  >>> cp2chr = lambda c: (b'\\u' + c.encode('ascii')).decode('raw_unicode_escape') 
+>>> cp2chr('00C4')
+'Ä'
+  
+
+  Explanation:   raw_unicode_escape  convert the unicode escape sequences given in a byte string and returns it as string:  b'\\u00C4'.decode('raw_unicode_escape')  gives  Ä . This is what python does internally if you write  \uSOMETHING  in your source code. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36126220)
+   
+
+  d1 = '\u010d'
+  
+
+ you actually get this string: 
+
+  In [3]: d1
+Out[3]: '\\u010d'
+  
+
+ This is because "normal" (non-Unicode) strings don't recognize the  \unnnn  escape sequence and therefore convert it to a literal backslash, followed by  unnnn . 
+
+ In order to decode that, you need to use the https://docs.python.org/2/library/codecs.html#python-specific-encodings: 
+
+  In [4]: print d1.decode("unicode_escape").encode('utf-8')
+č
+  
+
+ But of course you shouldn't use Unicode escape sequences in non-Unicode strings in the first place. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13794050)
+ You want to use the built-in codec  unicode_escape . 
+
+ If  t  is already a  bytes  (an 8-bit string), it's as simple as this: 
+
+  >>> print(t.decode('unicode_escape'))
+Róisín
+  
+
+ If  t  has already been decoded to Unicode, you can to encode it back to a  bytes  and then  decode  it this way. If you're sure that all of your Unicode characters have been escaped, it actually doesn't matter what codec you use to do the encode. Otherwise, you could try to get your original byte string back, but it's simpler, and probably safer, to just force any non-encoded characters to get encoded, and then they'll get decoded along with the already-encoded ones: 
+
+  >>> print(t.encode('unicode_escape').decode('unicode_escape')
+Róisín
+  
+
+ In case you want to know how to do this kind of thing with regular expressions in the future, note that http://docs.python.org/3/library/re.html?highlight=unicode_escape#re.sub lets you pass a function instead of a pattern for the  repl . And you can convert any hex string into an integer by calling  int(hexstring, 16) , and any integer into the corresponding Unicode character with  chr  (note that this is the one bit that's different in Python 2—you need  unichr  instead).  
+
+  >>> re.sub(r'(\\u[0-9A-Fa-f]+)', lambda matchobj: chr(int(matchobj.group(0)[2:], 16)), t)
+Róisín
+  
+
+ Or, making it a bit more clear: 
+
+  >>> def unescapematch(matchobj):
+...     escapesequence = matchobj.group(0)
+...     digits = escapesequence[2:]
+...     ordinal = int(digits, 16)
+...     char = chr(ordinal)
+...     return char
+>>> re.sub(r'(\\u[0-9A-Fa-f]+)', unescapematch, t)
+Róisín
+  
+
+ The  unicode_escape  codec actually handles  \U ,  \x ,  \X , octal ( \066 ), and special-character ( \n ) sequences as well as just  \u , and it implements the proper rules for reading only the appropriate max number of digits (4 for  \u , 8 for  \U , etc., so  r'\\u22222'  decodes to  '∢2'  rather than  '' ), and probably more things I haven't thought of. But this should give you the idea. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43298487)
+ What you have in one case is  unicode-escape  sequences that represent a single Unicode character.  In the other case you have literal characters \,u,... that represent six characters.  this can be illustrated using raw strings, which ignore Unicode escape sequences: 
+
+  >>> text = '\u00e9ps\u00e9g'
+>>> print(text)
+épség
+>>> text = r'\u00e9ps\u00e9g'
+>>> print(text)
+\u00e9ps\u00e9g
+  
+
+ To convert a Unicode string with literal escape sequences, first you need a byte string, then decode with the  unicode_escape  codec.  To obtain a byte string from a Unicode string with literal escape codes for non-ASCII characters, encode it with the  ascii  codec: 
+
+  >>> text = r'\u00e9ps\u00e9g'
+>>> print(text)
+\u00e9ps\u00e9g
+>>> print(text.encode('ascii').decode('unicode_escape'))
+épség
+  
+
+ From your comment you may have text from a JSON data file.  If it is proper JSON, this should decode it: 
+
+  >>> s = r'"\u00e9ps\u00e9g \ud83c\udf0f"'
+>>> print(s)
+"\u00e9ps\u00e9g \ud83c\udf0f"
+>>> print(json.loads(s))
+épség 
+  
+
+ Note that a JSON string is quoted.  It would not decode without the double-quotes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30890229)
+ If the  git  format contains literal  \ddd  sequences (so up to 4 characters per filename byte) you can use the  string_escape  (Python 2) or  unicode_escape  (Python 3) codecs to have Python interpret the escape sequences. 
+
+ You'll get UTF-8 data; my terminal is set to interpret UTF-8 directly: 
+
+  >>> git_data = r"\303\271\303\240\303\250\303\262\303\271\303\250\303\262\303\271\303\271\303\250.txt"
+>>> git_data.decode('string_escape')
+'\xc3\xb9\xc3\xa0\xc3\xa8\xc3\xb2\xc3\xb9\xc3\xa8\xc3\xb2\xc3\xb9\xc3\xb9\xc3\xa8.txt'
+>>> print git_data.decode('string_escape')
+ùàèòùèòùùè.txt
+  
+
+ You'd want to decode that as UTF-8 to get text: 
+
+  >>> git_data.decode('string_escape').decode('utf8')
+u'\xf9\xe0\xe8\xf2\xf9\xe8\xf2\xf9\xf9\xe8.txt'
+>>> print git_data.decode('string_escape').decode('utf8')
+ùàèòùèòùùè.txt
+  
+
+ In Python 3, the  unicode_escape  codec gives you (Unicode) text so an extra encode to Latin-1 is required to make it bytes again: 
+
+  >>> git_data = rb"\303\271\303\240\303\250\303\262\303\271\303\250\303\262\303\271\303\271\303\250.txt"
+>>> git_data.decode('unicode_escape').encode('latin1').decode('utf8')
+'ùàèòùèòùùè.txt'
+  
+
+ Note that  git_data  is a  bytes  object before decoding. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17527101)
+ Use a nested list comprehension: 
+
+  encoded = [[s.encode('utf8') for s in t] for t in resultsList]
+  
+
+ This produces a list of lists containing byte strings of UTF-8 encoded data. 
+
+ If you were to print these lists, you'll see Python represent the contents of the Python byte strings as Python literal strings; with quotes and with any bytes that aro not printable ASCII  codepoints represented with escape sequences: 
+
+  >>> l = ['Kaiserstra\xc3\x9fe']
+>>> l
+['Kaiserstra\xc3\x9fe']
+>>> l[0]
+'Kaiserstra\xc3\x9fe'
+>>> print l[0]
+Kaiserstraße
+  
+
+ This is  normal  as Python presents this data for debugging purposes. The  \xc3  and  \x9f  escape sequences represent the two UTF-8 bytes C39F (hexadecimal) that are used to encode the small ringel-es character. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48052730)
+ You should take a look at https://docs.python.org/2.0/ref/strings.html document, which says: 
+
+ 
+   The backslash ( \ ) character is used to escape characters that otherwise have a special meaning, such as newline, backslash itself, or the quote character. String literals may optionally be prefixed with a letter  r' or R'; such strings are called raw strings and use different rules for backslash escape sequences. 
+ 
+
+ In your example string,  \t  are not two characters but a single character which represents  ASCII Horizontal Tab (TAB) . 
+
+ In order to tell your Python interpreter that these two are separate character, you should be using raw string (using  r  before string  "" )as: 
+
+  >>> list(r"    Hello \t World.")
+[' ', ' ', ' ', ' ', 'H', 'e', 'l', 'l', 'o', ' ', '\\', 't', ' ', 'W', 'o', 'r', 'l', 'd', '.']
+  
+
+ But here also you'll see two  \\  in the resultant list, which is just a Python's way of representing  \ . 
+
+ For Python interpreter  '\'  is an invalid string because  \'  in a string represent  Single quote (') . Hence, when you do  '\' , it raises below error because for Python there is no end quote present in the string: 
+
+  >>> '\'
+  File "<stdin>", line 1
+    '\'
+      ^
+SyntaxError: EOL while scanning string literal
+  
+
+ 
+
+ If you can't declare your string as raw string (as it's already defined or imported from some other source), you may convert it to byte string by setting encoding as "unicode-escape": 
+
+  >>> my_str = "    Hello \t World."
+
+>>> unicode_escaped_string = my_str.encode('unicode-escape')
+>>> unicode_escaped_string
+b'    Hello \\t World.'
+  
+
+ Since it is a byte-string, you need to call https://docs.python.org/3/library/functions.html#chr to get the corresponding character value of each byte. For example: 
+
+  >>> list(map(chr, unicode_escaped_string))
+[' ', ' ', ' ', ' ', 'H', 'e', 'l', 'l', 'o', ' ', '\\', 't', ' ', 'W', 'o', 'r', 'l', 'd', '.']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38209791)
+  \uhhhh  is an  escape syntax  in the string literal. You'd have to produce a raw string (where the escape syntax is ignored), then  re-apply  the normal Python parser handling of escapes: 
+
+  import codecs
+
+print(codecs.decode(r'Y\u208{0}'.format(1), 'unicode_escape'))
+  
+
+ However, you'd be better of using the https://docs.python.org/3/library/functions.html#chr to produce the whole character: 
+
+  print('Y{0}'.format(chr(0x2080 + 1)))
+  
+
+ The  chr()  function takes an integer and outputs the corresponding Unicode codepoint in a string. The above defines a hexadecimal number and adds 1 to produce your desired  2080  range Unicode character. 
+
+
+

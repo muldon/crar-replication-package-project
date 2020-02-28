@@ -1,0 +1,235 @@
+Query: In Django, how do I filter based on all entities in a many-to-many relation instead of any?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38621726)
+  
+
+  from django.db.models import IntegerField, Case, When, F
+
+Distinct_Alert.objects.filter(
+    alert_type=alert_type
+).annotate(
+    num_entities=Count('entities'),
+    num_relevant_entities=Count(
+        Case(When(entities__in=relevant_entities, then=1),
+             default=None,
+             output_field=IntegerField()),
+    ),
+).filter(
+    num_entities=F('num_relevant_entities'),
+    num_relevant_entities=len(relevant_entities),
+)
+  
+
+ Your query: 
+
+  Distinct_Alert.objects.filter(
+    entities__in=relevant_entities,
+    alert_type=alert_type
+).annotate(
+    num_entities=Count('entities')
+).filter(
+    num_entities=len(relevant_entities)
+)
+  
+
+ https://docs.djangoproject.com/en/1.9/topics/db/aggregation/#order-of-annotate-and-filter-clauses. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18317340)
+ The simplest approach to achieve this would be checking for equalty over the whole instance (instead of the id) in the  ManyToManyField . That looks if the instance is inside the many to many relationship. Example: 
+
+  module.workflow_set.filter(trigger_roles=self.role, allowed=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35490787)
+ I'd use https://docs.djangoproject.com/en/1.9/ref/models/querysets/#count, https://docs.djangoproject.com/en/1.9/topics/db/aggregation/#aggregating-annotations, https://docs.djangoproject.com/en/1.9/ref/models/querysets/#lte and https://docs.djangoproject.com/en/1.9/ref/models/querysets/#std%3afieldlookup-isnull to make something like 
+
+  from django.db.models import Count
+results = AdminEnteredRestaurant.objects.annotate(num_photos=Count('restaurant__photo')) \
+                                        .filter(num_photos__lte=1) \
+                                        .filter(restaurant__menu__isnull =True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11218115)
+ Since you are using https://developers.google.com/appengine/docs/python/datastore/modelclass here is one way on how can you count all your entities with some filters that might be over the 1000 that is a hard limit (if it's still applicable): 
+
+  FETCH_LIMIT = 1000
+
+def count_model(x=1, y=True, z=3):
+  model_qry = MyModel.all(keys_only=True)
+  model_qry.filter('x =', x)
+  model_qry.filter('y =', y)
+  model_qry.filter('z =', z)
+
+  count = None
+  total = 0
+  cursor = None
+  while count != 0:
+    if cursor:
+      count = model_qry.with_cursor(cursor).count()
+    else:
+      count = model_qry.count(limit=FETCH_LIMIT)
+
+    total += count
+    cursor = model_qry.cursor()
+  return total
+  
+
+ If you're going to use the above in a request then you might timeout so consider using https://stackoverflow.com/a/11204482/8418 instead. 
+
+ Also as FoxyLad proposed, it is much better to keep running totals in a separate entity, for performance reasons and having the above method as a cron job that runs on regular basis to have the stats in a perfect sync. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13904459)
+ Is it true that you have a many-to-many relation between  Person  and  Project ? If so, you can simplify your setup like this: 
+
+  class Person(models.Model):
+    projects = models.ManyToManyField('Project')
+    name = models.CharField(max_length=100)     # just an example
+
+class Project(models.Model):
+    # ... some fields here ...
+  
+
+ You can then e.g. issue the following query to get all the projects from people who are called John: 
+
+  Project.objects.filter(person_set__name="John")
+  
+
+ The usage of  select_related()  can speed up the lookup a bit when you have lots of queries which follow relations between different database tables but you don't need it to accomplish what you want. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52590518)
+ If you need to get list of teams of specific player use  exact  lookup instead of  contains : 
+
+  class TeamFilter(django_filters.FilterSet):
+    teams = django_filters.NumberFilter(
+        field_name='players_id',
+        lookup_type='exact',
+    )
+
+    class Meta:
+        model = Team
+        fields = ('players', 'teams',)
+  
+
+ Also use  field_name  as argument instead of  players . 
+
+ If you want to show only current user's team, you'd better overrride view's  get_queryset  method: 
+
+  class MyTeamListAPIView(ListAPIView):
+    serializer_class = MyTeamListSerializer
+    permission_classes = [IsOwnerOrReadOnly]
+    pagination_class = ProfileLimitPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+    filter_fields = ('players')
+    filter_class = TeamFilter
+
+    def get_queryset(self):
+        return Team.objects.filter(players=self.request.user)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14532590)
+ Finally I found the answer by stepping through the code of tastypie. It turned out, that the model field in the definition of the  ToMany  relation ( topping_set  here) can be set to a callable. 
+
+ Inside the callable you get as only parameter the  bundle  of data used to dehydrate the resulting data. Inside this  bundle  is always the request and so the  user  instance I want to use to filter. 
+
+  
+
+  toppings = fields.ToManyField(
+    'project.app.api.ToppingResource', 
+    'topping_set'
+)
+  
+
+  
+
+  toppings = fields.ToManyField(
+    'project.app.api.ToppingResource', 
+    lambda bundle: Topping.objects.filter(
+        pizza=bundle.obj, 
+        used_by=bundle.request.user
+    )
+)
+  
+
+ and that is it! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46319935)
+ You are querying for  agency_id  with just one underscore. I corrected your queries below. Also, in django it's more common to use  pk  instead of  id  however the behaviour is the same. Further, there's no need for three separate queries as you can combine everything into one. 
+
+ Also note that your fields  area_id  and  house_pk  are unnecessary, django automatically creates primary key fields which area accessible via  modelname__pk . 
+
+  # note how i inlined your first query in the .filter() call
+area_list = AreaHouse.objects \
+            .filter(house__agency__pk=90) \
+            .annotate(num_houses=Count('house')) \  # <- 'house'
+            .filter(num_houses__gte=100) \
+            .values('area')
+
+# note the double underscore
+area_ids = Area.objects.filter(area__in=area_list)\
+                       .values_list('area__pk', flat=True)
+  
+
+ you could simplify this even further if you don't need the intermediate results. here are both queries combined: 
+
+  area_ids = AreaHouse.objects \
+            .filter(house__agency__pk=90) \
+            .annotate(num_houses=Count('house')) \
+            .filter(num_houses__gte=100) \
+            .values_list('area__pk', flat=True)
+  
+
+ Finally, you seem to be manually defining a many-to-many relation in your model (through  AreaHouse ). There are better ways of doing this, please read the https://docs.djangoproject.com/en/1.11/topics/db/examples/many_to_many/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49325699)
+ Counting entries that are appearing in either of relations can be achieved by counting entries from 1st relation + counting entries from 2nd relation - counting entries from both relations. That can be achieved in Django by this queryset: 
+
+  participations = Person.objects.filter(
+    Q(resources_contributing_to__in=resources) |
+    Q(resources_involved_in__in=resources)
+).annotate(
+    count=Count('resouces_contributing_to__id', distinct=True) + Count('resources_involved_in__id', distinct=True) - Count(Case(When(resources_involved_in__id=F('resouces_contributing_to__id'), then='resources_involved_in__id')), distinct=True),
+).values_list(
+    'pk',
+    'name',
+    'count'
+).order_by('-count')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21104689)
+ Based on @Gordon Linoff answer and with two tables  A  and  B  where  A  has a relation one-
+to-many towards  B  called  A.bs  the SqlAlchemy equivalent would be:  
+
+  from sqlalchemy import func  
+session.query(A).join(B).filter(B.id.in_(<your_list>)).group_by(A.id).having(func.count(A.bs) == len(<your_list>)).all()
+  
+
+
+

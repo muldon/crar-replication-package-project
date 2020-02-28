@@ -1,0 +1,221 @@
+Query: Python cant find module in the same folder
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/44713846)
+ Here is the generic solution I use. It solves the problem for importing from modules in the same folder:  
+
+  import os.path
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+  
+
+ Put this at top of the module which gives the error "No module named xxxx" 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8749214)
+ Python doesn't check if your file is a symlink or not! Your problem lies probably in renaming the modules or not having them in your search-path! 
+
+ If ModuleA becomes ModuleB and you try to import ModuleA it can't find it, because it doesn't exist. 
+
+ If you moved ModuleA into another directory and you generate a symlink with another name, which represents a new directory, this new directory must be the common parent directory of your script and your module, or the symlink directory must be in the search path. 
+
+ BTW it's not clear if you mean module or package. The directory containing the  __init__.py  file becomes a package of all files with the extension  .py  (= modules) residing therein. 
+
+ Example 
+
+  DIRA
+  + __init__.py    <-- makes DIRA to package DIRA
+  + moduleA.py     <-- module DIRA.moduleA
+  
+
+ Moving and symlink 
+
+  /otherplace/DIRA  <-+
+                    |  points to DIRA
+mylibraries/SYMA  --+  symbolic link
+  
+
+ If SYMA has the same name as DIRA and your script is in the directory SYMA then it should just work fine.  
+
+  import sys
+sys.path.append('/path/to/your/package/root')
+  
+
+ If you want to import a module from your package SYMA you must: 
+
+  import SYMA.ModuleA
+  
+
+  
+
+  import SYMA
+  
+
+ will import the packagename, but not the modules in the package into your namespace! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2631947)
+ Python has a built-in module for using temporary files and folders. You probably want http://docs.python.org/library/tempfile.html#tempfile.mkdtemp. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30449940)
+ As James said, you need to place empty file  __init__.py  in your folder. Then Python will think of this folder as of a package and you will be able to do your imports. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13131538)
+ Nothing much changes you just call  os.walk  and it will recursively go thru the directory and return files e.g. 
+
+  for root, dirs, files in os.walk('/tmp'):
+    if os.path.basename(root) != 'modules':
+        continue
+    data = [parse_file(os.path.join(root,f)) for f in files]
+  
+
+ Here I am checking files only in folders named 'modules' you can change that check to do something else, e.g. paths which have module somewhere  root.find('/modules') >= 0  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/12475766)
+ There are two distinct concepts you are confusing:  packages  and  modules . 
+
+ A  module  is what you think it is: a Python script containing classes, variables, whatever. You import it by its filename, and can then access the variables in its namespace. 
+
+ A  package  is a collection of modules which are grouped together inside a folder. If the folder contains a file called  __init__.py , Python will allow you to import the entire folder as if it were a module. This will run the code in  __init__ , but will not necessarily import all of the modules in the folder. (This is a deliberate design choice: packages are often very large, and importing all of the modules could take a very long time.) 
+
+ The only things which are exported (as  package.thing ) by default are the variables defined inside  __init__ . If you want  submodule  to be available as  package.submodule , you need to import it inside  __init__ . 
+
+  __all__  is a related concept. In brief, it defines what is imported when you do  from package import * , because it's not easy for Python to work out what that should be otherwise. You don't in general need it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2674552)
+ I am not sure that I understand your question correctly, but here is a simple way to have several package versions without collisions. 
+
+  
+
+  C:\tmp\eggs>dir /B /S
+C:\tmp\eggs\libs
+C:\tmp\eggs\test.py
+C:\tmp\eggs\libs\foo-1.0.egg
+C:\tmp\eggs\libs\foo-2.0.egg
+C:\tmp\eggs\libs\foo-1.0.egg\foo.py
+C:\tmp\eggs\libs\foo-2.0.egg\foo.py
+  
+
+ Now the contents of files: 
+
+  # contents of C:\tmp\eggs\libs\foo-1.0.egg\foo.py
+version=(1,0)
+  
+
+ 
+
+  # contents of C:\tmp\eggs\libs\foo-2.0.egg\foo.py
+version=(2,0)
+  
+
+ 
+
+  #contents of C:\tmp\eggs\test.py:
+
+import sys
+sys.path.insert(1, 'libs')
+from pkg_resources import require
+
+require('foo<1.5')
+import foo
+print foo.version
+# will output (1,0)
+  
+
+ If you change  'foo<1.5'  to  'foo>1.5' , or  'foo'  output will change to  (2,0)  
+
+ Details you will find in http://peak.telecommunity.com/DevCenter/PythonEggs#automatic-discovery documentation. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37124336)
+ Same folder</h3>
+
+ If the module is in your working directory, http://docs.python.org/3.6/library/importlib.html#importlib.util.find_spec probably suffices for your purposes.  
+
+ For example if you just want to load the module, you can use: 
+
+ 
+   deprecated in Python 3.5 and higher:  
+
+  toolbox_specs = importlib.util.find_spec("Tools")
+toolbox = toolbox_specs.loader.load_module()
+   
+   introduced in Python 3.5 and higher:  
+
+  toolbox_specs = importlib.util.find_spec("Tools")
+toolbox = importlib.util.module_from_spec(toolbox_specs)
+toolbox_specs.loader.exec_module(toolbox)
+  
+
+  Caveat: I haven’t tested this, but it’s straight from the http://docs.python.org/3.6/library/importlib.html#examples, so I suppose it works.   
+ 
+
+ You can assess several other properties with the  toolbox_specs  object.
+However, e.g., a corresponding file object is not amongst them.
+If you really need this in Python 3, you probably have to obtain the file’s path and open it with other methods. 
+
+ Different folder</h3>
+
+ To find a module in a different folder, you have to work with a http://docs.python.org/3/library/importlib.html#importlib.machinery.FileFinder, which in turn needs to know the module’s type. For example, if your module is an extension, you can find the specs as follows: 
+
+  loader_details = (
+    importlib.machinery.ExtensionFileLoader,
+    importlib.machinery.EXTENSION_SUFFIXES
+    )
+
+toolsfinder = importlib.machinery.FileFinder("Folder_of_Tools", loader_details)
+toolbox_specs = toolsfinder.find_spec("Tools")
+  
+
+ You can then process  toolbox_specs  as described above. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12476364)
+  sys.path  holds the Python search path. Before trying to  import  your modules and packages, set it to include your path: 
+
+  import sys
+sys.path.insert(0, 'your_path_here')
+import custom_module
+  
+
+ More detail in the http://docs.python.org/library/sys.html#sys.path and in this https://stackoverflow.com/questions/10955024/how-is-the-python-module-search-path-determined-on-mac-os-x 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/4858720)
+ Go to the folder you installed the Python libraries in, check under the version\Python folder - you should find the bltinmodule.c file. 
+
+ Something along the lines of C:\python\2.X\Python 
+
+ On CentOS it's... 
+
+  root@xenos ~> locate bltinmodule.c
+/usr/src/debug/Python-2.5.1/Python/bltinmodule.c
+/usr/src/debug/Python-2.6.4/Python/bltinmodule.c
+  
+
+ Perhaps you need http://packages.ubuntu.com/dapper/python-dev 
+
+
+

@@ -1,0 +1,257 @@
+Query: Insert Null into SQLite3 in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20212024)
+ Use a tuple, I.E.: 
+
+  db.execute("INSERT INTO present VALUES('test2', ?, 10)", (None,))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26042434)
+ The https://docs.python.org/3/library/sqlite3.html#introduction says: 
+
+ 
+   The following Python types can thus be sent to SQLite without any problem: 
+
+  Python type   SQLite type
+None          NULL
+...
+  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48392568)
+ After fixing the  UPDATE INTO  error (no  INTO  after  UPDATE ) and researching the documentation further I found the following resources:
+https://www.sqlite.org/lang_update.html and https://www.tutorialspoint.com/sqlite/sqlite_update_query.htm. 
+
+ My code now produces the table appearance I wanted to achieve by doing the following. The first part is unchanged, this creates each new row: 
+
+  c.execute('INSERT INTO conditionsAndTimesToPlot (condition_direction) VALUES (?)', (condition,))
+conn.commit()
+  
+
+ This produces say Left | NULL | NULL. Then instead of INSERT for the next column what you can do is UPDATE and look for the next column where there is a NULL value: 
+
+  c.execute("UPDATE conditionsAndTimesToPlot SET start_time = (?) WHERE start_time IS NULL", (start_time_full,))
+conn.commit()
+  
+
+ This produces say Left | 44:03.1 | NULL. Then the same for the end time, look for a NULL value: 
+
+  c.execute("UPDATE conditionsAndTimesToPlot SET end_time = (?) WHERE end_time IS NULL", (end_time_full,))
+conn.commit()
+  
+
+ This produces say Left | 44:03.1 | 44:05.2. The problem is now fully resolved. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41939521)
+ I have two solutions. 
+
+ 1.Your first try, if you only want to insert the columns you choose, you can follow this syntax: 
+
+  INSERT INTO TABLE_NAME (column1, column2, column3,...columnN)] VALUES (value1, value2, value3,...valueN);
+  
+
+  
+
+  c.execute("INSERT INTO ENERGYLOG (totalenergy) VALUES (?);", (total_energy,))
+  
+
+ 2.Your second try, if you want to insert all columns, you can replace 'NULL' to 'None': 
+
+  c.execute("INSERT INTO ENERGYLOG VALUES (?, ?);", (None, total_energy))
+  
+
+ Because python don't know 'NULL'.  
+
+ In SQL we use 'NULL' and in python we use 'None'. 
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41939112)
+ You should explicitly list what columns you want to insert into: 
+
+  c.execute("INSERT INTO ENERGYLOG (totalenergy) VALUES (?);", (total_energy,))
+  
+
+ 
+
+ As far as parameterizing  NULL , you should specify  None  as the parameter value: 
+
+  c.execute("INSERT INTO ENERGYLOG VALUES (?, ?);", (None, total_energy))
+  
+
+ Or, use  NULL  and a single parameter: 
+
+  c.execute("INSERT INTO ENERGYLOG VALUES (NULL, ?);", (total_energy,))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51740434)
+ Last time tested on: August 2018 </h3>
+
+ 
+ Python 3.6.1 
+ Python 2.7.10 
+ 
+
+ 
+
+ I'm not sure if it was the case back when the original question was posted, but as of today:
+ 
+
+  db.execute("INSERT INTO present VALUES('test', ?, 9)", "This is a test!")
+  
+
+  
+
+
+
+  sqlite3.ProgrammingError: Incorrect number of bindings supplied. The current statement uses 1, and there are 15 supplied.
+  
+
+ . 
+
+ Because  execute()  accepts  sql  — which is sql query to execute, and  parameters  — which is iterable, containing query parameters (currently this is true for both https://docs.python.org/2.7/library/sqlite3.html#sqlite3.Cursor.execute and https://docs.python.org/3.7/library/sqlite3.html#sqlite3.Cursor.execute. As string is iterable — it treats it accordingly. 
+
+ https://docs.python.org/3/library/sqlite3.html#introduction clearly state, that Python  None  type correspond to SQLite  NULL  type. 
+
+ So, correct way to do it would be:
+ 
+
+  db.execute("INSERT INTO present VALUES('test2', :null, 10)", {'null':None})
+
+#or
+
+db.execute("INSERT INTO present VALUES('test2', ?, 10)", (None,))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44894594)
+  
+
+  import sqlite3 as sql
+import os 
+
+sqlite_file = "db.sqlite"
+conn = sql.connect(sqlite_file)
+c = conn.cursor()
+
+c.execute("""CREATE TABLE IF NOT EXISTS accounts (
+          id TEXT DEFAULT 'account' UNIQUE,
+          pw TEXT DEFAULT 'password',
+          email TEXT UNIQUE);""")
+
+items = [
+  ("id1", "pw1", "user1@gmail.com"),
+  ("id2", "pw2", "user2@gmail.com"),
+  ("id3", "pw3", "user3@gmail.com")
+]
+
+for item in items: 
+    c.execute("""INSERT INTO accounts VALUES (?,?,?);""", item)
+
+c.execute("""INSERT INTO accounts(id, email) VALUES ('id4', 'user4@gmail.com');""")
+c.execute("""INSERT INTO accounts(email) VALUES ('account@gmail.com');""")
+
+for row in c.execute('SELECT * FROM accounts'):
+    print(row)
+
+conn.commit()
+conn.close()
+  
+
+ Output: 
+
+  ('id1', 'pw1', 'user1@gmail.com')
+('id2', 'pw2', 'user2@gmail.com')
+('id3', 'pw3', 'user3@gmail.com')
+('id4', 'password', 'user4@gmail.com')
+('account', 'password', 'account@gmail.com')
+  
+
+ If you respect the order of each field, you can check the length of the  item  tuple to do insertions in the loop: 
+
+  for item in items: 
+    if len(item) == 3:
+        c.execute("""INSERT INTO accounts VALUES (?,?,?);""", item)
+    elif len(item) == 2:
+        c.execute("""INSERT INTO accounts(pw, email) VALUES (?,?);""", item)
+    elif len(item) == 1:
+        c.execute("""INSERT INTO accounts(email) VALUES (?);""", item)
+  
+
+ But  (none, none, 'email')  doesn't make sense here, to insert NULL data use the keyword  NULL  (if python it is  None  not  none  also). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21142587)
+ If you want to insert Python values into a SQL database, just naming the Python variables in the SQL statement is  not enough . The SQL database instead thinks you wanted to insert values taken from the table or another query instead. 
+
+ Use http://docs.python.org/2/library/sqlite3.html#sqlite3.Cursor.execute instead, and pass in the actual values: 
+
+  params = (userName, password, confirmPassword, firstName, lastName,
+          companyName, email, phoneNumber, addressLine1, addressLine2, 
+          addressLine3, zipCode, province, country, regDate)
+
+c.execute("INSERT INTO People VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", params)
+  
+
+ The  NULL  value is for the  p_ID  primary key column; the alternative is to name all the columns you want to insert values for. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14142658)
+ The error message you received is straightforward,  You cannot execute SELECT statements in executemany()  
+
+ Simply change your  executemany  to execute: 
+
+  ids=[1,2]
+for id in ids:
+    cur.execute('SELECT * FROM Genre WHERE id=?', id)
+    rows = cur.fetchall()
+    print rows
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39106289)
+ According to sqlite3 docs: 
+
+ 
+   To use other Python types with SQLite, you must adapt them to one of the sqlite3 module’s supported types for SQLite: one of NoneType, int, float, str, bytes. 
+ 
+
+ So you can  adapt   np.int64  type. You should do something like this: 
+
+  import numpy as np
+import sqlite3
+
+sqlite3.register_adapter(np.int64, lambda val: int(val))
+conn = sqlite3.connect(":memory:")
+conn.execute("CREATE TABLE foo (id INTEGER NOT NULL, primary key (id))")
+conn.execute("insert into foo values(?)", (np.int64(100),))
+  
+
+ https://docs.python.org/3.5/library/sqlite3.html#registering-an-adapter-callable 
+
+
+

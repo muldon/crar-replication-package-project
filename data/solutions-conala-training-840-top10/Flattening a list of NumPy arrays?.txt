@@ -1,0 +1,489 @@
+Query: Flattening a list of NumPy arrays?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33718947)
+ You could use http://docs.scipy.org/doc/numpy/reference/generated/numpy.concatenate.html, which as the name suggests, basically concatenates all the elements of such an input list into a single NumPy array, like so - 
+
+  import numpy as np
+out = np.concatenate(input_list).ravel()
+  
+
+ If you wish the final output to be a list, you can extend the solution, like so - 
+
+  out = np.concatenate(input_list).ravel().tolist()
+  
+
+  
+
+  In [24]: input_list
+Out[24]: 
+[array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]]),
+ array([[ 0.00353654]])]
+
+In [25]: np.concatenate(input_list).ravel()
+Out[25]: 
+array([ 0.00353654,  0.00353654,  0.00353654,  0.00353654,  0.00353654,
+        0.00353654,  0.00353654,  0.00353654,  0.00353654,  0.00353654,
+        0.00353654,  0.00353654,  0.00353654])
+  
+
+ Convert to list - 
+
+  In [26]: np.concatenate(input_list).ravel().tolist()
+Out[26]: 
+[0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654,
+ 0.00353654]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48008710)
+ I was looking for a solution to flatten and unflatten nested lists of numpy arrays, but only found this unanswered question, so I came up with this: 
+
+  def _flatten(values):
+    if isinstance(values, np.ndarray):
+        yield values.flatten()
+    else:
+        for value in values:
+            yield from _flatten(value)
+
+def flatten(values):
+    # flatten nested lists of np.ndarray to np.ndarray
+    return np.concatenate(list(_flatten(values)))
+
+def _unflatten(flat_values, prototype, offset):
+    if isinstance(prototype, np.ndarray):
+        shape = prototype.shape
+        new_offset = offset + np.product(shape)
+        value = flat_values[offset:new_offset].reshape(shape)
+        return value, new_offset
+    else:
+        result = []
+        for value in prototype:
+            value, offset = _unflatten(flat_values, value, offset)
+            result.append(value)
+        return result, offset
+
+def unflatten(flat_values, prototype):
+    # unflatten np.ndarray to nested lists with structure of prototype
+    result, offset = _unflatten(flat_values, prototype, 0)
+    assert(offset == len(flat_values))
+    return result
+  
+
+ Example: 
+
+  a = [
+    np.random.rand(1),
+    [
+        np.random.rand(2, 1),
+        np.random.rand(1, 2, 1),
+    ],
+    [[]],
+]
+
+b = flatten(a)
+
+# 'c' will have values of 'b' and structure of 'a'
+c = unflatten(b, a)
+  
+
+ Output: 
+
+  a:
+[array([ 0.26453544]), [array([[ 0.88273824],
+       [ 0.63458643]]), array([[[ 0.84252894],
+        [ 0.91414218]]])], [[]]]
+b:
+[ 0.26453544  0.88273824  0.63458643  0.84252894  0.91414218]
+c:
+[array([ 0.26453544]), [array([[ 0.88273824],
+       [ 0.63458643]]), array([[[ 0.84252894],
+        [ 0.91414218]]])], [[]]]
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45272536)
+ In https://stackoverflow.com/questions/37214482/saving-with-h5py-arrays-of-different-sizes 
+
+ I suggest saving a list of variable length arrays as multiple datasets. 
+
+  In [19]: f = h5py.File('test.h5','w')
+In [20]: g = f.create_group('test_array')
+In [21]: test_array = [ ['a1','a2'], ['b1'], ['c1','c2','c3','c4'] ]
+In [22]: string_dt = h5py.special_dtype(vlen=str)
+In [23]: for i,v in enumerate(test_array):
+    ...:     g.create_dataset(str(i), data=np.array(v,'S4'), dtype=string_dt)
+    ...:     
+In [24]: for k in g.keys():
+    ...:     print(k,g[k][:])
+    ...:     
+0 ['a1' 'a2']
+1 ['b1']
+2 ['c1' 'c2' 'c3' 'c4']
+  
+
+ For many small sublists this could be messy, though I'm not sure it's in efficient. 
+
+ 'flattening' with a list join might work 
+
+  In [27]: list1 =[', '.join(x) for x in test_array]
+In [28]: list1
+Out[28]: ['a1, a2', 'b1', 'c1, c2, c3, c4']
+In [30]: '\n'.join(list1)
+Out[30]: 'a1, a2\nb1\nc1, c2, c3, c4'
+  
+
+ The nested list can be recreated with a few  split . 
+
+ Another thought - pickle to a string and save that. 
+
+ 
+
+ From the  h5py  intro 
+
+  An HDF5 file is a container for two kinds of objects: datasets, which
+are array-like collections of data, and groups, which are folder-like
+containers that hold datasets and other groups. The most fundamental
+thing to remember when using h5py is:
+
+Groups work like dictionaries, and datasets work like NumPy arrays
+  
+
+ 
+
+  pickle  doesn't work 
+
+  In [32]: import pickle
+In [33]: pickle.dumps(test_array)
+Out[33]: b'\x80\x03]q\x00(]q\x01(X\x02\x00\x00\x00a1q\x02X\x02\x00\x00\x00a2q\x03e]q\x04X\x02\x00\x00\x00b1q\x05a]q\x06(X\x02\x00\x00\x00c1q\x07X\x02\x00\x00\x00c2q\x08X\x02\x00\x00\x00c3q\tX\x02\x00\x00\x00c4q\nee.'
+In [34]: f.create_dataset('pickled', data=pickle.dumps(test_array), dtype=string
+    ...: _dt)
+....
+ValueError: VLEN strings do not support embedded NULLs
+  
+
+  
+
+  In [35]: import 
+In [36]: .dumps(test_array)
+Out[36]: '[["a1", "a2"], ["b1"], ["c1", "c2", "c3", "c4"]]'
+In [37]: f.create_dataset('pickled', data=.dumps(test_array), dtype=string_d
+    ...: t)
+Out[37]: <HDF5 dataset "pickled": shape (), type "|O">
+In [43]: .loads(f['pickled'].value)
+Out[43]: [['a1', 'a2'], ['b1'], ['c1', 'c2', 'c3', 'c4']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45207673)
+ You can convert  df  to  arrays  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.values.html, then select columns and use https://docs.scipy.org/doc/numpy/reference/generated/numpy.ravel.html for flattening. Last call  tolist : 
+
+  a = df.values
+ch0 = a[:, ::2].ravel().tolist()
+ch1 = a[:, 1::2].ravel().tolist()
+print (ch0)
+['30012', '999201', '81910', '100291', '88271', '221920', '93929', nan]
+
+print (ch1)
+['820202', '882101', '003300', '719300']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46201051)
+ Another option faster than the sum option for large arrays: 
+
+ Flattening with map/extend: 
+
+  l = []
+list(map(l.extend, output))
+  
+
+ Flattening with list comprehension instead of map (faster) 
+
+  l = []
+list(l.extend(row) for row in output)
+  
+
+  Update : Flattening using extend but without comprehension and without using list as iterator (fastest) 
+
+ After checking the next answer to this that provided a faster solution via a list comprehension with  dual for  I did a little tweak and now it performs better, first the execution of list(...) was dragging a big percentage of time, then changing a list comprehension for a simple loop shaved a bit more as well. The final solution is: 
+
+  l = []
+for row in output: l.extend(row)
+  
+
+ some timeits for new extend and the improvement gotten by just removing list(...) for [...]: 
+
+  import timeit
+t = timeit.timeit
+o = "output=list(zip(range(1000000000), range(10000000))); l=[]"
+steps_ext = "for row in output: l.extend(row)"
+steps_ext_old = "list(l.extend(row) for row in output)"
+steps_ext_remove_list = "[l.extend(row) for row in output]"
+steps_com = "[item for sublist in output for item in sublist]"
+
+print("new extend:      ", t(steps_ext, setup=o, number=10))
+print("old extend w []: ", t(steps_ext_remove_list, setup=o, number=10))
+print("comprehension:   ", t(steps_com, setup=o, number=10,))
+print("old extend:      ", t(steps_ext_old, setup=o, number=10))
+
+>>> new extend:       4.502427191007882
+>>> old extend w []:  5.281140706967562
+>>> comprehension:    5.54302118299529
+>>> old extend:       6.840151469223201    
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33286287)
+ I'm reopening this because I dislike the linked answer.  The accepted answer suggests using  
+
+  np.array(list(A))  # producing a (15,2) array
+  
+
+ But the OP aparently has already tried  list(A) , and found it to be slow. 
+
+ Another answer suggests using  np.fromiter .  But buried in its comments is the note that  fromiter  requires a 1d array. 
+
+  In [102]: A=itertools.combinations(range(6),2)
+In [103]: np.fromiter(A,dtype=int)
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+<ipython-input-103-29db40e69c08> in <module>()
+----> 1 np.fromiter(A,dtype=int)
+
+ValueError: setting an array element with a sequence.
+  
+
+ So using  fromiter  with this itertools requires somehow flattening the iterator. 
+
+ A quick set of timings suggests that  list  isn't the slow step.  It's converting the list to an array that is slow: 
+
+  In [104]: timeit itertools.combinations(range(6),2)
+1000000 loops, best of 3: 1.1 µs per loop
+In [105]: timeit list(itertools.combinations(range(6),2))
+100000 loops, best of 3: 3.1 µs per loop
+In [106]: timeit np.array(list(itertools.combinations(range(6),2)))
+100000 loops, best of 3: 14.7 µs per loop
+  
+
+ I think the fastest way to use  fromiter  is to flatten the  combinations  with an idiomatic use of  itertools.chain : 
+
+  In [112]: timeit
+np.fromiter(itertools.chain(*itertools.combinations(range(6),2)),dtype=int)
+   .reshape(-1,2)
+100000 loops, best of 3: 12.1 µs per loop
+  
+
+ .  ( fromiter  also takes a  count , which shaves off another µs.  With a larger case,  range(60) , the  fromiter  takes half the time of  array . 
+
+ 
+
+ A quick search on  [numpy] itertools  turns up a number of suggestions of pure numpy ways of generating all combinations.   itertools  is fast, for generating pure Python structures, but converting those to arrays is a slow step. 
+
+ 
+
+ . 
+
+  A  is a generator, not an array.   list(A)  does produce a nested list, that can be described loosely as an array.  But it isn't a  np.array , and does not have a  reshape  method. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53803450)
+  ser1 = pd.Series([[1, 2, 3], [4], [7, 8]])
+ser2 = pd.Series([[True, False, True], [False], [True, True]])
+  
+
+ There are a couple of ways to do it, but I would not recommend  apply . One option is to  zip  the series and filter using numpy's boolean indexing: 
+
+  pd.Series([np.array(x)[y] for x, y in zip(ser1, ser2)])
+
+0    [1, 3]
+1        []
+2    [7, 8]
+dtype: object
+  
+
+ If you need the result as a list, call  .tolist  at the end: 
+
+  output = pd.Series([list(np.array(x)[y]) for x, y in zip(ser1, ser2)]).tolist()
+output
+# [[1, 3], [], [7, 8]]
+  
+
+ 
+
+ You can also make this a pure python list comp with a nested list comprehension. 
+
+  pd.Series([
+    [i for i, j in zip(x, y) if j] for x, y in zip(ser1, ser2)])
+
+0    [1, 3]
+1        []
+2    [7, 8]
+dtype: object
+  
+
+ I recommend this  FOR SMALL LISTS  because converting lists to numpy arrays (as done the first solution) incurs significant overhead. 
+
+ 
+
+ If flattening your lists is an option, you should consider doing so, because this would likely be the fastest option. 
+
+  from itertools import chain
+
+ser3 = np.array(list(chain.from_iterable(ser1)))
+ser4 = np.array(list(chain.from_iterable(ser2)))
+
+ser3[ser4]
+# array([1, 3, 7, 8])
+  
+
+ Unfortunately, you lose the structure of your input, but if that isn't a problem, this is a winner. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29302034)
+ You're looking for  numpy.unravel_index :  
+
+  >>> np.dstack(np.unravel_index(np.arange(a.size), a.shape))
+array([[[0, 0, 0, ..., 0, 0, 0],
+        [0, 0, 0, ..., 0, 0, 1],
+        [0, 0, 0, ..., 0, 0, 2],
+        ...,
+        [2, 2, 0, ..., 1, 1, 1],
+        [2, 2, 0, ..., 1, 1, 2],
+        [2, 2, 0, ..., 1, 1, 3]]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23689202)
+ If all you wish to do is dump  x  and  y  to a CSV file, then it is https://stackoverflow.com/q/23687990/190597. If, however, you have some other reason for wanting a recarray, here is how you could create it: 
+
+  import numpy as np
+import numpy.lib.recfunctions as recfunctions
+
+x = np.array(['a', 'b', 'c'], dtype=[('x', '|S1')])
+y = np.arange(9).reshape((3,3))
+y = y.view([('', y.dtype)]*3)
+
+z = recfunctions.merge_arrays([x, y], flatten=True)
+# [('a', 0, 1, 2) ('b', 3, 4, 5) ('c', 6, 7, 8)]
+
+np.savetxt('/tmp/out', z, fmt='%s')
+  
+
+  
+
+  a 0 1 2
+b 3 4 5
+c 6 7 8
+  
+
+ to  /tmp/out . 
+
+ 
+
+ Alternatively, to use  np.core.records.fromarrays  you would need to list each column of  y  separately, so the input passed to  fromarrays  is, as http://docs.scipy.org/doc/numpy/reference/generated/numpy.core.records.fromarrays.html, a "flat list of arrays".  
+
+  x = ['a', 'b', 'c']
+y = np.arange(9).reshape((3,3))
+z = np.core.records.fromarrays([x] + [y[:,i] for i in range(y.shape[1])])
+  
+
+ 
+
+ Each item in the list passed to  fromarrays  will become one column of the resultant recarray. You can see this by inspecting https://github.com/numpy/numpy/blob/master/numpy/core/records.py#L564: 
+
+  _array = recarray(shape, descr)
+
+# populate the record array (makes a copy)
+for i in range(len(arrayList)):
+    _array[_names[i]] = arrayList[i]
+
+return _array
+  
+
+ 
+
+ By the way, you might want to use http://pandas.pydata.org/ here for the extra convenience (no mucking around with dtypes, flattening, or iterating over columns required): 
+
+  import numpy as np
+import pandas as pd
+
+x = ['a', 'b', 'c']
+y = np.arange(9).reshape((3,3))
+
+df = pd.DataFrame(y)
+df['x'] = x
+
+print(df)
+#    0  1  2  x
+# 0  0  1  2  a
+# 1  3  4  5  b
+# 2  6  7  8  c
+
+df.to_csv('/tmp/out')
+# ,0,1,2,x
+# 0,0,1,2,a
+# 1,3,4,5,b
+# 2,6,7,8,c
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49635595)
+ This is one way using  itertools.chain . Assumes items are either scalars or  numpy  arrays. 
+
+  import numpy as np
+from itertools import chain
+
+tup = [(1.2, np.array([ 0.03]), np.array([ 1.8, 2.1]), 2, 4, 2.),
+       (5.2, np.array([ 0.345]), np.array([ 11.8, 25.1]), 7, 1, 12.)]
+
+res = list(chain.from_iterable(chain.from_iterable(i.tolist() \
+           if isinstance(i, np.ndarray) else [i] for i in j) for j in tup))
+
+# [1.2, 0.03, 1.8, 2.1, 2, 4, 2.0, 5.2, 0.345, 11.8, 25.1, 7, 1, 12.0]
+  
+
+
+

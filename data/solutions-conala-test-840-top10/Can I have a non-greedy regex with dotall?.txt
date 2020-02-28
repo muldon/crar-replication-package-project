@@ -1,0 +1,265 @@
+Query: Can I have a non-greedy regex with dotall?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9508065)
+ It is being non-greedy.
+It is your understanding of non-greedy that is not correct. 
+
+ A regex will   always   try to match. 
+
+ Let me show a simplified example of what non-greedy actually means(as suggested by a comment): 
+
+  re.findall(r'a*?bc*?', 'aabcc', re.DOTALL)
+  
+
+ This will match: 
+
+ 
+ as few repetitions of 'a' as possible (in this case 2) 
+ followed by a 'b' 
+ and as few repetitions of 'c' as possible (in this case 0) 
+ 
+
+ so the only match is  'aab' . 
+
+  And just to conclude:   
+Don't use regex to parse HTML. There are libraries that were made for the job. https://docs.python.org/3/library/re.html is not one of them. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37158952)
+ Greediness works from left to right 
+
+ It has nothing to do with  MULTILINE  or  DOTALL , it is that non-greedy operator
+only affects the end of the match, not the start. 
+
+ To fullfill your desire, add  .*  in front of your pattern. 
+
+  >>> re.findall(r'.*(foo.*?bar=1)', s, re.DOTALL)
+['foo lorem ipsum \\pope\n24 dolor sit amet, consectetur adipisici elit\nExcepteur sint obcaecat cupiditat non \ngnu blu bar=1']
+>>> re.findall(r'.*(foo.*?bar=2)', s, re.DOTALL)
+['foo lorem ipsum @>@!@ consectetur adipisici elit\ngnu blu bar=2']
+>>> re.findall(r'.*(foo.*?bar=3)', s, re.DOTALL)
+['foo lorem ipsum\n23 dolor sit amet, consectetur adipisici elit\ngnu blu bar=3']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34875684)
+ Let me clear out some things.  re.DOTALL  modifier makes a  .  symbol match  any  symbol including a newline.   .*  subpattern with DOTALL matches the string up to the end. 
+
+ If you use  '\| server[ \s]+= (..*)\n' , the first  .*  matches up to the last  /  and the second  .*  matches up to the last  \n  because it is greedy (that is, the engine grabs all the rest of the string and then backtracks trying to accommodate for the subsequent subpatterns). 
+
+ As your data are on 1 single line, you  do not  want to make  .  match a newline. Thus, the easiest way to solve the problem is using  
+
+  server = re.findall(r'\|\s*server\s*=\s*(.*?)/(.*)', entry)
+  
+
+ See https://regex101.com/r/pS1tV7/1 
+
+ However, dot matching is only good when we do not know what characters to expect. You can enhance the regex using character classes: 
+
+  server = re.findall(r'\|\s*server\s*=\s*([^\s/]+)/(\d+)', entry)
+  
+
+ Another <a href="https://regex101.com/r/pS1tV7/2"  (note the efficiency increased x2 times) 
+
+   ([^\s/]+)  matches 1 or more characters other than whitespace and  /  and  \d+  matches 1 or more digits. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34874908)
+  
+
+  re.findall(r'\| server[ \s]+= (.*)\/([^\/\W]*)',string)
+  
+
+ https://regex101.com/r/tP1bS4/3 
+
+ More robust with space normalization   \|\s*server\s*=\s*([^/]*?)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33076253)
+ You can use re.DOTALL parameter for linebreaks.  
+
+  import re
+
+text = '''public function getVersion() {
+    # SomeComment
+    some_function()
+    return '1.0.0';
+}'''
+
+regex_comp = re.compile("public function getVersion\\(\\)\\s*?{\\s*.*return\\s*'(.+)';", re.DOTALL)
+
+print regex_comp.search(text).group(1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1957002)
+ Set the dotall flag. 
+
+  p = re.compile('\{\{*.\}\}', re.DOTALL)
+nonBracketedString = p.sub('', bracketedString)
+  
+
+   .  . If the DOTALL flag has been specified, this matches any character including a newline. 
+
+ http://docs.python.org/library/re.html 
+
+ Also, you'll need a non-greedy match between the brackets:  .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/13110975)
+ Your problem is likely your use of  \r\n . Instead, try using only  \n : 
+
+ 
+>>> x = """
+... >U51677 Human non-histone chromatin protein HMG1 (HMG1 gene, complete
+... 
+...        cds. #some records don't have this line (see below
+... 
+...        Length = 2575
+... (some text
+... 
+... >U51677 Human non-histone chromatin protein HMG1 (HMG1 gene, complete
+... 
+...        Length = 2575
+... (some text
+... 
+... (etc...
+... """
+>>> re.search("^(>.*\n.*(?.?Length\s=\s(\d+", x, re.MULTILINE|re.DOTALL
+<_sre.SRE_Match object at 0x10c937e00>
+>>> _.group(2
+'2575'
+ 
+
+ Additionally, your first  .*  is too greedy. Instead, try using:  ^(>..Length\s=\s(\d+ : 
+
+ 
+>>> re.findall("^(>..Length\s=\s(\d+", x, re.MULTILINE|re.DOTALL
+[('>U51677 Human non-histone chromatin protein HMG1 (HMG1 gene, complete', '2575', ('>U51677 Human non-histone chromatin protein HMG1 (HMG1 gene, complete', '2575']
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12980693)
+ with python passing in the multiline and dotall flags to re.  following the * makes it non-greedy 
+
+  >>> import re
+>>> with open('test.x') as f:
+...     print re.findall('^hoststatus.*?\n\}$', f.read(), re.DOTALL + re.MULTILINE)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36689918)
+ The 4th parameter of https://docs.python.org/2/library/re.html#re.sub is a  count , not a  flags . 
+
+ 
+  re.sub(pattern, repl, string, count=0, flags=0)¶
+  
+ 
+
+ You need to use keyword argument to explicitly specify the  flags : 
+
+  re.sub(r'<span[^>]*>(.*?)</span>', r'\1', input_text, flags=re.S)
+                                                      ↑↑↑↑↑↑
+  
+
+ Otherwise,  re.S  will be interpreted replacement count (maximum 16 times) instead of  S  (or  DOTALL  flags): 
+
+  >>> import re
+>>> re.S
+16
+
+>>> text1 = '<body id="aa">this is a <span color="red">test\n with newline</span></body>'
+
+>>> re.sub(r'<span[^>]*>(.*?)</span>', r'\1', text1, re.S)
+'<body id="aa">this is a <span color="red">test\n with newline</span></body>'
+
+>>> re.sub(r'<span[^>]*>(.*?)</span>', r'\1', text1, flags=re.S)
+'<body id="aa">this is a test\n with newline</body>'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27881395)
+  .*  will match any character including newlines if dotall is used). This is greedy: it matches as much as it can. 
+
+  .*)  will add that to a capture group.  
+
+  .  the  ?    .*  non-greedy, matching as little as it can to make a match, and the parenthesis makes it a capture group as well. 
+
+ For example: 
+
+  >>> import re
+>>> txt = ''' foo
+... bar
+... baz '''
+>>> for found in re.finditer'.*)', txt):
+...     print found.groups)
+... 
+' foo',)
+'',)
+'bar',)
+'',)
+'baz ',)
+'',)
+>>> for found in re.finditer'.*', txt):
+...     print found.groups)
+... 
+)
+)
+)
+)
+)
+)
+>>> for found in re.finditer'.*', txt, re.DOTALL):
+...     print found.groups)
+... 
+)
+)
+>>> for found in re.finditer'.*)', txt, re.DOTALL):
+...     print found.groups)
+... 
+' foo\nbar\nbaz ',)
+'',)
+  
+
+ And since the  ?  matches as little as possible, we match empty strings: 
+
+  >>> for found in re.finditer'.', txt, re.DOTALL):
+...     print found.groups)
+... 
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+'',)
+  
+
+
+

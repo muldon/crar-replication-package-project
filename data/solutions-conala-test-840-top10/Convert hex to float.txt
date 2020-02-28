@@ -1,0 +1,269 @@
+Query: Convert hex to float
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1592362)
+  >>> import struct
+>>> struct.unpack('!f', '41973333'.decode('hex'))[0]
+18.899999618530273
+>>> struct.unpack('!f', '41995C29'.decode('hex'))[0]
+19.170000076293945
+>>> struct.unpack('!f', '470FC614'.decode('hex'))[0]
+36806.078125
+  
+
+ Update: see comment on how to do this in Python 3. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34002599)
+  >>> float.fromhex('0x1.5c28f5c28f5c3p-1')
+0.68
+  
+
+ It's in the standard library, "float.fromhex", 
+
+ https://docs.python.org/2/library/stdtypes.html#float.fromhex 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1592179)
+ I'm guessing this question relates to https://stackoverflow.com/questions/1591920/python-binary-data-reading and you are working with 4 bytes rather than 8 hex digits. 
+
+  "\x41\x91\x33\x33"  is a 4 byte string even though it looks like 16 
+
+  >>> len("\x41\x91\x33\x33")
+4
+>>> import struct  
+>>> struct.unpack(">fff","\x41\x97\x33\x33\x41\x99\x5C\x29\x47\x0F\xC6\x14")
+(18.899999618530273, 19.170000076293945, 36806.078125)
+  
+
+ If you do need to deal with the string of hexdigits rather than the actual bytes, you can use  struct.pack  to convert it, like this 
+
+  >>> for hx in ["41973333","41995C29","470FC614"]:
+...     print(struct.unpack(">f",struct.pack(">i",int(hx,16)))[0])
+... 
+18.8999996185
+19.1700000763
+36806.078125
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42360776)
+ Struct is used for packing and unpacking types into bytes.  
+
+ Convert the integer back to bytes, then into a float: 
+
+  struct.unpack('f', struct.pack('I', 1155186688))[0]
+  
+
+  
+
+  >>> my_bytes = struct.pack('I', 1155186688) # 'I' = Unsigned Int
+b'\x00\xc0\xdaD'
+>>> my_float = struct.unpack('f', my_bytes)[0] # 'f' = float
+1750 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1592226)
+ Slice up the hex strings into 2-character chunks (bytes), make each chunk into the right byte with int formatting, struct.unpack when done.  I.e.: 
+
+  import struct 
+
+testcases = {
+"41973333": 1.88999996185302734375E1,
+"41995C29": 1.91700000762939453125E1,
+"470FC614": 3.6806078125E4,
+}
+
+def hex2float(s):
+    bins = ''.join(chr(int(s[x:x+2], 16)) for x in range(0, len(s), 2))
+    return struct.unpack('>f', bins)[0]
+
+for s in testcases:
+  print hex2float(s), testcases[s]
+  
+
+  
+
+  18.8999996185 18.8999996185
+19.1700000763 19.1700000763
+36806.078125 36806.078125
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42956514)
+ Using  struct.pack  and  struct.unpack : 
+
+  >>> import struct
+>>> n = '00111111100000000000000000000000'
+>>> struct.unpack('f', struct.pack('i', int(n, 2[0]
+1.0
+  
+
+ 
+  int(.., 2  to convert the binary representation to  int  (base 2 
+  struct.pack('i', ..  to convert bytes ( i : 32bit int 
+  struct.unpack('f', ...[0]  to convert bytes back to float. 
+ 
+
+ For other  struct  format character, see https://docs.python.org/3/library/struct.html#format-characters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40050134)
+ You could write your own, if you only care about three decimal places then set  n to 3: 
+
+  def frac_to_oct(f, n=4):
+    # store the number before the decimal point
+    whole = int(f)
+    rem = (f - whole) * 8
+    int_ = int(rem)
+    rem = (rem - int_) * 8
+    octals = [str(int_)]
+    count = 1
+    # loop until 8 * rem gives you a whole num or n times
+    while rem and count < n:
+        count += 1
+        int_ = int(rem)
+        rem = (rem - int_) * 8
+        octals.append(str(int_))
+    return float("{:o}.{}".format(whole, "".join(octals)))
+  
+
+ Using your input  12.325 : 
+
+  In [9]: frac_to_oct(12.325)
+Out[9]: 14.2463
+In [10]: frac_to_oct(121212.325, 4)
+Out[10]: 354574.2463
+
+In [11]: frac_to_oct(0.325, 4)
+Out[11]: 0.2463
+In [12]: frac_to_oct(2.1, 4)
+Out[12]: 2.0631
+In [13]:  frac_to_oct(0)
+Out[13]: 0.0
+In [14]:  frac_to_oct(33)
+Out[14]: 41.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16444786)
+ Here's an ugly one ... 
+
+  >>> import struct
+>>> bin(struct.unpack('!i',struct.pack('!f',1.0))[0])
+'0b111111100000000000000000000000'
+  
+
+ Basically, I just used the struct module to convert the float to an int ... 
+
+ 
+
+ Here's a slightly better one using  ctypes : 
+
+  >>> import ctypes
+>>> bin(ctypes.c_uint.from_buffer(ctypes.c_float(1.0)).value)
+'0b111111100000000000000000000000'
+  
+
+ Basically, I construct a  float  and use the same memory location, but I tag it as a  c_uint .  The  c_uint 's value is a python integer which you can use the builtin  bin  function on. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16445458)
+ This problem is more cleanly handled by breaking it into two parts. 
+
+ The first is to convert the float into an int with the equivalent bit pattern: 
+
+  def float32_bit_pattern(value):
+    return sum(ord(b) << 8*i for i,b in enumerate(struct.pack('f', value)))
+  
+
+ Next convert the int to a string: 
+
+  def int_to_binary(value, bits):
+    return bin(value).replace('0b', '').rjust(bits, '0')
+  
+
+  
+
+  >>> int_to_binary(float32_bit_pattern(1.0), 32)
+'00111111100000000000000000000000'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/4432745)
+ Here is the C version of the code, I don't have time to port it right now, but maybe someone else can. 
+
+  float_hex(PyObject *v)
+{
+    double x, m;
+    int e, shift, i, si, esign;
+    /* Space for 1+(TOHEX_NBITS-1)/4 digits, a decimal point, and the
+       trailing NUL byte. */
+    char s[(TOHEX_NBITS-1)/4+3];
+
+    CONVERT_TO_DOUBLE(v, x);
+
+    if (Py_IS_NAN(x) || Py_IS_INFINITY(x))
+        return float_str((PyFloatObject *)v);
+
+    if (x == 0.0) {
+        if (copysign(1.0, x) == -1.0)
+            return PyString_FromString("-0x0.0p+0");
+        else
+            return PyString_FromString("0x0.0p+0");
+    }
+
+    m = frexp(fabs(x), &e);
+    shift = 1 - MAX(DBL_MIN_EXP - e, 0);
+    m = ldexp(m, shift);
+    e -= shift;
+
+    si = 0;
+    s[si] = char_from_hex((int)m);
+    si++;
+    m -= (int)m;
+    s[si] = '.';
+    si++;
+    for (i=0; i < (TOHEX_NBITS-1)/4; i++) {
+        m *= 16.0;
+        s[si] = char_from_hex((int)m);
+        si++;
+        m -= (int)m;
+    }
+    s[si] = '\0';
+
+    if (e < 0) {
+        esign = (int)'-';
+        e = -e;
+    }
+    else
+        esign = (int)'+';
+
+    if (x < 0.0)
+        return PyString_FromFormat("-0x%sp%c%d", s, esign, e);
+    else
+        return PyString_FromFormat("0x%sp%c%d", s, esign, e);
+}
+  
+
+
+

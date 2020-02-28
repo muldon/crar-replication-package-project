@@ -1,0 +1,180 @@
+Query: Iterate through PyMongo Cursor as key-value pair
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26997742)
+  
+
+  for itm in db.collection.find():
+    print {itm.pop('b'): itm}
+  
+
+ Here collection is the name of  your collection in the database. If you iterate over the pymongo cursor object you will get  dict  type object which you can modify like normal python dict. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32268274)
+  
+
+  import pymongo
+conn = pymongo.MongoClient()
+db = conn.test #test is my database
+col = db.spam #Here spam is my collection
+array = list(col.find())
+
+print array
+  
+
+ There you go 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39117013)
+ This may help you:- 
+
+   # Perform query 
+cursor = db.posts.find().toAray(function(err, result){
+     #Iterate the cursor and print the documents.
+     for document in result:
+     print(document);
+}) //Will give you array of objects.
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43038897)
+  .sort([("field1",pymongo.ASCENDING), ("field2",pymongo.DESCENDING)])
+  
+
+ Python uses key,direction. You can use the above way. 
+
+  
+
+  for post in db.posts.find().sort('entities.user_mentions.screen_name',pymongo.ASCENDING):
+        print post
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31540682)
+ You need to use the http://docs.mongodb.org/manual/core/document/#document-dot-notation 
+
+  In [20]: col.find_one()
+Out[20]: {'_id': 1, 'value': {'key1': '200'}}
+
+In [21]: col.update({'_id': 1}, {'$set': {'value.key2': 300}})
+Out[21]: {'n': 1, 'nModified': 1, 'ok': 1, 'updatedExisting': True}
+
+In [22]: col.find_one()
+Out[22]: {'_id': 1, 'value': {'key1': '200', 'key2': 300}}
+  
+
+ 
+
+ EDIT 
+
+ If your key is in variable all you need is concatenation: 
+
+  In [37]: key2 = 'new_key'
+
+In [38]: col.update({'_id': 1}, {'$set': {'value.' + key2: 'blah'}})
+Out[38]: {'n': 1, 'nModified': 1, 'ok': 1, 'updatedExisting': True}
+
+In [39]: col.find_one()
+Out[39]: {'_id': 1, 'value': {'key1': '200', 'new_key': 'blah'}}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36275367)
+ With my pymongo version: 3.2.2 I had do the following 
+
+  from bson.objectid import ObjectId
+import pymongo
+
+client = pymongo.MongoClient("localhost", 27017)
+db = client.mydbname
+
+db.ProductData.update_one({
+  '_id': ObjectId(p['_id']['$oid'])
+},{
+  '$set': {
+    'd.a': existing + 1
+  }
+}, upsert=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7759074)
+ this is how i got it to work: 
+
+ 
+ pyodbc to query mssql database 
+ python dict and zip to convert list of tuples into key-value dictionary pairs 
+  pymongo to save it as collection 
+
+  #===============================================================================
+# 1. MSSQL QUERY WITH PYODBC
+#===============================================================================
+import pyodbc
+url = 'DSN=myserver;UID=myusername;PWD=mypassword;PORT=1433;DATABASE=mydatabase;'
+pyodbccon = pyodbc.connect(url); cursor = pyodbccon.cursor()
+
+userdataQ = "SELECT users.userid, users.client, users.industry FROM users"
+cursor.execute(userdataQ); userdata = cursor.fetchall()
+
+##===============================================================================
+## 2. convert tuple list to key-value dictionary
+## 3. export to mongodb
+##===============================================================================        
+from pymongo import Connection; conmongo = Connection('localhost') 
+db = conmongo.mypymongodb #mypymongodb = dbname
+headers = ['userid','client','industry'] 
+
+for tup in userdata:
+    nextdoc = dict(zip(headers, tup))
+    db.usercollection.save(nextdoc)
+print "usercollection in mypymongodb updated with " + str(db.usercollection.count()) + " docs"
+   
+ 
+
+ output: 
+
+  > db.usercollection.find()
+{ "_id" : ObjectId("4ef000000"), "industry" : "npwild", "client" : "cmh", "userid" : 1 }
+{ "_id" : ObjectId("4ef000001"), "industry" : "npwild", "client" : "cmh", "userid" : 2 }
+{ "_id" : ObjectId("4ef000002"), "industry" : "npwild", "client" : "cmh", "userid" : 3 }
+etc.
+  
+
+ thank you for your help!
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35436148)
+ What you see returned by  find()  call is a  cursor . Just iterate over the cursor and get the value by the  name  key for every document found: 
+
+  result = db.col.find({"some": "condition"}, {"name": 1})
+print([document["name"] for document in result])
+  
+
+ As a result, you'll get a  list of names . 
+
+ Or, if you want and expect a single document to be matched, use http://api.mongodb.org/python/current/api/pymongo/collection.html#pymongo.collection.Collection.find_one: 
+
+  document = db.col.find_one({"some": "condition"}, {"name": 1})
+print(document["name"])
+  
+
+
+

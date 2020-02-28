@@ -1,0 +1,387 @@
+Query: What is the best way to create a string array in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6377066)
+ Are you trying to do something like this? 
+
+  >>> strs = [s.strip('\(\)') for s in ['some\\', '(list)', 'of', 'strings']]
+>>> strs 
+['some', 'list', 'of', 'strings']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45379975)
+ The best and most convenient method for creating a string array in python is with the help of NumPy library. 
+
+  Example :  
+
+  import numpy as np
+arr = np.chararray((rows, columns))
+  
+
+ This will create an array having all the entries as empty strings. You can then initialize the array using either indexing or slicing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6377007)
+ In python, you wouldn't normally do what you are trying to do. But, the below code will do it: 
+
+  strs = ["" for x in range(size)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9143556)
+  
+
+  lst = [1, 2, 1, 1]
+''.join(str(x) for x in lst)
+  
+
+ It's efficient since it doesn't create an intermediate list (as  map  does), instead the list is traversed using iterators. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9143564)
+ A generator expression: 
+
+  "".join(str(i) for i in l)
+  
+
+ PS: your "array" is really a list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11576192)
+ Since efficiency is important, here's a quick benchmark for some of the approaches mentioned so far: 
+
+  $ python -m timeit "" "'a'*100000"
+100000 loops, best of 3: 4.99 usec per loop
+
+$ python -m timeit "from itertools import repeat" "''.join(repeat('x', times=100000))"
+1000 loops, best of 3: 2.24 msec per loop
+
+$ python -m timeit "import array" "array.array('c',[' ']*100000).tostring()"
+100 loops, best of 3: 3.92 msec per loop
+
+$ python -m timeit "" "''.join('x' for x in xrange(100000))"
+100 loops, best of 3: 5.69 msec per loop
+
+$ python -m timeit "import os" "os.urandom(100000)"
+100 loops, best of 3: 6.17 msec per loop
+  
+
+ Not surprisingly, of the ones posted, using string multiplication is the fastest by far. 
+
+ Also note that it is more efficient to multiply a single char than a multi-char string (to get the same final string length). 
+
+  $ python -m timeit "" "'a'*100000"
+100000 loops, best of 3: 4.99 usec per loop
+
+$ python -m timeit "" "'ab'*50000"
+100000 loops, best of 3: 6.02 usec per loop
+
+$ python -m timeit "" "'abcd'*25000"
+100000 loops, best of 3: 6 usec per loop
+
+$ python -m timeit "" "'abcdefghij'*10000"
+100000 loops, best of 3: 6.03 usec per loop
+  
+
+ Tested on Python 2.7.3 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9816200)
+ https://stackoverflow.com/a/9816147/42346 wins one (1) internet.  
+
+ In the measurements below the example code has been shortened to allow the tests to fit on one line without scrolling where possible.  
+
+ For those not familiar with  timeit  http://docs.python.org/2/library/timeit.html#cmdoption-timeit-s. 
+
+ 
+
+ The fastest and least-cluttered way is to use  numpy.fromstring  as jterrace suggested: 
+
+  python -mtimeit -s"import numpy;s='1|2'" "numpy.fromstring(s,dtype=int,sep='|')"
+100000 loops, best of 3: 1.85 usec per loop
+  
+
+ 
+
+ The following three examples use  string.split  in combination with another tool.   
+
+  string.split  with  numpy.fromiter  
+
+  python -mtimeit -s"import numpy;s='1|2'" "numpy.fromiter(s.split('|'),dtype=int)"
+100000 loops, best of 3: 2.24 usec per loop
+  
+
+  string.split  with  int()  cast via generator-expression 
+
+  python -mtimeit -s"import numpy;s='1|2'" "numpy.array(int(x) for x in s.split('|'))"
+100000 loops, best of 3: 3.12 usec per loop
+  
+
+  string.split  with NumPy array of type  int  
+
+  python -mtimeit -s"import numpy;s='1|2'" "numpy.array(s.split('|'),dtype=int)"
+100000 loops, best of 3: 9.22 usec per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49471005)
+ Proposed approach 
+
+ After tinkering quite a bit with the string and numeric dtypes and leveraging the easy interoperability between them, here's something that I ended up with to get zeros padded strings, as NumPy does well and allows for vectorized operations that way - 
+
+  def create_inc_pattern(prefix_str, start, stop):
+    N = stop - start # count of numbers
+    W = int(np.ceil(np.log10(stop+1))) # width of numeral part in string
+
+    padv = np.full(W,48,dtype=np.uint8)
+    a0 = np.r_[np.fromstring(prefix_str,dtype='uint8'), padv]
+    a1 = np.repeat(a0[None],N,axis=0)
+
+    r = np.arange(start, stop)
+    addn = (r[:,None] // 10**np.arange(W-1,-1,-1))%10
+    a1[:,len(prefix_str):] += addn.astype(a1.dtype)
+    return a1.view('S'+str(a1.shape[1])).ravel()
+  
+
+ Brining in  numexpr  for faster broadcasting + modulus operation - 
+
+  import numexpr as ne
+
+def create_inc_pattern_numexpr(prefix_str, start, stop):
+    N = stop - start # count of numbers
+    W = int(np.ceil(np.log10(stop+1))) # width of numeral part in string
+
+    padv = np.full(W,48,dtype=np.uint8)
+    a0 = np.r_[np.fromstring(prefix_str,dtype='uint8'), padv]
+    a1 = np.repeat(a0[None],N,axis=0)
+
+    r = np.arange(start, stop)
+    r2D = r[:,None]
+    s = 10**np.arange(W-1,-1,-1)
+    addn = ne.evaluate('(r2D/s)%10')
+    a1[:,len(prefix_str):] += addn.astype(a1.dtype)
+    return a1.view('S'+str(a1.shape[1])).ravel()
+  
+
+ So, to use as the new column : 
+
+  df['New_Column'] = create_inc_pattern(prefix_str='str_', start=1, stop=len(df)+1)
+  
+
+  
+
+  In [334]: create_inc_pattern_numexpr(prefix_str='str_', start=1, stop=14)
+Out[334]: 
+array(['str_01', 'str_02', 'str_03', 'str_04', 'str_05', 'str_06',
+       'str_07', 'str_08', 'str_09', 'str_10', 'str_11', 'str_12', 'str_13'], 
+      dtype='|S6')
+
+In [338]: create_inc_pattern(prefix_str='str_', start=1, stop=124)
+Out[338]: 
+array(['str_001', 'str_002', 'str_003', 'str_004', 'str_005', 'str_006',
+       'str_007', 'str_008', 'str_009', 'str_010', 'str_011', 'str_012',..
+       'str_115', 'str_116', 'str_117', 'str_118', 'str_119', 'str_120',
+       'str_121', 'str_122', 'str_123'], 
+      dtype='|S7')
+  
+
+ Explanation 
+
+  Basic idea and explanation with step-by-step sample run  
+
+ The basic idea is creating the ASCII equivalent numeric array, which could be viewed or converted by dtype conversion into a string one. To be more specific, we would create uint8 type numerals. Thus, each string would be represented by a 1D array of numerals. For the list of strings that would translate to a 2D array of numerals with each row (1D array) representing a single string. 
+
+ 1) Inputs : 
+
+  In [22]: prefix_str='str_'
+    ...: start=15
+    ...: stop=24
+  
+
+ 2) Parameters : 
+
+  In [23]: N = stop - start # count of numbers
+    ...: W = int(np.ceil(np.log10(stop+1))) # width of numeral part in string
+
+In [24]: N,W
+Out[24]: (9, 2)
+  
+
+ 3) Create 1D array of numerals representing the starting string : 
+
+  In [25]: padv = np.full(W,48,dtype=np.uint8)
+    ...: a0 = np.r_[np.fromstring(prefix_str,dtype='uint8'), padv]
+
+In [27]: a0
+Out[27]: array([115, 116, 114,  95,  48,  48], dtype=uint8)
+  
+
+ 4) Extend to cover range of strings as 2D array : 
+
+  In [33]: a1 = np.repeat(a0[None],N,axis=0)
+    ...: r = np.arange(start, stop)
+    ...: addn = (r[:,None] // 10**np.arange(W-1,-1,-1))%10
+    ...: a1[:,len(prefix_str):] += addn.astype(a1.dtype)
+
+In [34]: a1
+Out[34]: 
+array([[115, 116, 114,  95,  49,  53],
+       [115, 116, 114,  95,  49,  54],
+       [115, 116, 114,  95,  49,  55],
+       [115, 116, 114,  95,  49,  56],
+       [115, 116, 114,  95,  49,  57],
+       [115, 116, 114,  95,  50,  48],
+       [115, 116, 114,  95,  50,  49],
+       [115, 116, 114,  95,  50,  50],
+       [115, 116, 114,  95,  50,  51]], dtype=uint8)
+  
+
+ 5) Thus, each row represents ascii equivalent of a string each off the desired output. Let's get it with the final step : 
+
+  In [35]: a1.view('S'+str(a1.shape[1])).ravel()
+Out[35]: 
+array(['str_15', 'str_16', 'str_17', 'str_18', 'str_19', 'str_20',
+       'str_21', 'str_22', 'str_23'], 
+      dtype='|S6')
+  
+
+ 
+
+ Timings</h3>
+
+ Here's a quick timings test against the list comprehension version that seems to be working the best looking at the timings from other posts - 
+
+  In [339]: N = 10000
+
+In [340]: %timeit ['str_%s'%i for i in range(N)]
+1000 loops, best of 3: 1.12 ms per loop
+
+In [341]: %timeit create_inc_pattern_numexpr(prefix_str='str_', start=1, stop=N)
+1000 loops, best of 3: 490 µs per loop
+
+In [342]: N = 100000
+
+In [343]: %timeit ['str_%s'%i for i in range(N)]
+100 loops, best of 3: 14 ms per loop
+
+In [344]: %timeit create_inc_pattern_numexpr(prefix_str='str_', start=1, stop=N)
+100 loops, best of 3: 4 ms per loop
+  
+
+ 
+
+ Python-3 codes</h3>
+
+ On Python-3, to get the string dtype array, we were needed to pad with few more zeros on the intermediate int dtype array. So, the equivalent without and with numexpr versions for Python-3 ended up becoming something along these lines - 
+
+ Method #1 (No numexpr) : 
+
+  def create_inc_pattern(prefix_str, start, stop):
+    N = stop - start # count of numbers
+    W = int(np.ceil(np.log10(stop+1))) # width of numeral part in string
+    dl = len(prefix_str)+W # datatype length
+    dt = np.uint8 # int datatype for string to-from conversion 
+
+    padv = np.full(W,48,dtype=np.uint8)
+    a0 = np.r_[np.fromstring(prefix_str,dtype='uint8'), padv]
+
+    r = np.arange(start, stop)
+
+    addn = (r[:,None] // 10**np.arange(W-1,-1,-1))%10
+    a1 = np.repeat(a0[None],N,axis=0)
+    a1[:,len(prefix_str):] += addn.astype(dt)
+    a1.shape = (-1)
+
+    a2 = np.zeros((len(a1),4),dtype=dt)
+    a2[:,0] = a1
+    return np.frombuffer(a2.ravel(), dtype='U'+str(dl))
+  
+
+ Method #2 (With numexpr) : 
+
+  import numexpr as ne
+
+def create_inc_pattern_numexpr(prefix_str, start, stop):
+    N = stop - start # count of numbers
+    W = int(np.ceil(np.log10(stop+1))) # width of numeral part in string
+    dl = len(prefix_str)+W # datatype length
+    dt = np.uint8 # int datatype for string to-from conversion 
+
+    padv = np.full(W,48,dtype=np.uint8)
+    a0 = np.r_[np.fromstring(prefix_str,dtype='uint8'), padv]
+
+    r = np.arange(start, stop)
+
+    r2D = r[:,None]
+    s = 10**np.arange(W-1,-1,-1)
+    addn = ne.evaluate('(r2D/s)%10')
+    a1 = np.repeat(a0[None],N,axis=0)
+    a1[:,len(prefix_str):] += addn.astype(dt)
+    a1.shape = (-1)
+
+    a2 = np.zeros((len(a1),4),dtype=dt)
+    a2[:,0] = a1
+    return np.frombuffer(a2.ravel(), dtype='U'+str(dl))
+  
+
+  
+
+  In [8]: N = 100000
+
+In [9]: %timeit ['str_%s'%i for i in range(N)]
+100 loops, best of 3: 18.5 ms per loop
+
+In [10]: %timeit create_inc_pattern_numexpr(prefix_str='str_', start=1, stop=N)
+100 loops, best of 3: 6.06 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9143515)
+  
+
+  l = [1, 2, 1, 1]
+s = ''.join(map(str, l))
+print(s)
+  
+
+ Here,  map(str, l)  converts  l  into a list of strings, and  ''.join(...)  merges the strings. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3216322)
+ The currently-accepted answer is NOT the fastest way using  array.array ; at least it's not the slowest -- compare these: 
+
+  [source: johncatfish (quoting chauncey), Bartek]
+python -m timeit -s"import array" "arr = array.array('i', (2 for i in range(0,1000000)))"
+10 loops, best of 3: 543 msec per loop
+
+[source: g.d.d.c]
+python -m timeit -s"import array" "arr = array.array('i', [2] * 1000000)"
+10 loops, best of 3: 141 msec per loop
+
+python -m timeit -s"import array" "arr = array.array('i', [2]) * 1000000"
+100 loops, best of 3: 15.7 msec per loop
+  
+
+ That's a ratio of about 9 to 1 ... 
+
+
+

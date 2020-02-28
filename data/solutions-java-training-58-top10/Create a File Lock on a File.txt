@@ -1,0 +1,276 @@
+Query: Create a File Lock on a File
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33517721)
+ FileLock does work on FileInputStream BUT only if acquired as a shared lock. 
+
+    FileInputStream fis = new FileInputStream(file + ext);
+  FileChannel fileChannel = fis.getChannel();
+  FileLock fileLock = fileChannel.tryLock(0L, Long.MAX_VALUE, /*shared*/true);
+  
+
+ Actually this makes sense. Shared lock means that there could be any number of simultaneous readers, but no writers allowed. While default exclusive lock gives process exclusive access to writing. As you can't write with FileInputStream, you have to acquire shared lock on it.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15143267)
+ This works on normal Java application: 
+
+  File file = ...;
+FileInputStream fis = new FileInputStream(file); // or FileOutputStream fos = new FileOutputStream(file);
+FileLock lock = fis.getChannel().lock(); // or FileLock lock = fos.getChannel().lock();
+
+// do whatever you want with the file
+
+lock.release();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34718685)
+ The event is triggered when a file is created. The file needs to be created before it can be written to. A file doesn't simply appear once it is fully written, it appears once it is created. 
+
+ What you can do is once you get the creation event: 
+
+ 
+ Create a https://docs.oracle.com/javase/7/docs/api/java/io/File.html object to point to the file 
+ Create a https://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileChannel.html for random access using https://docs.oracle.com/javase/7/docs/api/java/io/RandomAccessFile.html with  rw  mode (so read & write access) 
+ https://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileChannel.html#lock%28%29 the channel. This will block until the file is free for read/write access (read the more general <a href="https://docs.oracle.com/javase/7/docs/api/java/nio/channels/FileChannel.html#lock%28long,%20long,%20boolean%29"  method for more info) 
+ When the lock is acquired, your file was released by the process that wrote the file 
+ 
+
+ A simplified example: 
+
+  File lockFile = new File( "file_to_lock" );
+FileChannel channel = new RandomAccessFile( lockFile, "rw" ).getChannel( );
+channel.lock( );
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3700892)
+ This is a sample program that lock file and unlock file. 
+
+  try { // Get a file channel for the file 
+
+    File file = new File("filename");
+
+    FileChannel channel = new RandomAccessFile(file, "rw").getChannel(); // Use the file channel to create a lock on the file.
+
+    // This method blocks until it can retrieve the lock. 
+
+    FileLock lock = channel.lock(); // Try acquiring the lock without blocking. This method returns // null or throws an exception if the file is already locked. 
+
+    try { 
+
+        lock = channel.tryLock();
+
+    } catch (OverlappingFileLockException e){}
+
+
+    lock.release(); // Close the file 
+
+    channel.close();
+} 
+
+catch (Exception e) { } 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12537924)
+ You can create a new file yourself which you use as a lockfile (the following is an example in Java since you stated that you wanted to implement some custom file lock logic in Java): 
+
+  File lockFile = new File(".filelock");
+if(!lockFile.exists()){
+   //create lock file
+   boolean success = lockFile.createNewFile();       
+
+   //execute some logic...
+
+   //delete lock file
+   lockFile.delete();                                
+}else{
+   //lock file exists, cannot execute the logic that we wanted
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30402123)
+ When you acquire a  FileLock , you acquire it for the entire JVM. That’s why creating more  FileOutputStream s and overwriting the same file within the same JVM will never been prevented by a  FileLock — the JVM owns the lock. Thus, the  OverlappingFileLockException  is not meant to tell you that the lock isn’t available (that would be signaled by  tryLock  via returning  null ), it’s meant to tell you that there is a programming error: an attempt to acquire a lock that you already own. 
+
+ When trying to access the same file from a different JVM, you stumble across the fact that the locking isn’t necessarily preventing other processes from writing into the locked region, it just prevents them from locking that region. And since you are using the http://docs.oracle.com/javase/8/docs/api/java/io/FileOutputStream.html#FileOutputStream-java.io.File-, that might happen before your attempt of acquiring the lock. 
+
+ One solution is use http://docs.oracle.com/javase/8/docs/api/java/io/FileOutputStream.html#FileOutputStream-java.io.File-boolean- to avoid truncating the file. This works regardless of whether you open the file within the same JVM or a different process. 
+
+ However, maybe you don’t want to  append  to the file. I guess you want to overwrite in the case you successfully acquired the lock. In this case, the constructors of  FileOutputStream  don’t help you as they force you to decide for either, truncating or appending. 
+
+ The solution is to abandon the old API and http://docs.oracle.com/javase/8/docs/api/java/nio/channels/FileChannel.html#open-java.nio.file.Path-java.nio.file.OpenOption...- (requires at least Java 7). Then you have plenty of http://docs.oracle.com/javase/8/docs/api/java/nio/file/StandardOpenOption.html where http://docs.oracle.com/javase/8/docs/api/java/nio/file/StandardOpenOption.html#TRUNCATE_EXISTING and http://docs.oracle.com/javase/8/docs/api/java/nio/file/StandardOpenOption.html#APPEND are distinct. Omitting both allows overwriting without eagerly truncating the file: 
+
+  try(FileChannel fch=FileChannel.open(fileToWrite.toPath(),
+                                     StandardOpenOption.CREATE, StandardOpenOption.WRITE)){
+  try(FileLock lock=fch.tryLock()) {
+    if(lock!=null) {
+      // you can directly write into the channel
+      // but in case you really need an OutputStream:
+      OutputStream fos=Channels.newOutputStream(fch);
+      fos.write(testData.getBytes());
+      // you may explicitly truncate the file to the actually written content:
+      fch.truncate(fch.position());
+      System.out.println("waiting while holding lock...");
+      LockSupport.parkNanos(TimeUnit.SECONDS.toNanos(5));
+    }
+    else System.out.println("couldn't acquire lock");
+  }
+}
+  
+
+ Since it requires Java 7 anyway you can use automatic resource management for cleaning up. Note that this code uses http://docs.oracle.com/javase/8/docs/api/java/nio/file/StandardOpenOption.html#CREATE which implies the already familiar behavior of creating the file  if it doesn’t exists , in contrast to http://docs.oracle.com/javase/8/docs/api/java/nio/file/StandardOpenOption.html#CREATE_NEW which would  require  that the file doesn’t exist. 
+
+ Due to the specified options, the  open  operation may create the file but not truncate it. All subsequent operations are only performed when acquiring the lock succeeded. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38649024)
+ You can apply a lock to a FileChannel. 
+
+   try {
+        // Get a file channel for the file
+        File file = new File("filename");
+        FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+
+        // Use the file channel to create a lock on the file.
+        // This method blocks until it can retrieve the lock.
+        FileLock lock = channel.lock();
+
+        /*
+           use channel.lock OR channel.tryLock();
+        */
+
+        // Try acquiring the lock without blocking. This method returns
+        // null or throws an exception if the file is already locked.
+        try {
+            lock = channel.tryLock();
+        } catch (OverlappingFileLockException e) {
+            // File is already locked in this thread or virtual machine
+        }
+
+        // Release the lock - if it is not null!
+        if( lock != null ) {
+            lock.release();
+        }
+
+        // Close the file
+        channel.close();
+    } catch (Exception e) {
+    }
+  
+
+ For more you can go through this tutorials: 
+
+ 
+ https://stackoverflow.com/questions/128038/how-can-i-lock-a-file-using-java-if-possible 
+ https://stackoverflow.com/questions/2268997/java-filelock-for-reading-and-writing 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4583523)
+  
+
+  try {
+    // Get a file channel for the file
+    File file = new File("filename");
+    FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+
+    // Use the file channel to create a lock on the file.
+    // This method blocks until it can retrieve the lock.
+    FileLock lock = channel.lock();
+
+    // Try acquiring the lock without blocking. This method returns
+    // null or throws an exception if the file is already locked.
+    try {
+        lock = channel.tryLock();
+    } catch (OverlappingFileLockException e) {
+        // File is already locked in this thread or virtual machine
+    }
+
+    // Release the lock
+    lock.release();
+
+    // Close the file
+    channel.close();
+} catch (Exception e) {
+}
+  
+
+ Hope this will help you  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10503378)
+ Finally I got a solution: 
+
+ The way of first creating the file was the correct one. The mistake I made was that I set the permissions before file creation (expecting that the permissions are stored in the file object and used on creation). I have to first create the file, then set the permissions to all and then lock it: 
+
+  file.createNewFile();
+file.setWritable(true, false);
+FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+channel.tryLock()
+  
+
+ the lockfile is now created with worlwide-writable (this may be a security issue but actually there is no problem visible as the file does not contain any content. 
+
+ Thanks to everyone helping me to find a solution! 
+
+ Regards Michael 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9020391)
+ Don't use  the classes in the java.io  package, instead  use the  java.nio  package . The latter has a  FileLock  class. You can apply a lock to a  FileChannel . 
+
+   try {
+        // Get a file channel for the file
+        File file = new File("filename");
+        FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+
+        // Use the file channel to create a lock on the file.
+        // This method blocks until it can retrieve the lock.
+        FileLock lock = channel.lock();
+
+        /*
+           use channel.lock OR channel.tryLock();
+        */
+
+        // Try acquiring the lock without blocking. This method returns
+        // null or throws an exception if the file is already locked.
+        try {
+            lock = channel.tryLock();
+        } catch (OverlappingFileLockException e) {
+            // File is already locked in this thread or virtual machine
+        }
+
+        // Release the lock - if it is not null!
+        if( lock != null ) {
+            lock.release();
+        }
+
+        // Close the file
+        channel.close();
+    } catch (Exception e) {
+    }
+  
+
+
+

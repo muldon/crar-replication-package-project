@@ -1,0 +1,551 @@
+Query: Setting stacksize in a python script
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5061641)
+ You can just use the (u)limit command of your shell, if you want: 
+
+  os.system('ulimit -s unlimited; some_executable')
+  
+
+ Or (probably better) use http://docs.python.org/library/resource.html: 
+
+  resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16248113)
+ I have good experience with the following code. It doesn't require any special user permissions: 
+
+  import resource, sys
+resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
+sys.setrecursionlimit(10**6)
+  
+
+ It does however not seem to work with pypy. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5061649)
+ You can alter the stack size of the current process via https://docs.python.org/3/library/threading.html, but I don't know if that will be correctly inherited by subprocesses. That interface also requires a specific stack size - "unlimited" isn't an option. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5061627)
+ You're looking for the Python http://docs.python.org/library/resource.html interface,  resource.RLIMIT_STACK . 
+
+ Note that standard users cannot raise their hard limits, only root (well, a process with the  CAP_SYS_RESOURCE  capability (see capabilities(7)) processes can raise their limits; so you may need to use the PAM pam_limits(8)  limits.conf(5)  file to raise the hard limits for the users in question. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11292547)
+ Did you see http://snipplr.com/view/17819/, its an example which tells you how to use  types.FunctionType  
+
+  Example:  
+
+  import types
+
+def create_function(name, args):
+    def y(): pass
+
+    y_code = types.CodeType(args,
+                            y.func_code.co_nlocals,
+                            y.func_code.co_stacksize,
+                            y.func_code.co_flags,
+                            y.func_code.co_code,
+                            y.func_code.co_consts,
+                            y.func_code.co_names,
+                            y.func_code.co_varnames,
+                            y.func_code.co_filename,
+                            name,
+                            y.func_code.co_firstlineno,
+                            y.func_code.co_lnotab)
+
+    return types.FunctionType(y_code, y.func_globals, name)
+
+myfunc = create_function('myfunc', 3)
+
+print repr(myfunc)
+print myfunc.func_name
+print myfunc.func_code.co_argcount
+
+myfunc(1,2,3,4)
+# TypeError: myfunc() takes exactly 3 arguments (4 given)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11912076)
+ Here's one way of doing it, creating a new foo that "does the right thing" by hacking the function internals. . Unfortunately we cant just jump into the  foo  function and mess with its internals, as they're mostly marked read only, so what we have to do is modify a copy we construct by hand. 
+
+  # Here's the original function
+def foo():
+  def bar():
+    print("    In bar orig")
+  def baz():
+    print("  Calling bar from baz")
+    bar()
+  print("Foo calling bar:")
+  bar()
+  print("Foo calling baz:")
+  baz()
+
+# Here's using it
+foo()
+
+# Now lets override the bar function
+
+import types
+
+# This is our replacement function
+def my_bar():
+  print("   Woo hoo I'm the bar override")
+
+# This creates a new code object used by our new foo function 
+# based on the old foo functions code object.
+foocode = types.CodeType(
+    foo.func_code.co_argcount,
+    foo.func_code.co_nlocals,
+    foo.func_code.co_stacksize,
+    foo.func_code.co_flags,
+    foo.func_code.co_code,
+    # This tuple is a new version of foo.func_code.co_consts
+    # NOTE: Don't get this wrong or you will crash python.
+    ( 
+       foo.func_code.co_consts[0],
+       my_bar.func_code,
+       foo.func_code.co_consts[2],
+       foo.func_code.co_consts[3],
+       foo.func_code.co_consts[4]
+    ),
+    foo.func_code.co_names,
+    foo.func_code.co_varnames,
+    foo.func_code.co_filename,
+    foo.func_code.co_name,
+    foo.func_code.co_firstlineno,
+    foo.func_code.co_lnotab,
+    foo.func_code.co_freevars,
+    foo.func_code.co_cellvars )
+
+# This is the new function we're replacing foo with
+# using our new code.
+foo = types.FunctionType( foocode , {})
+
+# Now use it
+foo()
+  
+
+ I'm pretty sure its not going to catch all cases. But it works for the example (for me on an old python 2.5.1 ) 
+
+ Ugly bits that could do with some tidy up are: 
+
+ 
+ The huge argument list being passed to CodeType 
+ The ugly tuple constructed from  co_consts  overriding only one member. All the info is in co_consts to determine which to replace - so a smarter function could do this. I dug into the internals by hand using  print( foo.func_code.co_consts ) . 
+ 
+
+ You can find some information about the  CodeType  and  FunctionType  by using the interpreter 
+command  help( types.CodeType ) . 
+
+ UPDATE: 
+I thought this was too ugly so I built a helper function to make it prettier.  
+
+  # Use our function to get a new version of foo with "bar" replaced by mybar    
+foo = monkey_patch_fn( foo, "bar", my_bar )
+
+# Check it works
+foo()
+  
+
+ Here's the implementation of  monkey_patch_fn : 
+
+  # Returns a copy of original_fn with its internal function
+# called name replaced with new_fn.
+def monkey_patch_fn( original_fn, name, new_fn ):
+
+  #Little helper function to pick out the correct constant
+  def fix_consts(x):
+    if x==None: return None
+    try:
+      if x.co_name == name:
+        return new_fn.func_code
+    except AttributeError, e:
+        pass
+    return x
+
+  original_code = original_fn.func_code
+  new_consts = tuple( map( fix_consts, original_code.co_consts ) )
+  code_type_args = [
+     "co_argcount", "co_nlocals", "co_stacksize", "co_flags", "co_code",
+     "co_consts", "co_names", "co_varnames", "co_filename", "co_name",
+     "co_firstlineno", "co_lnotab", "co_freevars", "co_cellvars" ]
+
+  new_code = types.CodeType(
+     *[ ( getattr(original_code,x) if x!="co_consts" else new_consts )
+        for x in code_type_args ] )
+  return types.FunctionType( new_code, {} )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40105522)
+  Update: For sundry reasons I have started writing a Cross-Python-version assembler. See https://github.com/rocky/python-xasm It is still in very early beta.  
+
+ As far as I know there is no  currently-maintained  Python assembler. https://pypi.python.org/pypi/BytecodeAssembler was developed for Python 2.6, and later modified to support early Python 2.7. 
+
+ It is pretty cool from the http://peak.telecommunity.com/DevCenter/BytecodeAssembler#toc. But it relies on other PEAK libraries which might be problematic. 
+
+ I'll go through the whole example to give you a feel for what you'd have to do. . 
+
+ Basically after modifying the bytecode, you need to create a new https://docs.python.org/2/library/types.html?highlight=codetype#types.CodeType object. You need a new one because many of the objects in the code type, for good reason,  you can't change. For example the interpreter may have some of these object values cached. 
+
+ After creating code, you can use this in functions that use a code type which can be used in  exec  or  eval . 
+
+ Or you can write this to a bytecode file. Alas the code format has changed between Python 2 and Python 3. And by the way so has the optimization and bytecodes. In fact, in Python 3.6 they will be  word  codes not bytecodes. 
+
+ So here is what you'd have to do for your example: 
+
+  a = """
+def fact():
+    a = 8
+    a = 0
+    return a
+"""
+c = compile(a, '<string>', 'exec')
+fn_code = c.co_consts[0] # Pick up the function code from the main code
+from dis import dis
+dis(fn_code)
+print("=" * 30)
+
+x = fn_code.co_code[6:16] # modify bytecode
+
+import types
+opt_fn_code = types.CodeType(fn_code.co_argcount,
+                             # c.co_kwonlyargcount,  Add this in Python3
+                             fn_code.co_nlocals,
+                             fn_code.co_stacksize,
+                             fn_code.co_flags,
+                             x,  # fn_code.co_code: this you changed
+                             fn_code.co_consts,
+                             fn_code.co_names,
+                             fn_code.co_varnames,
+                             fn_code.co_filename,
+                             fn_code.co_name,
+                             fn_code.co_firstlineno,
+                             fn_code.,   # In general, You should adjust this
+                             fn_code.co_freevars,
+                             fn_code.co_cellvars)
+dis(opt_fn_code)
+print("=" * 30)
+print("Result is", eval(opt_fn_code))
+
+# Now let's change the value of what's returned
+co_consts = list(opt_fn_code.co_consts)
+co_consts[-1] = 10
+
+opt_fn_code = types.CodeType(fn_code.co_argcount,
+                             # c.co_kwonlyargcount,  Add this in Python3
+                             fn_code.co_nlocals,
+                             fn_code.co_stacksize,
+                             fn_code.co_flags,
+                             x,  # fn_code.co_code: this you changed
+                             tuple(co_consts), # this is now changed too
+                             fn_code.co_names,
+                             fn_code.co_varnames,
+                             fn_code.co_filename,
+                             fn_code.co_name,
+                             fn_code.co_firstlineno,
+                             fn_code.,   # In general, You should adjust this
+                             fn_code.co_freevars,
+                             fn_code.co_cellvars)
+
+dis(opt_fn_code)
+print("=" * 30)
+print("Result is now", eval(opt_fn_code))
+  
+
+ When I ran this here is what I got: 
+
+    3           0 LOAD_CONST               1 (8)
+              3 STORE_FAST               0 (a)
+
+  4           6 LOAD_CONST               2 (0)
+              9 STORE_FAST               0 (a)
+
+  5          12 LOAD_FAST                0 (a)
+             15 RETURN_VALUE
+==============================
+  3           0 LOAD_CONST               2 (0)
+              3 STORE_FAST               0 (a)
+
+  4           6 LOAD_FAST                0 (a)
+              9 RETURN_VALUE
+==============================
+('Result is', 0)
+  3           0 LOAD_CONST               2 (10)
+              3 STORE_FAST               0 (a)
+
+  4           6 LOAD_FAST                0 (a)
+              9 RETURN_VALUE
+==============================
+('Result is now', 10)
+  
+
+ Notice that the line numbers haven't changed even though I removed in code a couple of lines. That is because I didn't update  fn_code. . 
+
+ If you want to now write a Python bytecode file from this.  
+
+  co_consts = list(c.co_consts)
+co_consts[0] = opt_fn_code
+c1 = types.CodeType(c.co_argcount,
+                    # c.co_kwonlyargcount,  Add this in Python3
+                    c.co_nlocals,
+                    c.co_stacksize,
+                    c.co_flags,
+                    c.co_code,
+                    tuple(co_consts),
+                    c.co_names,
+                    c.co_varnames,
+                    c.co_filename,
+                    c.co_name,
+                    c.co_firstlineno,
+                    c.,   # In general, You should adjust this
+                    c.co_freevars,
+                    c.co_cellvars)
+
+from struct import pack
+with open('/tmp/testing.pyc', 'w') as fp:
+        fp.write(pack('Hcc', 62211, '\r', '\n')) # Python 2.7 magic number
+        import time
+        fp.write(pack('I', int(time.time())))
+        # In Python 3 you need to write out the size mod 2**32 here
+        import marshal
+        fp.write(marshal.dumps(c1))
+  
+
+ To simplify writing the boilerplate bytecode above, I've added a routine to https://github.com/rocky/python-xdis called  write_python_file() . 
+
+ Now to check the results: 
+
+  $ uncompyle6 /tmp/testing.pyc
+# uncompyle6 version 2.9.2
+# Python bytecode 2.7 (62211)
+# Disassembled from: Python 2.7.12 (default, Jul 26 2016, 22:53:31)
+# [GCC 5.4.0 20160609]
+# Embedded file name: <string>
+# Compiled at: 2016-10-18 05:52:13
+
+
+def fact():
+    a = 0
+# okay decompiling /tmp/testing.pyc
+$ pydisasm /tmp/testing.pyc
+# pydisasm version 3.1.0
+# Python bytecode 2.7 (62211) disassembled from Python 2.7
+# Timestamp in code: 2016-10-18 05:52:13
+# Method Name:       <module>
+# Filename:          <string>
+# Argument count:    0
+# Number of locals:  0
+# Stack size:        1
+# Flags:             0x00000040 (NOFREE)
+# Constants:
+#    0: <code object fact at 0x7f815843e4b0, file "<string>", line 2>
+#    1: None
+# Names:
+#    0: fact
+  2           0 LOAD_CONST               0 (<code object fact at 0x7f815843e4b0, file "<string>", line 2>)
+              3 MAKE_FUNCTION            0
+              6 STORE_NAME               0 (fact)
+              9 LOAD_CONST               1 (None)
+             12 RETURN_VALUE
+
+
+# Method Name:       fact
+# Filename:          <string>
+# Argument count:    0
+# Number of locals:  1
+# Stack size:        1
+# Flags:             0x00000043 (NOFREE | NEWLOCALS | OPTIMIZED)
+# Constants:
+#    0: None
+#    1: 8
+#    2: 10
+# Local variables:
+#    0: a
+  3           0 LOAD_CONST               2 (10)
+              3 STORE_FAST               0 (a)
+
+  4           6 LOAD_CONST               0 (None)
+              9 RETURN_VALUE
+$
+  
+
+ An alternate approach for optimization is to optimize at the https://docs.python.org/2/library/ast.html?highlight=ast#module-ast level (AST). I don't know how you'd generate a bytecode file from an AST. So I suppose you write this back out as Python source, if that is possible.  
+
+ Note however that some kinds of optimization like tail-recursion elimination might leave bytecode in a form that it can't be transformed in a truely faithful way to source code. See http://rocky.github.io/pycon2018-light.co/#/ for a video I made which elminates tail recursion in bytecode to get an idea of what I'm talking about here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1361058)
+ .  A function that isn't being run doesn't have locals; it's just a function.  Asking how to modify a function's locals when it's not running is like asking how to modify a program's heap when it's not running. 
+
+ You can modify constants, though, if you really want to. 
+
+  def func():
+    a = 10
+    print a
+
+co = func.func_code
+modified_consts = list(co.co_consts)
+for idx, val in enumerate(modified_consts):
+    if modified_consts[idx] == 10: modified_consts[idx] = 15
+
+modified_consts = tuple(modified_consts)
+
+import types
+modified_code = types.CodeType(co.co_argcount, co.co_nlocals, co.co_stacksize, co.co_flags, co.co_code, modified_consts, co.co_names, co.co_varnames, co.co_filename, co.co_name, co.co_firstlineno, co.co_lnotab)
+modified_func = types.FunctionType(modified_code, func.func_globals)
+# 15:
+modified_func()
+  
+
+ It's a hack, because there's no way to know which constant in co.co_consts is which; this uses a sentinel value to figure it out.  Depending on whether you can constrain your use cases enough, that might be enough. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38666417)
+ CPython (and pypy) use a very simple stack language for executing functions, and it is fairly easy to write the bytecode yourself, using the ast module. 
+
+  import sys
+PY3 = sys.version_info.major > 2
+import ast
+from ast import parse
+import types
+from dis import opmap
+
+ops = {
+    ast.Mult: opmap['BINARY_MULTIPLY'],
+    ast.Add: opmap['BINARY_ADD'],
+    ast.Sub: opmap['BINARY_SUBTRACT'],
+    ast.Div: opmap['BINARY_TRUE_DIVIDE'],
+    ast.Pow: opmap['BINARY_POWER'],
+}
+LOAD_CONST = opmap['LOAD_CONST']
+RETURN_VALUE = opmap['RETURN_VALUE']
+LOAD_FAST = opmap['LOAD_FAST']
+def process(consts, bytecode, p, stackSize=0):
+    if isinstance(p, ast.Expr):
+        return process(consts, bytecode, p.value, stackSize)
+    if isinstance(p, ast.BinOp):
+        szl = process(consts, bytecode, p.left, stackSize)
+        szr = process(consts, bytecode, p.right, stackSize)
+        if type(p.op) in ops:
+            bytecode.append(ops[type(p.op)])
+        else:
+            print(p.op)
+            raise Exception("unspported opcode")
+        return max(szl, szr) + stackSize + 1
+    if isinstance(p, ast.Num):
+        if p.n not in consts:
+            consts.append(p.n)
+        idx = consts.index(p.n)
+        bytecode.append(LOAD_CONST)
+        bytecode.append(idx % 256)
+        bytecode.append(idx // 256)
+        return stackSize + 1
+    if isinstance(p, ast.Name):
+        bytecode.append(LOAD_FAST)
+        bytecode.append(0)
+        bytecode.append(0)
+        return stackSize + 1
+    raise Exception("unsupported token")
+
+def makefunction(inp):
+    def f(x):
+        pass
+
+    if PY3:
+        oldcode = f.__code__
+        kwonly = oldcode.co_kwonlyargcount
+    else:
+        oldcode = f.func_code
+    stack_size = 0
+    consts = [None]
+    bytecode = []
+    p = ast.parse(inp).body[0]
+    stack_size = process(consts, bytecode, p, stack_size)
+    bytecode.append(RETURN_VALUE)
+    bytecode = bytes(bytearray(bytecode))
+    consts = tuple(consts)
+    if PY3:
+        code = types.CodeType(oldcode.co_argcount, oldcode.co_kwonlyargcount, oldcode.co_nlocals, stack_size, oldcode.co_flags, bytecode, consts, oldcode.co_names, oldcode.co_varnames, oldcode.co_filename, 'f', oldcode.co_firstlineno, b'')
+        f.__code__ = code
+    else:
+        code = types.CodeType(oldcode.co_argcount, oldcode.co_nlocals, stack_size, oldcode.co_flags, bytecode, consts, oldcode.co_names, oldcode.co_varnames, oldcode.co_filename, 'f', oldcode.co_firstlineno, '')
+        f.func_code = code
+    return f
+  
+
+ This has the distinct advantage of generating essentially the same function as  eval , and it scales almost exactly as well as  compile + eval  (the  compile  step is slightly slower than  eval 's, and  eval  will precompute anything it can ( 1+1+x  gets compiled as  2+x ). 
+
+ For comparison,  eval  finishes your 20k test in 0.0125 seconds, and  makefunction  finishes in 0.014 seconds.  Increasing the number of iterations to 2,000,000,  eval  finishes in 1.23 seconds and  makefunction  finishes in 1.32 seconds. 
+
+ An interesting note, pypy recognizes that  eval  and  makefunction  produce essentially the same function, so the JIT warmup for the first accelerates the second. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44574833)
+ Byte-code is not the only thing in the code object. If you dissassemble the functions using https://docs.python.org/3/library/dis.html#dis.dis you can see what is happening: 
+
+  >>> import dis
+>>> a = lambda x: x + 4
+>>> b = lambda y: y + 3
+>>> dis.dis(a)
+  1           0 LOAD_FAST                0 (x)
+              3 LOAD_CONST               1 (4)
+              6 BINARY_ADD
+              7 RETURN_VALUE
+>>> dis.dis(b)
+  1           0 LOAD_FAST                0 (y)
+              3 LOAD_CONST               1 (3)
+              6 BINARY_ADD
+              7 RETURN_VALUE
+  
+
+ What is happening is that there is also a tuple of constants assosciated with the code objects. The byte code just says to load the constant at an index from that tuple. They both have the same byte code, but load different values from the tuple. You can see it with the  co_consts  attribute: 
+
+  >>> a.__code__.co_consts
+(None, 4)
+>>> b.__code__.co_consts
+(None, 3)
+  
+
+ You can change this too to make a different function: 
+
+  >>> import types
+>>> c_code = types.CodeType(
+    a.__code__.co_argcount, a.__code__.co_kwonlyargcount, a.__code__.co_nlocals,
+    a.__code__.co_stacksize, a.__code__.co_flags, a.__code__.co_code, (None, 5),
+    a.__code__.co_names, a.__code__.co_varnames, a.__code__.co_filename,
+    a.__code__.co_name, a.__code__.co_firstlineno, a.__code__.co_lnotab,
+    a.__code__.co_freevars, a.__code__.co_cellvars
+)
+>>> c = types.FunctionType(c_code, globals())
+>>> a(0)
+4
+>>> c(0)
+5
+  
+
+
+

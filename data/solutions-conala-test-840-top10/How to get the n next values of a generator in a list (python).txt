@@ -1,0 +1,515 @@
+Query: How to get the n next values of a generator in a list (python)
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4152389)
+ Use  itertools.islice : 
+
+  list(itertools.islice(it, n))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29570364)
+  generator()  initializes new generator object: 
+
+  In [4]: generator() is generator() # Creating 2 separate objects
+Out[4]: False
+  
+
+ Then  generator().next()  gets the first value from the newly created generator object ( 0  in your case). 
+
+ You should call  generator  once: 
+
+  In [5]: gen = generator() # Storing new generator object, will reuse it
+
+In [6]: [gen.next() for _ in range(6)] # Get first 6 values for demonstration purposes
+Out[6]: [0, 0, 0, 0, 0, 1]
+  
+
+  Note : https://docs.python.org/2/reference/expressions.html#generator.next was removed from Python 3 (https://www.python.org/dev/peps/pep-3114/) - use the https://docs.python.org/3/library/functions.html#next instead: 
+
+  In [7]: next(gen)
+Out[7]: 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1756156)
+  Note: this post assumes Python 3.x syntax. <sup>&dagger;</sup> 
+
+ A http://www.python.org/dev/peps/pep-0255/ is simply a function which returns an object on which you can call  next , such that for every call it returns some value, until it raises a  StopIteration  exception, signaling that all values have been generated. Such an object is called an  iterator . 
+
+ Normal functions return a single value using  return , just like in Java. In Python, however, there is an alternative, called  yield . Using  yield  anywhere in a function makes it a generator. Observe this code: 
+
+  >>> def myGen(n):
+...     yield n
+...     yield n + 1
+... 
+>>> g = myGen(6)
+>>> next(g)
+6
+>>> next(g)
+7
+>>> next(g)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+StopIteration
+  
+
+ As you can see,  myGen(n)  is a function which yields  n  and  n + 1 . Every call to http://docs.python.org/3/library/functions.html#next yields a single value, until all values have been yielded.  for  loops call  next  in the background, thus: 
+
+  >>> for n in myGen(6):
+...     print(n)
+... 
+6
+7
+  
+
+ Likewise there are http://www.python.org/dev/peps/pep-0289/, which provide a means to succinctly describe certain common types of generators: 
+
+  >>> g = (n for n in range(3, 5))
+>>> next(g)
+3
+>>> next(g)
+4
+>>> next(g)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+StopIteration
+  
+
+ Note that generator expressions are much like http://docs.python.org/3/tutorial/datastructures.html#list-comprehensions: 
+
+  >>> lc = [n for n in range(3, 5)]
+>>> lc
+[3, 4]
+  
+
+ Observe that a generator object is generated  once , but its code is  not  run all at once. Only calls to  next  actually execute (part of) the code. Execution of the code in a generator stops once a  yield  statement has been reached, upon which it returns a value. The next call to  next  then causes execution to continue in the state in which the generator was left after the last  yield . This is a fundamental difference with regular functions: those always start execution at the "top" and discard their state upon returning a value. 
+
+ There are more things to be said about this subject. It is e.g. possible to  send  data back into a generator (http://docs.python.org/3/reference/expressions.html#yield-expressions). But that is something I suggest you do not look into until you understand the basic concept of a generator. 
+
+ Now you may ask: why use generators? There are a couple of good reasons: 
+
+ 
+ Certain concepts can be described much more succinctly using generators. 
+ Instead of creating a function which returns a list of values, one can write a generator which generates the values on the fly. This means that no list needs to be constructed, meaning that the resulting code is more memory efficient. In this way one can even describe data streams which would simply be too large to fit in memory. 
+  Generators allow for a natural way to describe  infinite  streams. Consider for example the http://en.wikipedia.org/wiki/Fibonacci_number: 
+
+  >>> def fib():
+...     a, b = 0, 1
+...     while True:
+...         yield a
+...         a, b = b, a + b
+... 
+>>> import itertools
+>>> list(itertools.islice(fib(), 10))
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+  
+
+ This code uses http://docs.python.org/3/library/itertools.html#itertools.islice to take a finite number of elements from an infinite stream. You are advised to have a good look at the functions in the http://docs.python.org/3/library/itertools.html module, as they are essential tools for writing advanced generators with great ease.  
+ 
+
+ 
+
+ &nbsp;&nbsp;<sup>&dagger;</sup>  About Python <=2.6:  in the above examples  next  is a function which calls the method  __next__  on the given object. In Python <=2.6 one uses a slightly different technique, namely  o.next()  instead of  next(o) . Python 2.7 has  next()  call  .next  so you need not use the following in 2.7: 
+
+  >>> g = (n for n in range(3, 5))
+>>> g.next()
+3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48079066)
+ To get the first n values of a generator, you can use https://more-itertools.readthedocs.io/en/latest/api.html#more_itertools.take. 
+
+ If you plan to iterate over the words in chunks (eg. 100 at a time), you can use more_itertools.chunked (https://more-itertools.readthedocs.io/en/latest/api.html): 
+
+  import more_itertools
+for words in more_itertools.chunked(reader, n=100):
+    # process 100 words
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24641588)
+ Using generator 
+
+ Generator is a function, which does not return single result, but can yields multiple ones during whatever run it uses. 
+
+ Having a function  gen  as follows: 
+
+  def gen(itm, nums):
+    for num in nums:
+        yield num
+        yield itm
+
+>>> g = gen("Avg", range(0, 4))
+>>> list(g)
+[0, 'Avg', 1, 'Avg', 2, 'Avg', 3, 'Avg']
+  
+
+ The  list  function forced the  g  generator instance to iterate through all available values until there is no more items to yield and return them in a list. 
+
+ Consuming from generator by  next()  
+
+ You can use the generator also in alternative ways using  next , getting values just one by one: 
+
+  >>> g = gen("Avg", range(0, 4))
+>>> g.next()
+0
+>>> g.next()
+'Avg'
+>>> g.next()
+1
+>>> g.next()
+'Avg'
+>>> g.next()
+2
+>>> g.next()
+'Avg'
+>>> g.next()
+3
+>>> g.next()
+'Avg'
+>>> g.next()
+---------------------------------------------------------------------------
+StopIteration                             Traceback (most recent call last)
+<ipython-input-17-d7e53364a9a7> in <module>()
+----> 1 g.next()
+
+StopIteration: 
+  
+
+ Note, that we get  StopIteration  exception when there is no more values to yield. 
+
+ Another important detail is, that a generator has it's internal state and you have to initialize it to get values again from the first to the last one. Exhausted instance of generator will not yield any more values. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35526740)
+ Here's a simple  yield  based approach, to compute the fibonacci series, explained: 
+
+  def fib(limit=50):
+    a, b = 0, 1
+    for i in range(limit):
+       yield b
+       a, b = b, a+b
+  
+
+ When you enter this into your REPL and then try and call it, you'll get a mystifying result: 
+
+  >>> fib()
+<generator object fib at 0x7fa38394e3b8>
+  
+
+ This is because the presence of  yield  signaled to Python that you want to create a  generator , that is, an object that generates values on demand. 
+
+ So, how do you generate these values? This can either be done directly by using the built-in function  next , or, indirectly by feeding it to a construct that consumes values.  
+
+ Using the built-in  next()  function, you directly invoke  .next / __next__ , forcing the generator to produce a value: 
+
+  >>> g = fib()
+>>> next(g)
+1
+>>> next(g)
+1
+>>> next(g)
+2
+>>> next(g)
+3
+>>> next(g)
+5
+  
+
+ Indirectly, if you provide  fib  to a  for  loop, a  list  initializer, a  tuple  initializer, or anything else that expects an object that generates/produces values, you'll "consume" the generator until no more values can be produced by it (and it returns): 
+
+  results = []
+for i in fib(30):       # consumes fib
+    results.append(i) 
+# can also be accomplished with
+results = list(fib(30)) # consumes fib
+  
+
+ Similarly, with a  tuple  initializer:  
+
+  >>> tuple(fib(5))       # consumes fib
+(1, 1, 2, 3, 5)
+  
+
+ A generator differs from a function in the sense that it is lazy. It accomplishes this by maintaining it's local state and allowing you to resume whenever you need to.  
+
+ When you first invoke  fib  by calling it: 
+
+  f = fib()
+  
+
+ Python compiles the function, encounters the  yield  keyword and simply returns a generator object back at you. .  
+
+ When you then request it generates the first value, directly or indirectly, it executes all statements that it finds, until it encounters a  yield , it then yields back the value you supplied to  yield  and pauses. For an example that better demonstrates this, let's use some  print  calls (replace with  print "text"  if on Python 2): 
+
+  def yielder(value):
+    """ This is an infinite generator. Only use next on it """ 
+    while 1:
+        print("I'm going to generate the value for you")
+        print("Then I'll pause for a while")
+        yield value
+        print("Let's go through it again.")
+  
+
+ Now, enter in the REPL: 
+
+  >>> gen = yielder("Hello, yield!")
+  
+
+ you have a generator object now waiting for a command for it to generate a value. Use  next  and see what get's printed: 
+
+  >>> next(gen) # runs until it finds a yield
+I'm going to generate the value for you
+Then I'll pause for a while
+'Hello, yield!'
+  
+
+ The unquoted results are what's printed. The quoted result is what is returned from  yield . Call  next  again now: 
+
+  >>> next(gen) # continues from yield and runs again
+Let's go through it again.
+I'm going to generate the value for you
+Then I'll pause for a while
+'Hello, yield!'
+  
+
+ The generator remembers it was paused at  yield value  and resumes from there. The next message is printed and the search for the  yield  statement to pause at it performed again (due to the  while  loop). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3707561)
+ There are two things going on in that line.  The easier one to explain is that the  yield  statement is returning a value which is a sequence, so the commas take values of the sequence and put them in the variables, much like this: 
+
+  >>> def func():
+...     return (1,2,3)
+...
+>>> a,b,c = func()
+>>> a
+1
+>>> b
+2
+>>> c
+3
+  
+
+ Now, the  yield  statement is used to http://docs.python.org/tutorial/classes.html#generators, which can return a number of values rather than just one, returning one value each time  yield  is used.  For example: 
+
+  >>> def func():
+...     for a in ['one','two','three']:
+...         yield a
+...
+>>> g = func()
+>>> g.next()
+'one'
+>>> g.next()
+'two'
+>>> g.next()
+'three'
+  
+
+ In effect, the function stops at the  yield  statement, waiting to be asked for the next value before carrying on. 
+
+ In the example above  next()  gets the next value from the generator.  However, if we use  send()  instead we can send values back to the generator which are returned by the  yield  statement back in to the function: 
+
+  >>> def func():
+...     total = 0
+...     while True:
+...        add = yield total
+...        total = total + add
+...
+>>> g = func()
+>>> g.next()
+0
+>>> g.send(10)
+10
+>>> g.send(15)
+25
+  
+
+ Putting this all together we get: 
+
+  >>> def func():
+...     total = 0
+...     while True:
+...         x,y = yield total
+...         total = total + (x * y)
+...
+>>> g = func()
+>>> g.next()
+0
+>>> g.send([6,7])
+42
+  
+
+ A generator used in this way is http://www.python.org/dev/peps/pep-0342/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32056340)
+ The function you have uses increasing amounts of memory because it appends to the list for each iteration.  An improvement is to maintain an index: 
+
+  def abc():
+    ls = ['a', 'b', 'c']
+
+    i = 0;
+    while True:
+        yield ls[i]
+        i = (i+1) % len(ls)
+  
+
+ .  It is a  generator .  Normally you would not call  next()  directly.  Normally you would use a loop to process the values produced by your generator: 
+
+  for thing in abc():
+    print(thing)
+  
+
+ Since your generator never throws a  StopIteration  exception, the for loop will never end. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43712391)
+ You are creating the generator afresh each time: 
+
+  gen = self.proxy_handler.yield_proxy()
+gen.next()
+  
+
+ A new generator starts from the beginning; separate generators do not share state. Store the generator somewhere, and then reuse that object to get new values. 
+
+ You could perhaps store that generator object as an attribute on  self : 
+
+  proxy_generator = None
+
+def get_response(self, url):
+    if not self.proxy:
+        if self.proxy_generator is None
+            self.proxy_generator = self.proxy_handler.yield_proxy()
+        self.proxy = next(self.proxy_generator)
+    proxy = self.proxy
+  
+
+ I used the https://docs.python.org/2/library/functions.html#next to keep your code forward-compatible with Python 3 (which you will have to switch to sooner or later, Python 2 is now a legacy language). 
+
+ Next, your generator tries to catch an exception that'll never be thrown: 
+
+  for p in self.proxies:
+    try:
+        proxy = {'http': 'http://%s:%s' % (p[0], p[1])}  # Formatted to python's request lib proxy format
+        self.current = proxy
+        yield proxy
+    except StopIteration:
+        print 'Reached end of proxy list'
+        self.current = {}
+        self.get_proxies()
+        yield self.yield_proxy()
+  
+
+ In your  try  there is no generator being accessed; you gave that job to the  for  loop over  self.proxies , and  for   already  knows how to handle an iterator (it'll catch  StopIterator  to end the loop). And  self.proxies  is just a list anyway. 
+
+ If you wanted to make the loop cycle over your proxies, do so in an endless  while True  loop: 
+
+  while True:
+    for p in self.proxies:
+        proxy = {'http': 'http://%s:%s' % (p[0], p[1])}  # Formatted to python's request lib proxy format
+        self.current = proxy
+        yield proxy
+
+    print 'Reached end of proxy list'
+    self.current = {}
+    self.get_proxies()
+  
+
+ I'm not sure why you think you need to clear  self.current  there and re-fetch the proxies. The tuple on your generator was never altered, so why re-fetch? And your current proxy is still valid, even if you do start the loop again from the top. I'd drop those last three lines. 
+
+ You can simplify your code further. A generator has no length, so the  __len__  method is not needed. At best the method produces  wrong  information; your  self.proxies  attribute is empty until you start iterating, so your object has length 0 to start with. Drop the method altogether. 
+
+ Next, you can give your object an  __iter__  method that produces the generator: 
+
+  class ProxyHandler:
+    def __init__(self):
+        self.proxies = []
+        self.current = {}
+
+    def get_proxies(self):
+        """ Retrieves proxies """
+
+    def __iter__(self):
+        if not self.proxies:
+            print 'Created new proxy list'
+            self.get_proxies()
+        while True:
+            for p in self.proxies:
+                proxy = {'http': 'http://%s:%s' % (p[0], p[1])} 
+                self.current = proxy
+                yield proxy
+  
+
+ This makes the whole  ProxyHandler  instance an iterable, just use  iter(self.proxy_handler)  instead of  self.proxy_handler.yield_proxy()  to get the generator to produce all those values. 
+
+ Last but not least, you can use a generator expression for the whole thing, together with https://docs.python.org/2/library/itertools.html#itertools.cycle to make that iterator endless. You would have to drop the  current  attribute, however, but that shouldn't really matter as you don't actually need that attribute when your generator just yielded the current object  anyway : 
+
+  from itertools import cycle
+
+class ProxyHandler:
+    def __init__(self):
+        self.proxies = []
+
+    def get_proxies(self):
+        """ Retrieves proxies """
+
+    def __iter__(self):
+        if not self.proxies:
+            print 'Created new proxy list'
+            self.get_proxies()
+        return cycle({'http': 'http://%s:%s' % (p[0], p[1])} for p in self.proxies)
+  
+
+ A generator expression produces the same kind of object. 
+
+ This all still requires  iter(self.proxy_generator) ; you could make the instance  iterator  (rather than an iterable), by having  __iter__  return  self , and adding in a  next()  method; move the generator expression above to an attribute on first call, then pass on the  next()  call to that to produce the values: 
+
+  class ProxyHandler:
+    def __init__(self):
+        self.proxies = []
+        self._gen = None
+
+    def get_proxies(self):
+        """ Retrieves proxies """
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if not self._gen:
+            self.get_proxies()
+            self._gen = cycle({'http': 'http://%s:%s' % (p[0], p[1])} for p in self.proxies)
+        return next(self._gen)
+
+    __next__ = next  # Python 3 compatibility
+  
+
+ Now you can use `next(self.proxy_handler) each time: 
+
+  def get_response(self, url):
+    if not self.proxy:
+        self.proxy = next(self.proxy_handler)
+    proxy = self.proxy
+  
+
+
+

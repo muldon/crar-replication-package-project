@@ -1,0 +1,236 @@
+Query: How to count number of rows in a group in pandas group by object?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22268670)
+ Try  groups  attribute and  get_group()  method of the object returned by  groupby() : 
+
+  >>> import numpy as np
+>>> import pandas as pd
+>>> anarray=np.array([[0, 31], [1, 26], [0, 35], [1, 22], [0, 41]])
+>>> df = pd.DataFrame(anarray, columns=['is_female', 'age'])
+>>> by_gender=df[['is_female','age']].groupby(['is_female'])
+>>> by_gender.groups # returns indexes of records
+{0: [0, 2, 4], 1: [1, 3]}
+>>> by_gender.get_group(0)['age'] # age of males
+0    31
+2    35
+4    41
+Name: age, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39457171)
+ I think you need add http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html and then output is  DataFrame . Last use http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing: 
+
+  df = df[['color','make','year']].groupby(['color','make','year'])
+                                .size()
+                                .reset_index(name='count')
+
+
+df1 = df[df.color == 'black']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38292851)
+ You can use the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.apply.html method to compute some function on each group: 
+
+  student_data.groupby("passed").aggregate(len)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19385591)
+ On  groupby  object, the  agg  function can take a list to http://pandas.pydata.org/pandas-docs/stable/groupby.html#applying-multiple-functions-at-once at once. This should give you the result you need: 
+
+  df[['col1', 'col2', 'col3', 'col4']].groupby(['col1', 'col2']).agg(['mean', 'count'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52101376)
+ explode your  'Count'  column by lengths of  'Tags' </h3>
+
+  df.Count.repeat(df.Tags.str.len()).groupby(np.concatenate(df.Tags)).sum()
+
+fruit        25
+red          15
+vegetable    10
+Name: Count, dtype: int64
+  
+
+ 
+
+  numpy.bincount  and  pandas.factorize </h3>
+
+  i, r = pd.factorize(np.concatenate(df.Tags))
+c = np.bincount(i, df.Count.repeat(df.Tags.str.len()))
+
+pd.Series(c.astype(df.Count.dtype), r)
+
+fruit        25
+red          15
+vegetable    10
+dtype: int64
+  
+
+ 
+
+ Generic solution</h3>
+
+  from collections import defaultdict
+import pandas as pd
+
+counts = [5, 10, 3, 20]
+tags = [['fruit', 'red'], ['vegetable', 'red'], [], ['fruit']]
+d = defaultdict(int)
+
+for c, T in zip(counts, tags):
+  for t in T:
+    d[t] += c
+
+print(pd.Series(d))
+print()
+print(pd.DataFrame([*d.items()], columns=['Tag', 'Count']))
+
+fruit        25
+red          15
+vegetable    10
+dtype: int64
+
+         Tag  Count
+0      fruit     25
+1        red     15
+2  vegetable     10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38292772)
+ You need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html with parameter  dropna=False : 
+
+  import pandas as pd
+import numpy as np
+
+student_data = pd.DataFrame({'passed':[1,1,2,2,2,np.nan,np.nan]})
+print(student_data)
+   passed
+0     1.0
+1     1.0
+2     2.0
+3     2.0
+4     2.0
+5     NaN
+6     NaN
+
+print (student_data['passed'].value_counts(dropna=False))
+ 2.0    3
+ 1.0    2
+NaN     2
+Name: passed, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47507376)
+ We can easily do it by using groupby and count. But, we should remember to use reset_index(). 
+
+  df[['col1','col2','col3','col4']].groupby(['col1','col2']).count().\
+reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29828769)
+ Call http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.first.html#pandas.core.groupby.GroupBy.first on the  groupby  object and optionally call http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html#pandas.DataFrame.reset_index if you want to return the grouped index back as a column: 
+
+  In [448]:
+
+df.groupby('group').first().reset_index()
+Out[448]:
+   group   org  count
+0      1  org1      2
+1      2  org3      1
+2      3  org4      3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41699791)
+ You could use  
+
+  iszero = (df['value']==0)
+df['group'] = (iszero.diff()==1).cumsum()
+  
+
+ to assign a group number of each row: 
+
+  In [115]: df
+Out[115]: 
+     ID  value  group
+0   111      1      0
+1   111      0      1
+2   111      1      2
+3   111      0      3
+4   111      0      3
+5   111      0      3
+6   111      1      4
+7   222      1      4
+8   222      0      5
+9   222      0      5
+10  222      1      6
+  
+
+ Now you can group by  ID  and  group  number to obtain the desired value counts: 
+
+  import pandas as pd
+
+df = pd.DataFrame({'ID': [111, 111, 111, 111, 111, 111, 111, 222, 222, 222, 222],
+ 'value': [1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1]})
+iszero = (df['value']==0)
+df['group'] = (iszero.diff()==1).cumsum()
+
+counts = (df.loc[iszero]             # restrict to rows which have 0 value
+          .groupby('ID')['group']    # group by ID, inspect the group column
+          .value_counts()            # count the number of 0s for each (ID, group)
+          .groupby(level='ID')       # group by ID only
+          .first())                  # select the first (and highest) value count
+
+print(counts)
+  
+
+  
+
+  ID
+111    3
+222    2
+Name: group, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46650278)
+ You can groupby each group1 and then use transform to find the max of whether your values are in the list. 
+
+  mydf['count'] = mydf.groupby('group1').transform(lambda x: x.astype(str).isin(valueslist).sum())
+
+   group1 value1  count
+0       0      P      1
+1       0      F      1
+2       1    100      1
+3       1     10      1
+4       2      0      0
+  
+
+
+

@@ -1,0 +1,322 @@
+Query: Numpy elementwise product of 3d array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51807255)
+ That  nth  column in  2D  array would be the second axis and by  nth  array in  3D  array, it seems you meant the  2D  slice along the first axis. So, the idea would be to align the first axis along  three_d_array  and second axis along  two_d_array . Out of the remaining axes, the first axis from  two_d_array  seems to be aligned to the second one off  three_d_array . 
+
+ So, to solve it we could use two methods and functions. 
+
+  Approach #1  
+
+ Transpose  2D  array and then extend dimensions to  3D  to have one singleton one at the end and then perform elementwise multiplication with other  3D  array, leveraging  broadcasting  for a vectorized solution - 
+
+  three_d_array*two_d_array.T[...,None]
+  
+
+  Approach #2  
+
+ With  np.einsum  - 
+
+  np.einsum('ijk,ji->ijk',three_d_array, two_d_array)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40035266)
+ For elementwise multiplication of  matrix  objects, you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.multiply.html: 
+
+  import numpy as np
+a = np.array([[1,2],[3,4]])
+b = np.array([[5,6],[7,8]])
+np.multiply(a,b)
+  
+
+     
+
+  array([[ 5, 12],
+       [21, 32]])
+  
+
+ However, you should really use  array  instead of  matrix .  matrix  objects have all sorts of horrible incompatibilities with regular ndarrays. With ndarrays, you can just use  *  for elementwise multiplication: 
+
+  a * b
+  
+
+ If you're on Python 3.5+, you don't even lose the ability to perform matrix multiplication with an operator, because https://www.python.org/dev/peps/pep-0465/: 
+
+  a @ b  # matrix multiplication
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31958728)
+ It seems you are doing matrix-multiplications for each slice along the first axis. For the same, you can use http://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html like so - 
+
+  np.einsum('ijk,ikl->ijl',A,B)
+  
+
+ We can also use https://docs.scipy.org/doc/numpy/reference/generated/numpy.matmul.html - 
+
+  np.matmul(A,B)
+  
+
+ On Python 3.x, this  matmul  operation simplifies with https://www.python.org/dev/peps/pep-0465/ - 
+
+  A @ B
+  
+
+ Benchmarking</h3>
+
+ Approaches - 
+
+  def einsum_based(A,B):
+    return np.einsum('ijk,ikl->ijl',A,B)
+
+def matmul_based(A,B):
+    return np.matmul(A,B)
+
+def forloop(A,B):
+    N = A.shape[0]
+    C = np.zeros((N,2,2))
+    for i in range(N):
+        C[i] = np.dot(A[i], B[i])
+    return C
+  
+
+  
+
+  In [44]: N = 10000
+    ...: A = np.random.rand(N,2,2)
+    ...: B = np.random.rand(N,2,2)
+
+In [45]: %timeit einsum_based(A,B)
+    ...: %timeit matmul_based(A,B)
+    ...: %timeit forloop(A,B)
+100 loops, best of 3: 3.08 ms per loop
+100 loops, best of 3: 3.04 ms per loop
+100 loops, best of 3: 10.9 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45986930)
+ Without any sum-reduction involved, a simple  broadcasting  would be really efficient after extending  b  to  3D  with https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.indexing.html#numpy.newaxis - 
+
+  a*b[:,None,:] # or simply a*b[:,None]
+  
+
+  
+
+  In [531]: a = np.arange(10*4*3).reshape((10,4,3))
+     ...: b = np.arange(30).reshape((10,3))
+     ...: 
+
+In [532]: %timeit np.einsum('ijk,ik->ijk', a, b) #@Brad Solomon's soln
+     ...: %timeit a*b[:,None]
+     ...: 
+100000 loops, best of 3: 1.79 µs per loop
+1000000 loops, best of 3: 1.66 µs per loop
+
+In [525]: a = np.random.rand(100,100,100)
+
+In [526]: b = np.random.rand(100,100)
+
+In [527]: %timeit np.einsum('ijk,ik->ijk', a, b)
+     ...: %timeit a*b[:,None]
+     ...: 
+1000 loops, best of 3: 1.53 ms per loop
+1000 loops, best of 3: 1.08 ms per loop
+
+In [528]: a = np.random.rand(400,400,400)
+
+In [529]: b = np.random.rand(400,400)
+
+In [530]: %timeit np.einsum('ijk,ik->ijk', a, b)
+     ...: %timeit a*b[:,None]
+     ...: 
+10 loops, best of 3: 128 ms per loop
+10 loops, best of 3: 94.8 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51982109)
+ Numpy matrices are strictly 2-dimensional, while numpy arrays (ndarrays) are N-dimensional. Matrix objects are a subclass of ndarray, so they inherit all the attributes and methods of ndarrays. Ndarrays apply almost all operations elemntwise. 
+
+ The main advantage of numpy matrices is that they provide a convenient notation for matrix multiplication: if a and b are matrices, then a*b is their matrix product (not elementwise). The elementwise operation with  np.matrix  is obtained with  np.multiply(a,b) . 
+
+ As of Python 3.5, NumPy supports infix matrix multiplication using the @ operator. Thus,  np.matrix 's  *  product is equivalent to  np.array 's  @  product. In your code: 
+
+  a= np.arange(2*2).reshape(2,2)
+#> a = [[0 1]
+#       [2 3]]
+b= np.array([[0,0],[1,1]])
+#> b = [[0 0]
+#       [1 1]]
+a@b
+#>[[1 1]
+#  [3 3]]
+a*b
+#>[[0 0]
+#  [2 3]]
+
+
+d=np.matrix([[0,1],[2,3]])
+e= np.matrix([[0,0],[1,1]])
+d*e                 # Equivalent to a@b
+#> [[1 1]
+#   [3 3]]
+np.multiply(d,e)    # Equivalent to a*b
+#> [[0 0]
+#   [2 3]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33801835)
+ Let's say the input arrays are  A ,  B  with  B  as the  2D  array. To start off, reshape  A  to a  3D  array with the trailing non-matching dimensions merged as one dimension, then perform the broadcasted elementwise multiplication with  B  and finally reshape back the product to original shape of  A . The implementation would look like this - 
+
+  shp = A.shape  # Get shape of A
+out = (A.reshape(shp[0],shp[1],-1)*B[:,:,None]).reshape(shp)
+  
+
+ Verify output - 
+
+  In [96]: A = np.random.rand(2,3,4,5,7,8,4)
+
+In [97]: B = np.random.rand(2,3)
+
+In [98]: shp = A.shape
+    ...: out = (A.reshape(shp[0],shp[1],-1)*B[:,:,None]).reshape(shp)
+    ...: 
+
+In [99]: direct_out = A*B[:,:,None,None,None,None,None]
+
+In [100]: np.allclose(out,direct_out) # Verify
+Out[100]: True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6300980)
+  
+
+  from numpy.core.umath_tests import inner1d
+Z = inner1d(X,Y)
+  
+
+ For example: 
+
+  X = np.random.normal(size=(10,5))
+Y = np.random.normal(size=(10,5))
+Z1 = inner1d(X,Y)
+Z2 = [np.dot(X[k],Y[k]) for k in range(10)]
+print np.allclose(Z1,Z2)
+  
+
+ returns  True  
+
+  Edit  Correction since I didn't see the 3D part of the question 
+
+  from numpy.core.umath_tests import matrix_multiply
+X = np.random.normal(size=(10,5,3))
+Y = np.random.normal(size=(10,3,5))
+Z1 = matrix_multiply(X,Y)
+Z2 = np.array([np.dot(X[k],Y[k]) for k in range(10)])
+np.allclose(Z1,Z2)  # <== returns True
+  
+
+ This works because (as the docstring states),  matrix_multiply provides 
+
+ 
+   matrix_multiply(x1, x2[, out]) matrix 
+  
+   multiplication on last two dimensions 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20711631)
+  np.array(list(itertools.product([0,1], repeat = n**2))).reshape(-1,n,n)
+  
+
+ produces a  (2^(n^2),n,n)  array. 
+
+ There may be some numpy 'grid' function that does the same, but my recollection from other discussions is that  itertools.product  is pretty fast. 
+
+  g=(np.array(x).reshape(n,n) for x in itertools.product([0,1], repeat = n**2))
+  
+
+ is a generator that produces the nxn arrays one at time: 
+
+  g.next()
+# array([[0, 0],[0, 0]])
+  
+
+ Or to produce the same 3d array: 
+
+  np.array(list(g))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1316104)
+ Have a look at http://docs.python.org/library/itertools.html, especially <a href="http://docs.python.org/library/itertools.html#itertools.product".product . You can compress the three loops into one with  
+
+  import itertools
+
+for x, y, z in itertools.product(*map(xrange, (x_dim, y_dim, z_dim)):
+    ...
+  
+
+ You can also create the cube this way: 
+
+  cube = numpy.array(list(itertools.product((0,1), (0,1), (0,1))))
+print cube
+array([[0, 0, 0],
+       [0, 0, 1],
+       [0, 1, 0],
+       [0, 1, 1],
+       [1, 0, 0],
+       [1, 0, 1],
+       [1, 1, 0],
+       [1, 1, 1]])
+  
+
+ and add the offsets by a simple addition 
+
+  print cube + (10,100,1000)
+array([[  10,  100, 1000],
+       [  10,  100, 1001],
+       [  10,  101, 1000],
+       [  10,  101, 1001],
+       [  11,  100, 1000],
+       [  11,  100, 1001],
+       [  11,  101, 1000],
+       [  11,  101, 1001]])
+  
+
+ which would to translate to  cube + (x,y,z)  in your case. The very compact version of your code would be  
+
+  import itertools, numpy
+
+cube = numpy.array(list(itertools.product((0,1), (0,1), (0,1))))
+
+x_dim = y_dim = z_dim = 10
+
+for offset in itertools.product(*map(xrange, (x_dim, y_dim, z_dim))):
+    work_with_cube(cube+offset)
+  
+
+  Edit :  itertools.product  makes the product over the different arguments, i.e.  itertools.product(a,b,c) , so I have to pass  map(xrange, ...)  with as  *map(...)  
+
+
+

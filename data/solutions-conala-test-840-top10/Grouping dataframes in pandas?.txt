@@ -1,0 +1,197 @@
+Query: Grouping dataframes in pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33683577)
+ You can use the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.SeriesGroupBy.unique.html: 
+
+  In [11]: df.groupby(["A", "B"])["C"].unique()
+Out[11]:
+A  B
+3  2    [3, 1]
+4  2       [4]
+5  6       [6]
+Name: C, dtype: object
+  
+
+  See also http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.SeriesGroupBy.nunique.html to get the number of unique elements.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33681132)
+ Not sure if I follow but this might get you going: 
+
+  df = DataFrame({"a": [3,4,3,5], "b":[2,2,2,6], "c": [3,4,1,6]})
+In [38]: for i, g in df.groupby(("a", "b")):
+             print  i, g["c"].values
+         ....:
+(3, 2) [3 1]
+(4, 2) [4]
+(5, 6) [6]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53674103)
+ With grouping: 
+
+  >>> pd.concat([source1, source2]).groupby('key', as_index=False).sum()
+  key  value
+0   a      1
+1   b      5
+2   c      0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44108670)
+ You can merge pandas data frames on two columns: 
+
+  pd.merge(df_ts,df_statechange, how='left',on=['id','ts'])
+  
+
+ in  df_statechange  that you shared here there is no common values on ts in both dataframes. Apparently you just copied not complete data frame here. So i got this output: 
+
+      x   y  ts   id state
+0  10  20   1  id1   NaN
+1  11  22   5  id1   NaN
+2  20  54   5  id2   NaN
+3  22  53   7  id2   NaN
+4  15  24   8  id1   NaN
+5  16  25  10  id1   NaN
+  
+
+ But indeed if you have common  ts  in the data frames it will have your desired output. For example: 
+
+  df_statechange = pd.DataFrame([
+        ['id1', 5, 'ok'],
+        ['id1', 8, 'ok'],
+        ['id2', 5, 'not ok'],
+        ['id2',7, 'not ok'],
+        ['id1', 9, 'not ok']
+    ], columns = ['id', 'ts', 'state'])
+  
+
+ the output: 
+
+    x   y  ts   id   state
+0  10  20   1  id1     NaN
+1  11  22   5  id1      ok
+2  20  54   5  id2  not ok
+3  22  53   7  id2  not ok
+4  15  24   8  id1      ok
+5  16  25  10  id1     NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44110465)
+ Unfortunately pandas merge support only equality joins. See more details at the following thread:
+https://stackoverflow.com/questions/30627968/merge-pandas-dataframes-where-one-value-is-between-two-others
+if you want to merge by interval you'll need to overcome the issue, for example by adding another filter after the merge: 
+
+  joined = a.merge(b,on='id')
+joined = joined[joined.ts.between(joined.ts1,joined.ts2)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51483842)
+ I'd use dictionary,  groupby  with  cumsum : 
+
+  dictofdfs = {}
+for n,g in df.groupby(df.isnull().all(1).cumsum()):
+    dictofdfs[n]= g.dropna()
+  
+
+ Output: 
+
+  dictofdfs[0]
+
+     A    B    C    D
+1  0.0  2.0  6.0  0.0
+2  6.0  1.0  5.0  2.0
+
+dictofdfs[1]
+
+      A     B    C     D
+4   9.0   3.0  2.0   2.0
+15  2.0  12.0  5.0  23.0
+
+dictofdfs[2]
+
+      A    B    C    D
+17  8.0  1.0  5.0  3.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48072070)
+ This will fix your code  
+
+  l=[]
+grouped = dfA.groupby('b')
+for name, group in grouped:
+    if name == 0:
+        group = group.merge(dfB,on='a',how='left')
+    elif name == 1:
+        group = group.merge(dfC,on='a',how='left')
+    l.append(group)
+pd.concat(l)
+Out[215]: 
+   a  b  c     d
+0  1  0  a  11.0
+1  3  0  c  13.0
+2  4  0  d   NaN
+0  2  1  b   NaN
+1  5  1  e  22.0
+2  6  1  f  23.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18121836)
+ Like @sza says, you can use: 
+
+  In [11]: g = df.groupby("type")
+
+In [12]: g.mean()
+Out[12]:
+      value
+type
+X        10
+Y        30
+  
+
+  see the http://pandas.pydata.org/pandas-docs/stable/groupby.html for more...  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51483569)
+ You can using  local  with  groupby  split 
+
+  variables = locals()
+for x, y in df.dropna(0).groupby(df.isnull().all(1).cumsum()[~df.isnull().all(1)]):
+    variables["df{0}".format(x + 1)] = y
+
+df1
+Out[768]: 
+     A    B    C    D
+1  0.0  2.0  6.0  0.0
+2  6.0  1.0  5.0  2.0
+df2
+Out[769]: 
+      A     B    C     D
+4   9.0   3.0  2.0   2.0
+15  2.0  12.0  5.0  23.0
+  
+
+
+

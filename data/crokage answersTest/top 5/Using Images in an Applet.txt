@@ -1,0 +1,167 @@
+Query: Using Images in an Applet
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30610852)
+ Applets load images asynchronously, so it is likely the images are not fully loaded before the applet goes to paint.  But every Java component worth mentioning implements an  ImageObserver  that means it will get updates on image loading.  So to fix the problem, change this: 
+
+  g.drawImage(pi, x, y, w, h, null);
+  
+
+ To  this:  
+
+  g.drawImage(pi, x, y, w, h, this);
+  
+
+ Update 
+
+ I mistakenly thought the  drawImage  method was part of the  JApplet  (which is an  ImageObserver ).  You might simply change the method declaration & painting line to: 
+
+  public void draw(Graphics g, ImageObserver io) {
+    g.drawImage(pi, x, y, w, h, io);
+}
+  
+
+ Then to call it, change:  
+
+  sd.draw(g);
+  
+
+   
+
+  sd.draw(g, this);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24969273)
+ It's likely the image can't be accessed from its current context, remember, applets normally run in a very tight security sandbox which prevents them from accessing  files on the local/client file system. 
+
+ You either need to load the images from the server the applet is been loaded from (using  getDocument/CodeBase  or a relative URL), or based on your example, as embedded an resource, for example 
+
+  tileset_terrain = ImageIO.read(getClass().getResource("/res/tileset_terrain.png"));
+  
+
+ This assumes that the image is included within the Jar file under the  /res  directory. 
+
+ If the image resides on the server from which the applet is been load, you could also use 
+
+  try {
+    URL url = new URL(getCodeBase(), "res/tileset_terrain.png");
+    img = ImageIO.read(url);
+} catch (IOException e) {
+    e.printStackTrace();
+}
+  
+
+ Take a look at http://docs.oracle.com/javase/tutorial/2d/images/loadimage.html and http://docs.oracle.com/javase/tutorial/deployment/applet/security.html for more details. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7440440)
+ 1) we living .. in 21century, then please JApplet instead of Applet  
+
+  import java.awt.*;
+import javax.swing.JApplet;
+
+public class LastAirBender extends JApplet {
+
+    private static final long serialVersionUID = 1L;
+    private Image aang;
+
+    @Override
+    public void init() {
+        aang = getImage(getDocumentBase(), getParameter("images.jpg"));
+    }
+
+    @Override
+    public void paint(Graphics g) {
+        g.drawImage(aang, 100, 100, this);
+    }
+}
+  
+
+ 2) for http://download.oracle.com/javase/tutorial/uiswing/components/icon.html would be better to look for http://download.oracle.com/javase/tutorial/uiswing/components/label.html  
+
+ 3) please what's  getImage(getDocumentBase(), getParameter("images.jpg"));  
+
+ there I'll be awaiting something like as 
+
+  URL imageURL = this.getClass().getResource("images.jpg");
+Image image = Toolkit.getDefaultToolkit().createImage(imageURL);
+Image scaled = image.getScaledInstance(100, 150, Image.SCALE_SMOOTH);
+JLabel label = new JLabel(new ImageIcon(scaled));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11911171)
+ There are a lot of reason this might not work, the most obvious are 
+
+ 
+ You don't have permission to read the images (either of the file system or the URL) 
+ The URL reference is wrong (because the location of the files are not where you think they are) 
+ 
+
+ Depending on where the files are stored, you have two choices. 
+
+ If the files are stored on the server, along with the Jar.  You will need to know the document base reference. 
+
+ So in your  init  method, you'll need add 
+
+  URL base = getDocumentBase();
+System.out.println("base = " + base); // testing only
+movPic1 = getImage(base, "issue169.jpg");
+movPic2 = getImage(base, "issue194.jpg");
+movPic3 = getImage(base, "issue248.jpg");
+movPic4 = getImage(base, "issue78.jpg");
+  
+
+ This assumes that the images reside in the same directory on the server as the HTML file.  You can use relative paths as needed. 
+
+ If the files are stored/bundled in the  Jar  (this is probably the preferred way for static images), you need to use the  classloader  to find them 
+
+  try {
+    movPic1 = ImageIO.read(getClass().getResource("/testapplet/issue169.jpg"));
+    movPic2 = ImageIO.read(getClass().getResource("/testapplet/issue194.jpg"));
+    movPic3 = ImageIO.read(getClass().getResource("/testapplet/issue248.jpg"));
+    movPic4 = ImageIO.read(getClass().getResource("/testapplet/issue78.jpg"));
+} catch (IOException ex) {
+    ex.printStackTrace();
+}
+  
+
+ I used this method but did run into a small problem while testing.  Because my files handed been bundled (yet), the applet viewer was trying to load them as a  File  reference which it didn't have permission to do - the applet view allows you to set it as unrestricted. 
+
+ This eventually resulted in 
+
+   
+
+ PS- I set the applets layout manager to  BorderLayout  rather then using absolute positioning. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14928460)
+ The first problem I see is this.... 
+
+  ImageIcon imgPerson = new javax.swing.ImageIcon((String)table.getValueAt(table.getSelectedRow(), 4))
+  
+
+  ImageIcon(String)  is used to specify a file name of the image.  This should be used for loading images of a local disk, not a network path. 
+
+ If the images are loaded relative to the to the applet, you would use  Applet#getImage(URL, String)  passing it a reference of  Applet#getDocumentBase()  
+
+ Something like  getImage(getDocumentBase(), (String)table.getValueAt(table.getSelectedRow(), 4))  
+
+ A better choice would be to use  ImageIO .  The main reason for this is that it won't use a background thread to load the image and will throw a  IOException  if something goes wrong, making it easier to diagnose any problems... 
+
+ Something like... 
+
+  BufferedImage image = ImageIO.read(new URL(getDocumentBase(), (String)table.getValueAt(table.getSelectedRow(), 4)));
+  
+
+
+

@@ -1,0 +1,233 @@
+Query: converting epoch time with milliseconds to datetime
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/21787591)
+ those are miliseconds, just divide them by 1000, since gmtime expects seconds ... 
+
+  time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(1236472051807/1000.0))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42836586)
+ Have a look at the Python datetime and time modules. 
+
+  from datetime import datetime
+d = datetime.strptime("2017_03_16-14:08:10", "%Y_%m_%d-%H:%M:%S")
+  
+
+ This will create a datetime object of d 
+
+ Then use mktime from Python's time module to get your timestamp 
+
+  import time
+time.mktime(d.timetuple())*1000
+  
+
+ The  *1000  is required to convert from seconds to milliseconds.  
+
+ Also, do you mean 1971 or the Unix epoch (Jan 01 1970)? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/21787689)
+ Use http://docs.python.org/2/library/datetime.html#datetime.datetime.fromtimestamp: 
+
+  >>> import datetime
+>>> s = 1236472051807 / 1000.0
+>>> datetime.datetime.fromtimestamp(s).strftime('%Y-%m-%d %H:%M:%S.%f')
+'2009-03-08 09:27:31.807000'
+  
+
+  %f  directive is only supported by http://docs.python.org/2/library/datetime.html#datetime.datetime.strftime, not by http://docs.python.org/2/library/time.html#time.strftime. 
+
+  UPDATE  Alternative using http://docs.python.org/2/library/stdtypes.html#string-formatting-operations, http://docs.python.org/2/library/stdtypes.html#str.format: 
+
+  >>> import time
+>>> s, ms = divmod(1236472051807, 1000)  # (1236472051, 807)
+>>> '%s.%03d' % (time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(s)), ms)
+'2009-03-08 00:27:31.807'
+>>> '{}.{:03d}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(s)), ms)
+'2009-03-08 00:27:31.807'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52461647)
+ To convert a UTC millisecond timestamp into a timezone aware  datetime , you can do: 
+
+ Code:</h3>
+
+  def tz_from_utc_ms_ts(utc_ms_ts, tz_info):
+    """Given millisecond utc timestamp and a timezone return dateime
+
+    :param utc_ms_ts: Unix UTC timestamp in milliseconds
+    :param tz_info: timezone info
+    :return: timezone aware datetime
+    """
+    # convert from time stamp to datetime
+    utc_datetime = dt.datetime.utcfromtimestamp(utc_ms_ts / 1000.)
+
+    # set the timezone to UTC, and then convert to desired timezone
+    return utc_datetime.replace(tzinfo=pytz.timezone('UTC')).astimezone(tz_info)
+  
+
+ Test Code:</h3>
+
+  import datetime as dt
+import pytz
+
+utc_ts = 1537654589000
+utc_time = "Sat Sep 22 22:16:29 2018 UTC"
+pdt_time = "Sat Sep 22 15:16:29 2018 PDT"
+
+tz_dt = tz_from_utc_ms_ts(utc_ts, pytz.timezone('America/Los_Angeles'))
+
+print(tz_dt)
+print(tz_dt.strftime('%d-%m-%Y'))
+  
+
+ Results:</h3>
+
+  2018-09-22 15:16:29-07:00
+22-09-2018
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29857606)
+ If https://stackoverflow.com/a/8778548/4279 as integer milliseconds: 
+
+  from datetime import datetime, timedelta
+
+def timestamp_millis(utc_time, epoch=datetime(1970, 1, 1)):
+    """Return milliseconds since Epoch as integer."""
+    td = utc_time - epoch
+    return (td.microseconds + (td.seconds + td.days * 86400) * 10**6) // 10**3
+  
+
+ Note: the formula may produce a different result from:  int(td.total_seconds() * 1000) .  
+
+ And in reverse: to get UTC time from POSIX time given as milliseconds: 
+
+  def datetime_from_millis(millis, epoch=datetime(1970, 1, 1)):
+    """Return UTC time that corresponds to milliseconds since Epoch."""
+    return epoch + timedelta(milliseconds=millis)
+  
+
+ It supports both positive and negative  millis .  
+
+ Note:  None  handling happens outside these functions. 
+
+ Example: 
+
+  >>> datetime_from_millis(1394462888000)
+datetime.datetime(2014, 3, 10, 14, 48, 8)
+>>> datetime.utcfromtimestamp(1394462888)
+datetime.datetime(2014, 3, 10, 14, 48, 8)
+>>> timestamp_millis(_)
+1394462888000
+  
+
+ The result is different from the one in your question! 
+
+  gmtime(0).= 1970  and  TZ=right/UTC  cases are ignored. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14583130)
+ This is how I do it: 
+
+  from datetime import datetime
+from time import mktime
+
+dt = datetime.now()
+sec_since_epoch = mktime(dt.timetuple()) + dt.microsecond/1000000.0
+
+millis_since_epoch = sec_since_epoch * 1000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/15494205)
+  >>> import datetime
+>>> import time
+>>> import calendar
+
+>>> #your datetime object
+>>> now = datetime.datetime.now()
+>>> now
+datetime.datetime(2013, 3, 19, 13, 0, 9, 351812)
+
+>>> #use datetime module's timetuple method to get a `time.struct_time` object.[1]
+>>> tt = datetime.datetime.timetuple(now)
+>>> tt
+time.struct_time(tm_year=2013, tm_mon=3, tm_mday=19, tm_hour=13, tm_min=0, tm_sec=9,     tm_wday=1, tm_yday=78, tm_isdst=-1)
+
+>>> #If your datetime object is in utc you do this way. [2](see the first table on docs)
+>>> sec_epoch_utc = calendar.timegm(tt) * 1000
+>>> sec_epoch_utc
+1363698009
+
+>>> #If your datetime object is in local timeformat you do this way
+>>> sec_epoch_loc = time.mktime(tt) * 1000
+>>> sec_epoch_loc
+1363678209.0
+  
+
+ [1] http://docs.python.org/2/library/datetime.html#datetime.date.timetuple 
+
+ [2] http://docs.python.org/2/library/time.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41267436)
+ Your date_to_millis function is converting to seconds not to millis.  
+
+ You need to use "to_datetime64" instead of time tuple.  
+
+  # %%
+import pandas as pd
+import time
+def date_to_millis(s) :                                                                                         
+    return pd.to_datetime(s).to_datetime64()                                                                                  
+
+
+s = "2013-01-14 00:00:00"                                                                                       
+mls = date_to_millis(s)                                                                                         
+dateStr = pd.to_datetime(mls, unit='ms')                                                                        
+print(s, " mls = ", mls, "  date = " , dateStr)
+# %%
+2013-01-14 00:00:00  mls =  2013-01-14T00:00:00.000000000   date =  2013-01-14 00:00:00
+
+print(float(mls))
+1.3581216e+18
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29854159)
+ The reason for this is that  date_to_mil  works with  UTC  and  mil_to_date  doesn't. You should replace  utcfromtimestamp  with  fromtimestamp . 
+
+ Further explanation: 
+
+ In your code,  epoch  is the date of the epoch in UTC (but the object is without any time-zone). But  date  is local since https://docs.python.org/2/library/datetime.html#datetime.datetime.fromtimestamp returns a local time: 
+
+ 
+   If optional argument tz is None or not specified, the timestamp is
+  converted to the platform’s local date and time, and the returned
+  datetime object is naive 
+ 
+
+ So you subtract the UTC epoch from the local datetime and you get a delay which is your local delay to UTC. 
+
+
+

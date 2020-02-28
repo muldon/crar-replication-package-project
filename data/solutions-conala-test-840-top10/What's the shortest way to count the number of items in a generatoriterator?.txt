@@ -1,0 +1,148 @@
+Query: What's the shortest way to count the number of items in a generator/iterator?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5384573)
+ The usual way is 
+
+  sum(1 for i in it)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36644664)
+ I like the http://cardinality.readthedocs.org/en/latest/ package for this, it is very lightweight and tries to use the fastest possible implementation available depending on the iterable.  
+
+  
+
+  >>> import cardinality
+>>> cardinality.count([1, 2, 3])
+3
+>>> cardinality.count(i for i in range(500))
+500
+>>> def gen():
+...     yield 'hello'
+...     yield 'world'
+>>> cardinality.count(gen())
+2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45969669)
+ https://github.com/erikrose/more-itertools is a third-party library that implements an https://more-itertools.readthedocs.io/en/latest/api.html#more_itertools.ilen tool.   pip install more_itertools  
+
+  import more_itertools as mit
+
+
+mit.ilen(x for x in range(10))
+# 10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3145497)
+ This cannot be done. Once a generator is exhausted it needs to be reconstructed in order to be used again. It is possible to define the  __len__()  method on an iterator object if the number of items is known ahead of time, and then  len()  can be called against the iterator object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5384590)
+ A short way is: 
+
+  def ilen(it):
+    return len(list(it))
+  
+
+ Note that if you are generating a  lot  of elements (say, tens of thousands or more), then putting them in a list may become a performance issue. However, this is a simple expression of the idea where the performance isn't going to matter for most cases. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15112059)
+ You cannot (except the type of a particular iterator implements some specific methods that make it possible). 
+
+ Generally, you may count iterator items only by consuming the iterator. One of probably the most efficient ways: 
+
+  import itertools
+from collections import deque
+
+def count_iter_items(iterable):
+    """
+    Consume an iterable not reading it into memory; return the number of items.
+    """
+    counter = itertools.count()
+    deque(itertools.izip(iterable, counter), maxlen=0)  # (consume at C speed)
+    return next(counter)
+  
+
+ (For Python 3.x replace  itertools.izip  with  zip ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38194502)
+ Shortest way: 
+
+  dict(zip(inv[::2], inv[1::2]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3211539)
+ No, generators just generate items, you cannot set or save their state once they have been created. So  self._generator = itertools.count(99)  is really the best way to go. 
+
+ What you can do is duplicate a generator with  itertools.tee , which memorizes the output sequence from the first iterable and passes it to the new generators. 
+
+ You can also write a generator that draws from a source you can change: 
+
+  class counter(object):
+    def __init__(self, current=0):
+        self.current = current
+
+    def __iter__(self):
+        def iter():
+            while True:
+                yield self.current
+                self.current += 1 # 
+        return iter()
+
+    def set(self,x):
+        self.current = x
+
+s = counter()
+t = iter(s)
+print t.next() # 0
+s.set(20)
+print t.next() # 21
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41339268)
+ You can use  sum  with generator expression yielding 1 for every item in iterator: 
+
+  >>> it = (i for i in range(4))
+>>> sum(1 for _ in it)
+4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/8643362)
+ Since the iterator protocol defines only two methods: 
+
+  iterator.__iter__()
+
+iterator.next()
+  
+
+ the answer is no, in general case you can't know the number of items in a finite iterator without iterating through them. 
+
+
+

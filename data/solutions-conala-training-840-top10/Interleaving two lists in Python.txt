@@ -1,0 +1,193 @@
+Query: Interleaving two lists in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11125477)
+ This one works only in python 2.x, but will work for lists of different lengths: 
+
+  [y for x in map(None,lis_a,lis_b) for y in x]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50808771)
+ Provided the lists are the same length, https://docs.python.org/3/library/functions.html#zip can be used to interleave four lists just like it was used for interleaving two in the question you linked: 
+
+  >>> l1 = ["a", "b", "c", "d"]
+>>> l2 = [1, 2, 3, 4]
+>>> l3 = ["w", "x", "y", "z"]
+>>> l4 = [5, 6, 7, 8]
+>>> l5 = [x for y in zip(l1, l2, l3, l4) for x in y]
+>>> l5
+['a', 1, 'w', 5, 'b', 2, 'x', 6, 'c', 3, 'y', 7, 'd', 4, 'z', 8]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11125298)
+ Here is a pretty straightforward method using a  list comprehension: 
+
+  >>> lists = [['a', 'b', 'c'], ['d', 'e', 'f']]
+>>> [x for t in zip(*lists) for x in t]
+['a', 'd', 'b', 'e', 'c', 'f']
+  
+
+ Or if you had the lists as separate variables (as in other answers): 
+
+  [x for t in zip(list_a, list_b) for x in t]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11125274)
+ You could do something simple using built in functions: 
+
+  sum(zip(list_a, list_b),())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48346830)
+ Using the https://docs.python.org/3/library/itertools.html#itertools-recipes: 
+
+  Two Inputs  
+
+  import itertools as it
+
+
+a = list("ABCD")
+b = list("ABCDEFGH")
+
+list(it.chain.from_iterable(roundrobin(zip(it.cycle(a), b))))
+# ['A', 'A', 'B', 'B', 'C', 'C', 'D', 'D', 'A', 'E', 'B', 'F', 'C', 'G', 'D', 'H']
+  
+
+  itertools.cycle()  infinitely extends the shorter iterable.   zip()  stops iterating after the shorter iterable.   roundrobin  handles the interleaving of elements between iterables. 
+
+ 
+
+  Longer Inputs  
+
+ To work on more than two inputs, we need to cycle all but the last iterable: 
+
+  def interleave(*inputs):
+    *rest, last = inputs
+    cycles = (it.cycle(x) for x in rest)
+    return list(it.chain.from_iterable(mit.roundrobin(zip(*cycles, last))))
+  
+
+ Now for  two or more input iterables , we can apply the  interleave  function: 
+
+  p = list("ab")
+q = list("abcd")
+r = list("abcdef")
+
+input_list_1 = [a, b]
+input_list_2 = [p, q, r]
+
+
+print(interleave(*input_list_1))
+# ['A', 'A', 'B', 'B', 'C', 'C', 'D', 'D', 'A', 'E', 'B', 'F', 'C', 'G', 'D', 'H']
+print(interleave(*input_list_2))
+# ['a', 'a', 'a', 'b', 'b', 'b', 'a', 'c', 'c', 'b', 'd', 'd', 'a', 'a', 'e', 'b', 'b', 'f']
+  
+
+ Note: you can either reimplement the  roundrobin  recipe from https://docs.python.org/3/library/itertools.html#itertools-recipes or install a third-party library that implements it for you, e.g. https://more-itertools.readthedocs.io/en/latest/api.html#more_itertools.roundrobin.   > pip install more_itertools , then in Python,  from more_itertools import roundrobin . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5520351)
+ Here's another easy way to do it. 
+
+  charlist = ['a', 'b', 'c']
+numlist = [3, 2, 1]
+newlist = []
+
+for key, a in enumerate(charlist):
+    newlist.append([a,numlist[key]])
+  
+
+ Content of newlist:  [['a', 3], ['b', 2], ['c', 1]]  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11125256)
+ One option is to use a combination of  chain.from_iterable()  and  zip() : 
+
+  # Python 3:
+from itertools import chain
+list(chain.from_iterable(zip(list_a, list_b)))
+
+# Python 2:
+from itertools import chain, izip
+list(chain.from_iterable(izip(list_a, list_b)))
+  
+
+  Edit : As pointed out by sr2222 in the comments, this does not work
+well if the lists have different lengths.  In that case, depending on
+the desired semantics, you might want to use the (far more general)  roundrobin() 
+function from the http://docs.python.org/library/itertools.html#recipes of the
+ itertools  documentation: 
+
+  def roundrobin(*iterables):
+    "roundrobin('ABC', 'D', 'EF') --> A D E B F C"
+    # Recipe credited to George Sakkis
+    pending = len(iterables)
+    nexts = cycle(iter(it).next for it in iterables)
+    while pending:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            pending -= 1
+            nexts = cycle(islice(nexts, pending))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43159862)
+ This filters the list and then deinterweaves it. 
+
+  inlist = [('apples', 1), ('oranges', 0), ('bananas', 0), ('grapes', 1),
+          ('strawberries', 1), ('pears', 1), ('cucumbers', 0), ('lettuce', 0),
+          ('tomatos', 0), ('onions', 0), ('garlic', 1), ('pineapples', 1)]
+
+from itertools import cycle, izip
+
+def deinterweave(L, n):
+    r = [list() for _ in range(n)]
+    for item, o in izip(L, cycle(r)):
+        o.append(item)
+    return r
+
+filtered = [item for item, flag in inlist if flag == 1]
+
+print deinterweave(filtered, 2)
+print deinterweave(filtered, 3)
+  
+
+  
+
+  >>> print deinterweave(filtered, 2)
+[['apples', 'strawberries', 'garlic'], ['grapes', 'pears', 'pineapples']]
+>>> print deinterweave(filtered, 3)
+[['apples', 'pears'], ['grapes', 'garlic'], ['strawberries', 'pineapples']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5520455)
+ If you want a list of lists rather than a list of tuples you could use: 
+
+  map(list,zip(charlist,numlist))
+  
+
+
+

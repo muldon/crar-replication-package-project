@@ -1,0 +1,401 @@
+Query: Compare Python Pandas DataFrames for matching rows
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37612551)
+ i would do it this way: 
+
+  In [199]: df1.reset_index().merge(df2.reset_index(), on=['a','b'])
+Out[199]:
+   index_x  a  b  index_y
+0        1  9  1       17
+1        3  4  0        4
+  
+
+  
+
+  In [211]: pd.merge(df1.reset_index(), df2.reset_index(), on=['a','b'], suffixes=['_1','_2'])
+Out[211]:
+   index_1  a  b  index_2
+0        1  9  1       17
+1        3  4  0        4
+  
+
+ data: 
+
+  In [201]: df1
+Out[201]:
+   a  b
+0  1  9
+1  9  1
+2  8  1
+3  4  0
+4  2  0
+5  2  2
+6  2  9
+7  1  1
+8  4  3
+9  0  4
+
+In [202]: df2
+Out[202]:
+    a  b
+0   3  5
+1   5  0
+2   7  8
+3   6  8
+4   4  0
+5   1  5
+6   9  0
+7   9  4
+8   0  9
+9   0  1
+10  6  9
+11  6  7
+12  3  3
+13  5  1
+14  4  2
+15  5  0
+16  9  5
+17  9  1
+18  1  6
+19  9  5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45718950)
+  
+
+  np.dstack([df.values.astype(int)] * 32)
+  
+
+ You can even turn it into a series with matching index 
+
+  pd.Series(np.dstack([df.values.astype(int)] * 32).tolist(), df.index).apply(np.array)
+
+0    [[3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,...
+1    [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,...
+2    [[3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,...
+3    [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,...
+4    [[3, 3, 3, 3, 3, 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37187245)
+ Here's how I would think to do it. 
+
+  import pandas as pd
+
+
+df = pd.DataFrame({0: {0: 1, 1: 0, 2: 0, 3: 1, 4: 0, 5: 1}, 
+                   1: {0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0}, 
+                   2: {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}, 
+                   3: {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}, 
+                   4: {0: 1, 1: 0, 2: 1, 3: 1, 4: 0, 5: 1}})
+
+groups = df.groupby(df.columns.tolist())
+df.loc[:, 'group_num'] = None
+
+
+for num, group in enumerate(groups):
+    df.loc[group[1].index, 'group_num'] = num
+  
+
+ Yields... 
+
+     0  1  2  3  4 group_num
+0  1  0  0  0  1         2
+1  0  0  0  0  0         0
+2  0  1  0  0  1         1
+3  1  0  0  0  1         2
+4  0  0  0  0  0         0
+5  1  0  0  0  1         2
+  
+
+ Why group[1] on the last line?  
+
+ Because you're iterating through a tuple of the form (group_name, group_table). group[1] accesses the actual grouped DataFrame. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30291105)
+ This would be easier if you renamed the columns of  df2  and then you can compare row-wise: 
+
+  In [35]:
+
+df2.columns = ['A', 'B']
+df2
+Out[35]:
+    A   B
+0  AA  BA
+1  AD  BF
+2  AF  BF
+In [38]:
+
+df1['D'] = (df1[['A', 'B']] == df2).all(axis=1).astype(int)
+df1
+Out[38]:
+    A   B   C  D
+0  AA  BA  KK  1
+1  AD  BD  LL  0
+2  AF  BF  MM  1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38268761)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.merge.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html - output are indexes of  B  which are equal in  A  in custom columns: 
+
+  A = pd.DataFrame({'A':[1,0,1,1],
+                  'B':[0,0,1,1],
+                  'C':[1,0,1,1],
+                  'D':[1,1,1,0],
+                  'E':[1,1,0,1]})
+
+print (A)
+   A  B  C  D  E
+0  1  0  1  1  1
+1  0  0  0  1  1
+2  1  1  1  1  0
+3  1  1  1  0  1
+
+B = pd.DataFrame({'0':[1,0,1],
+                  '1':[1,0,1],
+                  '2':[1,0,0]})
+
+print (B)
+   0  1  2
+0  1  1  1
+1  0  0  0
+2  1  1  0
+  
+
+
+
+  print (pd.merge(B.reset_index(), 
+                A.reset_index(), 
+                left_on=B.columns.tolist(), 
+                right_on=A.columns[[0,1,2]].tolist(),
+                suffixes=('_B','_A')))
+
+   index_B  0  1  2  index_A  A  B  C  D  E
+0        0  1  1  1        2  1  1  1  1  0
+1        0  1  1  1        3  1  1  1  0  1
+2        1  0  0  0        1  0  0  0  1  1    
+
+print (pd.merge(B.reset_index(), 
+                A.reset_index(), 
+                left_on=B.columns.tolist(), 
+                right_on=A.columns[[0,1,2]].tolist(),
+                suffixes=('_B','_A'))[['index_B','index_A']])    
+
+   index_B  index_A
+0        0        2
+1        0        3
+2        1        1   
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29464365)
+ One possible solution to your problem would be to use http://pandas.pydata.org/pandas-docs/version/0.15.2/merging.html.  Checking if any row (all columns) from another dataframe (df2) are present in df1 is equivalent to determining the intersection of the the two dataframes.  This can be accomplished using the following function: 
+
+  pd.merge(df1, df2, on=['A', 'B', 'C', 'D'], how='inner')
+  
+
+ For example, if df1 was 
+
+      A           B            C          D
+0   0.403846    0.312230    0.209882    0.397923
+1   0.934957    0.731730    0.484712    0.734747
+2   0.588245    0.961589    0.910292    0.382072
+3   0.534226    0.276908    0.323282    0.629398
+4   0.259533    0.277465    0.043652    0.925743
+5   0.667415    0.051182    0.928655    0.737673
+6   0.217923    0.665446    0.224268    0.772592
+7   0.023578    0.561884    0.615515    0.362084
+8   0.346373    0.375366    0.083003    0.663622
+9   0.352584    0.103263    0.661686    0.246862
+  
+
+ and df2 was defined as: 
+
+       A          B            C           D
+0   0.259533    0.277465    0.043652    0.925743
+1   0.667415    0.051182    0.928655    0.737673
+2   0.217923    0.665446    0.224268    0.772592
+3   0.023578    0.561884    0.615515    0.362084
+4   0.346373    0.375366    0.083003    0.663622
+5   2.000000    3.000000    4.000000    5.000000
+6   14.000000   15.000000   16.000000   17.000000
+  
+
+ The function  pd.merge(df1, df2, on=['A', 'B', 'C', 'D'], how='inner')  produces: 
+
+       A           B           C           D
+0   0.259533    0.277465    0.043652    0.925743
+1   0.667415    0.051182    0.928655    0.737673
+2   0.217923    0.665446    0.224268    0.772592
+3   0.023578    0.561884    0.615515    0.362084
+4   0.346373    0.375366    0.083003    0.663622
+  
+
+ The results are all of the rows (all columns) that are both in df1 and df2. 
+
+ We can also modify this example if the columns are not the same in df1 and df2 and just compare the row values that are the same for a subset of the columns.  If we modify the original example: 
+
+  df1 = pd.DataFrame(np.random.rand(10,4),columns=list('ABCD'))
+df2 = df1.ix[4:8]
+df2.reset_index(drop=True,inplace=True)
+df2.loc[-1] = [2, 3, 4, 5]
+df2.loc[-2] = [14, 15, 16, 17]
+df2.reset_index(drop=True,inplace=True)
+df2 = df2[['A', 'B', 'C']] # df2 has only columns A B C
+  
+
+ Then we can look at the common columns using  common_cols = list(set(df1.columns) & set(df2.columns))  between the two dataframes then merge: 
+
+  pd.merge(df1, df2, on=common_cols, how='inner')
+  
+
+  EDIT:  New question (comments), having identified the rows from df2 that were also present in the first dataframe (df1), is it possible to take the result of the pd.merge() and to then drop the rows from df2 that are also present in df1 
+
+ I do not know of a straightforward way to accomplish the task of dropping the rows from df2 that are also present in df1.  That said, you could use the following: 
+
+  ds1 = set(tuple(line) for line in df1.values)
+ds2 = set(tuple(line) for line in df2.values)
+df = pd.DataFrame(list(ds2.difference(ds1)), columns=df2.columns)
+  
+
+ There probably exists a better way to accomplish that task but i am unaware of such a method / function.   
+
+  EDIT 2:  How to drop the rows from df2 that are also present in df1 as shown in @WR answer. 
+
+ The method provided  df2[~df2['A'].isin(df12['A'])]  does not account for all types of situations.  Consider the following DataFrames: 
+
+ df1: 
+
+     A  B  C  D
+0  6  4  1  6
+1  7  6  6  8
+2  1  6  2  7
+3  8  0  4  1
+4  1  0  2  3
+5  8  4  7  5
+6  4  7  1  1
+7  3  7  3  4
+8  5  2  8  8
+9  3  2  8  4
+  
+
+ df2: 
+
+     A  B  C  D
+0  1  0  2  3
+1  8  4  7  5
+2  4  7  1  1
+3  3  7  3  4
+4  5  2  8  8
+5  1  1  1  1
+6  2  2  2  2
+  
+
+ df12: 
+
+     A  B  C  D
+0  1  0  2  3
+1  8  4  7  5
+2  4  7  1  1
+3  3  7  3  4
+4  5  2  8  8
+  
+
+ Using the above DataFrames with the goal of dropping rows from df2 that are also present in df1 would result in the following: 
+
+     A  B  C  D
+0  1  1  1  1
+1  2  2  2  2
+  
+
+ Rows (1, 1, 1, 1) and (2, 2, 2, 2) are in df2 and not in df1.  Unfortunately, using the provided method ( df2[~df2['A'].isin(df12['A'])] ) results in: 
+
+     A  B  C  D
+6  2  2  2  2
+  
+
+ This occurs because the value of 1 in column A is found in both the intersection DataFrame (i.e. (1, 0, 2, 3)) and df2 and thus removes both (1, 0, 2, 3) and (1, 1, 1, 1).  This is unintended since the row (1, 1, 1, 1) is not in df1 and should not be removed.   
+
+ I think the following will provide a solution.  It creates a dummy column that is later used to subset the DataFrame to the desired results: 
+
+  df12['key'] = 'x'
+temp_df = pd.merge(df2, df12, on=df2.columns.tolist(), how='left')
+temp_df[temp_df['key'].isnull()].drop('key', axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29571264)
+ @Andrew: I believe I found a way to drop the rows of one dataframe that are already present in another (i.e. to answer my EDIT) without using loops - let me know if you disagree and/or if my OP + EDIT did not clearly state this: 
+
+  THIS WORKS  
+
+ The columns for both dataframes are always the same -  A ,  B ,  C  and  D . With this in mind, based heavily on Andrew's approach, here is how to drop the rows from  df2  that are also present in  df1 : 
+
+  common_cols = df1.columns.tolist()                         #generate list of column names
+df12 = pd.merge(df1, df2, on=common_cols, how='inner')     #extract common rows with merge
+df2 = df2[~df2['A'].isin(df12['A'])]
+  
+
+ Line 3 does the following: 
+
+ 
+ Extract only rows from  df2  that do not match rows in  df1 : 
+ In order for 2 rows to be different, ANY one column of one row must 
+necessarily be different that the  corresponding  column in another
+row. 
+ Here, I picked column  A  to make this comparison - it is 
+possible to use any of the column names, but  not  ALL of the 
+column names. 
+ 
+
+ NOTE: this method is essentially the equivalent of the SQL  NOT IN() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33019917)
+ You can specify which columns to http://pandas.pydata.org/pandas-docs/stable/merging.html#database-style-dataframe-joining-merging for the lhs and rhs dfs: 
+
+  In [159]:
+df1.merge(df2, left_on='Column1', right_on='ColumnA')
+
+Out[159]:
+  Column1 Column2 Column3 ColumnA ColumnB ColumnC
+0       a       x       x       a       s       s
+1       c       x       x       c       y       y
+2       e       x       x       e       z       z
+3       d       x       x       d       f       f
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47085845)
+ Not sure if this is helpful or not, but I whipped together this quick python method for returning just the differences between two dataframes that both have the same columns and shape. 
+
+  def get_different_rows(source_df, new_df):
+    """Returns just the rows from the new dataframe that differ from the source dataframe"""
+    merged_df = source_df.merge(new_df, indicator=True, how='outer')
+    changed_rows_df = merged_df[merged_df['_merge'] == 'right_only']
+    return changed_rows_df.drop('_merge', axis=1)
+  
+
+
+

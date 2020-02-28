@@ -1,0 +1,321 @@
+Query: How to make a Python string out of non-ascii "bytes"
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51297865)
+ Your data is encoded, most likely as utf-8.  Utf-8 uses more than one byte  encode non-ascii characters, such as  áéíóú .  Iterating over a string encoded as utf-8 yields the individual  bytes  that make up the string, rather than the  characters  that you are expecting. 
+
+  >>> s = 'áéíóúabcdefgçë'
+# There are 14 characters in s, but it contains 21 bytes
+>>> len(s)
+21
+>>> s
+'\xc3\xa1\xc3\xa9\xc3\xad\xc3\xb3\xc3\xbaabcdefg\xc3\xa7\xc3\xab'
+
+# The first "character" (actually, byte) is unprintable.
+>>> print s[0]
+�
+# So is the second.
+>>> print s[1]
+�
+# But gether they make up a character.
+>>> print s[0:2]
+á
+  
+
+ So printing individual bytes doesn't work as expected. 
+
+  >>> for c in s:print c,
+... 
+� � � � � � � � � � a b c d e f g � � � �
+  
+
+ But decoding the string  unicode, then printing does. 
+
+  >>> for c in s.decode('utf-8'):print c,
+... 
+á é í ó ú a b c d e f g ç ë
+  
+
+ To make your code work as you expect, you need  decode the string you read from the file.    
+
+  string = fp.read().replace('\n', '')
+  
+
+  
+
+  string = fp.read().replace('\n', '').decode('utf-8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3856524)
+ Python 2.X</h3>
+
+  ''.join(chr(i) for i in myintegers)
+  
+
+ Python 3.X</h3>
+
+  bytes(myintegers)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50438670)
+ The problem is since you are directly pasting your characters in to a python file, the interpreter (Python 2) attempts to read them as ASCII (even before you encode, it needs to define the literal), which is illegal. What you want is a unicode literal if pasting non-ASCII bytes: 
+
+  x=u'المملكة العربية السعودية' #Or whatever the corresponding bytes are
+print x.encode('utf-8')
+  
+
+ You can also try to set the entire source file to be read as  utf-8 : 
+
+  #/usr/bin/python
+# -*- coding: utf-8 -*-
+  
+
+ and don't forget to make it run-able, and lastly, you can import the future from Python 3: 
+
+  from __future__ import unicode_literal
+  
+
+ at the top of the file, so string literals by default are  utf-8 . Note that  \xd8  appears as  phi  in my terminal, so make sure the encoding is correct. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13486024)
+ Assuming you're using Python 2.x, remember: there are two types of strings:  str  and  unicode .  str  are byte strings, whereas  unicode  are unicode strings.  unicode  strings can be used to represent text in any language, but to store text in a computer or to send it via email, you need to represent that text using bytes. To represent text using bytes, you need an coding format. There are many coding formats, Python uses  ascii  by default, but  ascii  can only represent a few characters, mostly english letters. If you try to encode a text with other letters using  ascii , you will get the famous "outside ordinal 128". For example: 
+
+  >>> u'Cerón'.encode('ascii')
+Traceback (most recent call last):
+  File "<input>", line 1, in <module>
+UnicodeEncodeError: 'ascii' codec can't encode character u'\xf3' in position 3:
+ ordinal not in range(128)
+  
+
+ The same happens if you use  str(u'Cerón') , because Python uses  ascii  by default to convert  unicode  to  str .  
+
+ To make this work, you have to use a different coding format.  UTF-8  is a coding format that can express any unicode text as bytes. To convert the  u'Cerón'  unicode string to bytes you have to use: 
+
+  >>> u'Cerón'.encode('utf-8')
+'Cer\xc3\xb3n'
+  
+
+ . 
+
+ . I can see that you're using  MIMEText , which accepts an already encoded  str  argument, in your case is the  html  variable.  MIMEText  also accepts an argument specifying what kind of encoding is being used. So, in your case, if  html  is a unicode string, you have to encode it as  utf-8  and pass the charset parameter too (because  HTMLText  uses ascii by default): 
+
+  part1 = MIMEText(html.encode('utf-8'), 'html', 'utf-8')
+  
+
+ But be careful, because if  html  is already a  str  instead of  unicode , then the encoding will fail. This is one of the problems of Python 2.x, it allows you to encode an already encoded string but it throws an error. 
+
+ Another problem to add to the list is that  utf-8  is compatible with  ascii  characters, and Python will always try to automatically encode/decode strings using  ascii . If you're not properly encoding your strings, but you only use  ascii  characters, things will work fine. However, if for some reason some  non-ascii  characters slips into your message, you will get the error, this makes errors harder to detect. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27167234)
+ @In the first sample you created a  byte string  (type  str ). Your terminal determined the encoding (UTF-8 in this case). 
+
+ In your second sample, you created a Unicode string (type  unicode ). Python auto-detected the encoding your terminal uses (from  sys.stdin.encoding ) and decoded the bytes from UTF-8 to Unicode code points. 
+
+ You can make the same conversion from byte string to Unicode string by  decoding : 
+
+  unicode_x = bytestring_x.decode('utf8')
+  
+
+ To go the other direction, you need to  encode : 
+
+  bytestring_x = unicode_x.encode('utf8')
+  
+
+ You specified your literals by using the actual UTF-8 bytes for the characters; this works fine in a terminal but not in Python source code; Python 2 source code is loaded as ASCII text only. You can change this by setting a  source code encoding declaration . This is specified in https://www.python.org/dev/peps/pep-0263/; it has to be the first or second line in your source file. For example: 
+
+  # encoding: UTF-8
+  
+
+ or you can stick to  \uhhhh  and  \xhh  escape sequences to represent non-ASCII characters. 
+
+ You probably want to read up about the difference between Unicode and encoded (binary) byte strings, and how that relates to Python: 
+
+ 
+  http://joelonsoftware.com/articles/Unicode.html by Joel Spolsky  
+  The http://docs.python.org/2/howto/unicode.html  
+  http://nedbatchelder.com/text/unipain.html by Ned Batchelder  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3855153)
+  .join(map(unichr, myintegers))  will do what you want nicely. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/639773)
+ Python 2.x  translate  method</h3>
+
+ Convert to lowercase and filter non-ascii non-alpha characters: 
+
+  from string import ascii_letters, ascii_lowercase, maketrans
+
+table = maketrans(ascii_letters, ascii_lowercase*2)
+deletechars = ''.join(set(maketrans('','')) - set(ascii_letters))
+
+print "A235th@#$&( er Ra{}|?>ndom".translate(table, deletechars)
+# -> 'atherrandom'
+  
+
+ Python 3  translate  method</h3>
+
+ Filter non-ascii: 
+
+  ascii_bytes = "A235th@#$&(٠٫٢٥ er Ra{}|?>ndom".encode('ascii', 'ignore')
+  
+
+ Use http://docs.python.org/py3k/library/stdtypes.html#bytes.translate to convert to lowercase and delete non-alpha bytes: 
+
+  from string import ascii_letters, ascii_lowercase
+
+alpha, lower = [s.encode('ascii') for s in [ascii_letters, ascii_lowercase]]
+table = bytes.maketrans(alpha, lower*2)           # convert to lowercase
+deletebytes = bytes(set(range(256)) - set(alpha)) # delete nonalpha
+
+print(ascii_bytes.translate(table, deletebytes))
+# -> b'atherrandom'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36563302)
+ Python 2 considers bytestrings and unicode equal.  By the way, this has nothing to do with the containing tuple.  Instead it's to do with an implicit type-conversion, which I will explain below.   
+
+ It's difficult to demonstrate it with 'easy' ascii codepoints, so to see what really goes on under the hood, we can provoke a failure by using higher codepoints:   
+
+  >>> bites = u'Ç'.encode('utf-8')
+>>> unikode = u'Ç'
+>>> print bites
+Ç
+>>> print unikode
+Ç
+>>> bites == unikode
+/Users/wim/Library/Python/2.7/bin/ipython:1: UnicodeWarning: Unicode equal comparison failed to convert both arguments to Unicode - interpreting them as being unequal
+  #!/usr/bin/python
+False
+  
+
+ On seeing a unicode and bytes comparison above, python has implicitly attempted to decode the bytestring to a unicode object by making an assumption that the bytes were encoded with  sys.getdefaultencoding()  (which is 'ascii' on my platform).   
+
+ In the case I just showed above, this failed, because the bytes were encoded in 'utf-8'.  Now, let's make it "work": 
+
+  >>> bites = u'Ç'.encode('ISO8859-1')
+>>> unikode = u'Ç'
+>>> import sys
+>>> reload(sys)   # please don't ever actually use this hack, guys 
+<module 'sys' (built-in)>
+>>> sys.setdefaultencoding('ISO8859-1')
+>>> bites == unikode
+True
+  
+
+ Your upconversion "works" in pretty much the same way, but using an 'ascii' codec.  These kind of implicit conversions between bytes and unicode are actually pretty evil and can cause a lot of http://nedbatchelder.com/text/unipain.html, so it was decided to stop doing those in Python 3 because "explicit is better than implicit".   
+
+ As a minor digression, on Python 3+ your code is actually both representing unicode string literals so they are equal anyway.  The u prefix is silently ignored.  If you want a bytestring literal in python3, you need to specify it like  b'this' .  Then you would want to either 1) explicitly decode the bytes, or 2) explicitly encode the unicode object before making a comparison.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26515475)
+ First, as a general rule, it shouldn't be all that surprising that major new versions of protocols, libraries, etc. have major improvements. Otherwise, why would anyone have bothered to do all the work to create them? 
+
+ But you're probably looking for specifics. 
+
+ 
+
+ Before we get into anything else, your big problem is that you  aren't  comparing protocol 2 and protocol 3, you're comparing protocol 0 and protocol 3. Notice the last line in the  pickletools.dumps  dumps below:  highest protocol among opcodes = 2 . If you see  0  instead of  2  there, that means you're using protocol 0. Protocol 0 was designed for human readability (well, at least human debuggability without a library like  pickletools ), not for compactness. In particular, it's going to backslash-escape non-printable-ASCII bytes, expanding most of them to 4 characters. 
+
+ So, why are you getting 0 instead of 2? Because, for backward compatibility reasons, the highest protocol is not the default. The default is 0 in 2.x, and 3 in 3.x. See the docs for https://docs.python.org/2.7/library/pickle.html#pickle.dumps and https://docs.python.org/3.4/library/pickle.html#pickle.dumps. 
+
+ If you change your code to  pickle.dumps(msg, protocol=pickle.HIGHEST_PROTOCOL)  (or just  protocol=-1 ), you'll get 2 and 4 instead of 0 and 3. The 2.x will still probably be bigger than the 3.x, for the reasons explained below, but nowhere near the same scale you're seeing now. 
+
+ If you really want parity, if the protocol-2 results are compact enough for you, you might want to explicitly use  protocol=2 . 
+
+ If you want to explicitly go with only 2 or 3, as you thought you were doing, there's no  direct  way to write that, but  protocol=min(3, pickle.HIGHEST_PROTOCOL)  will do it. 
+
+ 
+
+ The https://docs.python.org/3/library/pickletools.html#module-pickletools module (and comments in the source code, which is linked from the docs) make it easy to explore the difference. 
+
+ Let's use a shorter string, to make it easier to look at: 
+
+  >>> t = (1, string.ascii_lowercase.encode('ascii'))
+>>> p2 = pickle.dumps(t, protocol=2)
+>>> p3 = pickle.dumps(t, protocol=3)
+>>> len(p2), len(p3)
+78, 38
+  
+
+ So, the obvious difference is still there. 
+
+ Now, let's look at what's in the pickles. (You'll probably want to use  pickletools.dis(p2, annotate=1)  in your own interpreter, but since most of the information scrolls off the edge of the screen, that's not as useful here…) 
+
+  >>> pickletools.dis(p2)
+    0: \x80 PROTO      2
+    2: K    BININT1    1
+    4: c    GLOBAL     '_codecs encode'
+   20: q    BINPUT     0
+   22: X    BINUNICODE 'abcdefghijklmnopqrstuvwxyz'
+   53: q    BINPUT     1
+   55: X    BINUNICODE 'latin1'
+   66: q    BINPUT     2
+   68: \x86 TUPLE2
+   69: q    BINPUT     3
+   71: R    REDUCE
+   72: q    BINPUT     4
+   74: \x86 TUPLE2
+   75: q    BINPUT     5
+   77: .    STOP
+highest protocol among opcodes = 2
+  
+
+ As you can see, protocol 2 stores  bytes  as a Unicode string plus a codec. 
+
+  >>> pickletools.dis(p3)
+    0: \x80 PROTO      3
+    2: K    BININT1    1
+    4: C    SHORT_BINBYTES b'abcdefghijklmnopqrstuvwxyz'
+   32: q    BINPUT     0
+   34: \x86 TUPLE2
+   35: q    BINPUT     1
+   37: .    STOP
+highest protocol among opcodes = 3
+  
+
+ … but protocol 3 stores them as a  bytes  object, using a new opcode that didn't exist in protocol 2. 
+
+ 
+
+ In more detail: 
+
+ The  BINUNICODE  family of opcodes takes a Unicode string and stores it as length-prefixed UTF-8. 
+
+ The  BINBYTES  family of opcodes takes a byte string and stores it as length-prefixed bytes. 
+
+ Because protocols 1 and 2 don't have  BINBYTES ,  bytes  are stored as, in effect, a call to  _codecs.encode  with the result of  b.decode('latin-1')  and  u'latin-1'  as the arguments. (Why Latin-1? Probably because it's the simplest codec that maps every byte to a single Unicode character.) 
+
+ This adds 40 bytes of fixed overhead (which accounts for the difference between my  p2  and  p3 ). 
+
+ More importantly, for your case, most non-ASCII bytes will end up being two bytes of UTF-8. For random bytes, that's about 51% total overhead. 
+
+ Note that there  is  a  BINSTRING  type in protocol 1 and later, which is pretty similar to  BINBYTES , but it's defined as storing bytes  in the default encoding , which is pretty much never useful. In 2.x, that wouldn't really make a difference, because you're not going to  decode  it anyway to get a  str , but my guess would be that 2.6+ don't use it for 3.x compatibility. 
+
+ There's also a  STRING  type that dates back to protocol 0, which stores an ASCII-encoded  repr  on the string. I don't think it's ever used in protocols 1 and higher. This would of course blow up any non-printable-ASCII bytes to a 2 or 4 byte backslash escape. 
+
+
+

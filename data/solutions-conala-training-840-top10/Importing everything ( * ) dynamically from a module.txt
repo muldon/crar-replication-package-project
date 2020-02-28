@@ -1,0 +1,213 @@
+Query: Importing everything ( * ) dynamically from a module
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4526709)
+ Use http://docs.python.org/library/stdtypes.html#dict.update for dicts: 
+
+  globals().update(importlib.import_module('some.package').__dict__)
+  
+
+ Note, that using  a_module.__dict__  is not the same as  from a_module import * , because all names are "imported", not only those from  __all__  or not starting with  _ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6761850)
+ If you really need that many functions, you are already polluting your namespace. 
+
+  
+
+  import my_module
+  
+
+ Or, if my_module has a long name use an alias: 
+
+  import my_long_module as m
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30050095)
+ I usually use  importlib . It's  load_module  method does the job. You can put the importing code into  plugins/__init__.py  to do the following: 
+
+  import importlib
+import os
+import logging
+
+skip = set(("__init__.py",))
+
+plugins = []
+
+cwd = os.getcwd()
+os.chdir(os.path.dirname(__file__))
+
+for mod in glob.glob("*.py"):
+    if mod in skip:
+        continue
+    try:
+        mod = mod.replace(".py", "")
+        plugin = importlib.import_module("." + mod, __name__)
+        plugin.append(plugin)
+    except Exception as e:
+        logging.warn("Failed to load %s: %s. Skipping", mod, e)
+
+os.chdir(cwd)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6761908)
+ With a little bit of management you can control what import * imports. Say your my_module has function1..function8 but you only want to make functions 1 through 6 available. In your my_module, reassign the  __all__  attribute: 
+
+  my_module.py : 
+
+  __all__ = ['function1', 'function2', 'function3' ...]
+
+def function1():
+   ...
+
+# etc...
+  
+
+ Now if you use  from my_module import * , you'll only import those functions and variables you defined in the  __all__  attribute from my_module.py. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4116117)
+ I came up with some ugly hacky code, it works in python 2.6.  I'm not sure if this is the smartest thing to do though, perhaps some other people here have some insight:   
+
+  test = __import__('os',globals(),locals())
+for k in dir(test):
+    globals()[k] = test.__dict__[k]
+  
+
+ You probably want to put a check here to make sure you aren't overwriting anything in the global namespace.  You could probably avoid the globals part and just look through each dynamically imported module for your class of interest.  This would probably be much better than polluting the global namespace with everything you are importing. 
+
+ For example, say your class is named Request from urllib2 
+
+  test = __import__('urllib2',globals(),locals())
+cls = None
+if 'Request' in dir(test):
+    cls = test.__dict__['Request']
+    # you found the class now you can use it!
+    cls('http://test.com')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37366813)
+ Instead of trying to make a copy of the contents of a module and patch everything in it to use the correct globals, you could trick Python into importing everything you want to copy a second time.  This will give you a newly initialized copy of all modules, so it won't copy any global state the modules might have (not sure whether you would need that). 
+
+  import importlib
+import sys
+
+def new_module_instances(module_names):
+    old_modules = {}
+    for name in module_names:
+        old_modules[name] = sys.modules.pop(name)
+    new_modules = {}
+    for name in module_names:
+        new_modules[name] = importlib.import_module(name)
+    sys.modules.update(old_modules)
+    return new_modules
+  
+
+ Note that we first delete  all  modules we want to replace from  sys.modules , so they all get import a second time, and the dependencies between these modules are set up correctly automatically.  At the end of the function, we restore the original state of  sys.modules , so everything else continues to see the original versions of these modules. 
+
+ Here's an example: 
+
+  >>> import logging.handlers
+>>> new_modules = new_module_instances(['logging', 'logging.handlers'])
+>>> logging_clone = new_modules['logging']
+>>> logging
+<module 'logging' from '/usr/lib/python2.7/logging/__init__.pyc'>
+>>> logging_clone
+<module 'logging' from '/usr/lib/python2.7/logging/__init__.pyc'>
+>>> logging is logging_clone
+False
+>>> logging is logging.handlers.logging
+True
+>>> logging_clone is logging_clone.handlers.logging
+True
+  
+
+ The last three expressions show that the two versions of logging are different modules, and both versions of the  handlers  module use the correct version of the  logging  module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44163488)
+ You just need to import the correct subpackage in  package/__init__.py  as  subpackage . 
+
+  import importlib
+import os
+
+if os.environ.get('MY_ENV_VAR', None):  # Check your env condition here
+    pkg = '.subpackage1'
+else:
+    pkg = '.subpackage2'
+subpackage = importlib.import_module(pkg, __name__)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16907362)
+ You can use http://docs.python.org/2/library/importlib.html module: 
+
+  import glob
+import importlib
+module = glob.glob(prefix_?.py)
+module.sort()
+for m in module:      #iterate over list itself, why range?
+    mod = importlib.import_module(m[:-3]) #strip off .py        
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12666030)
+ First, create a module for the code to live in: 
+
+  # define module_name somewhere
+import types
+module = types.ModuleType(module_name)
+  
+
+ You'll probably want to register that module, too: 
+
+  import sys
+sys.modules[module_name] = module
+  
+
+ Then compile the code: 
+
+  # source should the code to execute
+# filename should be a pseudo-filename that the code's from
+# (it doesn't actually have to exist; it's used for error messages)
+code_object = compile(source, filename, 'exec')
+  
+
+ Then execute the code object in the context of the module: 
+
+  exec code_object in module.__dict__
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/51269551)
+ Try making the 'handler' import relative: 
+
+  import importlib
+a = importlib.import_module('.handler', 'apps.secure')
+  
+
+ The https://docs.python.org/2/library/importlib.html covers a similar example of relative import from within a submodule. 
+
+
+

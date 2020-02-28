@@ -1,0 +1,191 @@
+Query: How can a pandas merge preserve order?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/28334396)
+ The fastest way I've found to merge and restore order - if you are merging "left" - is to include the original order as a column in the left dataframe before merging, then use that to restore the order after merging: 
+
+  import pandas
+loans = [  'a',  'b', 'c' ]
+states = [  'OR',  'CA', 'OR' ]
+x = pandas.DataFrame({ 'loan' : loans, 'state' : states })
+y = pandas.DataFrame({ 'state' : [ 'CA', 'OR' ], 'value' : [ 1, 2]})
+
+import numpy as np
+x["Order"] = np.arange(len(x))
+
+z = x.merge(y, how='left', on='state').set_index("Order").ix[np.arange(len(x)), :]
+  
+
+ This method is faster than sorting.  Here it is as a function: 
+
+  def mergeLeftInOrder(x, y, on=None):
+    x = x.copy()
+    x["Order"] = np.arange(len(x))
+    z = x.merge(y, how='left', on=on).set_index("Order").ix[np.arange(len(x)), :]
+    return z
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36947209)
+ Pandas v0.8.0 introduced new merge function that takes order into consideration -  ordered_merge , so your solution is now as simple as: 
+
+  z = pandas.ordered_merge(x, y, on='state')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46797005)
+ Using concat 
+
+  pd.concat([df1.reset_index().add_suffix('_x'),\ 
+df2.reset_index().add_suffix('_y')], axis = 1)\
+.set_index(['index_x', 'index_y'])
+
+                                         A_x        B_x         C_x         A_y         B_y         C_y
+index_x             index_y                     
+2000-01-01 00:00:00 2000-01-01 00:00:00 -1.437311   -1.414127   0.344057    -0.533669   -0.260106   -1.316879
+2000-01-01 00:10:00 2000-01-01 00:10:00 0.662025    1.860933    -0.485169   -0.825603   -0.973267   -0.760737
+2000-01-01 00:20:00 2000-01-01 00:20:00 -0.300213   0.047812    -2.279631   -0.739694   -1.872261   2.281126
+2000-01-01 00:30:00 2000-01-01 00:30:00 1.499468    0.633967    -1.067881   0.174793    1.197813    -0.879132
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46796961)
+ I think you want to https://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html rather than merge: 
+
+  In [11]: pd.concat([df1, df2], keys=["df1", "df2"], axis=1)
+Out[11]:
+                          df1                           df2
+                            A         B         C         A         B         C
+2000-01-01 00:00:00  1.621737  0.093015 -0.698715  0.319212  1.021829  1.707847
+2000-01-01 00:10:00  0.780523 -1.169127 -1.097695 -0.444000  0.170283  1.652005
+2000-01-01 00:20:00  1.560046 -0.196604 -1.260149  0.725005 -1.290074  0.606269
+2000-01-01 00:30:00 -1.074419 -2.488055 -0.548531 -1.046327  0.895894  0.423743
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16778575)
+ You've already pointed out doing a reset_index before the merge and a set_index afterwards, which works.  The only way I know of to preserve indices across a merge is for the merge to involve an index on at least one of the data frames being merged.   
+
+  In [403]: df2 = df2.set_index('name')
+
+In [404]: df1.merge(df2, left_on='name', right_index=True)
+Out[404]: 
+     name  age
+id            
+1     bob   10
+10  sally   11
+  
+
+ to merge df2's index, which we've taken from its 'name' column, against the 'name' column on df1. 
+
+ This makes some sense, because otherwise the index of the resulting dataframe is ambiguous as it could come from either dataframe. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50860414)
+ Use:  df1.merge(df2, how='left')   
+
+ As @Graipher points out, the  how  parameter is what controls the order of the resulting merged  DataFrame  
+
+ 
+   how : {‘left’, ‘right’, ‘outer’, ‘inner’}, default ‘inner’ 
+  
+   
+   left: use only keys from left frame, similar to a SQL left outer join;
+   preserve key order  
+   
+ 
+
+ 
+
+  df1.merge(df2, on='Profile', how='left')
+
+  Pile_type Profile  h[mm]
+0       P01  HE200A  190.0
+1       P20  HE220A  210.0
+2       P05  HE240B  240.0
+3       P23     NaN    NaN
+4       P04  HE200A  190.0
+5       P01  HE300B  300.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37234115)
+ You need to specify how you want the two dataframes merged. By default, an inner join is emulated by  merge() . However, by specifying you want a left join, the sort order from  df1  is preserved. Thus, you simply need to add  how='left' : 
+
+  >>> pd.merge(df1, PoliceStations_raw, how='left')
+   Index PdDistrict         XX          YY
+0      0    CENTRAL  37.798732 -122.409919
+1      1    TARAVAL  37.743733 -122.481500
+2      3    CENTRAL  37.798732 -122.409919
+3      2    BAYVIEW  37.729732 -122.397981
+  
+
+ Additionally,  sort=False  is the default behavior -- you don't need to specify that. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/15719167)
+ In pandas a merge resets the index, but you can easily work around this by resetting the index  before  doing the merge. Resetting the index will create a new column called "index" which you can then use to re-create your index after the merge. For example: 
+
+  Ordered.reset_index().merge(Ordered, Unordered, on=ByWhatColumn).set_index('index')
+  
+
+ See this https://stackoverflow.com/questions/11976503/how-to-keep-index-when-using-pandas-merge for more discussion (hat tip to @WouterOvermeire) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36746793)
+ I don't think there's any really elegant/efficient way to do it. You could do it by tracking the original datatypes and then casting the columns after the merge, like this: 
+
+  import pandas as pd
+
+# all types are originally ints
+df = pd.DataFrame({'a': [1]*10, 'b': [1, 2] * 5, 'c': range(10)})
+df2 = pd.DataFrame({'e': [1, 1], 'd': [1, 2]})
+
+# track the original dtypes
+orig = df.dtypes.to_dict()
+orig.update(df2.dtypes.to_dict())
+
+# join the dataframe
+joined = df.join(df2, how='outer')
+
+# columns with nans are now float dtype
+print joined.dtypes
+
+# replace nans with suitable int value
+joined.fillna(-1, inplace=True)
+
+# re-cast the columns as their original dtype
+joined_orig_types = joined.apply(lambda x: x.astype(orig[x.name]))
+
+print joined_orig_types.dtypes
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52944341)
+ Just change  how  property to  outer . 
+
+  result = a.merge(b, on=" Key", how = "outer")
+  
+
+  left  use only  keys  from left frame, similar to a SQL left outer join; preserve key order 
+
+
+

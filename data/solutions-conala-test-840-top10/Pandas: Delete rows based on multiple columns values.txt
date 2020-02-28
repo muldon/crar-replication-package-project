@@ -1,0 +1,278 @@
+Query: Pandas: Delete rows based on multiple columns values
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/53534084)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.mask.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.difference.html in preprocessing and then https://stackoverflow.com/a/53494908/2901002: 
+
+  c1 = df.columns.difference(['Type','Name'])
+c2 = df.columns.difference(['Type','Color'])
+
+df[c1] = df[c1].mask(df['Type'] == 'System', np.nan)
+df[c2] = df[c2].mask(df['Type'] == 'Hardware', np.nan)
+  
+
+ 
+
+  cols = df.columns
+df1 = (df.join(df.pop('Text').str.split('\n', expand=True)
+              .stack()
+              .reset_index(level=1, drop=True)
+              .rename('Text'))
+              ).reset_index(drop=True).reindex(columns=cols)
+
+print (df1)
+        Type    Text   Name       ID    Color
+0     System     NaN   Gary      NaN      NaN
+1     System     NaN   Mary      NaN      NaN
+2   Hardware     NaN    NaN      NaN    White
+3   Software      ca  Perry  56414.0    Green
+4   Software    maca  Perry  56414.0    Green
+5   Software  stream  Perry  56414.0    Green
+6   Software   phase  Perry  56414.0    Green
+7   Software          Perry  56414.0    Green
+8   Software     aca  Jimmy    548.0     Blue
+9   Software     mac  Jimmy    548.0     Blue
+10  Software  stream  Jimmy    548.0     Blue
+11  Software   phase  Jimmy    548.0     Blue
+12  Software          Jimmy    548.0     Blue
+13    System     NaN   Marc      NaN      NaN
+14    System     NaN   John      NaN      NaN
+15  Hardware     NaN    NaN      NaN     Gray
+16  Hardware     NaN    NaN      NaN    Azure
+17    System     NaN  Larry      NaN      NaN
+18  Software     aca  James   6568.0  Magenta
+19  Software    maca  James   6568.0  Magenta
+20  Software      st  James   6568.0  Magenta
+21  Software   phase  James   6568.0  Magenta
+22  Software          James   6568.0  Magenta
+23    System     NaN  Kevin      NaN      NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45954470)
+ The best way to delete a column in pandas is to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop.html: 
+
+  df = df.drop('column_name', axis=1)
+  
+
+ where  1  is the  axis  number ( 0  for rows and  1  for columns.) 
+
+ To delete the column without having to reassign  df  you can do: 
+
+  df.drop('column_name', axis=1, inplace=True)
+  
+
+ Finally, to drop by column  number  instead of by column  label , try this.
+To delete, e.g. the 1st, 2nd and 4th columns: 
+
+  df.drop(df.columns[[0, 1, 3]], axis=1)  # df.columns is zero-based pd.Index 
+  
+
+  
+Exceptions: 
+
+ If a wrong column number or label is requested an error will be thrown.
+To check the number of columns use  df.shape[1]  or  len(df.columns.values)  and to check the column labels use  df.columns.values . 
+
+ An exception would be raised 
+answer was based on @LondonRob's https://stackoverflow.com/questions/13411544/delete-column-from-pandas-dataframe-using-python-del and left here to help future visitors of this page. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38536146)
+ Use pandas indexing 
+
+  df.set_index(list('BC')).drop(tuples, errors='ignore').reset_index()
+  
+
+ 
+
+ Timing</h3>
+
+  def linear_indexing_based(df, tuples):
+    idx = np.array(tuples)
+    BC_arr = df[['B','C']].values
+    shp = np.maximum(BC_arr.max(0)+1,idx.max(0)+1)
+    BC_IDs = np.ravel_multi_index(BC_arr.T,shp)
+    idx_IDs = np.ravel_multi_index(idx.T,shp)
+    return df[~np.in1d(BC_IDs,idx_IDs)]
+
+def divakar(df, tuples):
+    idx = np.array(tuples)
+    mask = (df.B.values == idx[:, None, 0]) & (df.C.values == idx[:, None, 1])
+    return df[~mask.any(0)]
+
+def pirsquared(df, tuples):
+    return df.set_index(list('BC')).drop(tuples).reset_index()
+  
+
+  10 rows, 1 tuple  
+
+  np.random.seed([3,1415])
+df = pd.DataFrame(np.random.choice(range(10), (10, 3)), columns=list('ABC'))
+tuples = [tuple(row) for row in np.random.choice(range(10), (1, 2))]
+  
+
+ https://i.stack.imgur.com/mwQ8M.png 
+
+  10,000 rows, 500 tuples  
+
+  np.random.seed([3,1415])
+df = pd.DataFrame(np.random.choice(range(10), (10000, 3)), columns=list('ABC'))
+tuples = [tuple(row) for row in np.random.choice(range(10), (500, 2))]
+  
+
+ <a href="https://i.stack.imgur.com/JMjqD.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21165116)
+  df.loc[:, (= 0).any(axis=0)]
+  
+
+ 
+
+ Here is a break-down of how it works: 
+
+  In [74]: import pandas as pd
+
+In [75]: df = pd.DataFrame([[1,0,0,0], [0,0,1,0]])
+
+In [76]: df
+Out[76]: 
+   0  1  2  3
+0  1  0  0  0
+1  0  0  1  0
+
+[2 rows x 4 columns]
+  
+
+  = 0  creates a boolean DataFrame which is True where  df  is nonzero: 
+
+  In [77]: = 0
+Out[77]: 
+       0      1      2      3
+0   True  False  False  False
+1  False  False   True  False
+
+[2 rows x 4 columns]
+  
+
+  (= 0).any(axis=0)  returns a boolean Series indicating which columns  have nonzero entries. (The  any  operation aggregates values along the 0-axis -- i.e. along the rows -- into a single boolean value. Hence the result is one boolean value for each column.) 
+
+  In [78]: (= 0).any(axis=0)
+Out[78]: 
+0     True
+1    False
+2     True
+3    False
+dtype: bool
+  
+
+ And  df.loc  can be used to select those columns: 
+
+  In [79]: df.loc[:, (= 0).any(axis=0)]
+Out[79]: 
+   0  2
+0  1  0
+1  0  1
+
+[2 rows x 2 columns]
+  
+
+ 
+
+ To "delete" the zero-columns, reassign  df : 
+
+  df = df.loc[:, (= 0).any(axis=0)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18145399)
+ The best way to do this in pandas is to use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop.html: 
+
+  df = df.drop('column_name', 1)
+  
+
+ where  1  is the  axis  number ( 0  for rows and  1  for columns.) 
+
+ To delete the column without having to reassign  df  you can do: 
+
+  df.drop('column_name', axis=1, inplace=True)
+  
+
+ Finally, to drop by column  number  instead of by column  label , try this to delete, e.g. the 1st, 2nd and 4th columns: 
+
+  df = df.drop(df.columns[[0, 1, 3]], axis=1)  # df.columns is zero-based pd.Index 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45884190)
+ This works, but it is not random: 
+
+  for currentID in idsToDelete:
+    df = df.drop(df[df.id == currentID].index[0])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46532016)
+ You're going to need  loc  for this: 
+
+  df
+   0  1  2  3  4
+0  1  2  3  4  5
+1  1  2  0  4  5
+
+df.loc[:, ~(df == 0).any(0)]  # notice the :, this means we are indexing on the columns now, not the rows
+   0  1  3  4
+0  1  2  4  5
+1  1  2  4  5
+  
+
+ Direct indexing defaults to indexing on the rows. You are trying to index a dataframe with only two rows using  [0, 1, 3, 4] , so  pandas  is warning you about that. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48068322)
+ Use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.isin.html: 
+
+  df[~df['emp_id'].isin(bad_emp_ids_list)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36524503)
+ Let me just give you an example: 
+
+  df = pd.DataFrame(np.random.randint(9,size=(3,9)))
+df.columns = pd.MultiIndex.from_product([['AAA','BBB','CCC'],['C1','C2','C3']])
+
+      AAA       BBB       CCC      
+   C1 C2 C3  C1 C2 C3  C1 C2 C3
+0   8  3  7   2  8  7   1  8  2
+1   8  3  1   8  5  2   0  1  0
+2   4  0  0   5  8  4   7  1  5
+
+df.iloc[:, df.columns.get_level_values(1)=='C2'] # note get_level_values()
+
+  AAA BBB CCC
+   C2  C2  C2
+0   3   8   8
+1   3   5   1
+2   0   8   1
+  
+
+
+

@@ -1,0 +1,120 @@
+Query: Percentage match in pandas Dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41178885)
+ The most pythonic way of finding a percentage of a column that is true is to simply take the mean of the boolean expression. 
+
+  (trace_df['ratio'] > 0).mean()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25530897)
+ You can divide by the sum using the  div  method (with that you can specify the level to match): 
+
+  df.div(df.sum(axis=1, level=0), level=0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39258406)
+ Using a  groupby  approach: 
+
+  def matched_group(grp):
+    if len(grp) == 1:
+        return np.nan    
+    return grp.nunique() == 1
+
+is_matched = df.groupby(['var1', 'var2', 'var3'])['label'].apply(matched_group).dropna()
+match_pcnt = is_matched.sum()/len(is_matched)
+  
+
+ The  matched_group  function returns a Boolean indicating if all of the labels within a group of variables are unique, or  np.nan  if the group of variables has only one element, meaning the group is not duplicated.  Then, after dropping null values, just count the matches and divide by the total number of duplicate groups. 
+
+ The code above gives a value of  0.5  for  match_pcnt . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48710825)
+ You can do this with  groupby  and  transform : 
+
+  df['percent'] = df.groupby(level=0).transform(lambda x: (x / x.sum()).round(2))
+
+#          count  percent
+# A week1    264     0.90
+#   week2     29     0.10
+# B week1    152     0.91
+#   week2     15     0.09
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44035091)
+  UPDATE:  
+
+  In [116]: df2.groupby(df2.interval.pct_change().abs().gt(0.1).cumsum()) \
+             .filter(lambda x: len(x) >= 3)
+Out[116]:
+    id  interval
+2    2        30
+3    2        29
+4    2        31
+5    2        30
+6    2        29
+7    2        31
+15   3        40
+16   3        39
+17   2        41
+18   2        40
+19   2        39
+20   2        41
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37197154)
+ I think you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.transform.html http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html: 
+
+  df['col3'] = 100 / df.groupby(['col1', 'col2'])['col3'].transform('size')
+print df
+     col1 col2        col3
+idx                       
+0     1.1    A   33.333333
+1     1.1    A   33.333333
+2     1.1    A   33.333333
+3     2.6    B   50.000000
+4     2.5    B  100.000000
+5     3.4    B  100.000000
+6     2.6    B   50.000000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52243441)
+ Using  GroupBy  +  transform  with  'sum' : 
+
+  g = df.groupby(['Date', 'Code'])['Quantity'].transform('sum')
+df['Perc'] = df['Quantity'] / g * 100
+  
+
+  
+
+           Date  Code  ID  Quantity  Perc
+0  16-08-2018   156   1        10    25
+1  16-08-2018   156   2        10    25
+2  16-08-2018   156   3        10    25
+3  16-08-2018   156   4        10    25
+4  17-08-2018   157   1        30    30
+5  17-08-2018   157   2        20    20
+6  17-08-2018   157   3        30    30
+7  17-08-2018   157   4        20    20
+  
+
+
+

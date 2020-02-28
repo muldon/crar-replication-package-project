@@ -1,0 +1,186 @@
+Query: Python: How to get attribute of attribute of an object with getattr?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/28801116)
+ Use  getattr() : 
+
+  value = getattr(d, key, "empty")
+  
+
+ Another option is to direct access to the object's  __dict__ : 
+
+  value = d.__dict__.get(key, "empty")
+  
+
+ But I suggest to use the  getattr() . 
+
+  UPDATE : Note that  getattr(some_dict, key)  is not the same as the  some_dict.get(key) .   getattr()  gets the object's attribute but not the value of the dict. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14925991)
+ This should scale well to any depth: 
+
+  reduce(lambda obj, attr : getattr(obj, attr, None), ("id","num"), myobject)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2612629)
+ There is python built in functions setattr and getattr. Which can used to set and get the attribute of an class. 
+
+ A brief example: 
+
+  >>> from new import  classobj
+
+>>> obj = classobj('Test', (object,), {'attr1': int, 'attr2': int}) # Just created a class
+
+>>> setattr(obj, 'attr1', 10)
+
+>>> setattr(obj, 'attr2', 20)
+
+>>> getattr(obj, 'attr1')
+10
+
+>>> getattr(obj, 'attr2')
+20
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9944228)
+ Use the built-in http://docs.python.org/library/functions.html#getattr function: 
+
+  getattr(o, v)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41392643)
+ Hope you expecting hasattr(), but try to avoid hasattr() and please prefer getattr(). getattr() is faster than hasattr() 
+
+  using hasattr():  
+
+   if hasattr(a, 'property'):
+     print a.property
+  
+
+  same here i am using getattr to get property if there is no property it return none  
+
+     property = getattr(a,"property",None)
+    if property:
+        print property
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11975841)
+ Because  getattr  doesn't work that way.  getattr  gets attribute of a given object (first argument) with a given name (second argument). So your code: 
+
+  getattr(a, "b.c") # this raises an AttributeError
+  
+
+ means:  Access "b.c" attribute of object referenced by "a" . Obviously your object doesn't have attribute called " b.c ". 
+
+ To get "c" attribute you must use two  getattr  calls: 
+
+  getattr(getattr(a, "b"), "c")
+  
+
+ Let's unwrap it for better understanding: 
+
+  b = getattr(a, "b")
+c = getattr(b, "c")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28862009)
+ The Python attribute retrieval mechanism works in a way that a class  __getattr__  is called as "last resource" to try to get an attribute for an instance of that class. 
+
+ Your code is right - it fails due to your superclass of "Example" - in this case "object" - not having a  __getattr__  attribute.
+If you are not at a deep class hierarchy and want to perform custom attribute retrieval for  a class inheriting directly from object (which in Py3 can be expressed as having no bases at all as is the case in your code) - just raise "AttributeError" if your custom lookup failed. 
+
+ If your intention is to, instead, make yur custom search have priority over Python's normal attribute retreival mechanism (and not be called as a fallback) you should implement  __getattribute__  instead of  __getattr__ . 
+
+ In this case, the base class - object - does have a  __getattribute__ method you have to call for ordinary attribute retrieval - the problem is that you have to call it for  everything  you want - including method names, and known attributes you had set. i.e.: something along: 
+
+  class Example:
+
+    def __init__(self):
+       self.attrs_to_override = ["attr1", "foo", "bar"]
+
+    def docustomstuff(self, attr):
+        ...
+
+    def __getattribute__(self, attr):
+       getter = super().__getattribute__
+       if attr in getter("attrs_to_override"):
+            getter("docustomstuff")(attr)
+       return getter(attr)
+  
+
+ In short, if you think you should implement  __getattribute__  instead of  __getattr__  you probably are trying the wrong approach, except in very specific cases. What you probably didn't know up to here is that:  __getattr__  would not have been called if an ordinary attribute by the wanted name did not already exist, so there is no need to call it in the superclass (unless the superclass in case is not object and has a known customization for it) 
+
+  edit  
+
+ Alternatively, just check if the next superclass do have  __getattr__  in the most plain way: 
+
+  ...
+if hasattr(super(), "__getattr__"):
+    return super().__getattr__(attr)
+raise AttributeError
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52798346)
+  __getattr__  is called when an attribute is requested for get but is not available from the asked object. 
+
+ Assuming that  x  hasn't an  a , a call like 
+
+  result = x.a  
+
+ is functionally equivalent to 
+
+  result = getattr(x, "a")  
+
+ which is functionally equivalent to 
+
+  result = type(x).__getattr__(x, "a")  
+
+ which is normally the same as 
+
+  result = x.__getattr__("a")  
+
+ Last two variants only differ if the  __getattr__  is bound to the object instead of the class (https://docs.python.org/3/reference/datamodel.html#special-method-lookup) 
+
+ As you can see here,  __getattr__  should return the value that  a  is meant to have. 
+
+ It can also set the attribute directly so that further get requests do not call  __getattr__  again but are handled by Python directly. It depends on the particular use case if this makes sense (in your use case it does). 
+
+  x.b.c = 2  translates here normally to something like 
+
+  setattr(x.__getattr__("b"), "c", 2)  
+
+ Again,  __getattr__  must return here the object on which attribute  c  is set. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3254009)
+ You should use setattr and getattr: 
+
+  setattr(object,'property',value)
+getattr(object,'property',default)
+  
+
+
+

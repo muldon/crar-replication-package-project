@@ -1,0 +1,306 @@
+Query: Sort a nested list by two elements
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34962388)
+ This is a relatively straight-forward application of https://docs.python.org/3/library/itertools.html#itertools.groupby. 
+
+ Here's how to do it with a nested list comprehension. 
+
+  from itertools import groupby
+from operator import itemgetter
+
+a = [[1,2,3,4,5],[1,2,5,6,7],[1,2,5,2,1],[1,3,4,5,7],[3,4,1,2,3],[3,4,1,1,1]]
+expected = [[1,2,13,12,13],[1,3,4,5,7],[3,4,2,3,4]]
+print(expected)
+
+a = [list(k) + [sum(t) for t in zip(*[u[2:] for u in g])]
+    for k, g in groupby(a, itemgetter(0, 1))]
+print(a)
+  
+
+  output  
+
+  [[1, 2, 13, 12, 13], [1, 3, 4, 5, 7], [3, 4, 2, 3, 4]]
+[[1, 2, 13, 12, 13], [1, 3, 4, 5, 7], [3, 4, 2, 3, 4]]
+  
+
+ Note that this assumes that the list  a  already has the sub-lists that commence with the same 2 elements adjacent. If that's not the case then it should be sorted, eg 
+
+  a.sort(key=itemgetter(0, 1))
+  
+
+ before running the above code. 
+
+ Here's essentially the same algorithm split up for easier reading and analysis. 
+
+  keyfunc = lambda seq: seq[:2]
+
+a.sort(key=keyfunc)
+new_a = []
+for k, g in groupby(a, key=keyfunc):
+    tails = [u[2:] for u in g]
+    sums = [sum(t) for t in zip(*tails)]
+    new_a.append(k + sums)
+
+print(new_a)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17891180)
+ This works: 
+
+  >>> li=[[13, "b"], [10, "b"], [10, "a",], [4,"c"], [1, "d"]]
+>>> sorted(li,key=lambda sl: (-sl[0],sl[1]))
+[[13, 'b'], [10, 'a'], [10, 'b'], [4, 'c'], [1, 'd']]
+  
+
+ The http://docs.python.org/2/library/functions.html#sorted produces a new list. You can also sort the list in place using the sort method: 
+
+  >>> li=[[13, "b"], [10, "b"], [10, "a",], [4,"c"], [1, "d"]]
+>>> li.sort(key=lambda sl: (-sl[0],sl[1]))
+>>> li
+[[13, 'b'], [10, 'a'], [10, 'b'], [4, 'c'], [1, 'd']]
+  
+
+ You can also do a nested sort (or sort on one key, then the second key) since python uses a https://en.wikipedia.org/wiki/Sorting_algorithm#Stability: 
+
+  >>> from operator import itemgetter
+>>> li=[[13, "b"], [10, "b"], [10, "a",], [4,"c"], [1, "d"]]
+>>> li.sort(key=itemgetter(1))
+>>> li
+[[10, 'a'], [13, 'b'], [10, 'b'], [4, 'c'], [1, 'd']]
+>>> li.sort(key=itemgetter(0),reverse=True)
+>>> li
+[[13, 'b'], [10, 'a'], [10, 'b'], [4, 'c'], [1, 'd']]
+  
+
+ Since there is no need for a lambda in a one element sort, I used the faster http://docs.python.org/2/library/operator.html#operator.itemgetter vs a lambda. Whether two faster sorts are faster than one, I don't know... You can also use a lambda for this method.  
+
+ There is a great http://wiki.python.org/moin/HowTo/Sorting/ that shows many of these idioms. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16435703)
+  
+
+  X=[ [[4,5,6], [[3.0, 4], [0.8, 3], [0.5, 10], [0.1, 11]]],
+  [[2,1,3], [[2.0, 8], [0.8, 3], [0.2, 1], [0.1, 8]]]]
+>>> X.sort(key=lambda x: x[1])
+>>> X
+[[[2, 1, 3], [[2.0, 8], [0.80000000000000004, 3], [0.20000000000000001, 1], [0.10000000000000001, 8]]], [[4, 5, 6], [[3.0, 4], [0.80000000000000004, 3], [0.5, 10], [0.10000000000000001, 11]]]]
+  
+
+ Most importantly,  X.sort(key=lambda x: x[1])  is sorting by second element of X, that is by this elements  [[val1, occurrences_of_val1], [val2, occurrences_of_val2],...] . Implicitely, it is sorting by  val1 , then in case of equality by  occurrences_of_val1  ...    
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50403726)
+ Find the code below: 
+
+  list_1 = [100, 100, 50, 40, 40, 20, 10]
+list_2 = [5, 25, 50, 120]
+
+final_list = []
+
+for l1 in list_2:
+    temp_list_1 = list_1.copy()
+    temp_list_1.append(l1)        
+    temp_list_1.sort(reverse=True)
+
+    final_list.append(temp_list_1)
+
+print(final_list)
+  
+
+ Explanation: 
+
+ Loop over the elements of  list_2  and append it on the  temp_list_1 . Then sort it in descending order. Finally append the sorted list on a new  final_list . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54591832)
+ A first step could be to create a nested list, adding every  2  elements to a new sublist: 
+
+  from itertools import chain
+from operator import itemgetter
+
+i = [([0.2,0.10]),0.69, ([0.3,0.67]),0.70, ([0.5,0.68]),0.70, ([0.3,0.67]),0.65]
+
+l = [i[x:x+2] for x in range(0, len(i),2)]
+# [[[0.2, 0.1], 0.69], [[0.3, 0.67], 0.7], [[0.5, 0.68], 0.7], [[0.3, 0.67], 0.65]]
+  
+
+ And then sort the nested list by the second element in each sublist with  operator.itemgetter , and use https://docs.python.org/2/library/itertools.html#itertools.chain to flatten the result: 
+
+  list(chain(*sorted(l, key = itemgetter(1), reverse=True)))
+
+[[0.3, 0.67], 0.7, [0.5, 0.68], 0.7, [0.2, 0.1], 0.69, [0.3, 0.67], 0.65]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50403832)
+ You can try list comprehension here : 
+
+  main_list = [sorted(list_1+[i], reverse=True) for i in list_2]
+print(main_list)
+  
+
+ Here I'm adding each element to list_1 and sort it in descending order then to main list.  
+
+ The O/P will be like : 
+
+  [[100, 100, 50, 40, 40, 20, 10, 5], [100, 100, 50, 40, 40, 25, 20, 10], 
+[100, 100, 50, 50, 40, 40, 20, 10], [120, 100, 100, 50, 40, 40, 20, 10]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18018125)
+ You are trying to do  two  things here: 
+
+ 
+ Get the last element of each nested list. 
+ Group those elements by the first element of each nested list. 
+ 
+
+ You can use list comprehension to get the last element of each nested list: 
+
+  last_elems = [sublist[-1] for sublist in outerlist]
+  
+
+ If the whole list is sorted by the first element (the id) then you can use  itertools.groupby  to do the second part: 
+
+  from itertools import groupby
+from operator import itemgetter
+
+[[g[-1] for g in group] for id_, group in groupby(outerlist, key=itemgetter(0))]
+  
+
+  
+
+  >>> outerlist = [
+...     [100,'XHS',0],
+...     [100,'34B',3],
+...     [100,'42F',1],
+...     [101,'XHS',2],
+...     [101,'34B',5],
+...     [101,'42F',2],
+...     [102,'XHS',1],
+...     [102,'34B',2],
+...     [102,'42F',0],
+...     [103,'XHS',0],
+...     [103,'34B',4],
+...     [103,'42F',2]
+... ]
+>>> from itertools import groupby
+>>> from operator import itemgetter
+>>> [[g[-1] for g in group] for id_, group in groupby(outerlist, key=itemgetter(0))]
+[[0, 3, 1], [2, 5, 2], [1, 2, 0], [0, 4, 2]]
+  
+
+ If it wasn't sorted, you'd either have to sort it first (using  outerlist.sort(key=itemgetter) ), or, if you don't need a sorted version anywhere else, use a  collections.defaultdict  approach to grouping: 
+
+  from collections import defaultdict
+
+grouped = defaultdict(list)
+for sublist in outerlist:
+    grouped[sublist[0]].append(sublist[-1])
+
+output = grouped.values()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27093715)
+ You can use  itertools.groupby()  :  
+
+  >>> from itertools import groupby
+>>> l = [(1, 2, 'R'), (1, 3, 'S'), (1, 2, 'S'), (2, 3, 'S')]
+>>> g_list=[list(g) for k, g in groupby(sorted(l),lambda x :x[0:2])]
+>>> [(i[0],j[0],k) for i,j,k in [zip(*i) for i in g_list]]
+[(1, 2, ('R', 'S')), (1, 3, ('S',)), (2, 3, ('S',))]
+  
+
+ in this snippet we first need to sort our list with  sorted()  function that that sort our tuplse based on those elements , so we have this result :  
+
+  >>> sorted(l)
+[(1, 2, 'R'), (1, 2, 'S'), (1, 3, 'S'), (2, 3, 'S')]
+  
+
+ then we grouping the sorted list based on first tow element ( lambda x :x[0:2] ) so we would have :  
+
+  >>> g_list
+[[(1, 2, 'R'), (1, 2, 'S')], [(1, 3, 'S')], [(2, 3, 'S')]]
+  
+
+ So now we have a nested list with same 2 first element , now we need to keep just one of 1th and 2th element and both (or more) 3th elements , in this situation we could use  zip()  function that will have this results : 
+
+  >>> [zip(*i) for i in g_list]
+[[(1, 1), (2, 2), ('R', 'S')], [(1,), (3,), ('S',)], [(2,), (3,), ('S',)]]
+  
+
+ now what we need is chose the 0th element of first and second tuples and whole of 3th elemnt : 
+
+  (i[0],j[0],k) for i,j,k in ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24292653)
+ Since, https://docs.python.org/2/reference/expressions.html#not-in: 
+
+ 
+   Most other objects of built-in types compare unequal unless they are
+  the same object; the choice whether one object is considered smaller
+  or larger than another one is made arbitrarily but consistently within
+  one execution of a program. 
+ 
+
+ object comparison is only meaningful when two objects are of the same type. Relying on the value returned by expressions such as  [0, 1] < 2  should not be done in a program and that's why this behaviour was removed from Python 3. 
+
+ To explain it further, if you have the list  [[[0, 1], [2, 3]], [0, 1]] , this has two elements: 
+ [[0, 1], [2, 3]] and [0, 1] . In order for python to sort them, it compares their internal values lexicographically, since both are lists with values  [0, 1] and [2, 3]  for the first one and  0 and 1  for the second. But, then, it has to compare  [0, 1] with 0 , which are not of the same type and, thus, the comparison produces arbitrary results. 
+
+  So, this sorting is broken.  
+
+ Having said the above, if you have some lists that can be sorted meaningfully and some that cannot (because of the above explanation), a simple solution is to catch the possible exception and then return False. 
+
+  try:
+    [0, 1] < 2
+except TypeError:
+    # return or assign False. True is not actually meaningful.
+  
+
+ or, for list.sort() 
+
+  try:
+    x.sort()
+except TypeError:
+    pass    # Do nothing. Python would produce meaningless results, anyway.
+  
+
+ If you want to produce a meaningful sorting (if this actually makes sense), then you will have to define a key function, as is already mentioned. This may be rather complex, though. Maybe looking at your problem from a different perspective will be better. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/42332279)
+ . Simply use the following  one-liner : 
+
+  return sorted(user_list,key=sum
+  
+
+ That's all. When you specify a  key ,  sorted(..  will compare two elements based on the given function it  applies  to elements in the  user_list . So here it will compare two lists based on the sum of their elements. 
+
+
+

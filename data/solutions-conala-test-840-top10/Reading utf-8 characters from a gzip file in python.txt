@@ -1,0 +1,263 @@
+Query: Reading utf-8 characters from a gzip file in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19794943)
+ This is possible in Python 3.3: 
+
+  import gzip
+gzip.open('file.gz', 'rt', encoding='utf-8')
+  
+
+ Notice that gzip.open() requires you to explicitly specify text mode ('t'). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25232585)
+ . I used this: 
+
+  for line in io.TextIOWrapper(io.BufferedReader(gzip.open(filePath)), encoding='utf8', errors='ignore'):
+    ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1883673)
+ I don't see why this should be so hard. 
+
+   Please explain "eventually it reads an invalid character". 
+
+  
+
+  import gzip
+fp = gzip.open('foo.gz')
+contents = fp.read() # contents now has the uncompressed bytes of foo.gz
+fp.close()
+u_str = contents.decode('utf-8') # u_str is now a unicode string
+  
+
+ 
+
+ EDITED 
+
+ This answer works for  Python2  in  Python3 , please see @SeppoEnarvi 's answer at https://stackoverflow.com/a/19794943/610569 (it uses the  rt  mode for  gzip.open .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46996623)
+ A quick look into the original csv file shows that it contains null characters  ^@  which is why  pandas  cannot parse it correctly 
+
+ You can cleanup those characaters by using shell command 
+
+  gzip -dc 1.csv.gz | tr -d '\0' | gzip > 1_clean.csv.gz
+  
+
+ 
+  gzip -dc  decompresses the file into stdout 
+  tr -d '\0'  deletes the null characters 
+  gzip  compresses it back to a gzipped file 
+ 
+
+ After that  pandas  should be able to read it correctly 
+
+ 
+
+  UPDATE  
+
+ In case when you don't have access to shell, you can still use python to do the trick, although it would be slower 
+
+  import gzip
+
+with gzip.open('1.csv.gz', 'rb') as f:
+    data = f.read()
+
+with gzip.open('1_clean.csv.gz', 'wb') as f:
+    f.write(data.decode('utf-8').replace('\x00', '').encode('utf-8'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12492963)
+ I tested this briefly and it seems to do the right thing. You can provide a file obj to  gzip.GzipFile  and to  io.open  so 
+
+  import io
+import gzip
+
+f_obj = open('file.gz','r')
+io_obj = io.open(f_obj.fileno(), encoding='UTF-8')
+gzip_obj = gzip.GzipFile(fileobj=io_obj, mode='r')
+gzip_obj.read()
+  
+
+ That gives me a  UnicodeDecodeError  because the file I'm reading isn't actually UTF-8 so it would appear to be doing the right thing. 
+
+ For some reason if I use  io.open  to open  file.gz  directly  gzip  says that the file is not a compressed file. 
+
+  UPDATE 
+Yeah, that's silly, the streams are the wrong way around to begin with. 
+
+ test file  
+
+  ö
+ä
+u
+y
+  
+
+ The following code decodes the compressed file with the defined codec 
+
+  import codecs
+import gzip
+gz_fh = gzip.open('file.gz')
+ascii = codecs.getreader('ASCII')
+utf8 = codecs.getreader('UTF-8') 
+ascii_fh = ascii(gz_fh)
+utf8_fh = utf8(gz_fh)
+ascii_fh.readlines()
+-> UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 0: ordinal not in range(128)
+
+utf8_fh.readlines()
+-> [u'\xf6\n', u'\xe4\n', u'u\n', u'y']
+  
+
+ The  codecs.StreamReader  takes a stream so you should be able to pass the compressed or uncompressed files to it. 
+
+ http://docs.python.org/library/codecs.html#codecs 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47740928)
+ The server provided you with gzip-compressed data; this is not completely common, as  urllib  by default doesn't set any  accept-encoding  value, so servers generally conservatively don't compress the data. 
+
+ Still, the  content-encoding  field of the response  is  set, so you have the way to know that your page is indeed gzip-compressed, and you can decompress it using Python  gzip  module before further processing. 
+
+  import urllib.request
+import gzip
+file = urllib.request.urlopen(webAddress)
+data = file.read()
+if file.headers['content-encoding'].lower() == 'gzip':
+    data = gzip.decompress(data)
+file.close()
+dataString = data.decode(encoding='UTF-8')
+  
+
+ OTOH, if you have the possibility to use the http://docs.python-requests.org/en/master/ module it will handle all this mess by itself, including compression (did I mention that you may also get  deflate  besides  gzip , which https://stackoverflow.com/questions/388595/why-use-deflate-instead-of-gzip-for-text-files-served-by-apache?) and (at least partially) encoding. 
+
+  import requests
+webAddress = "https://projects.fivethirtyeight.com/2018-nba-predictions/"
+r = requests.get(webAddress)
+print(repr(r.text))
+  
+
+ This will perform your request and correctly print out the already-decoded Unicode string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29737291)
+ The nature of gzipping is such that there is no longer the concept of lines when the file is compressed -- it's just a binary blob. Check out http://www.gzip.org/deflate.html for an explanation of what gzip does.  
+
+ To read the file, you'll need to decompress it -- the  gzip  module does a fine job of it. Like other answers, I'd also recommend  itertools  to do the jumping, as it will carefully make sure you don't pull things into memory, and it will get you there as fast as possible. 
+
+  with gzip.open(filename) as f:
+    # jumps to `initial_row`
+    for line in itertools.slice(f, initial_row, None):
+        # have a party
+  
+
+ Alternatively, if this is a CSV that you're going to be working with, you could also try clocking  pandas  parsing, as it can handle decompressing  gzip . That would look like:  parsed_csv = pd.read_csv(filename, compression='gzip') . 
+
+ Also, to be extra clear, when you iterate over file objects in python -- i.e. like the  f  variable above -- you iterate over lines. You do not need to think about the '\n' characters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44322599)
+ You are doing two things wrong: 
+
+ 
+  You are trying to treat  compressed data  as UTF-8. It is not UTF-8, it is binary data. Decompress  first ,  then  decode as UTF-8.  
+  You are not creating compressed JSON. You are creating compressed  Python data representations . Don't decode the JSON to Python if you want to write compressed JSON.  
+ 
+
+ You can compress the JSON data directly without decoding; I'd do it in  chunks  directly to an output file to keep memory usage efficient: 
+
+  import gzip
+import shutil
+
+with open('big.json', 'rb') as fid_json, gzip.open('big.json.gz', 'wb') as out:
+    shutil.copyfileobj(fid_json, out)
+  
+
+ Note that I open the input file as  binary , there is no reason to decode the data from UTF-8 just to compress it (which opening the file in text mode would do). 
+
+ To decode the compressed JSON again, using Python, just open the gzipped file with the https://docs.python.org/3/library/gzip.html again, this time in text mode: 
+
+  import gzip
+import json
+
+with gzip.open('big.json.gz', 'r', encoding='utf8') as fid_json:
+    data = json.load(fid_json)
+  
+
+ The GZIP file object that  gzip.open()  returns handles compression and UTF-8 decoding for you; the  json.load()  function can decompress the contained JSON document from there. 
+
+ It is always a good idea to explicitly state the encoding of the file, rather than to rely on your locale being set correctly for every file you open. That said, as of Python 3.6  json.load()  will also accept binary input, and detect what UTF encoding was used, so in that case use: 
+
+  import gzip
+import json
+
+with gzip.open('big.json.gz') as fid_json:
+    data = json.load(fid_json)
+  
+
+ where the default mode is  rb . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/25879991)
+ I can only assume that there is a problem with the way you are reading or displaying the uncompressed data? I tried this following code on Windows and Linux (Python 2.7) and it did work: 
+
+  import gzip
+
+filename = 'gzipout.gz'
+data =  [(1,2,3) , (4,5)]
+fi = gzip.open(filename, 'wb')
+for tup in data:
+    fi.write(','.join(str(x) for x in tup).encode("utf-8"))
+    fi.write('\n'.encode("utf-8"))
+fi.close()
+
+fi = gzip.open(filename, 'rb')
+unzipdata = fi.read()
+print unzipdata
+fi.close()
+  
+
+ The output was: 
+
+  1,2,3
+4,5
+  
+
+ This code simply gzips the contents to a file and then reads back the compressed data and dumps it to the console as is. The newline is present. 
+
+ If I use  gunzip gzipout.gz  it extracts to gzipout and if I display the contents the newline is also present. 
+
+ Your behavior isn't uncommon especially if you use an old brain dead program to open the uncompressed text file. In the *nix world an end of line (EOL) is  generally  denoted by  \n . In Windows EOL is represented by two characters  \r\n  . Python has a  universal  mode for writing text so that it automatically converts  \n  to whatever EOL is on the platform. Unfortunately GZIP still doesn't seem to honor that flag with Python 2.7. This means that even if you opened a GZIP file for writing with mode "U" (Text mode + universal) no translation is done on each write. 
+
+ If you are on a Windows platform and targeting Windows users then you might consider the non-portable solution of explicitly writing '\r\n' so that brain-dead editors like Notepad will render properly. I am guessing that something like this would yield the results you are looking for: 
+
+  for tup in data:
+    fi.write(','.join(str(x) for x in tup).encode("utf-8"))
+    fi.write('\r\n'.encode("utf-8")) # notice I use \r\n instead of \n
+fi.close()
+  
+
+
+

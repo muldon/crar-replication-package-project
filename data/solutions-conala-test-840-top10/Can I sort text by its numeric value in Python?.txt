@@ -1,0 +1,268 @@
+Query: Can I sort text by its numeric value in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22361943)
+ If I'm right, you're trying to sort the  rows , using the 4th column as an index, no?  
+
+  sorted(open("MyFile.txt").readlines(), key=lambda line: int(line.split('\t')[3]))
+  
+
+ Should give you the lines, sorted by the integer value of their 4th tab-split column.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16954837)
+ Based on http://neopythonic.blogspot.ru/2008/10/sorting-million-32-bit-integers-in-2mb.html: 
+
+  import sys
+from functools import partial
+from heapq import merge
+from tempfile import TemporaryFile
+
+# define sorting criteria
+def second_column(line, default=float("inf")):
+    try:
+        return int(line.split(";", 2)[1]) # use int() for numeric sort
+    except (IndexError, ValueError):
+        return default # a key for non-integer or non-existent 2nd column
+
+# sort lines in small batches, write intermediate results to temporary files
+sorted_files = []
+nbytes = 1 << 20 # load around nbytes bytes at a time
+for lines in iter(partial(sys.stdin.readlines, nbytes), []):
+    lines.sort(key=second_column) # sort current batch
+    f = TemporaryFile("w+")
+    f.writelines(lines)
+    f.seek(0) # rewind
+    sorted_files.append(f)
+
+# merge & write the result
+sys.stdout.writelines(merge(*sorted_files, key=second_column))
+
+# clean up
+for f in sorted_files:
+    f.close() # temporary file is deleted when it closes
+  
+
+ https://docs.python.org/3.5/library/heapq.html#heapq.merge. You could try https://stackoverflow.com/a/14465236/4279 instead or do http://en.wikipedia.org/wiki/Schwartzian_transform on older Python versions: 
+
+  iters = [((second_column(line), line) for line in file)
+         for file in sorted_files] # note: this makes the sort unstable
+sorted_lines = (line for _, line in merge(*iters))
+sys.stdout.writelines(sorted_lines)
+  
+
+  
+
+  $ python sort-k2-n.py < input.txt > output.txt
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22361861)
+  line.split()  returns a string, as does reading a line from a file. You cannot sort a  string  because it is immutable.  
+
+  for line in file:
+    column.append(float(line[1:].split("\t")[3]))
+
+column.sort()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1534568)
+ You can sort the keys the way that you want, by splitting them on '.' and then converting each of the components into an integer, like this: 
+
+  sorted(mydict.keys(), key=lambda a:map(int,a.split('.')))
+  
+
+ which returns this: 
+
+  ['0',
+ '1',
+ '2.0',
+ '2.1',
+ '3',
+ '4.0.0',
+ '4.0.1',
+ '5',
+ '10',
+ '11.0',
+ '11.1',
+ '12.0',
+ '12.1.0',
+ '12.1.1']
+  
+
+ You can iterate over that list of keys, and pull the values out of your dictionary as needed. 
+
+ You could also sort the result of mydict.items(), very similarly: 
+
+  sorted(mydict.items(), key=lambda a:map(int,a[0].split('.')))
+  
+
+ This gives you a sorted list of (key, value) pairs, like this: 
+
+  [('0', 10),
+ ('1', 23),
+ ('2.0', 321),
+ ('2.1', 3231),
+ ('3', 3),
+ # ...
+ ('12.1.1', 2)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/157445)
+ You can't sort dictionaries.  You have to sort the list of items. 
+
+ Previous versions were wrong.  When you have a numeric value, it's easy to sort in reverse order.   These will do that.  But this isn't general.  This only works because the value is numeric. 
+
+  a = { 'key':1, 'another':2, 'key2':1 }
+
+b= a.items()
+b.sort( key=lambda a:(-a[1],a[0]) )
+print b
+  
+
+ Here's an alternative, using an explicit function instead of a lambda and the cmp instead of the key option. 
+
+  def valueKeyCmp( a, b ):
+    return cmp( (-a[1], a[0]), (-b[1], b[0] ) )
+
+b.sort( cmp= valueKeyCmp )
+print b
+  
+
+ The more general solution is actually two separate sorts 
+
+  b.sort( key=lambda a:a[1], reverse=True )
+b.sort( key=lambda a:a[0] )
+print b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/12915790)
+ It seems to me that a better data structure would be: 
+
+  {111:[('A', 4),('B',10)], 112:[('A': 3)]}
+  
+
+ Then you can print the dict easily: 
+
+  for k,v in d.items():
+   print "Type: {0}\t Text Count".format(k)
+   for item in v:
+       print "\t\t{0}  {1}".format(*v)
+  
+
+ To convert your dict to this form, I'd use a  defaultdict : 
+
+  from collections import defaultdict
+d = defaultdict(list)
+for k,v in yourdict.items():
+    new_key,value0 = (x.strip() for x in k.split(','))
+    d[int(new_key)].append((value0,v))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1534569)
+ Python's sorting functions can take a custom compare function, so you just need to define a function that compares keys the way you like: 
+
+  def version_cmp(a, b):
+  '''These keys just look like version numbers to me....'''
+  ai = map(int, a.split('.'))
+  bi = map(int, b.split('.'))
+  return cmp(ai, bi)
+
+for k in sorted(mydict.keys(), version_cmp):
+  print k, mydict[k]
+  
+
+ In this case you should better to use the  key  parameter to  sorted() , though. See https://stackoverflow.com/questions/1534542/can-i-sort-text-by-its-numeric-value-in-python#1534568's answer for an example for that. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16537788)
+ Where you don't have a numeric field that can be easily negated, then you can always do a two-phase sort, relying on the fact that Python's  .sort  is stable: 
+
+  student_tuples.sort(key=itemgetter(0))
+student_tuples.sort(key=itemgetter(2), reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12916007)
+ You can use tuples as your keys. Instead of  '111, A'  try  ('111', 'A')  
+
+ It allows you to easily loop through the dictionary looking for matches to either the first or second key value.  
+
+  for row in lists: 
+    key = (row[0], row[1])
+    if key in dictionary: 
+        dictionary[key] += 1 
+    else: 
+        dictionary[key] = 1
+
+#gives
+dictionary = {('111', 'A'): 4, ('111', 'B'):10, ('112', 'A'):4}
+  
+
+ Now, you're exactly right: you need a variable to store the total, you need to loop through the dictionary, and you need to use conditional statements inside the loop. What exactly are you asking about? 
+
+  
+
+  for k in d:
+    print k, d[k]
+  
+
+ If you keep your string keys, you will need to extract the two values from each key, which you can do with  split . (No need to do this step if you use tuples): 
+
+  #with string keys
+key_1, key_2 = k.split(',')
+  
+
+ You need to test if the first key value matches the desired number, and then you want to print the letter and the value d[k], and update the total variable: 
+
+  if key_1 == desired:
+    print key_2, d[k]
+    total += d[k]
+  
+
+ So you can put it together, inside a function like this: 
+
+  def f(d, desired):
+    total = 0
+    for k in d:
+        key_1, key_2 = k.split(',')
+        if key_1 == desired:
+            print key_2, d[k]
+            total += d[k]
+    print 'total', total
+  
+
+ If you use tuples instead of keys, you can remove the split step, and just use k[0] and k[1] to get the two values: 
+
+  def f(d, desired):
+    total = 0
+    for k in d:
+        if k[1] == desired:
+            print k[0], d[k]
+            total += d[k]
+
+    print 'total', total
+  
+
+
+

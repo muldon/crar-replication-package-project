@@ -1,0 +1,206 @@
+Query: Python: Finding a (string) key in a dictionary that contains a substring
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25423632)
+ As the  keys  are string, you can use the  find  method to get the  substring  and  delete  them by keys. 
+
+ If  d  is a dictionary, 
+
+  d = {'hello': 1, 'he': 2, 'llo': 3, 'world': 4, 'wor': 5, 'ld': 6, 'python': 2.7}
+
+for key in d.keys():
+    for sub in d.keys():
+        if key.find(sub) >= 0:
+            if key == sub:
+                continue
+            else:
+                del(d[sub])
+  
+
+  d  will be then, 
+
+  {'python': 2.7, 'world': 4, 'hello': 1}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25421605)
+ If instead of  key2 in key  (that is, " key2  is a  substring  of  key ") you change your requirement to " key2  is a  prefix  of  key " (as your examples demonstrate), you can use a https://en.wikipedia.org/wiki/Trie for efficient prefix checks. See https://stackoverflow.com/a/11016430/223267. 
+
+ First define  make_trie  as in the answer above: 
+
+  _end = '_end_'
+
+def make_trie(*words):
+    root = dict()
+    for word in words:
+        current_dict = root
+        for letter in word:
+            current_dict = current_dict.setdefault(letter, {})
+        current_dict = current_dict.setdefault(_end, _end)
+    return root
+  
+
+ Then define a function like  in_trie  from the answer above, but checking whether a key is a  strict prefix  of another key: 
+
+  def is_strict_prefix_of_word_in_trie(trie, word):
+   current_dict = trie
+   for letter in word:
+       if letter in current_dict:
+           current_dict = current_dict[letter]
+       else:
+           return False
+   else:
+       if _end in current_dict:
+           return False # it's actually in the trie
+       else:
+           return True # it's a strict prefix of a word in the trie
+  
+
+ Finally, perform your deletions like so: 
+
+  def reduce_dict(dictionary):
+    trie = make_trie(dictionary.keys())
+    reduced = dictionary.copy()
+    for key in dictionary:
+       if is_strict_prefix_of_word_in_trie(trie, key):
+           reduced.pop(key, 0)
+    return reduced
+  
+
+ Or you can use dictionary comprehension: 
+
+  def reduce_dict(dictionary):
+    trie = make_trie(dictionary.keys())
+    return {key: value for (key, value) in dictionary \
+            if not is_strict_prefix_of_word_in_trie(trie, key)}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25422647)
+ I think you can create a list of "good" keys (=those that are not substrings of others) in a slightly optimized way: 
+
+  # keys = yourDict.keys(), e.g.
+keys = ['low', 'el', 'helloworld', 'something', 'ellow', 'thing', 'blah', 'thingy']
+
+# flt is [[key, is_substring],...] sorted by key length reversed
+flt = [[x, 0] for x in sorted(keys, key=len, reverse=True)]
+
+for i in range(len(flt)):
+    p = flt[i]
+    if p[1]:  # already removed
+        continue
+    for j in range(i + 1, len(flt)): # iterate over shorter strings
+        q = flt[j]
+        if not q[1] and q[0] in p[0]: # if not already removed and is substring
+            q[1] = 1  # remove
+
+goodkeys = set(x[0] for x in flt if not x[1])
+print goodkeys # e.g ['helloworld', 'something', 'thingy', 'blah']
+  
+
+ Now the removal is trivial: 
+
+  newdict = {k:olddict[k] for k in goodkeys}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21587494)
+ If this is something your program relies on a lot, you could do this: 
+
+     class ApproxDict(dict):
+
+      def __contains__(self, item):
+          # item contains the key. Do what you need with it.
+          return True # or False again this depends on what you want
+  
+
+ Using either of the other solutions suggested to implement the  __contains__()  method.
+That way you have your customized lookup and retain the readability of python. 
+
+ For key substring lookup as you precised in your comment: 
+
+      >>> class ApproxDict(dict):
+    ...     def __contains__(self, item):
+    ...         for key in self.keys():
+    ...             if item in key:
+    ...                 return True
+    ...         return False
+    ... 
+    >>> d = ApproxDict()
+    >>> d['abc123'] = "some value"
+    >>> 'bc1' in d
+    True
+    >>> 'bc2' in d
+    False
+    >>> 
+  
+
+ See http://docs.python.org/2/reference/datamodel.html#object.__contains__
+Hope that helps. 
+
+  
+
+      if key in d:
+        # whatever
+  
+
+  
+
+      if key in d.keys():
+        # whatever
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47053430)
+ For me, this also worked: 
+
+  def search(myDict, search1):
+    search.a=[]
+    for key, value in myDict.items():
+        if search1 in value:
+            search.a.append(key)
+
+search(myDict, 'anyName')
+print(search.a)
+  
+
+ 
+ search.a makes the list a globally available 
+ if a match of the substring is found in any value, the key of that
+value will be appended to a 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/25422104)
+ Given that your strings are somewhat small, you could store a hashset of all possible substrings for each key. That would enable you to, for a given substring, find all keys that have matching substrings in O(N) time, however the tradeoff is you'd be increasing thr time complexity of your insertions since you'd be constructing a set of substrings for each new key. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17341476)
+ Klaus solution has less overhead, on the other hand this one may be more readable 
+
+  myDict = {'age': ['12'], 'address': ['34 Main Street, 212 First Avenue'],
+          'firstName': ['Alan', 'Mary-Ann'], 'lastName': ['Stone', 'Lee']}
+
+def search(myDict, lookup):
+    for key, value in myDict.items():
+        for v in value:
+            if lookup in v:
+                return key
+
+search(myDict, 'Mary')
+  
+
+
+

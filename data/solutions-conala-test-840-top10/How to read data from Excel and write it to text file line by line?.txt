@@ -1,0 +1,292 @@
+Query: How to read data from Excel and write it to text file line by line?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17977628)
+ You are opening and closing your output file for each line in the Excel sheet. 
+
+ Open the file before the while loop and then then close it when done with the loop. 
+
+  import xlrd
+import os.path
+wb = xlrd.open_workbook(os.path.join('D:\TRB 2014 Data','SPS1 demo data.xlsx'))
+wb.sheet_names()
+sh = wb.sheet_by_index(0)
+i = 1
+file = open("Output.txt", "w")
+while sh.cell(i,11).value != 0:
+   Load = sh.cell(i,11).value
+   D1 = sh.cell(i,13).value
+   D2 = sh.cell(i,14).value
+   D3 = sh.cell(i,15).value
+   D4 = sh.cell(i,16).value
+   D5 = sh.cell(i,17).value
+   D6 = sh.cell(i,18).value
+   D7 = sh.cell(i,19).value
+   DB1 = str(Load) + "  " + str(D1) + "  " + str(D2) + "  " + str(D3)+ "  " + str(D4)+ "  " + str(D5)+ "  " + str(D6)+ "  " + str(D7)
+
+   file.write(DB1 + '\n')
+   i = i + 1
+file.close
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17977823)
+ xlrd actually has a nice function for grabbing the values of a bunch of cells all in a column or row. Using that, you can simplify your code a lot (and I'm pretty sure their function is more efficient). That way your code can become: 
+
+  import xlrd
+import os.path
+wb = xlrd.open_workbook(os.path.join('D:\TRB 2014 Data','SPS1 demo data.xlsx'))
+wb.sheet_names()
+sh = wb.sheet_by_index(0)
+i = 1
+my_file = open("Output.txt", "a")
+
+while sh.cell(i,11).value != 0:
+    Load = sh.cell(i,11).value
+    all_d = sh.col_values(i, 13, 19)
+    DB1 = Load+" "+(" ".join(all_d))
+    my_file.write(DB1 + '\n')
+    i += 1
+file.close
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36558123)
+ This is based on documentation from: https://pypi.python.org/pypi/xlwt 
+
+ You will need to read the file line by line, format it and write it to the xls file. 
+
+  import xlwt
+import xlrd
+
+book = xlwt.Workbook()
+ws = book.add_sheet('First Sheet')  # Add a sheet
+
+f = open('/DOT/textfile.txt', 'r+')
+
+data = f.readlines() # read all lines at once
+for i in range(len(data)):
+  row = data[i].split()  # This will return a line of string data, you may need to convert to other formats depending on your use case
+
+  for j in range(len(row)):
+    ws.write(i, j, row[j])  # Write to cell i, j
+
+book.save('/DOT/Excelfile' + '.xls')
+f.close()
+  
+
+ Here, the data is being read, all the rows at once. Then, each line is being split into a list of data points, and added to a new row in the spreadsheet. 
+
+ This is not the best/optimal solution but should get you started. Let me know in case there is a bug. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17977624)
+ You should http://docs.python.org/2/library/functions.html#open the  output.txt  file with  append mode : 
+
+  file = open("Output.txt", "a")
+  
+
+ Also, you should do this before entering the loop, and it should be closed after that loop. 
+
+ 
+
+  Update : 
+
+ In cases like this one, you could use  with  instead of closing the file handle at the end. 
+
+ Also including the good suggestion made by https://stackoverflow.com/a/17977823/677022, the code could be this: 
+
+  import xlrd
+import os.path
+
+wb = xlrd.open_workbook(os.path.join('D:\TRB 2014 Data','SPS1 demo data.xlsx'))
+wb.sheet_names()
+sh = wb.sheet_by_index(0)
+i = 1
+with open("Output.txt", "a") as my_file:
+    while sh.cell(i,11).value != 0:
+        Load = sh.cell(i,11).value
+        all_d = sh.col_values(i, 13, 19)
+        DB1 = Load + " " + (" ".join(all_d))
+        my_file.write(DB1 + '\n')
+        i += 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13438050)
+ 
+  <strong  (standard): Python does not have this functionality in it's standard library, but I think of http://www.python-excel.org/ as the "standard" way to read and write excel files. It is fairly easy to make a workbook, add sheets, write data/formulas, and format cells. If you need all of these things, you may have the most success with this library. I think you could choose openpyxl instead and it would be quite similar, but I have not used it. 
+
+ To format cells with xlwt, define a  XFStyle  and include the style when you write to a sheet. https://github.com/python-excel/xlwt/blob/master/xlwt/examples/num_formats.py. See example code below.  
+  <strong  (powerful, intuitive): http://docs.python-tablib.org/en/latest/ is a more powerful yet intuitive library for working with tabular data. It can write excel workbooks with multiple sheets as well as other formats, such as csv, json, and yaml. If you don't need formatted cells (like background color), you will do yourself a favor to use this library, which will get you farther in the long run.  
+   csv  (easy): Files on your computer are either  text  or  binary . Text files are just characters, including special ones like newlines and tabs, and can be easily opened anywhere (e.g. notepad, your web browser, or Office products). A csv file is a text file that is formatted in a certain way: each line is a list of values, separated by commas. Python programs can easily read and write text, so a csv file is the easiest and fastest way to export data from your python program into excel (or another python program). 
+
+ Excel files are binary and require special libraries that know the file format, which is why you need an additional library for python, or a special program like Microsoft Excel, Gnumeric, or LibreOffice, to read/write them.  
+ 
+
+ 
+
+  import xlwt
+
+style = xlwt.XFStyle()
+style.num_format_str = '0.00E+00'
+
+...
+
+for i,n in enumerate(list1):
+    sheet1.write(i, 0, n, fmt)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37921817)
+ For the explanation i paste the example from your link here again: 
+
+  # Safe import for either Python 2.x or 3.x
+try:
+    from io import BytesIO
+except ImportError:
+    from cStringIO import StringIO as BytesIO
+
+bio = BytesIO()
+
+# By setting the 'engine' in the ExcelWriter constructor.
+writer = ExcelWriter(bio, engine='xlsxwriter')
+df.to_excel(writer, sheet_name='Sheet1')
+
+# Save the workbook
+writer.save()
+
+# Seek to the beginning and read to copy the workbook to a variable in memory
+bio.seek(0)
+workbook = bio.read()
+  
+
+ The method  writer.save()  saves the data in  BytesIO  ( bio ) instead of Excel file. It means, that the variable  bio  stores the bytes codes of the excel file. 
+
+ The method  bio.seek(0)  sets the current position (for reading, writing,...) of  bio  to  0 . So that you can read the data of  bio  from beginning with the next method  bio.read() . 
+
+ The variable  workbook  store the bytes string of the excel file (or excel workbook). If you read a excel file in byte mode, you will get the same data. Or you can write it in a excel file: 
+
+  with open("my_excel_file.xlsx", "wb") as f:
+   f.write(workbook)
+  
+
+ To read data from  bio  and store in a  DataFrame  you don't need  bio.read() : 
+
+  bio.seek(0)
+df = pd.read_excel(bio, "Sheet1", engine="xlrd")
+  
+
+ 
+
+  For your question about using of  mandrill :  
+
+ In the example of  mandrill  you see: 
+
+  {'attachments': [{'content': 'ZXhhbXBsZSBmaWxl',
+                      'name': 'myfile.txt',
+                      'type': 'text/plain'}],...
+  
+
+ The documentation writes about it too: 
+
+ 
+   content: the content of the attachment as a base64-encoded string 
+ 
+
+ You should encode  workbook  in base64 and use it for sending 
+
+  import base64
+content = base64.b64encode(workbook)
+  
+
+  P/S:  workbook  and  content  have the type  bytes . May be you need to convert  content  to  str  before sending.   
+
+  {'attachments': [{'content': content.decode('utf-8'),
+                          'name': 'myfile.xlsx',
+                          'type': 'text/plain'}],...
+  
+
+  Add: if file is excel then you should change  type  to  application/vnd..spreadsheetml.sheet   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38056526)
+ This should work. You can't assign 5 strings to a single variable, without using a list or some other data type. You can however check to see if the third cell's value (i[2] - here) is equal to any of the strings you're looking for ("string1" - "string5" - here). 
+
+  import xlrd
+sheet_data = []   
+wb = xlrd.open_workbook(Path_to_xlsx)
+p = wb.sheet_names()
+for y in p:
+   sh = wb.sheet_by_name(y)
+   for rownum in xrange(sh.nrows):
+      sheet_data.append((sh.row_values(rownum)))
+
+found_list = []
+rows_to_be_saved = []
+for i in sheet_data:
+  if i[2] == "string1" or i[2] == "string2" or i[2] == "string3" or i[2] == "string4" or i[2] == "string5":
+    found_list.append(i)
+  else:
+      rows_to_be_saved.append(i)
+
+text_file = open("Output.txt", "w")
+text_file.write(found_list)
+text_file.close()
+  
+
+ Your output written to the text file "Output.txt" will be comma separated as the rows in your excel are read into python as tuples in a list.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10846183)
+ With Python's  csv  module, you can write a UTF-8 file that Excel will read correctly if you place a BOM at the beginning of the file. 
+
+  with open('myfile.csv', 'wb') as f:
+    f.write(u'\ufeff'.encode('utf8'))
+    writer = csv.writer(f, delimiter=';', lineterminator='\n', quoting=csv.QUOTE_ALL, dialect='excel')
+    ...
+  
+
+ The same should work with  unicodecsv . I suppose you can write the BOM directly to the  HttpResponse  object, if not you can use  StringIO  to first write your file. 
+
+  Edit:  
+
+ Here's some sample code that writes a UTF-8 CSV file with non-ASCII characters. I'm taking Django out of the equation for simplicity. I can read that file in Excel. 
+
+  # -*- coding: utf-8 -*-
+import csv
+import os
+response = open(os.path.expanduser('~/utf8_test.csv'), 'wb')
+response.write(u'\ufeff'.encode('utf8'))
+writer = csv.writer(response, delimiter=';' , dialect='excel')
+writer.writerow(['Second row', 'A', 'B', 'C', '"Testing"', u"ελληνικά".encode('utf8')])
+response.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33691045)
+ Excel files (xlsx) are not just simple flat files, so trying to copy a text file to xlsx will not work.  You could save the file as csv and open it in Excel.  I think pandas is really useful for parsing and writing data files (obviously it is also useful for processing data). 
+
+  import pandas as pd
+df = pd.DataFrame(tags)
+df.to_excel('output.xlsx', header=False, index=False)
+  
+
+
+

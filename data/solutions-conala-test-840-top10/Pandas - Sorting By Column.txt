@@ -1,0 +1,325 @@
+Query: Pandas - Sorting By Column
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48005201)
+ Create a temporary column  _t  and sort using  sort_values  on  _t, B  
+
+  In [269]: (df.assign(_t=df['A'].map(df.groupby('A')['B'].sum()))
+            .sort_values(by=['_t', 'B'], ascending=False)
+            .drop('_t', 1))
+Out[269]:
+    A   B
+6   b  20
+10  b  15
+0   b  10
+1   b   5
+2   a  25
+7   a  10
+3   a   5
+4   c   6
+8   c   4
+9   c   3
+5   c   2
+  
+
+  
+
+  In [270]: df.assign(_t=df['A'].map(df.groupby('A')['B'].sum()))
+Out[270]:
+    A   B  _t
+0   b  10  50
+1   b   5  50
+2   a  25  40
+3   a   5  40
+4   c   6  15
+5   c   2  15
+6   b  20  50
+7   a  10  40
+8   c   4  15
+9   c   3  15
+10  b  15  50
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11067072)
+  df = df.reindex(sorted(df.columns), axis=1)
+  
+
+ This assumes that sorting the column names will give the order you want.  If your column names won't sort lexicographically (e.g., if you want column Q10.3 to appear after Q9.1), you'll need to sort differently, but that has nothing to do with pandas. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38172801)
+  df.assign(c3 = df.groupby('c1')['c2'].rank()).sort_values(['c3', 'c1']).drop('c3', axis=1)
+Out[21]: 
+  c1  c2
+1  a   3
+2  b   2
+3  c   1
+0  a   8
+4  b  10
+7  c   7
+6  a  10
+5  c   8
+  
+
+ This creates a new column  c3  that has the rank of each letter (with respect to c2) to use in sort. Then, it is sorted by that column and  c1 . Lastly, that auxiliary column is dropped. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44738043)
+ It seems you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html: 
+
+  df['date'] = pd.to_datetime(df['date'])
+df = df.sort_values(['id','date'])
+print (df)
+    id       date price
+2   12 2016-12-02     z
+5  114 1995-05-25     v
+4  114 2014-02-23     u
+1  114 2017-02-15     y
+3  123 1996-04-26     w
+0  123 2015-01-13     x
+  
+
+ Or if  id  column is  string : 
+
+  df['id'] = df['id'].astype(str)
+df['date'] = pd.to_datetime(df['date'])
+df = df.sort_values(['id','date'])
+print (df)
+    id       date price
+5  114 1995-05-25     v
+4  114 2014-02-23     u
+1  114 2017-02-15     y
+2   12 2016-12-02     z
+3  123 1996-04-26     w
+0  123 2015-01-13     x
+  
+
+ You can also sort one column descending and another ascending: 
+
+  df['id'] = df['id'].astype(str)
+df['date'] = pd.to_datetime(df['date'])
+df = df.sort_values(['id','date'], ascending=[False, True])
+print (df)
+    id       date price
+3  123 1996-04-26     w
+0  123 2015-01-13     x
+2   12 2016-12-02     z
+5  114 1995-05-25     v
+4  114 2014-02-23     u
+1  114 2017-02-15     y
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19248579)
+ If you sort df by column 'a' first then you don't need to sort the 'bins' column 
+
+  import pandas as pd
+import numpy as np
+df = pd.DataFrame({"a": np.random.randn(10)})
+# for versions older than 0.17.0
+df.sort(by=['a'],inplace=True)
+# if running a newer version 0.17.0 or newer then you need
+df.sort_values(by=['a'],inplace=True)
+# bin according to cut
+df["bins"] = pd.cut(df.a, np.linspace(-2,2,6))
+df
+
+Out[37]:
+          a          bins
+6 -1.273335    (-2, -1.2]
+7 -0.604780  (-1.2, -0.4]
+1 -0.467994  (-1.2, -0.4]
+8  0.028114   (-0.4, 0.4]
+9  0.032250   (-0.4, 0.4]
+3  0.138368   (-0.4, 0.4]
+0  0.541577    (0.4, 1.2]
+5  0.838290    (0.4, 1.2]
+2  1.171387    (0.4, 1.2]
+4  1.770752      (1.2, 2]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15981325)
+ One way is to use the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.order.html Series method on each row (and take the index): 
+
+  In [11]: df
+Out[11]:
+           A         B         C
+r0  0.213505 -0.661328  1.489605
+r1 -1.096459 -0.373994 -1.948745
+r2  0.380518 -1.424787 -0.639996
+r3 -0.327361  1.029477  0.153808
+r4 -0.593371  0.112844  0.096872
+
+In [12]: df.apply(lambda row: row.order(ascending=False).index, axis=1)
+Out[12]:
+    A  B  C
+r0  C  A  B
+r1  B  A  C
+r2  A  C  B
+r3  B  C  A
+r4  B  C  A
+  
+
+ To break it down: 
+
+  In [21]: row = df.ix[0]
+
+In [22]: row
+Out[22]:
+A    0.213505
+B   -0.661328
+C    1.489605
+Name: r0
+
+In [23]: row.order(ascending=False)
+Out[23]:
+C    1.489605
+A    0.213505
+B   -0.661328
+Name: r0
+
+In [24]: row.order(ascending=False).index
+Out[24]: Index([C, A, B], dtype=object)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34426920)
+ How's about this: http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html by the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.cumcount.html and then the value itself: 
+
+  In [11]: df = pd.DataFrame({"s": [1,4,2,4,3,1,1,2,4,3,2,1,4,3,2,3]})
+
+In [12]: df.groupby("s").cumcount()
+Out[12]:
+0     0
+1     0
+2     0
+3     1
+4     0
+5     1
+6     2
+7     1
+8     2
+9     1
+10    2
+11    3
+12    3
+13    2
+14    3
+15    3
+dtype: int64
+
+In [13]: df["s_cumcounts"] = df.groupby("s").cumcount()
+
+In [14]: df.sort_values(["s_cumcounts", "s"])
+Out[14]:
+    s  s_cumcounts
+0   1            0
+2   2            0
+4   3            0
+1   4            0
+5   1            1
+7   2            1
+9   3            1
+3   4            1
+6   1            2
+10  2            2
+13  3            2
+8   4            2
+11  1            3
+14  2            3
+15  3            3
+12  4            3
+
+In [15]: df = df.sort_values(["s_cumcounts", "s"])
+
+In [16]: del df["s_cumcounts"]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38663274)
+ Have you tried to create a new column and then sorting on that. I cannot comment on the original post, so i am just posting my solution. 
+
+  df['c'] = df.a**2 + df.b**2
+df = df.sort_values('c')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38241962)
+ You can use  ordered Categorical : 
+
+  df['i2'] = pd.Categorical(df.i2, categories=['f', 'a', 'w', 'h'], ordered=True)
+
+df.set_index(['i1','i2'],inplace=True)
+print (df)
+
+print (df.unstack('i2'))
+          c1                                      c2                      \
+i2         f         a         w         h         f         a         w   
+i1                                                                         
+x  -0.663218  1.005395  0.236088  1.416896  2.729855  0.141692  0.136700   
+y   0.509393  0.370418 -1.301840 -1.067212  0.945016 -0.617570  1.377235   
+
+
+i2         h  
+i1            
+x  -0.029020  
+y  -2.346038  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40903241)
+ use  sort_values  with  System_num  as the first column to sort by 
+
+  df.sort_values(['System_num', 'Dis'])
+  
+
+ https://i.stack.imgur.com/MaElh.png 
+
+ Another way to do it without sorting the  System_num  column 
+
+   setup   
+
+  df = pd.DataFrame([
+        [  2.    ,   2.    ,  -0.9379],
+        [  0.7   ,   2.    ,   7.4776],
+        [  1.5   ,   2.    ,  -2.2877],
+        [  0.9   ,   2.    ,  -4.1789],
+        [  0.9   ,   1.    ,  -2.3108],
+        [  0.7   ,   1.    ,  11.8735],
+        [  1.2   ,   1.    ,  -2.3408],
+        [  2.    ,   1.    ,  -0.3485],
+        [  2.    ,   3.    ,  -3.6596],
+        [  1.    ,   3.    , -18.4582],
+        [  0.9   ,   3.    , -16.2202],
+        [  0.7   ,   3.    ,  16.629 ]
+    ], columns=['Dis', 'System_num', 'Energy'])
+
+df.groupby('System_num', sort=False) \
+    .apply(pd.DataFrame.sort_values, by='Dis') \
+    .reset_index(drop=True)
+  
+
+ <a href="https://i.stack.imgur.com/c8tru.png"  
+
+
+

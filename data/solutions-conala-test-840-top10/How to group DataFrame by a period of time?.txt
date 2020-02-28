@@ -1,0 +1,358 @@
+Query: How to group DataFrame by a period of time?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/53841512)
+ You can use  groupby  and  pd.Grouper  as follows: 
+
+  df = df.groupby(["id",pd.Grouper(key="timestamp", freq='2min')]).sum()
+  
+
+ The result would be: 
+
+  >>> df
+                            value
+id     timestamp                 
+00b0f3 2018-05-21 05:36:00     19
+       2018-05-21 21:54:00     24
+  
+
+ If you want to have  id  as a separate column you can run below code line: 
+
+  df.reset_index(inplace=True)
+  
+
+ And the resulting  DataFrame  would be then: 
+
+  >>> df
+       id           timestamp  value
+0  00b0f3 2018-05-21 05:36:00     19
+1  00b0f3 2018-05-21 21:54:00     24
+  
+
+ Note 
+
+ I pasted your data to a  csv  file and then imported it and created the  DataFrame  as follows: 
+
+  import pandas as pd
+
+df = pd.read_csv("D:/tmp/data.csv")
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42826037)
+ You need a 30-minute time grouper for this: 
+
+  grouper = pd.TimeGrouper(freq="30T")
+  
+
+ You also need to remove the 'date' part from the index: 
+
+  df.index = df.reset_index()['index'].apply(lambda x: x - pd.Timestamp(x.date()))
+  
+
+ Now, you can group by time alone: 
+
+  df.groupby(grouper).count()
+  
+
+ You can find somewhat obscure  TimeGrouper  documentation here: https://stackoverflow.com/questions/17001389/pandas-resample-documentation (it's actually  resample  documentation, but both features use the same rules). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44802495)
+ Very similarly you can convert  PERIOD_START_TIME  to a pandas Period. 
+
+  df['PERIOD_START_TIME'] = df['PERIOD_START_TIME'].dt.to_period('H')
+df.groupby(['PERIOD_START_TIME', 'ID']).agg(['max', 'min', 'mean']).reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39731398)
+ This is assuming you split the day up into 5 minute windows 
+
+  df.groupby(df.timestampe.dt.hour.mul(60) \
+             .add(df.timestampe.dt.minute) // 5) \
+  .apply(pd.DataFrame.reset_index)
+  
+
+ https://i.stack.imgur.com/7Y76B.png 
+
+ 
+
+  for name, group in df.groupby(df.timestampe.dt.hour.mul(60).add(df.timestampe.dt.minute) // 5):
+    print name
+    print group
+    print
+
+132
+           timestampe  val
+0 2016-08-11 11:03:00  0.1
+2 2016-08-09 11:04:00  0.5
+
+133
+           timestampe  val
+1 2016-08-13 11:06:00  0.3
+4 2016-08-19 11:09:00  0.8
+
+139
+           timestampe  val
+3 2016-08-05 11:35:00  0.7
+
+151
+           timestampe  val
+5 2016-08-21 12:37:00  0.9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42826033)
+ 
+ In pandas, the most common way to group by time is to use the
+.. 
+  In v0.18.0 this function is two-stage.  
+  This means that df.resample('M') creates an object to which we can
+apply other functions (mean, count, sum, etc.)   
+ 
+
+ The code snippet will be like, 
+
+  df.resample('M').count()
+  
+
+ You can refer here for https://chrisalbon.com/python/pandas_group_data_by_time.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23966229)
+ You can use the  TimeGrouper  function in a  groupy/apply . With a  TimeGrouper  you don't need to create your period column. I know you're not trying to compute the mean but I will use it as an example: 
+
+  >>> df.groupby(pd.TimeGrouper('5Min'))['val'].mean()
+
+time
+2014-04-03 16:00:00    14390.000000
+2014-04-03 16:05:00    14394.333333
+2014-04-03 16:10:00    14396.500000
+  
+
+ Or an example with an explicit  apply : 
+
+  >>> df.groupby(pd.TimeGrouper('5Min'))['val'].apply(lambda x: len(x) > 3)
+
+time
+2014-04-03 16:00:00    False
+2014-04-03 16:05:00    False
+2014-04-03 16:10:00     True
+  
+
+ Doctstring for  TimeGrouper : 
+
+  Docstring for resample:class TimeGrouper@21
+
+TimeGrouper(self, freq = 'Min', closed = None, label = None,
+how = 'mean', nperiods = None, axis = 0, fill_method = None,
+limit = None, loffset = None, kind = None, convention = None, base = 0,
+**kwargs)
+
+Custom groupby class for time-interval grouping
+
+Parameters
+----------
+freq : pandas date offset or offset alias for identifying bin edges
+closed : closed end of interval; left or right
+label : interval boundary to use for labeling; left or right
+nperiods : optional, integer
+convention : {'start', 'end', 'e', 's'}
+    If axis is PeriodIndex
+
+Notes
+-----
+Use begin, end, nperiods to generate intervals that cannot be derived
+directly from the associated object
+  
+
+  Edit  
+
+ I don't know of an elegant way to create the period column, but the following will work: 
+
+  >>> new = df.groupby(pd.TimeGrouper('5Min'),as_index=False).apply(lambda x: x['val'])
+>>> df['period'] = new.index.get_level_values(0)
+>>> df
+
+                     id    val  period
+time
+2014-04-03 16:01:53  23  14389       0
+2014-04-03 16:01:54  28  14391       0 
+2014-04-03 16:05:55  24  14393       1
+2014-04-03 16:06:25  23  14395       1
+2014-04-03 16:07:01  23  14395       1
+2014-04-03 16:10:09  23  14395       2
+2014-04-03 16:10:23  26  14397       2
+2014-04-03 16:10:57  26  14397       2
+2014-04-03 16:11:10  26  14397       2
+  
+
+ It works because the groupby here with as_index=False actually returns the period column you want as the part of the multiindex and I just grab that part of the multiindex and assign to a new column in the orginal dataframe. You could do anything in the apply, I just want the index: 
+
+  >>> new
+
+   time
+0  2014-04-03 16:01:53    14389
+   2014-04-03 16:01:54    14391
+1  2014-04-03 16:05:55    14393
+   2014-04-03 16:06:25    14395
+   2014-04-03 16:07:01    14395
+2  2014-04-03 16:10:09    14395
+   2014-04-03 16:10:23    14397
+   2014-04-03 16:10:57    14397
+   2014-04-03 16:11:10    14397
+
+>>>  new.index.get_level_values(0)
+
+Int64Index([0, 0, 1, 1, 1, 2, 2, 2, 2], dtype='int64')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53686857)
+ IIUC, you need to extract the hours and minutes from 'utctime', categorize the minutes in  bins  and perform  groupby  on hours and minute_bins for the  count  of messages: 
+
+  df['Hour'] = pd.to_datetime(df['utctime']).dt.hour
+df['Minute'] = pd.to_datetime(df['utctime']).dt.minute
+
+df['minute_bins'] = pd.cut(df['Minute'], bins=(-0.01,20,40,60), labels=('0 < 20', '20 < 40', '40 < 60'))
+
+df.groupby(['Hour', 'minute_bins'])['message'].count()
+
+print(df)
+
+Hour  minute_bins
+18    0 < 20         1
+      40 < 60        3
+19    0 < 20         1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41654485)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.date.html and aggregate by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.last.html: 
+
+  #if necessery convert to datetime
+df.time_dt = pd.to_datetime(df.time_dt)
+
+df = df.groupby(df.time_dt.dt.date).last().reset_index(drop=True)
+print (df)
+         time  price_BRL    qt             time_dt
+0  1312049148      23.40  1.00 2011-07-30 18:05:48
+1  1312121523      23.50  6.50 2011-07-31 14:12:03
+2  1312206416      23.25  1.00 2011-08-01 13:46:56
+3  1312637929      18.95  4.00 2011-08-06 13:38:49
+4  1312847064      16.00  0.86 2011-08-08 23:44:24
+5  1312915666       6.00  0.01 2011-08-09 18:47:46
+6  1312934897      19.90  1.00 2011-08-10 00:08:17
+  
+
+ Thank you https://stackoverflow.com/questions/41654286/pandas-python-group-data-by-same-period-in-time/41654485?noredirect=1#comment70508018_41654485 for another solution - add parameter  as_index=False  for return  DataFrame : 
+
+  df = df.groupby(df.time_dt.dt.date, as_index=False).last()
+print (df)
+         time  price_BRL    qt             time_dt
+0  1312049148      23.40  1.00 2011-07-30 18:05:48
+1  1312121523      23.50  6.50 2011-07-31 14:12:03
+2  1312206416      23.25  1.00 2011-08-01 13:46:56
+3  1312637929      18.95  4.00 2011-08-06 13:38:49
+4  1312847064      16.00  0.86 2011-08-08 23:44:24
+5  1312915666       6.00  0.01 2011-08-09 18:47:46
+6  1312934897      19.90  1.00 2011-08-10 00:08:17
+  
+
+ Solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.resample.html, but is necessery remove  NaN  rows by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.dropna.html: 
+
+  df = df.resample('d', on='time_dt').last().dropna(how='all').reset_index(drop=True)
+#cast column time to int
+df.time = df.time.astype(int)
+print (df)
+         time  price_BRL    qt             time_dt
+0  1312049148      23.40  1.00 2011-07-30 18:05:48
+1  1312121523      23.50  6.50 2011-07-31 14:12:03
+2  1312206416      23.25  1.00 2011-08-01 13:46:56
+3  1312637929      18.95  4.00 2011-08-06 13:38:49
+4  1312847064      16.00  0.86 2011-08-08 23:44:24
+5  1312915666       6.00  0.01 2011-08-09 18:47:46
+6  1312934897      19.90  1.00 2011-08-10 00:08:17
+  
+
+ --- 
+
+ You can also use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.dt.month.html: 
+
+  df = df.groupby(df.time_dt.dt.month).last().reset_index(drop=True)
+print (df)
+         time  price_BRL   qt             time_dt
+0  1312121523       23.5  6.5 2011-07-31 14:12:03
+1  1312934897       19.9  1.0 2011-08-10 00:08:17
+  
+
+ With  hours  it is a bit complicated, if need  groupby  by  date  and  hours  together, solution is replace  minutes  and  seconds  to  0  by  astype : 
+
+  hours = df.time_dt.values.astype('<M8[h]')
+print (hours)
+['2011-07-30T04' '2011-07-30T18' '2011-07-31T14' '2011-07-31T14'
+ '2011-08-01T05' '2011-08-01T13' '2011-08-06T13' '2011-08-06T13'
+ '2011-08-08T15' '2011-08-08T15' '2011-08-08T16' '2011-08-08T23'
+ '2011-08-09T00' '2011-08-09T13' '2011-08-09T18' '2011-08-10T00']
+
+df = df.groupby(hours).last().reset_index(drop=True)
+print (df)
+          time  price_BRL    qt             time_dt
+0   1312001297      23.49  1.00 2011-07-30 04:48:17
+1   1312049148      23.40  1.00 2011-07-30 18:05:48
+2   1312121523      23.50  6.50 2011-07-31 14:12:03
+3   1312177622      23.40  2.00 2011-08-01 05:47:02
+4   1312206416      23.25  1.00 2011-08-01 13:46:56
+5   1312637929      18.95  4.00 2011-08-06 13:38:49
+6   1312818289       0.10  0.01 2011-08-08 15:44:49
+7   1312819795       6.00  0.09 2011-08-08 16:09:55
+8   1312847064      16.00  0.86 2011-08-08 23:44:24
+9   1312849282      16.00  6.14 2011-08-09 00:21:22
+10  1312898146      19.90  1.00 2011-08-09 13:55:46
+11  1312915666       6.00  0.01 2011-08-09 18:47:46
+12  1312934897      19.90  1.00 2011-08-10 00:08:17
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49047311)
+ Also, you can use date_format to create any time period you wish. 
+Groupby specific day:  
+
+ <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+<div class="snippet-code">
+<pre class="snippet-code-js lang-js prettyprint-override"> from pyspark.sql import functions as F
+
+df.select(F.date_format('timestamp','yyyy-MM-dd').alias('day'))..count().show()  
+</div>
+</div>
+ 
+
+ Groupby specific month (just change the format): 
+
+ <div class="snippet" data-lang="js" data-hide="false" data-console="true" data-babel="false">
+<div class="snippet-code">
+<pre class="snippet-code-js lang-js prettyprint-override"> df.select(F.date_format('timestamp','yyyy-MM').alias('month'))..count().show()  
+</div>
+</div>
+ 
+
+
+

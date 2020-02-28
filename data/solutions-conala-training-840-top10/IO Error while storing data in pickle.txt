@@ -1,0 +1,328 @@
+Query: IO Error while storing data in pickle
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5285383)
+ Well i assigned the absolute path & it worked !! 
+
+  output = open('/home/user/test/wsservice/data.pkl', 'wb')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25172289)
+ I've noticed in Python 3.4 you can do it like:  
+ output = open(str(dataList), "wb")  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45991324)
+ You're using the  wrong  function. Here's the docs: 
+
+ 
+  dumps(obj, protocol=None, *, fix_imports=True)
+  
+  
+    Return  the pickled representation of the object as a  bytes  object. 
+ 
+
+  dumps  converts the passed object to  bytes  and returns it. The error you get is when you pass a file argument to what  .dump  expects to be the pickling protocol, which is supposed to be an integer. 
+
+ You'll want to use  pickle.dump , which actually dumps to a file: 
+
+ 
+  dump(obj, file, protocol=None, *, fix_imports=True)
+  
+  
+    Write  a pickled representation of  obj  to the open file object  file . 
+ 
+
+  with open('test', 'wb') as file:
+    pickle.dump(test, file)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/18964012)
+  
+
+  # Read from file 
+f_myfile = open('myfile.pickle', 'wb')
+  
+
+   
+
+  f_myfile = open('myfile.pickle', 'rb')
+  
+
+ and you can see the dict obj you've pickled. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26395169)
+ You didn't pickle your data incrementally. You pickled your data monolithically and repeatedly. Each time around the loop, you destroyed whatever output data you had ( open(...,'wb')  destroys the output file), and re-wrote all of the data again. Additionally, if your program ever stopped and then restarted with new input data, the old output data was lost. 
+
+ I do not know why  objects  didn't cause an out-of-memory error while you were pickling, because it grew to the same size as the object that  pickle.load()  wants to create. 
+
+ Here is how you could have created the pickle file incrementally: 
+
+  def save_objects(objects): 
+    with open('objects.pkl', 'ab') as output:  # Note: `ab` appends the data
+        pickle.dump(objects, output, pickle.HIGHEST_PROTOCOL)
+
+def Main():
+    ...
+    #objects=[] <-- lose the objects list
+    with open('links2.txt', 'rb') as infile:
+        for link in infile: 
+            ... 
+            save_objects(article)
+  
+
+ Then you could have incrementally read the pickle file like so: 
+
+  import pickle
+with open('objects.pkl', 'rb') as pickle_file:
+    try:
+        while True:
+            article = pickle.load(pickle_file)
+            print article
+    except EOFError:
+        pass
+  
+
+ The choices I can think of are: 
+
+ 
+ Try cPickle. . 
+ Try streaming-pickle 
+ Read your pickle file in a 64-bit environment with lots and lots of RAM 
+ Re-crawl the original data, this time actually incrementally storing the data, or storing it in a database.
+Without the inefficiency of constantly re-writing your pickle output file, your crawling might go significantly faster this time. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41258947)
+ In Python 3, the pickle module expects the underlying file objects to accept or return  bytes . You correctly open the file in binary mode for writing, but failed to do the same for reading. The read part should be: 
+
+  with open('tweets.dat', 'rb') as f:
+   all_tweets = pickle.load(f)
+  
+
+ Ref: extract from the documentation of  pickle.load(fd) : 
+
+ 
+   ...Thus file can be an on-disk file opened for binary reading, an io.BytesIO object, or any other custom object that meets this interface. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52824784)
+ Pickle cannot work with lambda nor local function now. You can make a GLOBAL function to do that 
+
+  from collections import defaultdict
+import pickle
+
+def _global_helper_function():
+    return defaultdict(list)
+
+x = defaultdict(_global_helper_function)
+pickle.dump(x, f)
+  
+
+ By making a function global, it is associated with file which makes it easier for pickle. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39835073)
+ When storing multiple objects (by repeated  dump , not from containers) Pickle will store objects sequentially in pickle files, so if an object is broken it can be removed without corrupting the others. 
+
+ In principle, the pickle format is pseudo-documented in  pickle.py . For most cases, the opcodes at the beginning of the module are sufficient to piece together what is happening. Basically, pickle files are an instruction on how to build objects. 
+
+ How readable a pickle file is depends on its pickle format - 0 is doable, everything above is  difficult . Whether you can fix or must delete depends entirely on this. What's consistent is that each individual pickle ends with a dot ( . ). For example,  b'Va\np0\n.'  and  b'\x80\x04\x95\x05\x00\x00\x00\x00\x00\x00\x00\x8c\x01a\x94.'  both are the character '"a"', but in protocol 0 and 4. 
+
+ The simplest form of recovery is to count the number of objects you can load: 
+
+  with open('/my/pickle.pkl', 'rb') as pkl_source:
+    idx = 1
+    while True:
+        pickle.load(pkl_source)
+        print(idx)
+        idx += 1
+  
+
+ Then open the pickle file, skip as many objects and remove everything up to the next  . . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42101691)
+ Here is performance comparison of the three most upvoted answers using Jupyter notebook. The input is a 1M x 100K random sparse matrix with density 0.001, containing 100M non-zero values: 
+
+  from scipy.sparse import random
+matrix = random(1000000, 100000, density=0.001, format='csr')
+
+matrix
+<1000000x100000 sparse matrix of type '<type 'numpy.float64'>'
+with 100000000 stored elements in Compressed Sparse Row format>
+  
+
+  io.mmwrite  /  io.mmread  
+
+  from scipy.sparse import io
+
+%time io.mmwrite('test_io.mtx', matrix)
+CPU times: user 4min 37s, sys: 2.37 s, total: 4min 39s
+Wall time: 4min 39s
+
+%time matrix = io.mmread('test_io.mtx')
+CPU times: user 2min 41s, sys: 1.63 s, total: 2min 43s
+Wall time: 2min 43s    
+
+matrix
+<1000000x100000 sparse matrix of type '<type 'numpy.float64'>'
+with 100000000 stored elements in COOrdinate format>    
+
+Filesize: 3.0G.
+  
+
+ (note that the format has been changed from csr to coo). 
+
+  np.savez  /  np.load  
+
+  import numpy as np
+from scipy.sparse import csr_matrix
+
+def save_sparse_csr(filename, array):
+    # note that .npz extension is added automatically
+    np.savez(filename, data=array.data, indices=array.indices,
+             indptr=array.indptr, shape=array.shape)
+
+def load_sparse_csr(filename):
+    # here we need to add .npz extension manually
+    loader = np.load(filename + '.npz')
+    return csr_matrix((loader['data'], loader['indices'], loader['indptr']),
+                      shape=loader['shape'])
+
+
+%time save_sparse_csr('test_savez', matrix)
+CPU times: user 1.26 s, sys: 1.48 s, total: 2.74 s
+Wall time: 2.74 s    
+
+%time matrix = load_sparse_csr('test_savez')
+CPU times: user 1.18 s, sys: 548 ms, total: 1.73 s
+Wall time: 1.73 s
+
+matrix
+<1000000x100000 sparse matrix of type '<type 'numpy.float64'>'
+with 100000000 stored elements in Compressed Sparse Row format>
+
+Filesize: 1.1G.
+  
+
+    
+
+  import  as pickle
+
+def save_pickle(matrix, filename):
+    with open(filename, 'wb') as outfile:
+        pickle.dump(matrix, outfile, pickle.HIGHEST_PROTOCOL)
+def load_pickle(filename):
+    with open(filename, 'rb') as infile:
+        matrix = pickle.load(infile)    
+    return matrix    
+
+%time save_pickle(matrix, 'test_pickle.mtx')
+CPU times: user 260 ms, sys: 888 ms, total: 1.15 s
+Wall time: 1.15 s    
+
+%time matrix = load_pickle('test_pickle.mtx')
+CPU times: user 376 ms, sys: 988 ms, total: 1.36 s
+Wall time: 1.37 s    
+
+matrix
+<1000000x100000 sparse matrix of type '<type 'numpy.float64'>'
+with 100000000 stored elements in Compressed Sparse Row format>
+
+Filesize: 1.1G.
+  
+
+  Note :  does not work with very large objects (see https://stackoverflow.com/a/38246020/304209).
+In my experience, it didn't work for a 2.7M x 50k matrix with 270M non-zero values.
+ np.savez  solution worked well. 
+
+ Conclusion 
+
+ (based on this simple test for CSR matrices)
+   is the fastest method, but it doesn't work with very large matrices,  np.savez  is only slightly slower, while  io.mmwrite  is much slower, produces bigger file and restores to the wrong format. So  np.savez  is the winner here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26835614)
+ I'd put it in a function for reusability, avoid error catching for control flow on the file, as it's less efficient, and I would use context managers to open the file. 
+
+  import os
+import pickle
+
+def read_or_new_pickle(path, default):
+    if os.path.isfile(path):
+        with open(path, "rb") as f:
+            try:
+                return pickle.load(f)
+            except Exception: # so many things could go wrong, can't be more specific.
+                pass 
+    with open(path, "wb") as f:
+        pickle.dump(default, f)
+    return default
+  
+
+  
+
+  foo = read_or_new_pickle(path="var.pickle", default=3)
+  
+
+  foo  returns  3  
+
+  foo = read_or_new_pickle(path="var.pickle", default=4)
+  
+
+ and  foo  still returns  3 .   
+
+ Admittedly, the following is rather short and elegant, but too many things could go wrong, and you'd have to catch  everything  (don't believe me? try this:  import io, pickle; pickle.load(io.BytesIO(b"\x00"))  and play with the binary): 
+
+  import pickle
+
+def read_or_new_pickle(path, default):
+    try:
+        foo = pickle.load(open(path, "rb"))
+    except Exception:
+        foo = default
+        pickle.dump(foo, open(path, "wb"))
+    return foo
+  
+
+ . But I'm concerned the file might not be closed fast enough to avoid an error on opening it the second time in the event of a empty or malformed file. So use the context manager: 
+
+  import pickle
+
+def read_or_new_pickle(path, default):
+    try:
+        with open(path, "rb") as f:
+            foo = pickle.load(f)
+    except Exception:
+        foo = default
+        with open(path, "wb") as f:
+            pickle.dump(foo, f)
+    return foo
+  
+
+
+

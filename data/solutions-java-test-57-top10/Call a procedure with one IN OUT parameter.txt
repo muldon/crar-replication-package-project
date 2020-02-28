@@ -1,0 +1,513 @@
+Query: Call a procedure with one IN OUT parameter
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17390648)
+ Call setParameter another time: 
+
+  Query query = session.createSQLQuery("CALL StoredProcedureTest(:parameter1, :parameter2)")
+   .addEntity(DBModel.class)
+   .setParameter("parameter1", parameter1)
+   .setParameter("parameter2", parameter2);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17390653)
+ You can always continue the line: 
+
+  Query query = session.createSQLQuery("CALL StoredProcedureTest(:parameter, :parameter2)")
+.addEntity(DBModel.class)
+.setParameter("parameter", parameter).setParameter("parameter2", parameter2);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2277932)
+ Depends on signature of your stored procedure type (function/procedure). 
+
+ For function like one below, out parameter will be first one and will have param1 and param2 as second and third parameters. 
+
+ DB Procedure (for function): 
+
+  CREATE FUNCTION my_func (
+param1 INT,
+param2 INT) 
+    RETURNS INT
+AS 
+    :
+    :
+  
+
+ Java code (for function): 
+
+  registerQuery = "{? = call my_func(?,?)}";
+...
+CallableStatement cs = conn.prepareCall(registerQuery);
+cs.registerOutParameter(1, Types.INTEGER);
+cs.setInteger(2, 10);
+cs.setInteger(3, 10);
+...
+  
+
+ . 
+
+ However for procedure like one below, out parameter will be third one and will have param1 and param2 as first and second parameters. 
+
+ DB Procedure (for procedure): 
+
+  CREATE PROCEDURE my_proc (
+param1 INT,
+param2 INT,
+OUT param3 INT)
+BEGIN
+    :
+    :
+END;
+  
+
+ Java code (for procedure): 
+
+  registerQuery = "{call my_func(?,?,?)}";
+...
+CallableStatement cs = conn.prepareCall(registerQuery);
+cs.registerOutParameter(3, Types.INTEGER);
+cs.setInteger(1, 10);
+cs.setInteger(2, 10);
+...
+  
+
+ . 
+
+ Note that you can have multiple out parameters while only one return value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40984167)
+ Here are the ways to call the stored procedures from java 
+
+  1.   
+
+   connection = jdbcTemplate.getDataSource().getConnection();
+  CallableStatement callableStatement = connection.prepareCall("{call STORED_PROCEDURE_NAME(?, ?, ?)}");
+  callableStatement.setString(1, "FirstName");
+  callableStatement.setString(2, " LastName");
+  callableStatement.registerOutParameter(3, Types.VARCHAR);
+  callableStatement.executeUpdate();
+  
+
+ Here we externally manage the resource closing 
+
+  2. Using CallableStatementCreator  
+
+   List paramList = new ArrayList();
+    paramList.add(new SqlParameter(Types.VARCHAR));
+    paramList.add(new SqlParameter(Types.VARCHAR));
+    paramList.add(new SqlOutParameter("msg", Types.VARCHAR));
+
+    Map<String, Object> resultMap = jdbcTemplate.call(new CallableStatementCreator() {
+
+    @Override
+    public CallableStatement createCallableStatement(Connection connection)
+    throws SQLException {
+
+    CallableStatement callableStatement = connection.prepareCall("{call STORED_PROCEDURE_NAME(?, ?, ?)}");
+    callableStatement.setString(1, "FirstName");
+            callableStatement.setString(2, " LastName");
+            callableStatement.registerOutParameter(3, Types.VARCHAR);
+    return callableStatement;
+
+    }
+    }, paramList);
+  
+
+  3. Use SimpleJdbcCall:  
+
+  SimpleJdbcCall simpleJdbcCall = new SimpleJdbcCall(jdbcTemplate)
+
+.withProcedureName("STORED_PROCEDURE_NAME");
+
+Map<String, Object> inParamMap = new HashMap<String, Object>();
+inParamMap.put("firstName", "FirstNameValue");
+inParamMap.put("lastName", "LastNameValue");
+SqlParameterSource in = new MapSqlParameterSource(inParamMap);
+
+
+Map<String, Object> simpleJdbcCallResult = simpleJdbcCall.execute(in);
+System.out.println(simpleJdbcCallResult);
+  
+
+  4. Use StoredProcedure class of org.springframework.jdbc.object  
+
+  The Code:
+First Create subclass of StoredProcedure: MyStoredProcedure
+
+class MyStoredProcedure extends StoredProcedure {
+
+public MyStoredProcedure(JdbcTemplate jdbcTemplate, String name) {
+
+super(jdbcTemplate, name);
+setFunction(false);
+
+}
+
+}
+
+Use MyStoredProcedure to call database stored procedure:
+
+
+//Pass jdbcTemlate and name of the stored Procedure.
+MyStoredProcedure myStoredProcedure = new MyStoredProcedure(jdbcTemplate, "PROC_TEST");
+
+//Sql parameter mapping
+SqlParameter fNameParam = new SqlParameter("fName", Types.VARCHAR);
+SqlParameter lNameParam = new SqlParameter("lName", Types.VARCHAR);
+SqlOutParameter msgParam = new SqlOutParameter("msg", Types.VARCHAR);
+SqlParameter[] paramArray = {fNameParam, lNameParam, msgParam};
+
+
+myStoredProcedure.setParameters(paramArray);
+myStoredProcedure.compile();
+
+
+//Call stored procedure
+Map storedProcResult = myStoredProcedure.execute("FirstNameValue", " LastNameValue");
+  
+
+ https://lalitjc.wordpress.com/2013/07/02/different-ways-of-calling-stored-procedure-using-spring/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48147962)
+ 
+  For a simple stored procedure that using IN/OUT parameters like this 
+
+  CREATE OR REPLACE PROCEDURE count_comments (  
+   postId IN NUMBER,  
+   commentCount OUT NUMBER )  
+AS 
+BEGIN 
+    SELECT COUNT(*) INTO commentCount  
+    FROM post_comment  
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call it from JPA as follows: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("count_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+        ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Long.class, 
+        ParameterMode.OUT)
+    .setParameter(1, 1L);
+
+query.execute();
+
+Long commentCount = (Long) query.getOutputParameterValue(2);
+   
+  For a stored procedure which uses a  SYS_REFCURSOR  OUT parameter: 
+
+  CREATE OR REPLACE PROCEDURE post_comments ( 
+   postId IN NUMBER, 
+   postComments OUT SYS_REFCURSOR ) 
+AS 
+BEGIN
+    OPEN postComments FOR
+    SELECT *
+    FROM post_comment 
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call it as follows: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("post_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+         ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Class.class, 
+         ParameterMode.REF_CURSOR)
+    .setParameter(1, 1L);
+
+query.execute();
+
+List<Object[]> postComments = query.getResultList();
+   
+  For a SQL function that looks as follows: 
+
+  CREATE OR REPLACE FUNCTION fn_count_comments ( 
+    postId IN NUMBER ) 
+    RETURN NUMBER 
+IS
+    commentCount NUMBER; 
+BEGIN
+    SELECT COUNT(*) INTO commentCount 
+    FROM post_comment 
+    WHERE post_id = postId; 
+    RETURN( commentCount ); 
+END;
+  
+
+ You can call it like this: 
+
+  BigDecimal commentCount = (BigDecimal) entityManager
+.createNativeQuery(
+    "SELECT fn_count_comments(:postId) FROM DUAL"
+)
+.setParameter("postId", 1L)
+.getSingleResult();
+  
+
+ At least when using Hibernate 4.x and 5.x because the JPA  StoredProcedureQuery  does not work for SQL FUNCTIONS.  
+ 
+
+ For more details about how to call stored procedures and functions when using JPA and Hibernate, check out the following articles 
+
+ 
+ https://vladmihalcea.com/how-to-call-oracle-stored-procedures-and-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-sql-server-stored-procedures-and-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-postgresql-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-mysql-stored-procedures-and-functions-with-jpa-and-hibernate/ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41507047)
+ Considering the following stored procedure that simply returns a basic return value: 
+
+  CREATE OR REPLACE PROCEDURE count_comments (  
+   postId IN NUMBER,  
+   commentCount OUT NUMBER )  
+AS 
+BEGIN 
+    SELECT COUNT(*) INTO commentCount  
+    FROM post_comment  
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call this one with standard JPA: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("count_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+        ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Long.class, 
+        ParameterMode.OUT)
+    .setParameter(1, 1L);
+
+query.execute();
+
+Long commentCount = (Long) query.getOutputParameterValue(2);
+  
+
+ If the stored procedure returns a SYS_REFCURSOR: 
+
+  CREATE OR REPLACE PROCEDURE post_comments ( 
+   postId IN NUMBER, 
+   postComments OUT SYS_REFCURSOR ) 
+AS 
+BEGIN
+    OPEN postComments FOR
+    SELECT *
+    FROM post_comment 
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call it like this: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("post_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+         ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Class.class, 
+         ParameterMode.REF_CURSOR)
+    .setParameter(1, 1L);
+
+query.execute();
+
+List<Object[]> postComments = query.getResultList();
+  
+
+ If you want to call an Oracle database function: 
+
+  CREATE OR REPLACE FUNCTION fn_count_comments ( 
+    postId IN NUMBER ) 
+    RETURN NUMBER 
+IS
+    commentCount NUMBER; 
+BEGIN
+    SELECT COUNT(*) INTO commentCount 
+    FROM post_comment 
+    WHERE post_id = postId; 
+    RETURN( commentCount ); 
+END;
+  
+
+ You can't use the  StoredProcedureQuery  since it does not work with Hibernate 5, so you can call it like this: 
+
+  BigDecimal commentCount = (BigDecimal) entityManager
+    .createNativeQuery(
+        "SELECT fn_count_comments(:postId) FROM DUAL"
+    )
+    .setParameter("postId", 1L)
+    .getSingleResult();
+  
+
+  
+
+  Session session = entityManager.unwrap( Session.class ); 
+
+Integer commentCount = session.doReturningWork( connection -> {
+    try (CallableStatement function = connection.prepareCall(
+            "{ ? = call fn_count_comments(?) }" )) {
+        function.registerOutParameter( 1, Types.INTEGER );
+        function.setInt( 2, 1 );
+        function.execute();
+        return function.getInt( 1 );
+    }
+} );
+  
+
+ For more details check out the following articles: 
+
+ 
+ https://vladmihalcea.com/how-to-call-oracle-stored-procedures-and-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-sql-server-stored-procedures-and-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-postgresql-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-mysql-stored-procedures-and-functions-with-jpa-and-hibernate/ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12074857)
+ The correct way to call the procedure is this: 
+
+  cs.execute();
+double x = cs.getBigDecimal(3).doubleValue(); 
+double y = cs.getBigDecimal(4).doubleValue();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9743817)
+ To get back the values from a stored procedure, you need to create your own class that extends  StoredProcedure , declare your parameters, and then examine the out parameters that are returned from the  execute  call: 
+
+  public final class MyProc extends StoredProcedure {
+
+    public MyProc() {
+        super(myDataSource, "TESTONE");
+        declareParameter(new SqlParameter("param1", Types.CHAR));
+        declareParameter(new SqlOutParameter("param2", Types.CHAR));
+    }
+
+    public String execute(Map<?, ?> inParams) {
+        Map results = super.execute(inParams);
+        return (String) results.get("param2");
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54545627)
+ Please try: 
+
+ 
+  use the exact (db) names of procedure parameters: 
+
+  @StoredProcedureParameter(name = "tbl_name" ...
+@StoredProcedureParameter(name = "p_date" ...
+@StoredProcedureParameter(name = "p_message" ...
+   
+  or (alternatively) omit names completely (rely on position).  
+ 
+
+ From  https://docs.oracle.com/javaee/7/api/javax/persistence/StoredProcedureParameter.html#name--: 
+
+ 
+   The name of the parameter  as defined by the stored procedure in the database . If a name is not specified, it is assumed that the stored procedure uses positional parameters. 
+ 
+
+ 
+
+ Currently you https://jira.spring.io/browse/DATAJPA-707, but (should be) no problem with standard JPA: 
+
+  StoredProcedureQuery spq = em.createNamedStoredProcedureQuery("my_proc");
+proc.setParameter("p_in", 1);
+proc.execute();
+Integer res1 = (Integer) proc.getOutputParameterValue("out1");
+Integer res2 = (Integer) proc.getOutputParameterValue("out2");
+  
+
+ see also: https://stackoverflow.com/q/29899219/592355 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/17282440)
+ May be it's not the same for Sql Srver but for people using oracle and eclipslink it's working for me  
+
+ ex: a procedure that have one IN param (type CHAR) and two OUT params (NUMBER & VARCHAR) 
+
+ in the persistence.xml  declare the persistence-unit : 
+
+  <persistence-unit name="presistanceNameOfProc" transaction-type="RESOURCE_LOCAL">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <jta-data-source>jdbc/DataSourceName</jta-data-source>
+    <mapping-file>META-INF/eclipselink-orm.xml</mapping-file>
+    <properties>
+        <property name="eclipselink.logging.level" value="FINEST"/>
+        <property name="eclipselink.logging.logger" value="DefaultLogger"/>
+        <property name="eclipselink.weaving" value="static"/>
+        <property name="eclipselink.ddl.table-creation-suffix" value="JPA_STORED_PROC" />
+    </properties>
+</persistence-unit>
+  
+
+ and declare the structure of the proc in the eclipselink-orm.xml 
+
+  <?xml version="1.0" encoding="UTF-8"?><entity-mappings version="2.0"
+xmlns="http://java.sun.com/xml/ns/persistence/orm" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://java.sun.com/xml/ns/persistence/orm orm_2_0.xsd">
+<named-stored-procedure-query name="PERSIST_PROC_NAME" procedure-name="name_of_proc" returns-result-set="false">
+    <parameter direction="IN" name="in_param_char" query-parameter="in_param_char" type="Character"/>
+    <parameter direction="OUT" name="out_param_int" query-parameter="out_param_int" type="Integer"/>
+    <parameter direction="OUT" name="out_param_varchar" query-parameter="out_param_varchar" type="String"/>
+</named-stored-procedure-query>
+  
+
+  
+
+ in the code you just have to call your proc like this : 
+
+  try {
+        final Query query = this.entityManager
+                .createNamedQuery("PERSIST_PROC_NAME");
+        query.setParameter("in_param_char", 'V'); 
+        resultQuery = (Object[]) query.getSingleResult();
+
+    } catch (final Exception ex) {
+        LOGGER.log(ex);
+        throw new TechnicalException(ex);
+    }
+  
+
+ to get the two output params : 
+
+  Integer myInt = (Integer) resultQuery[0];
+String myStr =  (String) resultQuery[1];
+  
+
+
+

@@ -1,0 +1,145 @@
+Query: Django database query: How to filter objects by date range?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4668703)
+ You can use http://docs.djangoproject.com/en/dev/ref/models/querysets/#gt with http://docs.python.org/library/datetime.html: 
+
+  import datetime
+samples = Sample.objects.filter(sampledate__gte=datetime.date(2011, 1, 1),
+                                sampledate__lte=datetime.date(2011, 1, 31))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28231187)
+ Use the  __range  lookup: 
+
+  enquiryList = ModelName.objects.filter(dateposted__range=(start_date,end_date))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28431826)
+ Replace the  __range  lookup with  __gte / __lt  combination. 
+
+  Student.objects.filter(created__gte=startDate,
+                       created__lt=endDate + datetime.timedelta(days=1))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6194999)
+ When doing django ranges with a filter make sure you know the difference between using a date object vs a datetime object. __range is inclusive on dates but if you use a datetime object for the end date it will not include the entries for that day if the time is not set. 
+
+      startdate = date.today()
+    enddate = startdate + timedelta(days=6)
+    Sample.objects.filter(date__range=[startdate, enddate])
+  
+
+ returns all entries from startdate to enddate including entries on those dates. Bad example since this is returning entries a week into the future, but you get the drift. 
+
+      startdate = datetime.today()
+    enddate = startdate + timedelta(days=6)
+    Sample.objects.filter(date__range=[startdate, enddate])
+  
+
+ will be missing 24 hours worth of entries depending on what the time for the date fields is set to. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4668718)
+ Use  
+
+  Sample.objects.filter(date__range=["2011-01-01", "2011-01-31"])
+  
+
+ Or if you are just trying to filter month wise:  
+
+  Sample.objects.filter(date__year='2011', 
+                      date__month='01')
+  
+
+ Edit</h3>
+
+ As Bernhard Vallant said, if you want a queryset which excludes the  specified range ends  you should consider https://stackoverflow.com/questions/4668619/django-database-query-how-to-filter-objects-by-date-range/4668703#4668703, which utilizes gt/lt (greater-than/less-than). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13824741)
+ You can get around the "impedance mismatch" caused by the lack of precision in the  DateTimeField/date  object comparison -- that can occur if using  range  -- by using a  datetime.timedelta  to add a day to last date in the range. This works like: 
+
+  start = date(2012, 12, 11)
+end = date(2012, 12, 18)
+new_end = end + datetime.timedelta(days=1)
+
+ExampleModel.objects.filter(some_datetime_field__range=[start, new_end])
+  
+
+ As discussed previously, without doing something like this, records are ignored on the last day. 
+
+ Edited to avoid the use of  datetime.combine  -- seems more logical to stick with date instances when comparing against a  DateTimeField , instead of messing about with throwaway (and confusing)  datetime  objects. See further explanation in comments below. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33207740)
+ If you use DateField instead of CharField (which I think you really should be doing because you are dealing with dates) like so: 
+
+  class Input(models.Model):
+    # This date has the month and the year. You can set the default day 
+    # to the 1st of every month for consistency.
+    startDate=models.DateField() 
+
+    # This also has the end month and end year.
+    endDate=models.DateField() 
+  
+
+ You can filter date objects by range by doing something along the lines of: 
+
+  Input.objects.filter(startDate__range=["2011-01-01", "2011-01-31"])
+  
+
+ Or if you want to filter by a specific month, you can do: 
+
+  Input.objects.filter(endDate__year='2011', endDate__month='01')
+  
+
+ See this post: https://stackoverflow.com/questions/4668619/django-database-query-how-to-filter-objects-by-date-range and this post: https://stackoverflow.com/questions/2861770/how-do-i-subtract-two-dates-in-django-python for more information. 
+
+ I'm not too sure what you exactly want to accomplish but I'm sure that if you use a DateField instead of a CharField to save the dates, it would be much easier. I also suggest you read the documentation on DateField as well for more information (it can come in handy in your situation). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46653440)
+ You can use  startswith  lookup explained https://docs.djangoproject.com/en/1.11/_modules/django/contrib/postgres/fields/ranges/#DateTimeRangeField 
+
+  Model.objects.filter(rangefield__startswith__day=1)
+  
+
+ If above doesn't work try: 
+
+  Model.objects.filter(rangefield__startswith__date__day=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38272656)
+  count = len(MyModel.objects.filter(object_date__range=(beginning_of_hour, end_of_hour)))
+  
+
+   
+
+  count = MyModel.objects.filter(object_date__range=(beginning_of_hour, end_of_hour)).count()
+  
+
+ Assuming I understand what you're asking f, this returns the number of objects that have a date within a specific time range. Set the range to be from the beginning of the hour until the end of the hour and you will return all objects created in that hour.  Count()    len()  can be used depending on the desired use. F me infmation on that check out https://docs.djangoproject.com/en/1.9/ref/models/querysets/#count 
+
+
+

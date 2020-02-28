@@ -1,0 +1,259 @@
+Query: Django can't find URL pattern
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32458582)
+ This problem is the dollar sign in this url pattern. 
+
+  url(r'^$', include('sms.urls')),
+  
+
+ The caret  ^  matches the beginning of the string, and the dollar  $  matches the end if the string, so  ^$  only matches the index URL  / .  
+
+ You should remove the dollar and change it to: 
+
+  url(r'^', include('sms.urls')),
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16099942)
+ Your pattern is wrong, it should be 
+
+  r'editYou/(?P<costumerSlug>.*)/$'
+#         ^^^^
+#   not   <?P(costumerSlug>.*)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34408377)
+ urls.py 
+
+  url(r'^user/', views.test)
+  
+
+ views.py 
+
+  from urllib import unquote
+
+def test(request):
+    url_with_semicolon = unquote(request.get_full_path())
+    print url_with_semicolon.split(';')[1:]
+    return HttpResponse('ok')
+  
+
+   
+
+  http://www.example.com/user/age=9;name=dsds-dsds-ddd
+  
+
+ output:  
+
+  [u'age=9', u'name=dsds-dsds-ddd']
+  
+
+ hope, this helps you 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49656032)
+ You've set a namespace for your urls: 
+
+  app_name = 'account'
+  
+
+ You need to use that namespace when reversing urls with  reverse / reverse_lazy  or  {% url %} : 
+
+  LOGIN_REDIRECT_URL = reverse_lazy('account:dashboard')
+LOGIN_URL = reverse_lazy('account:login')
+LOGOUT_REDIRECT_URL = reverse_lazy('account:logout')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16627830)
+ Subclass  RedirectView , and override the  get_redirect_view  method. 
+
+  from django.core.urlresolvers import reverse
+
+class UserRedirectView(RedirectView):
+
+    permanent = False
+
+    def get_redirect_url(self, pk):
+        # it would be better to use reverse here
+        return '/myapp/%s/' % self.request.user.username
+  
+
+ You would include your  UserRedirectView  in your  myapp.urls.py  module as follows: 
+
+  url(r'^$', UserRedirectView.as_view(), name='myapp_index'),
+  
+
+ It would be better to https://docs.djangoproject.com/en/dev/ref/urlresolvers/#reverse the url instead of hardcoding  /myapp/  in the url above. As an example, if you were redirecting to a url pattern like the following 
+
+  url(r'^(?P<username>\w+)/$', 'myapp.view_user', name='myapp_view_user'),
+  
+
+ Then you could change the  get_redirect_url  view to: 
+
+      def get_redirect_url(self, pk):
+        return reverse('myapp_view_user', args=(self.request.user.username,))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34408387)
+ Check if django has APPEND_SLASH feature enabled which likely forces you add a slash  /  at the end of every URL that can be an issue. 
+
+  
+
+  url(r'^user/(?P<myparams>[\w;.]/$',
+    views.CreateView.as_view(),
+    name='user-create')
+  
+
+ Your URL in this case has to be something like this: 
+
+  http://www.example.com/user/;age=9;name=dsds-dsds-ddd
+  
+
+ django will automatically append a  /  at the end and convert it as: 
+
+  http://www.example.com/user/;age=9;name=dsds-dsds-ddd/
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47866253)
+ Since you are adding the URL to a model admin class, you need to include the  admin  namespace to reverse it. 
+
+  return redirect('admin:auth_user_password_change')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32515460)
+ you should try with the base url,like  
+
+ Here is the application urls.py file: 
+
+  from django.conf.urls import include, url
+from django.contrib import admin
+urlpatterns = [
+url(r'^admin/', include(admin.site.urls)),
+url(r'^sms', include('sms.urls')),   //the 'sms' is your defined name
+]
+  
+
+ Here is my sms.urls.py file: 
+
+  from django.conf.urls import url
+
+from sms import views
+
+urlpatterns = [
+    url(r'^success/$', views.success, name='success'),
+    url(r'^$', views.index, name='index')
+]
+  
+
+ you should try accessing your url's like in your views as 
+
+ sms/    //for accessing tht index function in view
+sms/success   //for accessing the success function in view 
+
+ or you can use the labels in the form's action tag in the templates to call the urls, 
+
+ {% url 'sms:index or success' %}   //index,success is the name space given in the sms.urls 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34751791)
+ Your  password_reset_confirm  URL pattern is out of date. It changed from uidb36 to uidb64 https://docs.djangoproject.com/en/1.11/releases/1.6/#django-contrib-auth-password-reset-uses-base-64-encoding-of-user-pk.  
+
+  url(r'^reset/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>.+)/$',
+'django.contrib.auth.views.password_reset_confirm',
+name='password_reset_confirm'),
+  
+
+ Update your password reset email template as well: 
+
+  {% url 'password_reset_confirm' uidb64=uid token=token %}
+  
+
+ In Django 1.8+, you should use the view in your url pattern rather than the string. 
+
+  from django.contrib.auth.views import password_reset_confirm
+
+urlpatterns = [
+    ...
+    url(r'^reset/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>.+)/$',
+    password_reset_confirm, name='password_reset_confirm'),
+    ...
+]
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/30704270)
+ Since this has not really been answered, yet: 
+
+ 
+   
+   Is there any value in using double underscore in url pattern? 
+   
+ 
+
+  
+
+  class SomeDetailView(...):
+     def get_queryset(self):
+         queryset = super(SomeDetailView, self).get_queryset()
+         # grab all named URL keyword arguments and 
+         # transform them into field lookup patterns.
+         # Leave out slug and primary key keywords, though.
+         filter_args = {
+              k: v for k, v in self.kwargs.iteritems()
+              if k not in (self.slug_url_kwarg, self.pk_url_kwarg)
+         }
+         if filter_args:
+             queryset = queryset.filter(**filter_args)
+         return queryset
+  
+
+ Since e.g.  pub_date__year  is a valid https://docs.djangoproject.com/en/1.8/topics/db/queries/#field-lookups you --possible security problems nonwithstanding-- just gained the ability to add lookup criteria solely via named capture patterns in  urls.py . 
+
+ 
+  <ol start="2">
+   When I reduce the url pattern to the following, I only get a 404 when requesting the page with: 127.0.0.1:8000/test/ (test is the slug for an existing record stored in db) 
+   
+ 
+
+  url(r'^/(?P<slug>[a-zA-Z0-9-]+)/?$', DetailView.as_view(model=Post, )),   
+       ^ leading slash 
+  
+
+ That's common enough mistake that it made it into https://docs.djangoproject.com/en/1.8/topics/http/urls/#example: 
+
+ 
+   There’s no need to add a leading slash, because every URL has that. For example, it’s ^articles, not ^/articles. 
+ 
+
+ Try again with  r'^(?P<slug>[a-zA-Z0-9-]+)/?$'  
+
+ Documentation is, however, a little misleading, here. " There's no need " should be read as " The initial leading slash is matched automatically and is not part of the url pattern ". 
+
+
+

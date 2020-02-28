@@ -1,0 +1,275 @@
+Query: Parsing XML with namespace in Python via 'ElementTree'
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26807636)
+ Here's how to do this with lxml without having to hard-code the namespaces or scan the text for them (as Martijn Pieters mentions): 
+
+  from lxml import etree
+tree = etree.parse("filename")
+root = tree.getroot()
+root.findall('owl:Class', root.nsmap)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37409050)
+   Note : This is an answer useful for Python's ElementTree standard library without using hardcoded namespaces.  
+
+ To extract namespace's prefixes and URI from XML data you can use  ElementTree.iterparse  function, parsing only namespace start events ( start-ns ): 
+
+  >>> from io import StringIO
+>>> from xml.etree import ElementTree
+>>> my_schema = u'''<rdf:RDF xml:base="http://dbpedia.org/ontology/"
+...     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+...     xmlns:owl="http://www.w3.org/2002/07/owl#"
+...     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+...     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+...     xmlns="http://dbpedia.org/ontology/">
+... 
+...     <owl:Class rdf:about="http://dbpedia.org/ontology/BasketballLeague">
+...         <rdfs:label xml:lang="en">basketball league</rdfs:label>
+...         <rdfs:comment xml:lang="en">
+...           a group of sports teams that compete against each other
+...           in Basketball
+...         </rdfs:comment>
+...     </owl:Class>
+... 
+... </rdf:RDF>'''
+>>> my_namespaces = dict([
+...     node for _, node in ElementTree.iterparse(
+...         StringIO(my_schema), events=['start-ns']
+...     )
+... ])
+>>> from pprint import pprint
+>>> pprint(my_namespaces)
+{'': 'http://dbpedia.org/ontology/',
+ 'owl': 'http://www.w3.org/2002/07/owl#',
+ 'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+ 'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
+ 'xsd': 'http://www.w3.org/2001/XMLSchema#'}
+  
+
+ Then the dictionary can be passed as argument to the search functions: 
+
+  root.findall('owl:Class', my_namespaces)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14853417)
+ ElementTree is not too smart about namespaces.   .find() ,  findall()  and  iterfind()  methods an explicit namespace dictionary. This is not documented very well: 
+
+  namespaces = {'owl': 'http://www.w3.org/2002/07/owl#'} # add more as needed
+
+root.findall('owl:Class', namespaces)
+  
+
+ Prefixes are  only  looked up in the  namespaces  parameter you pass in. This means you can use any namespace prefix you like; the API splits off the  owl:  part, looks up the corresponding namespace URL in the  namespaces  dictionary, then changes the search to look for the XPath expression  {http://www.w3.org/2002/07/owl}Class  instead. You can use the same syntax yourself too of course: 
+
+  root.findall('{http://www.w3.org/2002/07/owl#}Class')
+  
+
+ If you can switch to the http://lxml.de/ things are better; that library supports the same ElementTree API, but collects namespaces for you in a  .nsmap  attribute on elements. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22367767)
+ It would by much easier to do via  lxml , but here' a solution using  ElementTree  library: 
+
+  import xml.etree.ElementTree as ET
+
+data = """<parameters>
+<parameter>
+ <name>ec_num</name>
+ <value>none</value>
+ <units/>
+ <url/>
+ <id>2455</id>
+ <m_date>2008-11-29 13:15:14</m_date>
+ <user_id>24</user_id>
+ <user_name>registry</user_name>
+</parameter>
+<parameter>
+ <name>swisspro</name>
+ <value>Q8H6N2</value>
+ <units/>
+</parameter>
+</parameters>"""
+
+tree = ET.fromstring(data)
+
+for parameter in tree.iter(tag='parameter'):
+    name = parameter.find('name')
+    if name is not None and name.text == 'swisspro':
+        print parameter.find('value').text
+        break
+  
+
+ prints: 
+
+  Q8H6N2
+  
+
+ The idea is pretty simple: iterate over all  parameter  tags, check the value of the  name  tag and if it is equal to  swisspro , get the  value  element. 
+
+ Hope that helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9513828)
+ I am not sure if this is possible with  xml.etree , but here is how you could do it with  lxml.etree : 
+
+  >>> from lxml import etree
+>>> tree = etree.parse('example.xml')
+>>> tree.xpath('namespace-uri(.)')
+'http://maven.apache.org/POM/4.0.0'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31063900)
+ One of advantages of  lxml  over standard python XML parser is  lxml 's full-support of XPath 1.0 specfication via  xpath()  method. So I would go with  xpath()  method most of the time. Working example for your current case : 
+
+  from lxml import etree
+
+xml = """<FOO xmlns="SOME_REALLY_LONG_STRING"
+ xmlns:ss="THE_VERY_SAME_REALLY_LONG_STRING_AS_ROOT"
+>
+    <child_of_foo>
+        ....
+    </child_of_foo>
+    ...
+    <SomethingIWant ss:Name="bar">
+        ....
+    </SomethingIWant>
+    ...
+</FOO>"""
+
+root = etree.fromstring(xml)
+ns = {'ss': 'THE_VERY_SAME_REALLY_LONG_STRING_AS_ROOT'}
+
+# i want just the first one for now
+result = root.xpath('//@ss:Name', namespaces=ns)[0]
+print(result)
+  
+
+  output :  
+
+  bar
+  
+
+  UPDATE :  
+
+ Modified example demonstrating how to get attribute in namespace from current  element  : 
+
+  ns = {'ss': 'THE_VERY_SAME_REALLY_LONG_STRING_AS_ROOT', 'd': 'SOME_REALLY_LONG_STRING'}
+
+element = root.xpath('//d:SomethingIWant', namespaces=ns)[0]
+print(etree.tostring(element))
+
+attribute = element.xpath('@ss:Name', namespaces=ns)[0]
+print(attribute)
+  
+
+  output :  
+
+  <SomethingIWant xmlns="SOME_REALLY_LONG_STRING" xmlns:ss="THE_VERY_SAME_REALLY_LONG_STRING_AS_ROOT" ss:Name="bar">
+        ....
+    </SomethingIWant>
+    ...
+
+bar
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34893087)
+ The  BookingDetails  tag is self-closed on this line: 
+
+  <BookingDetails  Amount="768"  Comment="Hotel Travel Purchase"  CurrencyCode="INR"  PurchaseType="Hotel"  SupplierName="SomeHotel"  CardAlias="C_ALIAS"  ValidFor="-1D"  CurrencyType="B" />
+  
+
+ But when there is a separate closing  BookingDetails  element: 
+
+  </BookingDetails>
+  
+
+ Also, the  <MasterDetails />  is not properly closed on the last line. Should be  </MasterDetails>  instead of  <MasterDetails /> . 
+
+ 
+
+ Note that you can parse this XML in the http://lxml.de/parsing.html#parser-options if  lxml.etree  is used: 
+
+  import lxml.etree as ET
+
+parser = ET.XMLParser(recover=True)
+tree = ET.ElementTree(ET.fromstring(data, parser=parser)) 
+  
+
+ Or, use http://www.crummy.com/software/BeautifulSoup/bs4/doc/ with  xml  features: 
+
+  from bs4 import BeautifulSoup
+
+soup = BeautifulSoup(data, "xml")
+print(soup.prettify())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40978913)
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"  looks like a regular attribute but it is a special case, namely a namespace declaration. 
+
+ Removing, adding, or modifying namespaces can be quite hard. "Normal" attributes are stored in an element's writable  attrib  property. Namespace mappings on the other hand are not readily available via the API (in the lxml library, elements do have a  nsmap  property, but it is read-only). 
+
+ I suggest a simple textual search-and-replace operation, similar to the answer to https://stackoverflow.com/q/20947162/407651.  
+
+  with open("input.xml", "r") as infile, open("output.xml", "w") as outfile:
+    data = infile.read()
+    data = data.replace(' xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"', '')
+    outfile.write(data)
+  
+
+ See also https://stackoverflow.com/q/31864133/407651. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9513853)
+ The namespace should be in http://docs.python.org/library/xml.etree.elementtree.html#xml.etree.ElementTree.Element.tag right before the "actual" tag: 
+
+  >>> root = tree.getroot()
+>>> root.tag
+'{http://maven.apache.org/POM/4.0.0}project'
+  
+
+ To know more about namespaces, take a look at http://effbot.org/zone/element-namespaces.htm. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14247858)
+ 
+   I dont really understand why I can't use xml:lang rather than {http://www.w3.org/XML/1998/namespace}lang, but the above seems to work on Ubuntu 12.04 
+ 
+
+ What you are trying to do will be easier using the  xpath  method (which is  not  available in  cElementTree ), which among other things will read the namespace labels from the root element of your document, so you can ask this: 
+
+  import lxml.etree as et
+
+root = et.parse(open('mydoc.xml')).getroot()
+
+for x in root.xpath('alt[not(@xml:lang)]/alt'):
+    print x.text
+  
+
+ The  not(@attr)  syntax I wasn't previously familiar with, but a Google search for "xpath find element without attribute" was tremendously useful. 
+
+
+

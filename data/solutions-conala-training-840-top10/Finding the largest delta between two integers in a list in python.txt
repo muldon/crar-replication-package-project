@@ -1,0 +1,183 @@
+Query: Finding the largest delta between two integers in a list in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13246527)
+ With reduce (ugly i guess) 
+
+  >>> foo = [5, 5, 5, 5, 8, 8, 9]    
+>>> print reduce(lambda x, y: (max(x[0], y - x[1]), y), foo, (0, foo[0]))[0]
+3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3428804)
+ Try timing some of these with the  timeit  module: 
+
+  >>> values = [55, 55, 56, 57, 57, 57, 57, 62, 63, 64, 79, 80]
+>>> max(values[i+1] - values[i] for i in xrange(0, len(values) - 1))
+15
+>>> max(v1 - v0 for v0, v1 in zip(values[:-1], values[1:]))
+15
+>>> from itertools import izip, islice
+>>> max(v1 - v0 for v0, v1 in izip(values[:-1], values[1:]))
+15
+>>> max(v1 - v0 for v0, v1 in izip(values, islice(values,1,None)))
+15
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3430361)
+ This is more as an advertisement for the brilliant http://docs.python.org/library/itertools.html#recipes in the Python itertools help. 
+
+ In this case use pairwise as shown in the help linked above. 
+
+  from itertools import tee, izip
+
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return izip(a, b)
+
+values = [55, 55, 56, 57, 57, 57, 57, 62, 63, 64, 79, 80]
+
+print max(b - a for a,b in pairwise(values))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42849891)
+ You need to loop over the list, keep track of min value and the current largest rise (which is the  current list member - min ). Every time you process a list member, check if it is the new min and update current largest rise as needed. 
+
+ You don't need to subtract from all previous seasons, you just need to check if the new element is the new minimum and if it makes the largest rise yet. 
+
+ . 
+
+  def find_max_pos_delta(my_scores):
+    my_list = map(int, my_scores.strip().split())
+    my_min = current_largest = None
+    for rank in my_list:
+        if my_min is None or rank < my_min:
+            my_min = rank
+        new_largest = rank - my_min
+        if current_largest is None or new_largest > current_largest:
+            current_largest = new_largest
+
+    return current_largest
+
+assert find_max_pos_delta('30 18 20') == 2
+assert find_max_pos_delta('10  10  12  12  13  13  13  14  15  14  16  13  11  15  14  ') == 6
+assert find_max_pos_delta('14  14  15  16  15  7   14  14  15  10  22  15  15  11  16') == 15
+  
+
+ . 
+
+ Note that I chose to reverse the goal and the list but the result is the same. . I'm going from current year to past but also from higher rank to lower one. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33893264)
+ You can use those two values of those two keys as representative of the current dictionary during the sorting's comparison. 
+
+  sorted(test, key=lambda x: (-d['ratio'], d['delta']))
+  
+
+ will sort them based on  ratio 's descending order first and if the values are equal, then  delta 's ascending order. 
+
+ 
+
+ Here, we negate the value of  d['ratio'] , because by default,  sorted  does sort in ascending order. As we want the largest value of  ratio  to be at the beginning, we negate the value so that the biggest  ratio  will be treated as the smallest  ratio . (For example out of 1, 10, and 100, after negating the values, -100 will be the smallest). 
+
+ We want Python to use both the  ratio  and  delta . So, we return the values of them in a tuple. When Python compares two dictionaries, it calls the  key  function with the dictionary objects as parameters and get two tuples and they will be compared to determine the smaller of the two. First, it compares the first elements of the tuples, if they are same, then the second elements will be compared. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38742146)
+ One efficient approach to leverage the sorted order would be with http://docs.scipy.org/doc/numpy/reference/generated/numpy.searchsorted.html - 
+
+  def largest_within_delta(X, k, delta):
+    right_idx = X.searchsorted(k,'right')-1
+    if (k - X[right_idx]) <= delta:
+        return right_idx
+    else:
+        return None
+  
+
+ Sample runs to cover various scenarios - 
+
+  In [216]: X
+Out[216]: array([ 8,  9, 33, 35, 36, 37, 44, 45, 71, 81])
+
+In [217]: largest_within_delta(X, 36, 0) # this k is already in array
+Out[217]: 4
+
+In [218]: largest_within_delta(X, 36, 1) # shouldn't choose for next one 37
+Out[218]: 4    
+
+In [220]: largest_within_delta(X, 40, 3) # Gets 37's index
+Out[220]: 5
+
+In [221]: largest_within_delta(X, 40, 2) # Out of 37's reach
+  
+
+    
+
+  In [212]: # Inputs
+     ...: X = np.unique(np.random.randint(0,1000000,(10000)))
+     ...: k = 50000
+     ...: delta = 100
+     ...: 
+
+In [213]: %timeit np.where((k-delta <= X) * (X <= k))[0].max()
+10000 loops, best of 3: 44.6 µs per loop
+
+In [214]: %timeit largest_within_delta(X, k, delta)
+100000 loops, best of 3: 3.22 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38741916)
+ http://docs.scipy.org/doc/numpy/reference/generated/numpy.argmax.html could be usefull for taking advantage of the sorted list. 
+
+  import numpy as np
+np.argmax(X <= k) if k-d < np.argmax(X <= k) < k+d else None
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39293708)
+ As far as you can have only unique keys in dictionary, you should either use pair number as a key or use a list: 
+
+  wire_ints = [10, 1, 1, 10, 7, 7]
+
+longest_dict = []
+longest_so_far = 0
+
+for i in range(len(wire_ints)//2):
+  j = i*2
+  a, b = wire_ints[j:j+2]
+  dist = abs(a - b)
+  pair = [dist, i + 1]
+  if dist > longest_so_far:
+    longest_so_far = dist
+    longest_dict = [pair]
+  elif dist == longest_so_far:
+    longest_dict.append(pair)
+
+print(longest_dict)
+#=> [[9, 1], [9, 2]]
+  
+
+
+

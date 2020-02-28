@@ -1,0 +1,308 @@
+Query: Select rows from a DataFrame based on values in a column in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17086321)
+ Here is a simple example   
+
+  from pandas import DataFrame
+
+# Create data set
+d = {'Revenue':[100,111,222], 
+     'Cost':[333,444,555]}
+df = DataFrame(d)
+
+
+# mask = Return True when the value in column "Revenue" is equal to 111
+mask = df['Revenue'] == 111
+
+print mask
+
+# Result:
+# 0    False
+# 1     True
+# 2    False
+# Name: Revenue, dtype: bool
+
+
+# Select * FROM df WHERE Revenue = 111
+df[mask]
+
+# Result:
+#    Cost    Revenue
+# 1  444     111
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43213833)
+ You can put the values in a data frame, then do an inner join (merge by default) which should https://stackoverflow.com/questions/20206615/how-can-a-pandas-merge-preserve-order on the left data frame: 
+
+  D = pd.DataFrame({"D": [2, 0]})
+D.merge(df)
+
+#   D     A   B C
+#0  2   bar one 1
+#1  0   foo one 0
+  
+
+  
+
+  D.reset_index().merge(df).sort_values("index").drop("index", 1)
+#   D     A   B C
+#0  2   bar one 1
+#1  0   foo one 0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36410145)
+ you may use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.isin.html: 
+
+  In [28]: df2[df2['id'].isin(['SP.POP.TOTL','NY.GNP.PCAP.CD'])]
+Out[28]:
+                  id                                        name  \
+7478  NY.GNP.PCAP.CD  GNI per capita, Atlas method (current US$)
+9568     SP.POP.TOTL                           Population, total
+
+                            source  \
+7478  World Development Indicators
+9568  World Development Indicators
+
+                                             sourceNote  \
+7478  GNI per capita (formerly GNP per capita) is th...
+9568  Total population is based on the de facto defi...
+
+                                     sourceOrganization  \
+7478  b'World Bank national accounts data, and OECD ...
+9568  b'(1) United Nations Population Division. Worl...
+
+                                 topics
+7478  Economy & Growth ; Climate Change
+9568           Health  ; Climate Change
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44931669)
+ Faster results can be achieved using https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html.  
+
+ For example, with https://stackoverflow.com/questions/17071871/select-rows-from-a-dataframe-based-on-values-in-a-column-in-pandas/17071908#17071908 - 
+
+  In [76]: df.iloc[np.where(df.A.values=='foo')]
+Out[76]: 
+     A      B  C   D
+0  foo    one  0   0
+2  foo    two  2   4
+4  foo    two  4   8
+6  foo    one  6  12
+7  foo  three  7  14
+  
+
+  
+
+  In [68]: %timeit df.iloc[np.where(df.A.values=='foo')]  # fastest
+1000 loops, best of 3: 380 µs per loop
+
+In [69]: %timeit df.loc[df['A'] == 'foo']
+1000 loops, best of 3: 745 µs per loop
+
+In [71]: %timeit df.loc[df['A'].isin(['foo'])]
+1000 loops, best of 3: 562 µs per loop
+
+In [72]: %timeit df[df.A=='foo']
+1000 loops, best of 3: 796 µs per loop
+
+In [74]: %timeit df.query('(A=="foo")')  # slowest
+1000 loops, best of 3: 1.71 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51436587)
+  
+
+  df = df.loc[df['Event'].isin(['A','C']) | df['Code'].isin(['U','Z'])].reset_index(drop=True)
+  
+
+ Output: 
+
+    Code Event  Int
+0    W     A    1
+1    Y     C    3
+2    U     D    4
+3    Z     E    5
+4    X     A    6
+5    W     C    8
+6    Z     D    9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33680329)
+ If you came here looking to select rows from a dataframe by including those whose column's value is NOT any of a list of values, here's how to flip around unutbu's answer for a list of values above: 
+
+  df.loc[~df['column_name'].isin(some_values)]
+  
+
+ (To not include a single value, of course, you just use the regular not equals operator,  != .) 
+
+ Example: 
+
+  import pandas as pd
+df = pd.DataFrame({'A': 'foo bar foo bar foo bar foo foo'.split(),
+                   'B': 'one one two three two two one three'.split()})
+print(df)
+  
+
+  
+
+       A      B
+0  foo    one
+1  bar    one
+2  foo    two
+3  bar  three
+4  foo    two
+5  bar    two
+6  foo    one
+7  foo  three    
+  
+
+ To subset to just those rows that AREN'T  one  or  three  in column  B : 
+
+  df.loc[~df['B'].isin(['one', 'three'])]
+  
+
+  
+
+       A    B
+2  foo  two
+4  foo  two
+5  bar  two
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47693145)
+ F selecting only specific columns out of multiple columns f a given value in pandas: 
+
+  select col_name1, col_name2 from table where column_name = some_value.
+  
+
+ Options: 
+
+  df.loc[df['column_name'] == some_value][[col_name1, col_name2]]
+  
+
+   
+
+  df.query['column_name' == 'some_value'][[col_name1, col_name2]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40676816)
+ To append to this famous question (though a bit too late): You can also do  df.groupby('column_name').get_group('column_desired_value').reset_index()  to make a new data frame with specified column having a particular value. E.g. 
+
+  import pandas as pd
+df = pd.DataFrame({'A': 'foo bar foo bar foo bar foo foo'.split(),
+                   'B': 'one one two three two two one three'.split()})
+print("Original dataframe:")
+print(df)
+
+b_is_two_dataframe = pd.DataFrame(df.groupby('B').get_group('two').reset_index()).drop('index', axis = 1) 
+#NOTE: the final drop is to remove the extra index column returned by groupby object
+print('Sub dataframe where B is two:')
+print(b_is_two_dataframe)
+  
+
+ Run this gives: 
+
+  Original dataframe:
+     A      B
+0  foo    one
+1  bar    one
+2  foo    two
+3  bar  three
+4  foo    two
+5  bar    two
+6  foo    one
+7  foo  three
+Sub dataframe where B is two:
+     A    B
+0  foo  two
+1  foo  two
+2  bar  two
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51944248)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.merge.html with helper  DataFrame  created by list and with column name of matched column: 
+
+  df = pd.DataFrame({'A' : [5,6,3,4], 'B' : [1,2,3,5]})
+
+list_of_values = [3,6,4]
+df1 = pd.DataFrame({'A':list_of_values}).merge(df)
+print (df1)
+   A  B
+0  3  3
+1  6  2
+2  4  5
+  
+
+  
+
+  df = pd.DataFrame({'A' : [5,6,5,3,4,4,6,5], 'B':range(8)})
+print (df)
+   A  B
+0  5  0
+1  6  1
+2  5  2
+3  3  3
+4  4  4
+5  4  5
+6  6  6
+7  5  7
+
+list_of_values = [6,4,3,7,7,4]
+  
+
+ 
+
+  #create df from list 
+list_df = pd.DataFrame({'A':list_of_values})
+print (list_df)
+   A
+0  6
+1  4
+2  3
+3  7
+4  7
+5  4
+
+#column for original index values
+df1 = df.reset_index()
+#helper column for count duplicates values
+df1['g'] = df1.groupby('A').cumcount()
+list_df['g'] = list_df.groupby('A').cumcount()
+
+#merge together, create index from column and remove g column
+df = list_df.merge(df1).set_index('index').rename_axis(None).drop('g', axis=1)
+print (df)
+   A  B
+1  6  1
+4  4  4
+3  3  3
+5  4  5
+  
+
+
+

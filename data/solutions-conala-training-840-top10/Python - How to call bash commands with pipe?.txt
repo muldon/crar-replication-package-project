@@ -1,0 +1,129 @@
+Query: Python - How to call bash commands with pipe?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7325162)
+ What you actually want is to run a shell subprocess with the shell command as a parameter: 
+
+  >>> subprocess.Popen(['sh', '-c', 'echo hi | md5sum'], stdout=subprocess.PIPE).communicate()
+('764efa883dda1e11db47671c4a3bbd9e  -\n', None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7323959)
+ Ok, I'm not sure why but this seems to work: 
+
+  subprocess.call("tar c my_dir | md5sum",shell=True)
+  
+
+ Anyone know why the original code doesn't work? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42452809)
+ It seems that you want to communicate with the  muscle  process, then you need a PIPE, use this 
+
+  (out, err) = subprocess.Popen(['muscle'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate(temp_align)
+print out
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17743548)
+ You have to use shell=True in subprocess and no shlex.split: 
+
+  def subprocess_cmd(command):
+    process = subprocess.Popen(command,stdout=subprocess.PIPE, shell=True)
+    proc_stdout = process.communicate()[0].strip()
+    print proc_stdout
+
+subprocess_cmd('echo a; echo b')
+  
+
+ returns: 
+
+  a
+b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15992557)
+ There's no need for  echo  and piping between commands if you're using Python. 
+You can start a process and use the  communicate  method: 
+
+  import subprocess
+
+def send_message(recipient, subject, body):
+    process = subprocess.Popen(['mail', '-s', subject, recipient],
+                               stdin=subprocess.PIPE)
+    process.communicate(body)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15205695)
+  subprocess.Popen  allows you to continue execution after starting a process. The  Popen  objects expose  wait() ,  poll()  and many other methods to communicate with a child process when it is running. Isn't it what you need? 
+
+ See http://docs.python.org/2/library/subprocess.html#subprocess.Popen and  Popen  objects description for details. 
+
+<p is a small example that runs Bash on Unix systems and executes a command: 
+
+  from subprocess import Popen, PIPE
+p = Popen (['/bin/sh'], stdout=PIPE, stderr=PIPE, stdin=PIPE)
+sout, serr = p.communicate('ls\n')
+print 'OUT:'
+print sout
+print 'ERR:'
+print serr
+  
+
+  UPD:   communicate()  waits for process termination. If you do not need that, you may use the appropriate pipes directly, though that usually gives you rather ugly code. 
+
+  UPD2:  You updated the question. Yes, you cannot call  communicate  twice for a single process. You may either give all commands you need to execute in a single call to  communicate  and check the whole output, or work with pipes ( Popen.stdin ,  Popen.stdout ,  Popen.stderr ). If possible, I strongly recommend the first solution (using  communicate ).  
+
+ Otherwise you will have to put a command to input and wait for some time for desired output. What you need is non-blocking read to avoid hanging when there is nothing to read. https://stackoverflow.com/questions/375427/non-blocking-read-on-a-subprocess-pipe-in-python is a recipe how to emulate a non-blocking mode on pipes using threads. The code is ugly and strangely complicated for such a trivial purpose, but that's how it's done. 
+
+ Another option could be using  p.stdout.fileno()  for  select.select()  call, but that won't work on Windows (on Windows  select  operates only on objects originating from WinSock). You may consider it if you are not on Windows. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43770349)
+ What you want is definitely a little weird, but it's possible using pipes. 
+
+  from subprocess import PIPE, Popen
+
+p = Popen(['bash'], stdin=PIPE, stdout=PIPE)
+p.stdin.write('echo hello world\n')
+print(p.stdout.readline())
+# Check a return code
+p.stdin.write('echo $?\n')
+if p.stdout.readline().strip() ⩵ '0':
+    print("Command succeeded")
+p.stdin.write('echo bye world\n')
+# Close input and wait for bash to exit
+stdout, stderr = p.communicate()
+print(stdout)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21672387)
+ I believe  what you do  is you start a single program called  find  with many parameters, incl.  |  and  grep  and  xargs  - and these are not arguments to find. 
+
+ What you  want to do  is probably to ask bash to run  find  and then pipe the outcome to  grep , etc. One way to do that is to execute a single command called  bash  with two parameters ( -c ) and a whole string incl. piped commands, e.g. 
+
+  process = subprocess.Popen(["bash", "-c", "cat /etc/issue | grep a"], stdout=subprocess.PIPE)
+output=process.communicate()[0]
+print output
+  
+
+
+

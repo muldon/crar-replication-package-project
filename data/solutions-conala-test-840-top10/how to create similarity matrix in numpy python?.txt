@@ -1,0 +1,307 @@
+Query: how to create similarity matrix in numpy python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19336158)
+ See this question: https://stackoverflow.com/questions/17627219/whats-the-fastest-way-in-python-to-calculate-cosine-similarity-given-sparse-mat 
+
+ Having: 
+
+  A = np.array(
+[[0, 1, 0, 0, 1],
+[0, 0, 1, 1, 1],
+[1, 1, 0, 1, 0]])
+
+dist_out = 1-pairwise_distances(A, metric="cosine")
+dist_out
+  
+
+  
+
+  array([[ 1.        ,  0.40824829,  0.40824829],
+       [ 0.40824829,  1.        ,  0.33333333],
+       [ 0.40824829,  0.33333333,  1.        ]])
+  
+
+ But that works for dense matrix. For sparse you have to develop your solution. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41906708)
+ let  m  be the array 
+
+  m = np.array([
+        [ 0.0072427 ,  0.00669255,  0.00785213,  0.00845336,  0.01042869],
+        [ 0.00710799,  0.00668831,  0.00772334,  0.00777796,  0.01049965],
+        [ 0.00741872,  0.00650899,  0.00772273,  0.00729002,  0.00919407],
+        [ 0.00717589,  0.00627021,  0.0069514 ,  0.0079332 ,  0.01069545],
+        [ 0.00617369,  0.00590539,  0.00738468,  0.00761699,  0.00886915]
+    ])
+  
+
+ 
+
+ https://en.wikipedia.org/wiki/Cosine_similarity 
+https://i.stack.imgur.com/uheR3.png   
+
+ We can calculate our numerator with 
+
+  d = m.T @ m
+  
+
+ Our  ‖A‖  is 
+
+  norm = (m * m).sum(0, keepdims=True) ** .5
+  
+
+ Then the similarities are 
+
+  d / norm / norm.T
+
+[[ 1.      0.9994  0.9979  0.9973  0.9977]
+ [ 0.9994  1.      0.9993  0.9985  0.9981]
+ [ 0.9979  0.9993  1.      0.998   0.9958]
+ [ 0.9973  0.9985  0.998   1.      0.9985]
+ [ 0.9977  0.9981  0.9958  0.9985  1.    ]]
+  
+
+ The distances are 
+
+  1 - d / norm / norm.T
+
+[[ 0.      0.0006  0.0021  0.0027  0.0023]
+ [ 0.0006  0.      0.0007  0.0015  0.0019]
+ [ 0.0021  0.0007  0.      0.002   0.0042]
+ [ 0.0027  0.0015  0.002   0.      0.0015]
+ [ 0.0023  0.0019  0.0042  0.0015  0.    ]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41906332)
+ Let  x  be your array 
+
+  from scipy.spatial.distance import cosine
+
+m, n = x.shape
+distances = np.zeros((m,n))
+for i in range(m):
+    for j in range(n):
+        distances[i,j] = cosine(x[i,:],x[:,j])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17745487)
+ If you choose the sparse  coo_matrix  you can create it passing the indices like: 
+
+  from scipy.sparse import coo_matrix
+import scipy
+nrows = 100000
+ncols = 100000
+row = scipy.array([1,3,5,7,9])
+col = scipy.array([2,4,6,8,10])
+values = scipy.ones(col.size)
+m = coo_matrix((values, (row,col)), shape=(nrows, ncols), dtype=float)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35422457)
+ Here's a post about cosine similarity in Python: https://stackoverflow.com/questions/18424228/cosine-similarity-between-2-number-lists. 
+
+ I rewrote https://stackoverflow.com/a/18424953/3041068 in Numpy and Theano: 
+
+  def cos_sim_numpy(v1, v2):
+    numerator = sum(v1*v2)
+    denominator = math.sqrt(sum(v1**2)*sum(v2**2))
+    return numerator/denominator
+
+def compile_cos_sim_theano():
+    v1 = theano.tensor.vector(dtype=theano.config.floatX)
+    v2 = theano.tensor.vector(dtype=theano.config.floatX)
+    numerator = theano.tensor.sum(v1*v2)
+    denominator = theano.tensor.sqrt(theano.tensor.sum(v1**2)*theano.tensor.sum(v2**2))
+    return theano.function([v1, v2], numerator/denominator)
+
+cos_sim_theano_fn = compile_cos_sim_theano()
+
+v1 = numpy.asarray([3,45,7,2], dtype=np.float32)
+v2 = numpy.asarray([2,54,13,15], dtype=np.float32)
+
+print cos_sim_theano_fn(v1, v2), cos_sim_numpy(v1, v2)
+
+Output: 0.972284251712 0.972284251712
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17033449)
+ I would make them into a scipy sparse matrix (http://docs.scipy.org/doc/scipy/reference/sparse.html) and then run cosine similarity from the scikit learn module.   
+
+  from scipy import sparse
+sparse_matrix= scipy.sparse.csr_matrix(your_np_array)
+
+from sklearn.metrics import pairwise_distances
+from scipy.spatial.distance import cosine
+
+distance_matrix= pairwise_distances(sparse_matrix, metric="cosine")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35490456)
+ You can use numpy array to create the matrix and then add index and head to create a dataframe. 
+
+ Assume you have a list of descriptions:  descriptions = ['abc', 'bcd', 'etc' ...]  and corresponding tf-idf matrix. (row number corresponds description number) 
+
+ You want to create an empty numpy array of shape NxN, where  N = len(words)  
+
+  distance_matrix = np.zeros((N,N))  
+
+ Then you need to fill it with actual distances: 
+
+  for i in range(N):
+    for j in range(N):
+        distance_matrix[i,j] = cosine_distance(tf_idf[i,:], tf_idf[j,:])
+  
+
+ You can create dataframe with  
+
+  pandas.DataFrame(distance_matrix, index = items_list, columns = items_list)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37780423)
+ Hi you can do it this way 
+
+      temp = sp.coo_matrix((data, (row, col)), shape=(3, 59))
+    temp1 = temp.tocsr()
+
+    #Cosine similarity
+    row_sums = ((temp1.multiply(temp1)).sum(axis=1))
+    rows_sums_sqrt = np.array(np.sqrt(row_sums))[:,0]
+    row_indices, col_indices = temp1.nonzero()
+    temp1.data /= rows_sums_sqrt[row_indices]
+    temp2 = temp1.transpose()
+    temp3 = temp1*temp2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50387156)
+ I suggest to use sparse matrices from  scipy.sparse  
+
+  from scipy.sparse import csr_matrix, coo_matrix
+from sklearn.metrics.pairwise import cosine_similarity
+
+input="""Doc, Term,    TFIDF score
+1,   apples,  0.3
+1,   bananas, 0.7
+2,   apples,  0.1
+2,   pears,   0.9
+3,   apples,  0.6
+3,   bananas, 0.2
+3,   pears,   0.2"""
+
+voc = {}
+
+# sparse matrix representation: the coefficient
+# with coordinates (rows[i], cols[i]) contains value data[i]
+rows, cols, data = [], [], []
+
+for line in input.split("\n")[1:]: # dismiss header
+
+    doc, term, tfidf = line.replace(" ", "").split(",")
+
+    rows.append(int(doc))
+
+    # map each vocabulary item to an int
+    if term not in voc:
+        voc[term] = len(voc)
+
+    cols.append(voc[term])
+    data.append(float(tfidf))
+
+doc_term_matrix = coo_matrix((data, (rows, cols)))
+
+# compressed sparse row matrix (type of sparse matrix with fast row slicing)
+sparse_row_matrix = doc_term_matrix.tocsr()
+
+print("Sparse matrix")
+print(sparse_row_matrix.toarray()) # convert to array
+
+# compute similarity between each pair of documents
+similarities = cosine_similarity(sparse_row_matrix)
+
+print("Similarity matrix")
+print(similarities)
+  
+
+ Output: 
+
+  Sparse matrix
+[[0.  0.  0. ]
+ [0.3 0.7 0. ]
+ [0.1 0.  0.9]
+ [0.6 0.2 0.2]]
+Similarity matrix
+[[0.         0.         0.         0.        ]
+ [0.         1.         0.04350111 0.63344607]
+ [0.         0.04350111 1.         0.39955629]
+ [0.         0.63344607 0.39955629 1.        ]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39104306)
+ You can compute pairwise cosine similarity on the rows of a sparse matrix directly using sklearn.  As of version 0.17 it also supports sparse output: 
+
+  from sklearn.metrics.pairwise import cosine_similarity
+from scipy import sparse
+
+A =  np.array([[0, 1, 0, 0, 1], [0, 0, 1, 1, 1],[1, 1, 0, 1, 0]])
+A_sparse = sparse.csr_matrix(A)
+
+similarities = cosine_similarity(A_sparse)
+print('pairwise dense output:\n {}\n'.format(similarities))
+
+#also can output sparse matrices
+similarities_sparse = cosine_similarity(A_sparse,dense_output=False)
+print('pairwise sparse output:\n {}\n'.format(similarities_sparse))
+  
+
+ Results: 
+
+  pairwise dense output:
+[[ 1.          0.40824829  0.40824829]
+[ 0.40824829  1.          0.33333333]
+[ 0.40824829  0.33333333  1.        ]]
+
+pairwise sparse output:
+(0, 1)  0.408248290464
+(0, 2)  0.408248290464
+(0, 0)  1.0
+(1, 0)  0.408248290464
+(1, 2)  0.333333333333
+(1, 1)  1.0
+(2, 1)  0.333333333333
+(2, 0)  0.408248290464
+(2, 2)  1.0
+  
+
+ If you want column-wise cosine similarities simply transpose your input matrix beforehand:  
+
+  A_sparse.transpose()
+  
+
+
+

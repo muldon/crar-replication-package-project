@@ -1,0 +1,278 @@
+Query: How to use regular expression to separate numbers and characters in strings like "30M1000N20M"
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15103485)
+ Try using the  split  method: 
+
+  >>> str1="20M10000N80M"
+>>> num_alpha = re.compile('(([0-9]+)([A-Z]))')
+>>> l = num_alpha.split(str1)
+>>> l
+['', '20M', '20', 'M', '', '10000N', '10000', 'N', '', '80M', '80', 'M', '']
+  
+
+ Note that I removed the  +  in the regex. 
+
+ And to remove the empty strings, a list generator: 
+
+  >>> l_without_empty = [x for x in l if x != '']
+['20M', '20', 'M', '10000N', '10000', 'N', '80M', '80', 'M']
+  
+
+ 
+
+ Edit: 
+
+ Or, as said in comments: 
+
+  >>> l_without_empty = [x for x in l if x]
+['20M', '20', 'M', '10000N', '10000', 'N', '80M', '80', 'M']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15103780)
+ Another alternative is to go for  re.findall  instead: 
+
+  >>> string = "20M10000N80M"
+>>> groups = re.findall(r'((\d+)(\D+))', string)
+[('20M', '20', 'M'), ('10000N', '10000', 'N'), ('80M', '80', 'M')]
+  
+
+ So, you can see the different groups returned as tuples, then, if you really want it as a tuple as you present - you can flatten it: 
+
+  >>> from itertools import chain
+>>> tuple(chain.from_iterable(groups))
+('20M', '20', 'M', '10000N', '10000', 'N', '80M', '80', 'M')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15103761)
+ I suggest using  re.findall . If you intend to iterate over the results, rather than building a list, you could use  re.finditer  instead. Here's an example of how that would work: 
+
+  >>> re.findall("(([0-9]+)([A-Z]))", "20M10000N80M")
+[('20M', '20', 'M'), ('10000N', '10000', 'N'), ('80M', '80', 'M')]
+  
+
+ If you don't want the combined numbers+letters string, you can remove the outer parentheses from the match and just get the separate parts: 
+
+  >>> re.findall("([0-9]+)([A-Z])", "20M10000N80M")
+[('20', 'M'), ('10000', 'N'), ('80', 'M')]
+  
+
+ Or, if you don't want tuples at all (and you don't need to worry about malformed input, such as strings with several letters in a row), you could change the pattern to an alternation, and get the values one by one: 
+
+  >>> re.findall("([0-9]+|[A-Z])", "20M10000N80M")
+['20', 'M', '10000', 'N', '80', 'M']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45002728)
+ Using regular expressions is likely to give you the most concise code for this problem.  It is hard to beat the conciseness of 
+
+  re.findall(r"[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", str)
+  
+
+ . 
+
+ However, you say "I am trying to avoid regex", so here's a solution that does not use regular expressions.  It is obviously a bit longer than a solution using a regular expression (and probably much slower), but it is not complicated. 
+
+ The code loops through the input character by character.
+As it pulls each character from the string, it appends it to  current  (a string that holds the number currently being parsed)  if  appending it still maintains a valid number.  When it encounters a character that cannot be appended to  current ,  current  is saved to a list of numbers, but only if  current  itself isn't one of  '' ,  '.' ,  '-'  or  '-.' ; these are strings that could potentially begin a number but are not themselves valid numbers. 
+
+ When  current  is saved, a trailing  'e' ,  'e-'  or  'e+'  is removed.  That will happen with a string such as  '1.23eA' .  While parsing that string,  current  will eventually become  '1.23e' , but then  'A'  is encountered, which means the string does not contain a valid exponential part, so the  'e'  is discarded. 
+
+ After saving  current , it is reset.  Usually  current  is reset to  '' , but when the character that triggered  current  to be saved was  '.'  or  '-' ,  current  is set to that character, because those characters could be the beginning of a new number. 
+
+ Here's the function  extract_numbers(s) .  The line before  return numbers  converts the list of strings to a list of integers and floating point values.  If you want just the strings, remove that line. 
+
+  def extract_numbers(s):
+    """
+    Extract numbers from a string.
+
+    Examples
+    --------
+    >>> extract_numbers("Hello4.2this.is random 24 text42")
+    [4.2, 24, 42]
+
+    >>> extract_numbers("2.3+45-99")
+    [2.3, 45, -99]
+
+    >>> extract_numbers("Avogadro's number, 6.022e23, is greater than 1 million.")
+    [6.022e+23, 1]
+    """
+    numbers = []
+    current = ''
+    for c in s.lower() + '!':
+        if (c.isdigit() or
+            (c == 'e' and ('e' not in current) and (current not in ['', '.', '-', '-.'])) or
+            (c == '.' and ('e' not in current) and ('.' not in current)) or
+            (c == '+' and current.endswith('e')) or
+            (c == '-' and ((current == '') or current.endswith('e')))):
+            current += c
+        else:
+            if current not in ['', '.', '-', '-.']:
+                if current.endswith('e'):
+                    current = current[:-1]
+                elif current.endswith('e-') or current.endswith('e+'):
+                    current = current[:-2]
+                numbers.append(current)
+            if c == '.' or c == '-':
+                current = c
+            else:
+                current = ''
+
+    # Convert from strings to actual python numbers.
+    numbers = [float(t) if ('.' in t or 'e' in t) else int(t) for t in numbers]
+
+    return numbers
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51621200)
+ You can use regular expressions for this.  Regular expressions allow you to specify a pattern of text (though not all patterns can be expressed as a regular expression).  We can then https://docs.python.org/3/library/re.html#re.compile that expression into a https://docs.python.org/3/library/re.html#re-objects object, and use that object to https://docs.python.org/3/library/re.html#re.Pattern.search strings for the pattern. 
+
+  import re
+
+pattern = re.compile(r'"xe-\d+/\d+/\d+"')  # \d+ is "one or more digits".  
+                                           # Everything else is literal
+
+with open(var) as config_file:
+    for line in config_file:
+        if pattern.search(line):  # will return a Match object if found, else None
+            ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26949785)
+ To remove the leading and trailing spaces you can use  .strip() , and then to replace consecutive whitespace characters using the regular expression  \s+ : 
+
+  >>> import re
+>>> s = " 2.4       -2.0           4.3"
+>>> re.sub("\s+", ",", s.strip())
+'2.4,-2.0,4.3'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2240318)
+ You could use a regular expression to divide the string into groups: 
+
+  >>> import re
+>>> p = re.compile('(\d+)\s*(\w+)')
+>>> p.match('2GB').groups()
+('2', 'GB')
+>>> p.match('17 ft').groups()
+('17', 'ft')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43323538)
+ Using regular expression splitting with  re : 
+
+  import re
+
+
+txt = 'Hans went to house number 10 92384 29349'
+
+' | '.join(re.split('\s(?=\d)',txt))
+
+# 'Hans went to house number | 10 | 92384 | 29349'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46046707)
+ This is one of the cases where you want regular expression "http://www.regular-expressions.info/lookaround.html" ... which have zero length (pattern capture semantics). 
+
+ Doing so allows you to match cases which would otherwise be "overlapping" in your substitution. 
+
+ Here's an example: 
+
+  #!python
+import re
+num = '123,456,7,8.012,345,6,7,8'
+pattern = re.compile(r'(?<=\d),(?=\d)')
+pattern.sub('',num)
+# >>> '12345678.012345678'
+  
+
+ ... note that I'm using  re.compile()  to make this more readable and also because that usage pattern is likely to perform better in many cases.  I'm using the same regular expression as @Psidom; but I'm using a Python 'raw' string which is more commonly the way to express regular expressions in Python. 
+
+ I'm deliberately using an example where the spacing of the commas would overlap if I were using a regular expression such as;  re.compile(r'(\d),(\d)')  and trying to substitute using back references to the captured characters  pattern.sub(r'\1\2', num)  ... that would work for many examples; but '1,2,3' would not match because the capturing causes them to be overlapping. 
+
+ This one of the main reasons that these "lookaround" (lookahead and lookbehind) assertions exist ... to avoid cases where you'd have to repeatedly/recursively apply a pattern due to capture and overlap semantics.  These assertions don't capture, they match "zero" characters (as with some PCRE meta patterns like  \b  ... which matches the zero length boundary between words rather than any of the whitespace ( \s  which or non-"word" ( \W ) characters which separate words). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38441455)
+ To follow Lawrence's comment, you can use a combination of reversing a string, https://docs.python.org/2.7/library/itertools.html#itertools.takewhile and https://docs.python.org/2/library/stdtypes.html#str.join: 
+
+  from itertools import takewhile
+
+l = [
+    "Ethernet5/3",
+    "TengigabitEthernet3/1/1",
+    "100 GigabitEthernet2/6/1",
+    "Management",
+    "Serial"
+]
+
+for item in l:
+    print("".join(takewhile(lambda c: not c.isalpha(), item[::-1]))[::-1])
+  
+
+  
+
+  5/3
+3/1/1
+2/6/1
+<empty string>
+<empty string>
+  
+
+ 
+
+ Another option would be to use regular expressions and capture in a https://docs.python.org/3/howto/regex.html#grouping digits and slashes at the end of a string ( $  in the expression): 
+
+  import re
+
+l = [
+    "Ethernet5/3",
+    "TengigabitEthernet3/1/1",
+    "100 GigabitEthernet2/6/1",
+    "Management",
+    "Serial"
+]
+
+pattern = re.compile(r"([0-9/]+)$")
+for item in l:
+    match = pattern.search(item)
+    print(match.group(1) if match else "No match")
+  
+
+  
+
+  5/3
+3/1/1
+2/6/1
+No match
+No match
+  
+
+
+

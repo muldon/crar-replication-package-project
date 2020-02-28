@@ -1,0 +1,209 @@
+Query: Clamping floating numbers in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13232356)
+ Numpy's http://docs.scipy.org/doc/numpy/reference/generated/numpy.clip.html function will do this. 
+
+  >>> import numpy
+>>> numpy.clip(10,0,3)
+3
+>>> numpy.clip(-4,0,3)
+0
+>>> numpy.clip(2,0,3)
+2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9775761)
+ There's no such function, but 
+
+  max(min(my_value, max_value), min_value)
+  
+
+ will do the trick. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5701377)
+  
+
+  >>> 2.01
+2.0099999999999998
+  
+
+ it's the way floating point numbers are stored 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15276922)
+ floating point numbers are not exact.  You could represent it as  1e-4  when printing,  use  Decimal  to get an exact value.   e.g. 
+
+  >>> print '{:4.0e}'.fmat(100*0.000001)
+1e-04
+  
+
+  
+
+  >>> Decimal(100)*Decimal('0.000001')
+Decimal('0.000100')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5997433)
+ The difference between  str  and  repr  
+
+  >>> import scipy
+>>> pi = scipy.pi
+>>> str(pi)
+'3.14159265359'
+>>> repr(pi)
+'3.1415926535897931'
+  
+
+  str  truncates floating point numbers to 12 digits, where repr gives the internal representation (as a string). 
+
+ EDIT: So in summary, the problem arose because you rounded prematurely and are calculating the modulus of something via a number that's very close to it.  With floating point numbers, rounding is inevitably involved in converting decimal numbers into binary. 
+
+ First, do an example of how rounding hurts you with actual math (not floating point math).  Look at (3.14+3.14) % (3.14+3.14), which is obviously zero.  Now what would happen if we rounded the digits to one decimal digit first on one side?  Well (3.1+3.1) % (3.14+3.14) = 6.2 % (6.28) = 6.2 (what google gave you).  Or if you did round(3.14159,5) + round(3.14159,5) % (3.14159 + 3.14159) = 6.2832 % 6.28318 = 2e-5. 
+
+ So in by rounding to N digits (by using  str  which effectively rounds the numbers), your calculation is only accurate to less than N digits.  To have this work going forward force rounding at some higher digit (keeping two calculated digits for safety) is necessary.  E.g., str rounds at digit 12, so maybe we should round at digit 10. 
+
+  >>> round(6.28187631024 + 0.001308996939,10) % (round(pi * 2,10))
+0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27078572)
+ Add a dot ( . ) to indicate floating point numbers 
+
+  >>> 4/3.
+1.3333333333333333
+  
+
+  
+
+  >>> from __future__ impt division
+>>> 4/3
+1.3333333333333333
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41073657)
+ One way would be to use https://docs.python.org/3/library/functools.html to create a clamping function with mixed limits, and then map that over the map object you get after the adding operation. 
+
+  from operator import add
+from functools import partial
+
+def clamp(x, lo, hi):
+    return max(lo, min(x, hi)) 
+
+pointer = (1, 1)
+tuple2 = (1, 5)
+pointer = tuple(map(partial(clamp, lo=0, hi=3), map(add, pointer, tuple2)))
+print(pointer)
+  
+
+  output  
+
+  (2, 3)
+  
+
+  
+
+ Another way would be to combine the adding and clamping into a single function. In the code below I use a function  make_add_clamp  which returns a function that does the adding and clamping using the limits passed to  make_add_clamp . 
+
+  from operator import add
+
+def clamp(x, lo, hi):
+    return max(lo, min(x, hi)) 
+
+def make_add_clamp(lo, hi):
+    def func(x, y):
+        return clamp(x + y, lo, hi)
+    return func
+
+pointer = (1, 1)
+tuple2 = (1, 5)
+
+pointer = tuple(map(make_add_clamp(0, 3), pointer, tuple2))
+print(pointer)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4432509)
+ 3 is an integer. 
+
+ 3.0 is a float.  
+
+  >>> type(3)
+<type 'int'>
+>>> type(3.0)
+<type 'float'>
+  
+
+ round(): 
+
+ 
+   Round a number to a given precision in decimal digits (default 0
+  digits). This always returns a floating point number. 
+ 
+
+ So that is why in your case, 6.0 is returned.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36672201)
+ This is an old numerical problem encountered by all who worked with vectors and floating point arithmetic. A simple fix is to wrap the code that computes the angle in a function with some clamping logic: 
+
+  import numpy as np
+import math
+
+def angle_between(vhat1, vhat2, tol = 5e-6):
+    cosang = np.dot(vhat1, vhat2)
+    if math.fabs(cosang) > 1.0:
+        if math.fabs(cosang) - 1.0 < tol:
+            cosang = math.modf(cosang)[1]
+        else:
+            raise ValueError('Invalid arguments (vectors not normalized?)')
+    return math.acos(cosang)
+
+
+
+w = np.array([ 1., 0., 0.])
+z = np.array([-1., 0., 0.])
+v = np.array([ math.sqrt(2.)/2., math.sqrt(2.)/2., 0.])
+z1 = np.array([-1.0000001, 0., 0.])
+w1 = np.array([9., 3., -5.])
+
+print "{0:>5} deg".format(angle_between(v, w) * 180.0 / math.pi)
+print "{0:>5} deg".format(angle_between(w, z) * 180.0 / math.pi)
+print "{0:>5} deg".format(angle_between(w, z1) * 180.0 / math.pi)
+# this last one will raise ValueError
+print "{0:>5} deg".format(angle_between(w1, z1) * 180.0 / math.pi)
+  
+
+ Output: 
+
+   45.0 deg
+180.0 deg
+180.0 deg
+
+...
+ValueError: Invalid arguments (vectors not normalized?)
+  
+
+
+

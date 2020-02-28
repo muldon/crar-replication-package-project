@@ -1,0 +1,223 @@
+Query: Matching blank lines with regular expressions
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1197642)
+  
+
+  re.split('\n\s*\n', s)
+  
+
+ The problem is that "$ *^" actually only matches "spaces (if any) that are alone on a line"--not the newlines themselves.  This leaves the delimiter empty when there's nothing on the line, which doesn't make sense. 
+
+ This version also gets rid of the delimiting newlines themselves, which is probably what you want.  Otherwise, you'll have the newlines stuck to the beginning and end of each split part. 
+
+ Treating multiple consecutive blank lines as defining an empty block ("abc\n\n\ndef" -> ["abc", "", "def"]) is trickier... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15831927)
+ The re library can split on one or more empty lines !  An empty line is a string that consists of zero or more whitespaces, starts at the start of the line and ends at the end of a line. Special character '$' matches the end of the string or just before the newline at the end of the string, and in MULTILINE mode also matches before a newline (excerpt from http://docs.python.org/2/library/re.html). That's why we need to add a special character '\s*' for the line break. Everything is possible :-) 
+
+  >>> import re
+>>> text = "foo\n   \n    \n    \nbar\n"
+>>> re.split("(?m)^\s*$\s*", text)
+['foo\n', 'bar\n']
+  
+
+ The same regex works with windows style line breaks. 
+
+  >>> import re
+>>> text = "foo\r\n       \r\n     \r\n   \r\nbar\r\n"
+>>> re.split("(?m)^\s*$\s*", text)
+['foo\r\n', 'bar\r\n']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53061915)
+ I would use regular expressions to solve this problem: 
+
+  import re
+
+def spaces(file_name):
+    """Return the number of spaces in the text."""
+    with open(file_name, 'r') as f:
+        return len(re.findall(r' +', f.read()))
+  
+
+ The regular expression  r' +'  will look for one or more consecutive whitespaces. So double whitespaces are only counted as one. Other whitespace characters like  '\t'  are ignored. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28901969)
+ I guess another option which is longer, but maybe prettier? 
+
+  with open(sourceFileName, 'rt') as sourceFile:
+    last_line = None
+    lines = []
+    for line in sourceFile:
+         # if you want to skip lines with only whitespace, you could add something like:
+            # line = line.lstrip(" \t")
+        if last_line != "\n":
+            lines.append(line)
+        last_line = line
+ contents = "".join(lines)
+  
+
+ I was trying to find some clever generator function way of writing this, but it's been a long week so I can't.  
+
+ Code untested, but I think it should work? 
+
+ (edit: One upside is I removed the need for regular expressions which fixes the "now you have two problems" problem :) ) 
+
+ (another edit based on Marc Chiesa's suggestion of lingering whitespace) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19128173)
+ 
+   I am trying to replace all lines of a certain format with a blanks in a file i.e. replace a line of number/number/number (like a date) and number:number (like a time) with "". 
+ 
+
+ You can't use  str.replace  to match a pattern or format, only a literal string. 
+
+ To match a pattern, you need some kind of parser. For patterns like this, the regular expression engine built into the standard library as http://docs.python.org/3/library/re.html is more than powerful enough… but you will need to learn how to write regular expressions for your patterns. The reference docs and http://docs.python.org/3/howto/regex.html#regex-howto are great if you already know the basics; if not, you should search for a tutorial elsewhere. 
+
+ Anyway, here's how you'd do this (fixing a few other things along the way, most of them explained by Lego Stormtroopr): 
+
+  import re
+
+with open("old_text.txt") as old_file, open("new_text.txt", "w") as new_file:
+    for line in old_file:
+        cleaned_line = re.sub(r'\d+/\d+/\d+', '', line)
+        cleaned_line = re.sub(r'\d+:\d+', '', cleaned_line)
+        new_file.write(cleaned_line)
+  
+
+ Also, note that I used  cleaned_line  in the second  sub ; just using  line  again, as in your original code, means we lose the results of the first substitution. 
+
+ Without knowing the exact definition of your problem, I can't promise that this does exactly what you want. Do you want to blank all lines that  contain  the pattern number/number/number, blank out all lines that are nothing  but  that pattern, blank out just that pattern and leave the rest of the line alone? All of those things are doable, and pretty easy, with  re , but they're all done a little differently. 
+
+ 
+
+ If you want to get a little trickier, you can use a single  re.sub  expression to replace all of the matching lines with blank lines at once, instead of iterating them one at a time. That means a slightly more complicated regexp vs. slightly simpler Python code, and it means probably better performance for mid-sized files but worse performance (and an upper limit) for huge files, and so on. If you can't figure out how to write the appropriate expression yourself, and there's no performance bottleneck to fix, I'd stick with explicit looping. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33661397)
+ I think is more robust to use regular expressions: 
+
+  import re
+
+for i, line in enumerate(content):
+    print line if not (re.match('\r?\n', line)) else pass
+  
+
+ This would match in Windows/unix. In addition if you are not sure about lines containing only space char you could use   '\s*\r?\n'  as expression 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38956495)
+ Here is one approach without regular expressions: 
+
+  word = 'laugh'    
+string = 'This is laughing laugh'
+# we want to find this >>> -----
+# index   0123456789012345678901     
+words = string.split(' ')
+word_index = words.index(word)
+index = sum(len(x) + 1 for i, x in enumerate(words) 
+            if i < word_index) 
+=> 17
+  
+
+ This splits the string into words, finds the index of the matching word and then sums up the lengths and the blank char as a separater of all words before it. 
+
+  Update  Another approach is the following one-liner: 
+
+  index = string.center(len(string) + 2, ' ').find(word.center(len(word) + 2, ' '))
+  
+
+ Here both the  string  and the  word  are right and left padded with blanks as to capture the full word in any position of the string. 
+
+ You should of course use regular expressions for performance and convenience. The equivalent using the  re  module is as follows: 
+
+  r = re.compile(r'\b%s\b' % word, re.I)
+m = r.search(string)
+index = m.start()
+  
+
+ Here  \b  means  word boundary , see the https://docs.python.org/2/library/re.html?highlight=re#module-re documentation. Regex can be quite daunting. A great way to test and find regular expressions is using https://regex101.com/r/oP1nO1/1 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50879623)
+  s = """>EU
+       >Please spread this like the plague.
+       """
+
+print(' '.join(s.replace('>','').replace('.','').replace('\n','.').split()))
+
+Out[ ]:
+EU. Please spread this like the plague. 
+  
+
+ Note, that this required I manually remove the blank lines. 
+
+ Another way to go would be to use regular expressions. 
+
+  import re
+s = re.sub(r">", '', s)
+s = re.sub(r" {2}", '', s)
+s = re.sub(r"\.", '', s)
+s = re.sub(r"\n\n", '.', s)
+s = re.sub(r" \n", '', s)
+s = re.sub(r"\n", '.', s)
+print(s)
+
+Out[ ]:
+EU. Please spread this like the plague. 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11285584)
+ So which lines we do not want? Those lines that contain the ip-address! 
+
+ The regular expression for this is  r'127\.0\.0\.1'  . We have to escape the dots ( \. ) to make them literal dots because a dot has special meaning in regular expressions. 
+
+ But we mean only those lines where the address is at the beginning ( ^ ) or after a non-digit ( \D ) and if it is followed by the end of the line ( $ ) or a non-digit. 
+
+ That makes:  r'(^|\D)127\.0\.0\.1(\D|$)'  
+
+  import re
+regexp = re.compile( r'(^|\D)' + re.escape( '127.0.0.1' ) + r'(\D|$)' )
+
+for line in fileinput.input(hostsFileLoc,inplace =1):
+    line = line.strip()
+    if not regexp.search( line ):
+        print line
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/20058719)
+ You cannot use a regular expression in the  replace()  method for strings, you have to use the http://docs.python.org/2/library/re.html: 
+
+  import re
+mystring = re.sub(r'\s+', ' ', mystring)
+  
+
+ Note the  r  prefix before the string literal, this makes sure that the backslash in your regular expressions is interpreted properly.  It wouldn't actually make a difference here, but for different escape sequences it can cause serious problems.  For example  '\b'  is a backspace character but  r'\b'  is a backslash followed by a 'b', which is used for matching word boundaries in regex. 
+
+
+

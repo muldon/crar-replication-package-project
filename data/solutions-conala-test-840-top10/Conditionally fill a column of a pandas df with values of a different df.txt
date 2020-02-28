@@ -1,0 +1,227 @@
+Query: Conditionally fill a column of a pandas df with values of a different df
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48090179)
+ Use  ffill  +  where  -  
+
+  m = df.columns[:-1].values <= df.fill_until.values[:, None]
+df.iloc[:, :-1].ffill(axis=1).where(m)
+
+   2007  2008  2009  2010  2011
+0   1.0   2.0   2.0   NaN   NaN
+1   1.0   3.0   3.0   3.0   NaN
+2   4.0   4.0   7.0   7.0   7.0
+  
+
+ 
+
+  Details  
+
+ Use NumPy's broadcasting to obtain a mask of values to be filled upto based on the  fill_until  column. 
+
+  m = df.columns[:-1].values <= df.fill_until.values[:, None]
+  
+
+   
+
+  m = (df.columns[:-1].values[:, None] <= df.fill_until.values).T
+  
+
+  
+
+  m    
+array([[ True,  True,  True, False, False],
+       [ True,  True,  True,  True, False],
+       [ True,  True,  True,  True,  True]], dtype=bool)
+  
+
+ Now, slice out all but the last column, and call  ffill  along the first axis -  
+
+  i = df.iloc[:, :-1].ffill(axis=1)
+i
+
+   2007  2008  2009  2010  2011
+0   1.0   2.0   2.0   2.0   2.0
+1   1.0   3.0   3.0   3.0   3.0
+2   4.0   4.0   7.0   7.0   7.0
+  
+
+ Now, use the previously computed mask  m  to mask the values of  i  using  df.where  -  
+
+  i.where(m)
+
+   2007  2008  2009  2010  2011
+0   1.0   2.0   2.0   NaN   NaN
+1   1.0   3.0   3.0   3.0   NaN
+2   4.0   4.0   7.0   7.0   7.0
+  
+
+ Alternatively, use  mask , inverting  m  -  
+
+  i.mask(~m)
+
+   2007  2008  2009  2010  2011
+0   1.0   2.0   2.0   NaN   NaN
+1   1.0   3.0   3.0   3.0   NaN
+2   4.0   4.0   7.0   7.0   7.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24015513)
+ Using the  fillna  function: 
+
+  df.fillna(axis=1, method='backfill')
+  
+
+ will do if there are no NaN's in the other columns. 
+If there are and you want to leave them untouched, I think the only option in this way is to perform the  fillna  on a subset of your dataframe. With example dataframe: 
+
+  In [45]: df
+Out[45]: 
+     A    B    C    D   E   F
+0  158  158  158  177   1  10
+1  158  158  158  177   2  20
+2  NaN  NaN  NaN  177   3  30
+3  158  158  158  177 NaN  40
+4  NaN  NaN  NaN  177   5  50
+
+In [48]: df[['A', 'B', 'C', 'D']] = df[['A', 'B', 'C', 'D']].fillna(axis=1, method='backfill')
+
+In [49]: df
+Out[49]: 
+     A    B    C    D   E   F
+0  158  158  158  177   1  10
+1  158  158  158  177   2  20
+2  177  177  177  177   3  30
+3  158  158  158  177 NaN  40
+4  177  177  177  177   5  50
+  
+
+ 
+
+  Udate:  If you don't want to depend on the column order, you can also specify the values to use to fill for each row (like  .fillna(value=df['D'] ). The only problem is that this only works for Series (when it is a dataframe, it tries to map the different values to fill to the different columns, not the rows). So with an apply to do it column by column, it works: 
+
+  In [60]: df[['A', 'B', 'C']].apply(lambda x: x.fillna(value=df['D']))
+Out[60]: 
+     A    B    C
+0  158  158  158
+1  158  158  158
+2  177  177  177
+3  158  158  158
+4  177  177  177
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40470801)
+ pandas handles this on a column basis with no issues.  Suppose we had a different  s  
+
+  s = pd.Series([10, 20, 30], ['x', 'y', 'z'])
+  
+
+  
+
+  df.fillna(s)
+
+      x     y     z
+a  10.0   1.0  30.0
+b   2.0  20.0  30.0
+c  10.0  20.0   3.0
+  
+
+ But that's not what you want.  Using your  s  
+
+  s = pd.Series([10, 20, 30], ['a', 'b', 'c'])
+  
+
+ then  df.fillna(s)  does nothing.  But we know that it works for columns, so: 
+
+  df.T.fillna(s).T
+
+      x     y     z
+a  10.0   1.0  10.0
+b   2.0  20.0  20.0
+c  30.0  30.0   3.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52022785)
+ You're looking for  map : 
+
+  df_2.assign(priority_rank=df_2['user_id'].map(
+    df_1.query("name == 'abc'").set_index('user_id')['rank']))
+
+   user_id  priority_rank
+0        1            6.0
+1        2            NaN
+2        3            NaN
+3        4            9.0
+4        5           10.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48647217)
+ You can use the pandas function get_dummies, and add the result to df as shown below 
+
+  In [1]: col_names = df['source_column'].dropna().unique().tolist()
+
+In [2]: df[col_names] = pd.get_dummies(df['source_column'])
+
+In [3]: df
+Out[3]: 
+  ID source_column  value 1  value 2  value 3
+0  A       value 1        1        0        0
+1  B          NaN         0        0        0
+2  C       value 2        0        1        0
+3  D       value 3        0        0        1
+4  E       value 2        0        1        0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52022799)
+ One way to do this: 
+
+  In []:
+df_2['priority_rank'] = np.where((df_1.) & (df_1.user_id==df_2.user_id), df_1['rank'], '')
+df_2
+
+Out[]:
+   user_id priority_rank
+0        1             6
+1        2              
+2        3              
+3        4             9
+4        5            10
+  
+
+ Note: In your example  df_1.  is a sufficient condition because all values for  user_id  are identical when  df_1. . I'm assuming this is not always going to be the case.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36551194)
+ this should work  
+
+  df['type'] = np.where(df['food'].isin(['apple', 'banana', 'kiwi']), 'fruit', 'oth. food')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36551191)
+ I think you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.isin.html: 
+
+  df['type'] = np.where(df['food'].isin(['apple', 'banana', 'kiwi']), 'fruit', 'oth. food')
+  
+
+
+

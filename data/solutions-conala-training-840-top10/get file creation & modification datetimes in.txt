@@ -1,0 +1,357 @@
+Query: get file creation & modification date/times in
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1526089)
+ The best function to use for this is http://docs.python.org/library/os.path.html#os.path.getmtime. Internally, this just uses  os.stat(filename). . 
+
+ The datetime module is the best manipulating timestamps, so you can get the modification date as a  datetime  object like this: 
+
+  import os
+import datetime
+def modification_date(filename):
+    t = os.path.getmtime(filename)
+    return datetime.datetime.fromtimestamp(t)
+  
+
+ Usage example: 
+
+  >>> d = modification_date('/var/log/syslog')
+>>> print d
+2009-10-06 10:50:01
+>>> print repr(d)
+datetime.datetime(2009, 10, 6, 10, 50, 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28444315)
+ If following symbolic links is not important, you can also use the  os.lstat  builtin. 
+
+  >>> os.lstat("2048.py")
+posix.stat_result(st_mode=33188, st_ino=4172202, st_dev=16777218L, st_nlink=1, st_uid=501, st_gid=20, st_size=2078, st_atime=1423378041, st_mtime=1423377552, st_ctime=1423377553)
+>>> os.lstat("2048.py").st_atime
+1423378041.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/237084)
+ You have a couple of choices. For one, you can use the https://docs.python.org/library/os.path.html#os.path.getmtime and https://docs.python.org/library/os.path.html#os.path.getctime functions: 
+
+  import os.path, time
+print("last modified: %s" % time.ctime(os.path.getmtime(file)))
+print("created: %s" % time.ctime(os.path.getctime(file)))
+  
+
+ Your other option is to use https://docs.python.org/library/os.html#os.stat: 
+
+  import os, time
+(mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(file)
+print("last modified: %s" % time.ctime(mtime))
+  
+
+  Note :  ctime()  does  not  refer to creation time on *nix systems, but rather the last time the inode data changed. (thanks to kojiro for making that fact more clear in the comments by providing a link to an interesting blog post) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52858040)
+ In Python 3.4 and above, you can use the object oriented https://docs.python.org/3/library/pathlib.html interface which includes wrappers for much of the os module.  Here is an example of getting the file stats. 
+
+  >>> import pathlib
+>>> fname = pathlib.Path('test.py')
+>>> assert fname.exists(), f'No such file: {fname}'  # check that the file exists
+>>> print(fname.stat())
+os.stat_result(st_mode=33206, st_ino=5066549581564298, st_dev=573948050, st_nlink=1, st_uid=0, st_gid=0, st_size=413, st_atime=1523480272, st_mtime=1539787740, st_ctime=1523480272)
+  
+
+ For more information about what  os.stat_result  contains, refer to https://docs.python.org/3/library/os.html#os.stat_result. For the modification time you want  fname.stat().st_mtime : 
+
+  >>> import datetime
+>>> mtime = datetime.datetime.fromtimestamp(fname.stat().st_mtime)
+>>> print(mtime)
+datetime.datetime(2018, 10, 17, 10, 49, 0, 249980)
+  
+
+ If you want the creation time on Windows, or the most recent metadata change on Unix, you would use  fname.stat().st_ctime : 
+
+  >>> ctime = datetime.datetime.fromtimestamp(fname.stat().st_ctime)
+>>> print(ctime)
+datetime.datetime(2018, 4, 11, 16, 57, 52, 151953)
+  
+
+ https://realpython.com/python-pathlib/ has more helpful info and examples for the pathlib module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/539024)
+ Here's a more verbose version of https://stackoverflow.com/questions/168409/how-do-you-get-a-directory-listing-sorted-by-creation-date-in-python/168435#168435. It is the most conforming to the question requirements. It makes a distinction between creation and modification dates (at least on Windows). 
+
+  #!/usr/bin/env python
+from stat import S_ISREG, ST_CTIME, ST_MODE
+import os, sys, time
+
+# path to the directory (relative or absolute)
+dirpath = sys.argv[1] if len(sys.argv) == 2 else r'.'
+
+# get all entries in the directory w/ stats
+entries = (os.path.join(dirpath, fn) for fn in os.listdir(dirpath))
+entries = ((os.stat(path), path) for path in entries)
+
+# leave only regular files, insert creation date
+entries = ((stat[ST_CTIME], path)
+           for stat, path in entries if S_ISREG(stat[ST_MODE]))
+#NOTE: on Windows `ST_CTIME` is a creation date 
+#  but on Unix it could be something else
+#NOTE: use `ST_MTIME` to sort by a modification date
+
+for cdate, path in sorted(entries):
+    print time.ctime(cdate), os.path.basename(path)
+  
+
+ Example: 
+
+  $ python stat_creation_date.py
+Thu Feb 11 13:31:07 2009 stat_creation_date.py
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/237092)
+ There are two methods to get the mod time, os.path.getmtime() or os.stat(), but the ctime is not reliable cross-platform (see below). 
+
+ http://www.python.org/doc/2.5.2/lib/module-os.path.html</h3>
+
+  getmtime ( path ) 
+ Return the time of last modification of path. The return value is a number giving the 
+number of seconds since the epoch (see the time module). Raise os.error if the file does 
+not exist or is inaccessible. New in version 1.5.2. Changed in version 2.3: If 
+os.stat_float_times() returns True, the result is a floating point number.  
+
+ http://www.python.org/doc/2.5.2/lib/os-file-dir.html</h3>
+
+  stat ( path ) 
+ Perform a stat() system call on the given path. The return value is an object whose 
+attributes correspond to the members of the stat structure, namely: st_mode (protection 
+bits), st_ino (inode number), st_dev (device), st_nlink (number of hard links), st_uid 
+(user ID of owner), st_gid (group ID of owner), st_size (size of file, in bytes), 
+st_atime (time of most recent access),  st_mtime  (time of most recent content 
+modification),  st_ctime  (platform dependent; time of most recent metadata change on Unix, or the time of creation on Windows) : 
+
+  >>> import os
+>>> statinfo = os.stat('somefile.txt')
+>>> statinfo
+(33188, 422511L, 769L, 1, 1032, 100, 926L, 1105022698,1105022732, 1105022732)
+>>> statinfo.st_size
+926L
+>>> 
+  
+
+ In the above example you would use statinfo.st_mtime or statinfo.st_ctime to get the mtime and ctime, respectively. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39501288)
+ Getting some sort of modification date in a cross-platform way is easy - just call https://docs.python.org/library/os.path.html#os.path.getmtime and you'll get the Unix timestamp of when the file at  path  was last modified. 
+
+ Getting file  creation  dates, on the other hand, is fiddly and platform-dependent, differing even between the three big OSes: 
+
+ 
+ On  Windows , a file's  ctime  (documented at https://msdn.microsoft.com/en-us/library/14h5k7ff.aspx) stores its creation date. You can access this in Python through https://docs.python.org/library/os.path.html#os.path.getctime or the https://docs.python.org/3/library/os.html#os.stat_result.st_ctime attribute of the result of a call to https://docs.python.org/3/library/os.html#os.stat. This  won't  work on Unix, where the  ctime  http://www.linux-faqs.info/general/difference-between-mtime-ctime-and-atime. 
+ On  Mac , as well as some other Unix-based OSes, you can use the https://docs.python.org/3/library/os.html#os.stat_result.st_birthtime attribute of the result of a call to  os.stat() . 
+  On  Linux , this is currently impossible, at least without writing a C extension for Python. Although some file systems commonly used with Linux https://unix.stackexchange.com/questions/7562/what-file-systems-on-linux-store-the-creation-time (for example,  ext4  stores them in  st_crtime ) , the Linux kernel https://unix.stackexchange.com/questions/91197/how-to-find-creation-date-of-file; in particular, the structs it returns from  stat()  calls in C, as of the latest kernel version, https://github.com/torvalds/linux/blob/v4.8-rc6/include/linux/stat.h. You can also see that the identifier  st_crtime  doesn't currently feature anywhere in the https://github.com/python/cpython/search?utf8=%E2%9C%93&q=st_crtime. At least if you're on  ext4 , the data  is  attached to the inodes in the file system, but there's no convenient way of accessing it. 
+
+ The next-best thing on Linux is to access the file's  mtime , through either https://docs.python.org/library/os.path.html#os.path.getmtime or the https://docs.python.org/3/library/os.html#os.stat_result.st_mtime attribute of an  os.stat()  result. This will give you the last time the file's content was modified, which may be adequate for some use cases.  
+ 
+
+ Putting this all together, cross-platform code should look something like this... 
+
+  import os
+import platform
+
+def creation_date(path_to_file):
+    """
+    Try to get the date that a file was created, falling back to when it was
+    last modified if that isn't possible.
+    See http://stackoverflow.com/a/39501288/1709587 for explanation.
+    """
+    if platform.system() == 'Windows':
+        return os.path.getctime(path_to_file)
+    else:
+        stat = os.stat(path_to_file)
+        try:
+            return stat.st_birthtime
+        except AttributeError:
+            # We're probably on Linux. No easy way to get creation dates here,
+            # so we'll settle for when its content was last modified.
+            return stat.st_mtime
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2525906)
+ POSIX  atime ,  mtime ,  ctime  
+
+ It might help if you included a full script and its actual and expected outputs instead of the REPL fragments. 
+
+  import sys, os, stat, time
+
+def get_times(p):
+    s = os.stat(p)
+    return ( 
+        os.path.getatime(p),
+        os.path.getmtime(p),
+        os.path.getctime(p),
+        s[stat.ST_ATIME],
+        s[stat.ST_MTIME],
+        s[stat.ST_CTIME],
+    )
+
+def main(p, delay=1):
+    delay = float(delay)
+    (a,b) = (1000000000, 1500000000)
+
+    open(p,'w').close()
+
+    print 'initial:'
+    print get_times(p)
+
+    for t in [ (a,a), (a,b), (b,a), (b,b) ]:
+        print
+        print 'test:', t
+        os.utime(p,t)
+        print get_times(p)
+        time.sleep(delay)
+        print get_times(p)
+
+main(*sys.argv[1:])
+  
+
+ I get this on my 10.4 system with  cd "$HOME" && python test.py tempfile 5  (system default Python 2.3.6 and MacPorts Python 2.6.4 both give the same result (leaving out the initial times and  ctime , of course)): 
+
+  % python /tmp/test.py tempfile 5
+initial:
+(1000000000.0, 1000000000.0, 1269629881.0, 1000000000, 1000000000, 1269629881)
+
+test: (1000000000, 1000000000)
+(1000000000.0, 1000000000.0, 1269629881.0, 1000000000, 1000000000, 1269629881)
+(1000000000.0, 1000000000.0, 1269629881.0, 1000000000, 1000000000, 1269629881)
+
+test: (1000000000, 1500000000)
+(1000000000.0, 1500000000.0, 1269629886.0, 1000000000, 1500000000, 1269629886)
+(1000000000.0, 1500000000.0, 1269629886.0, 1000000000, 1500000000, 1269629886)
+
+test: (1500000000, 1000000000)
+(1500000000.0, 1000000000.0, 1269629891.0, 1500000000, 1000000000, 1269629891)
+(1500000000.0, 1000000000.0, 1269629891.0, 1500000000, 1000000000, 1269629891)
+
+test: (1500000000, 1500000000)
+(1500000000.0, 1500000000.0, 1269629896.0, 1500000000, 1500000000, 1269629896)
+(1500000000.0, 1500000000.0, 1269629896.0, 1500000000, 1500000000, 1269629896)
+  
+
+ That seems reasonable. I wonder what you get. 
+
+ I have heard that Spotlight can sometimes aggressively reset  atime  due to re-indexing changed files. I would not expect it to re-index a file that has only undergone utime()/utimes(), but I suppose it is possible. To eliminate Spotlight as a possible complication use a file in a location that is not indexed by Spotlight (e.g. /tmp/testfile). 
+
+ Date Created in  Finder  
+
+ (shown as “Created:” in Get Info windows of Finder) 
+
+ If you have the Developer tools installed, you can use  /Developer/Tools/GetFileInfo  to see the HFS creationDate. I added the following lines after every  print get_times(p)  line: 
+
+  sys.stdout.flush()
+os.system('/Developer/Tools/GetFileInfo ' + p)
+  
+
+ I also changed the iteration to match your initial description ( [ (a,b), (a,a), (b,a), (b,b) ] ). 
+
+ The result now looks like this: 
+
+  % rm /tmp/tempfile; python /tmp/test.py /tmp/tempfile 1
+initial:
+(1269636574.0, 1269636574.0, 1269636574.0, 1269636574, 1269636574, 1269636574)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 03/26/2010 15:49:34
+modified: 03/26/2010 15:49:34
+
+test: (1000000000, 1500000000)
+(1000000000.0, 1500000000.0, 1269636574.0, 1000000000, 1500000000, 1269636574)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 03/26/2010 15:49:34
+modified: 07/13/2017 21:40:00
+(1000000000.0, 1500000000.0, 1269636574.0, 1000000000, 1500000000, 1269636574)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 03/26/2010 15:49:34
+modified: 07/13/2017 21:40:00
+
+test: (1000000000, 1000000000)
+(1000000000.0, 1000000000.0, 1269636576.0, 1000000000, 1000000000, 1269636576)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 09/08/2001 20:46:40
+modified: 09/08/2001 20:46:40
+(1000000000.0, 1000000000.0, 1269636576.0, 1000000000, 1000000000, 1269636576)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 09/08/2001 20:46:40
+modified: 09/08/2001 20:46:40
+
+test: (1500000000, 1000000000)
+(1500000000.0, 1000000000.0, 1269636577.0, 1500000000, 1000000000, 1269636577)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 09/08/2001 20:46:40
+modified: 09/08/2001 20:46:40
+(1500000000.0, 1000000000.0, 1269636577.0, 1500000000, 1000000000, 1269636577)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 09/08/2001 20:46:40
+modified: 09/08/2001 20:46:40
+
+test: (1500000000, 1500000000)
+(1500000000.0, 1500000000.0, 1269636578.0, 1500000000, 1500000000, 1269636578)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 09/08/2001 20:46:40
+modified: 07/13/2017 21:40:00
+(1500000000.0, 1500000000.0, 1269636578.0, 1500000000, 1500000000, 1269636578)
+file: "/private/tmp/tempfile"
+type: ""
+creator: ""
+attributes: avbstclinmedz
+created: 09/08/2001 20:46:40
+modified: 07/13/2017 21:40:00
+  
+
+ This seems to be consistent with your observations from your Get Info window in  Finder . My interpretation (borne out by other experimentation) is that the HFS creationDate is updated by utime, but it only ever goes backwards (never forwards). If you want to update the HFS creationDate to a newer value, then you probably will have to use a Mac-specific API to do it. 
+
+ One other note: you may have to switch windows a bit to get the  Get Info  window to update. On my system, its display does not automatically update unless I switch windows either to or from the Get Info window. 
+
+
+

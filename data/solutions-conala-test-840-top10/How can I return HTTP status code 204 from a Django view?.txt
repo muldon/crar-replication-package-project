@@ -1,0 +1,170 @@
+Query: How can I return HTTP status code 204 from a Django view?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31231234)
+ When using https://docs.djangoproject.com/en/1.8/topics/http/shortcuts/#render, there is a  status  keyword argument. 
+
+  return render(request, 'template.html', status=204)
+  
+
+ (Note that in the case of status 204 there shouldn't be a response body, but this method is useful for other status codes.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31462204)
+ Django lets you specify https://docs.djangoproject.com/en/1.8/topics/http/urls/#error-handling for  handler400 ,  handler403 ,  handler404  and  handler500  in your urls.py. It does not support a  handler405 . 
+
+ Note that you can return http responses with any status, and Django will return that response to the user, it won't call the handler for that status code. 
+
+ The error handlers are called when an exception is raised. For example, if Http404 is raised in a view, Django will call the  handler404  view.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52320465)
+ If you are returning https://docs.djangoproject.com/en/2.1/topics/http/shortcuts/#optional-arguments,
+according to the Django documentation,  render()  takes  status  as an optional parameter, and its https://docs.djangoproject.com/en/2.1/topics/http/shortcuts/#optional-arguments is 200. 
+
+ Therefore, if you want to return a custom status use: 
+
+  def my_view(request):
+    return render(request,
+                  'your-template.html',
+                   context=your_context,
+                   status=204) # your custom status in this case 204
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31461899)
+  HttpResponse(status=[code])  is just a way of sending the actual HTTP status code in the header of the response. It arrives at the client with that status_code, but does not do any changing of the data except for the HTTP header. You can pass any status code with a properly-working response, and it will still show up as before, but if you go into the browser's console you will see that it read it as a "405" page. 
+
+ HTTP headers are simply transferred with each request and response for web server parsing and providing metadata/info to developers. Even 404 pages have content sent with them, to tell the user that there was a 404; if it didn't, the user would just get a blank page and have no idea what went wrong. 
+
+ If you want to signify an error, you can take a look at https://docs.djangoproject.com/en/1.8/topics/http/views/#returning-errors. Alternatively, you can use the  HttpResponseRedirect  (https://docs.djangoproject.com/en/1.8/ref/request-response/#httpresponse-subclasses) option to direct to an error-view that serves a custom error response. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44024542)
+ Instead of returning a response with  status_code=404 , you should raise a  Http404  exception: 
+
+  from django.http import 
+
+def my_view(request, slug):
+    try:
+        obj = MyModel.object.get(slug=slug)
+    except MyModel.DoesNotExist:
+        raise Http404
+
+    ...
+  
+
+ This is a common pattern in Django, so you can use the  get_object_or_404  shortcut instead. 
+
+  from django.shortcuts import get_object_or_404
+
+def my_view(request, slug):
+    obj = get_object_or_404(MyModel, slug=slug)
+    ...
+  
+
+ The status code 500 is when something has gone wrong with your server. You shouldn't deliberately return a response with status code 500. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44231317)
+ I solved this by overriding the ViewSet since it is responsible for getting the object before passing it to the serializer. For convience I created  UUIDViewSetMixin  to add it to the desired view sets. 
+
+  class UUIDViewSetMixin(object):
+    lookup_field = 'id'
+
+    def get_object(self):
+        value = self.kwargs.get(self.lookup_field)
+        try:
+            uuid.UUID(value)
+        except ValueError:
+            result = {
+                'code': 'bad_request',
+                'message': _("'%(value)s' is not a valid uuid") % {'value', value}
+            }
+            return JsonResponse(data=data, request=status=status.HTTP_400_BAD_REQUEST)
+        return super(UUIDViewSetMixin, self).get_object()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12477267)
+ Either what Steve Mayne answered, or build your own by subclassing HttpResponse: 
+
+  from django.http import HttpResponse
+
+class HttpResponseNoContent(HttpResponse):
+    status_code = 204
+
+def my_view(request):
+    return HttpResponseNoContent()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31450643)
+ You could keep using  viewsets.ModelViewSet  and define  http_method_names  on your ViewSet. 
+
+ Example 
+
+  class SampleViewSet(viewsets.ModelViewSet):
+    queryset = api_models.Sample.objects.all()
+    serializer_class = api_serializers.SampleSerializer
+    http_method_names = ['get', 'post', 'head']
+  
+
+ Once you add  http_method_names , you will not be able to do  put  and  patch  anymore. 
+
+ If you want  put  but don't want  patch , you can keep  http_method_names = ['get', 'post', 'head', 'put']  
+
+ Internally, DRF Views extend from Django CBV. Django CBV has an attribute called http_method_names. So you can use http_method_names with DRF views too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18346136)
+ Just put the check in the view itself... 
+
+  def hi(request):
+    if request.user.is_authenticated():
+      # Allow access.
+    else:
+        raise MyException()
+  
+
+ ...or use your own decorator that applies similar logic. 
+
+ Edit:  Sample decorator added. 
+
+  from django.http.response import HttpResponseForbidden
+from django.utils.decorators import available_attrs
+from functools import wraps
+
+def alt_login_required(function=None):
+    def decorator(view_func):
+        def _wrapped_view(request, *args, **kwargs):
+            if request.user.is_authenticated():
+                return view_func(request, *args, **kwargs)
+            else:
+                return HttpResponseForbidden()
+
+        return wraps(view_func, assigned=available_attrs(view_func))(_wrapped_view)
+    if function is None:
+        return decorator
+    else:
+        return decorator(function)
+  
+
+
+

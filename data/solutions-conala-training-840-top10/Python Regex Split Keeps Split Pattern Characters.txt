@@ -1,0 +1,208 @@
+Query: Python Regex Split Keeps Split Pattern Characters
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9745268)
+ A solution without  split()  but with lookaheads: 
+
+  >>> s = 'Docs/src/Scripts/temp'
+>>> r = re.compile(r"(?=((?:^|/)[^/]*/?))")
+>>> r.findall(s)
+['Docs/', '/src/', '/Scripts/', '/temp']
+  
+
+    
+
+  (?=        # Assert that it's possible to match...
+ (         # and capture...
+  (?:^|/)  #  the start of the string or a slash
+  [^/]*    #  any number of non-slash characters
+  /?       #  and (optionally) an ending slash.
+ )         # End of capturing group
+)          # End of lookahead
+  
+
+ Since a lookahead assertion is tried at every position in the string and doesn't consume any characters, it doesn't have a problem with overlapping matches. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9743328)
+ I'm not sure there is an easy way to do this.  This is the best I could come up with... 
+
+  import re
+
+lSplit = re.split('/', 'Docs/src/Scripts/temp')
+print [lSplit[0]+'/'] + ['/'+x+'/' for x in lSplit][1:-1] + ['/'+lSplit[len(lSplit)-1]]
+  
+
+ Kind of a mess, but it does do what you wanted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10468042)
+  
+
+  re.split(r'(/)', 'Docs/src/Scripts/temp')
+  
+
+ From python's documentation 
+
+ 
+    re.split(pattern, string, maxsplit=0, flags=0)  
+  
+   Split string by the
+  occurrences of pattern.   If capturing parentheses are used in pattern,
+  then the text of all groups in the pattern are also returned as part
+  of the resulting list.   If maxsplit is nonzero, at most maxsplit splits
+  occur, and the remainder of the string is returned as the final
+  element of the list. (Incompatibility note: in the original Python 1.5
+  release, maxsplit was ignored. This has been fixed in later releases.) 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9743235)
+ Interesting question, I would suggest doing something like this: 
+
+  >>> 'Docs/src/Scripts/temp'.replace('/', '/\x00/').split('\x00')
+['Docs/', '/src/', '/Scripts/', '/temp']
+  
+
+ The idea here is to first replace all  /  characters by two  /  characters separated by a special character that would not be a part of the original string.  I used a null byte ( '\x00' ), but you could change this to something else, then finally split on that special character. 
+
+ Regex isn't actually great here because you cannot split on zero-length matches, and  re.findall()  does not find overlapping matches, so you would potentially need to do several passes over the string. 
+
+ Also,  re.split('/', s)  will do the same thing as  s.split('/') , but the second is more efficient. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9743553)
+ 1) You do not need regular expressions to split on a single fixed character: 
+
+  >>> 'Docs/src/Scripts/temp'.split('/')
+  
+
+ ['Docs', 'src', 'Scripts', 'temp'] 
+
+ 2) Consider using this method: 
+
+  import os.path
+
+def components(path):
+    start = 0
+    for end, c in enumerate(path):
+        if c == os.path.sep:
+            yield path[start:end+1]
+            start = end
+    yield path[start:]
+  
+
+ It doesn't rely on clever tricks like split-join-splitting, which makes it much more readable, in my opinion. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9744953)
+ If you don't insist on having slashes on both sides, it's actually quite simple: 
+
+  >>> re.findall(r"([^/]*/)", 'Docs/src/Scripts/temp')
+['Docs/', 'src/', 'Scripts/']
+  
+
+ Neither  re  nor split are really cut out for overlapping strings, so if that's what you really want, I'd just add a slash to the start of every result except the first.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52575027)
+ The https://regex101.com/r/eA8mX2/7 will find anything between the outside commas and then I strip it from curly braces if they exist: 
+
+  import re
+s = '{q0,q1,q2,q3},{a,b},q0,{q1,q3}'
+result = [i[1:-1] if i.startswith('{') else i for i in re.findall(r'[^,{]*(?:\{[^{}]*\})*[^,}]*', s) if i]
+print(result)  # ['q0,q1,q2,q3', 'a,b', 'q0', 'q1,q3']
+  
+
+ It will also work for other characters than ASCII letters: 
+
+  import re
+s = '{q0,q1,q2,q3.?!},{a,b},q0,@,{q1,q3}'
+result = [i[1:-1] if i.startswith('{') else i for i in re.findall(r'[^,{]*(?:\{[^{}]*\})*[^,}]*', s) if i]
+print(result)  # ['q0,q1,q2,q3.?!', 'a,b', 'q0', '@', 'q1,q3']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52575051)
+ You can get the desired at once with a simple  re.findall . Optionally repeat word characters followed by commas in a group, then finish with more word characters: 
+
+  str = '{q0,q1,q2,q3},{a,b},q0,{q1,q3}'
+re.findall(r'(?:\w+,)*\w+', str)
+  
+
+ Output: 
+
+  ['q0,q1,q2,q3', 'a,b', 'q0', 'q1,q3']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/13871939)
+ Not sure why that isn't working exactly, but this seems to work for me: 
+
+  >>> data = """
+garbage
+=== Season 1 ===
+season 1 data
+more season 1 data
+=== Season 2 ===
+season 2 data
+"""
+>>> re.split('^===\sSeason\s\d+\s===$',data,0,re.MULTILINE)
+['\ngarbage\n', '\nseason 1 data\nmore season 1 data\n', '\nseason 2 data\n']
+  
+
+ .. But  split  strips out the thing you're splitting on; if you wanted to keep it in, then you're not using the right tool for the job. 
+
+ Here's another solution that's a bit more complex, it filters out the "garbage" but keeps the season info in: 
+
+  >>> re.findall('=== Season \d+ ===.*?(?=^===|\Z)',data,re.DOTALL|re.MULTILINE)
+['=== Season 1 ===\nseason 1 data\nmore season 1 data\n', '=== Season 2 ===\nseason 2 data\n']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/32604747)
+ The round brackets in a regex pattern must be escaped with  \  to match literal round brackets: 
+
+  test2 = re.findall(r'\(.\)', text) 
+  
+
+ See https://ideone.com/lOFgcC 
+
+ A "raw" string literal does not mean that you do not have to escape special regex characters but it means you can use just  one  backslash to escape them, not two. 
+
+ See this excerpt from https://docs.python.org/3/library/re.html#raw-string-notation: 
+
+ 
+   Raw string notation  (r"text")  keeps regular expressions sane. Without it, every backslash ( '\' ) in a regular expression would have to be prefixed with another one to escape it. For example, the two following lines of code are functionally identical: 
+  
+    >>>  
+      >>> re.match(r"\W(.)\1\W", " ff ")  
+      <_sre.SRE_Match object; span=(0, 4), match=' ff '>  
+      >>> re.match("\\W(.)\\1\\W", " ff ")  
+      <_sre.SRE_Match object; span=(0, 4), match=' ff '>   
+ 
+
+ The docs say  usually , but it does not mean you have to use raw string literals every time. 
+
+   .  is a lazy pattern, it means  match 1 or more characters other than a newline, but as few as possible . 
+
+
+

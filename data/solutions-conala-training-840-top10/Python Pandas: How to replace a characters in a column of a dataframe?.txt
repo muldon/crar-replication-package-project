@@ -1,0 +1,282 @@
+Query: Python Pandas: How to replace a characters in a column of a dataframe?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50847468)
+ We can only assume that you refer to non-ASCI as 'special' characters.  
+
+ To remove  all  non-ASCI characters in a pandas dataframe column, do the following: 
+
+  df['clean_titles'] = df['titles'].str.replace(r'[^\x00-\x7f]', '')
+  
+
+ Note that this is a scalable solution as it works for  any  non-ASCI char.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53191554)
+ Here's a way with  string.punctuation : 
+
+  >>> import re
+>>> import string
+
+>>> import pandas as pd
+
+>>> df = pd.DataFrame({
+...     'a': ['abc', 'de.$&$*f(@)<', '<g>hij<k>'],
+...     'b': [1234, 5678, 91011],
+...     'c': ['me <me@gmail.com>', '123 West-End Lane', '<<xyz>>']
+... })
+
+>>> punc = string.punctuation.replace('<', '').replace('>', '')
+
+>>> pat = re.compile(f'[{punc}]')
+>>> df.replace(pat, '')
+           a      b                 c
+0        abc   1234   me <megmailcom>
+1       def<   5678  123 WestEnd Lane
+2  <g>hij<k>  91011           <<xyz>>
+  
+
+ You should double-check that this constant is inclusive of what you want: 
+
+ 
+   String of ASCII characters which are considered punctuation characters
+  in the C locale. 
+ 
+
+  
+
+  >>> string.punctuation
+'!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'
+>>> string.punctuation.replace('<', '').replace('>', '')
+'!"#$%&\'()*+,-./:;=?@[\\]^_`{|}~'
+  
+
+ 
+
+ Notes: 
+
+ 
+ This solution uses an https://docs.python.org/3/whatsnew/3.6.html#new-features (Python 3.6+) 
+ It encloses those literal characters in a https://docs.python.org/3.5/library/re.html#regular-expression-syntax to match any of them 
+ Note the difference between  df.replace()  and  df[my_column_name].str.replace() .  The signature for  pd.DataFrame.replace()  is  DataFrame.replace(to_replace=None, value=None, inplace=False, limit=None, regex=False, method='pad') , where  to_replace  can be a regex. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39215021)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.replace.html: 
+
+  test['Address 1'] = test['Address 1'].str.replace(r"[\"\',]", '')
+  
+
+  
+
+  import pandas as pd
+
+test = pd.DataFrame({'Address 1': ["'aaa",'sa,ss"']})
+print (test)
+  Address 1
+0      'aaa
+1    sa,ss"
+
+test['Address 1'] = test['Address 1'].str.replace(r"[\"\',]", '')
+print (test)
+  Address 1
+0       aaa
+1      sass
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28986536)
+ Use the vectorised http://pandas.pydata.org/pandas-docs/stable/api.html#string-handling method http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.strings.StringMethods.replace.html#pandas.core.strings.StringMethods.replace: 
+
+  In [30]:
+
+df['range'] = df['range'].str.replace(',','-')
+df
+Out[30]:
+      range
+0    (2-30)
+1  (50-290)
+  
+
+  EDIT  
+
+ So if we look at what you tried and why it didn't work: 
+
+  df['range'].replace(',','-',inplace=True)
+  
+
+ from the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.replace.html#pandas.Series.replace we see this desc: 
+
+ 
+   str or regex: str: string exactly matching to_replace will be replaced
+  with value 
+ 
+
+ So because the str values do not match, no replacement occurs, compare with the following: 
+
+  In [43]:
+
+df = pd.DataFrame({'range':['(2,30)',',']})
+df['range'].replace(',','-', inplace=True)
+df['range']
+Out[43]:
+0    (2,30)
+1         -
+Name: range, dtype: object
+  
+
+ here we get an exact match on the second row and the replacement occurs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45597103)
+  replace  works out of the box without specifying a specific column in Python 3. 
+
+  
+
+  df=pd.read_csv('test.csv', sep=',', low_memory=False, encoding='iso8859_15')
+df
+  
+
+  
+
+  col1    col2
+0   he  hello
+1   Nícolas shárk
+2   welcome yes
+  
+
+  
+
+  dictionary = {'í':'i', 'á':'a'}
+  
+
+ Replace: 
+
+  df.replace(dictionary, regex=True, inplace=True)
+  
+
+  
+
+   col1   col2
+0   he  hello
+1   Nicolas shark
+2   welcome yes
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49834246)
+ One way is to escape your characters using  re , then use  pd.Series.str.replace . 
+
+  import pandas as pd
+import re
+
+bad_chars = ['?', '!', ',', ';', "'", '|', '-', '--', '(', ')', 
+             '[', ']', '{', '}', ':', '&', '\n']
+
+df = pd.DataFrame({'page': ['hello?', 'problems|here', 'nothingwronghere', 'nobrackets[]']})
+
+df['page'] = df['page'].str.replace('|'.join([re.escape(s) for s in bad_chars]), '')
+
+print(df)
+
+#                page
+# 0             hello
+# 1      problemshere
+# 2  nothingwronghere
+# 3        nobrackets
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42121613)
+ Yes, is seems there is start of end white-space(s).   
+
+ Need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.strip.html first and then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.replace.html or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.replace.html: 
+
+  df['column_name'] = df['column_name'].str.strip().replace("targeted","Targeted")
+  
+
+ 
+
+  df['column_name'] = df['column_name'].str.strip().str.replace("targeted","Targeted")
+  
+
+ Another possible solution is convert all characters to lowercase: 
+
+  df['column_name'] = df['column_name'].str.strip().str.lower()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36569891)
+ You can use the string methods available for index objects,  in this case  columns.str.replace()  which allows you to do this without looping over the values yourself: 
+
+  In [23]: df = pd.DataFrame(np.random.randn(3,3), columns=['a\nb', 'c d', 'e\n f'])
+
+In [24]: df.columns
+Out[24]: Index([u'a\nb', u'c d', u'e\n f'], dtype='object')
+
+In [25]: df.columns.str.replace(' |\n', '_')
+Out[25]: Index([u'a_b', u'c_d', u'e__f'], dtype='object')
+  
+
+ And by using a regular expression, you can replace spaces and newlines at the same time. See the docs: http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.replace.html (for Series, but the method is the same for Index) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38117138)
+ You did not specify a regex or require an exact match, hence str.replace worked 
+
+  str.replace(old, new[, count])
+  
+
+ Return a copy of the string with all occurrences of substring old replaced by new. If the optional argument count is given, only the first count occurrences are replaced. 
+
+  DataFrame.replace(to_replace=None, value=None, inplace=False, limit=None, regex=False, method='pad', axis=None)
+
+parameter: to_replace : str, regex, list, dict, Series, numeric, or None
+  
+
+ str or regex:
+str: string exactly matching to_replace will be replaced with value
+regex: regexs matching to_replace will be replaced with value 
+
+ They're not actually in the string: you have unescaped control characters, which Python displays using the hexadecimal notation: 
+
+ remove all non-word characters in the following way: 
+
+  re.sub(r'[^\w]', '', '\x00\x00\x00\x08\x01\x008\xe6\x7f')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46241437)
+ Since you wrote alphanumeric, you need to add 0-9 in the regex.
+... 
+
+  import pandas as pd
+
+ded = pd.DataFrame({'strings': ['a#bc1!', 'a(b$c']})
+
+ded.strings.str.replace('[^a-zA-Z0-9]', '')
+  
+
+ But it's basically what COLDSPEED wrote 
+
+
+

@@ -1,0 +1,382 @@
+Query: Is it possible to take an ordered "slice" of a dictionary in Python based on a list of keys?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52643900)
+ Iterating a dictionary will only yield keys. To slice a dictionary, you need to extract both key and value via  dict.items . In addition, note  collections.Counter  is a subclass of  dict , so no  dict  conversion is necessary. 
+
+ 
+   How can I get a slice of dictionary items? Is there a way I could do
+  this without actually iterating through the entire dictionary and
+  updating to a new dictionary? 
+ 
+
+ No, you cannot slice a dictionary without iteration. You can create a new  Counter  object and use  islice  to return the first 3 values  by insertion order . This still requires iteration, and works in Python 3.6+ where dictionaries are insertion ordered. 
+
+  from collections import Counter
+from itertools import islice
+
+c = Counter('abbcccddeeff')
+
+lengths = Counter()
+lengths.update(dict(islice(c.items(), 3)))
+
+print(lengths)
+
+Counter({'c': 3, 'b': 2, 'a': 1})
+  
+
+ A couple of points to note: 
+
+ 
+ The order in which  Counter  objects are printed do not correspond to the internal order in which items are stored, which is still  insertion ordered . See also https://stackoverflow.com/questions/52174284/how-are-counter-defaultdict-ordered-in-python-3-7 
+ You may wonder why, if dictionaries are ordered, as they are in
+Python 3.6+, you  cannot  slice directly. There are structural
+reasons why this is not possible: see https://stackoverflow.com/questions/52507860/accessing-dictionary-items-by-position-in-python-3-6-efficiently. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27912525)
+  __getslice__  is deprecated way of implementing slicing. Instead you should handle  slice  objects with  __getitem__ : 
+
+  from collections import OrderedDict
+
+class SlicableDict(OrderedDict):
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return 'potato({},{},{})'.format(key.start, key.stop, key.step)
+        return super(SlicableDict, self).__getitem__(key)
+
+>>> s = SlicableDict(a=1, b=2, c=3)
+>>> s
+SlicableDict([('a', 1), ('c', 3), ('b', 2)])
+>>> s['a']
+1
+>>> s['a':'c']
+'potato(a,c,None)'
+  
+
+ And if you need more than potato, than you can implement all three slicing operations following way: 
+
+  def _key_slice_to_index_slice(items, key_slice):
+    try:
+        if key_slice.start is None:
+            start = None
+        else:
+            start = next(idx for idx, (key, value) in enumerate(items)
+                         if key == key_slice.start)
+        if key_slice.stop is None:
+            stop = None
+        else:
+            stop = next(idx for idx, (key, value) in enumerate(items)
+                        if key == key_slice.stop)
+    except StopIteration:
+        raise KeyError
+    return slice(start, stop, key_slice.step)
+
+class SlicableDict(OrderedDict):
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            items = self.items()
+            index_slice = _key_slice_to_index_slice(items, key)
+            return SlicableDict(items[index_slice])
+        return super(SlicableDict, self).__getitem__(key)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, slice):
+            items = self.items()
+            index_slice = _key_slice_to_index_slice(items, key)
+            items[index_slice] = value.items()
+            self.clear()
+            self.update(items)
+            return
+        return super(SlicableDict, self).__setitem__(key, value)
+
+    def __delitem__(self, key):
+        if isinstance(key, slice):
+            items = self.items()
+            index_slice = _key_slice_to_index_slice(items, key)
+            del items[index_slice]
+            self.clear()
+            self.update(items)
+            return
+        return super(SlicableDict, self).__delitem__(key)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9932766)
+ A straight forward way would be to pick each item from the dictionary and check if the key is present in the list 
+
+  >>> [e for e in my_dictionary.items() if e[0] in my_list]
+[(1, 'hello'), (2, 'goodbye'), (3, 'World')]
+  
+
+ The above search would be linear so you might gain some performance by converting the list to set 
+
+  >>> [e for e in my_dictionary.items() if e[0] in set(my_list)]
+[(1, 'hello'), (2, 'goodbye'), (3, 'World')]
+  
+
+ And finally if you need a dictionary instead of a list of key,value pair tuples you can use dictionary comprehension 
+
+  >>> dict(e for e in my_dictionary.items() if e[0] in set(my_list))
+{1: 'hello', 2: 'goodbye', 3: 'World'}
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27912702)
+ Try this (very ugly) implementation 
+
+  class SliceOrdered(OrderedDict):
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            tmp = OrderedDict()
+            i_self = iter(self)
+            for k in i_self:
+                if key.start <= k <= key.stop:
+                    tmp[k] = self[k]
+                    if key.step is not None and key.step > 1:
+                        for _ in range(key.step-1):
+                            try:
+                                next(i_self)
+                            except StopIteration:
+                                break
+            return tmp
+        else:
+            return super(SliceOrdered, self).__getitem__(key)
+  
+
+ DEMO (Python3.4) 
+
+  >>> s = SliceOrdered([('a',2), ('b',2), ('c',3), ('d',4)])
+>>> s['a':'c']
+OrderedDict([('a', 2), ('b', 2), ('c', 3)])
+>>> s['a':'d':2]
+OrderedDict([('a', 2), ('c', 3)])
+  
+
+   N.B.   this probably only works because in this example, the  OrderedDict  was not only ordered, but also sorted. In an unsorted dictionary the slice  'a':'c'  does not necessary contain  'b' , so my  if key.start <= k <= key.stop  logic probably fails. The following code should respect that: 
+
+  class SliceOrdered(OrderedDict):
+    def __getitem__(self, key):
+        if not isinstance(key, slice):
+            return super(SliceOrdered,self).__getitem__(key)
+        tmp = OrderedDict()
+        step = key.step or 1
+        accumulating = False
+        i_self = iter(self)
+        for k in i_self:
+            if k == key.start:
+                accumulating = True
+            if accumulating:
+                tmp[k] = self[k]
+                for _ in range(step-1):
+                    next(i_self)
+            if k == key.stop:
+                accumulating = False
+                break
+        return tmp
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43713621)
+ I can see you have resolved your issue, but I thought I'd leave an answer here for any future readers. Who might get caught by this (I just was). 
+
+ The issue is that the object is a dictionary and you are trying to pass it a slice, which is not hashable and hence cant be used as a dict key. 
+
+ Simple example 
+
+  >>> d = {0: 5, 1: 6, 2: 7, 3: 8, 4: 9}
+>>> d[:5]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: unhashable type: 'slice'
+  
+
+ What you are trying to do is take  n  items from the collection. So the way to achieve this is to first convert the dict to a list (which is sliceable). To do this use  dict.items ,  dict.keys  or  dict.values  depending on your use case. 
+
+ A dict (recent python 3.6 development notwithstanding) is not ordered and so what you will get back from  dict.items  (or friends) may not be in an order useful to you. So you can sort it before making the slice. 
+
+  >>> sorted(d.items())[:5]
+[(0, 5), (1, 6), (2, 7), (3, 8), (4, 9)]
+  
+
+ The above code is slightly ugly, but works. 
+
+ You could avoid the indexing by using  islice  from itertools 
+
+  >>> from itertools import islice
+>>> list(islice(sorted(d.items()), 5))
+[(0, 5), (1, 6), (2, 7), (3, 8), (4, 9)]
+  
+
+ You'd provide a key to sort if the default sorting order was not what you wanted. This way is inefficient as it sorts the entire collection before slicing, not sure of a way around that, perhaps something like a quick select algorithm. 
+
+ Anyone arriving at this page and being puzzled by the above error, will not have realised they are attempting a slice on a dictionary. Performing a slice on a dictionary, doesn't really make a lot of sense and most experienced developers would realise that if you do that you are asking for an unpredictable result. 
+
+ If you genuinely do want to take the first n elements from a dictionary, say a row from a csv file where the columns are in some prescribed order. It would be much better to format the required keys into a tuple and just take those elements from the dict. 
+
+ e.g. 
+
+ To take only the first two columns from the dict 
+
+  people = [{'name': 'paul', 'job': 'programmer', 'age': 'old'}, 
+          {'name': 'chris', 'job': 'student', 'age': 'young'}]
+
+>>> for p in people:
+...     res = [p[key] for key in ('name', 'job')]
+...     print(res)
+['paul', 'programmer']
+['chris', 'student']
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47704499)
+ On Python 3 you can use the itertools  islice  to slice the  dict.items()  iterator 
+
+  import itertools
+
+d = {1: 2, 3: 4, 5: 6}
+
+dict(itertools.islice(d.items(), 2))
+
+{1: 2, 3: 4}
+  
+
+  Note:  this solution does  not  take into account specific keys. It slices by internal ordering of  d , which in Python 3.7+ is guaranteed to be insertion-ordered. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27912838)
+ This is the actual implementation of the slicing feature you are expecting.  
+
+  OrderedDict  internally maintains the order of the keys in the form of a doubly linked list. https://hg.python.org/cpython/file/648dcafa7e5f/Lib/collections.py#l33, 
+
+  # The internal self.__map dict maps keys to links in a doubly linked list.
+# The circular doubly linked list starts and ends with a sentinel element.
+# The sentinel element never gets deleted (this simplifies the algorithm).
+# Each link is stored as a list of length three:  [PREV, NEXT, KEY].
+  
+
+ Now, to slice the dictionary, we need to iterate the doubly linked list,  __root , which is actually a private variable, protected by the https://docs.python.org/2/tutorial/classes.html#private-variables-and-class-local-references. 
+
+  Note:  This involves hacky name unmangling to use the  OrderedDict 's internal data structures. 
+
+  from collections import OrderedDict
+
+class SlicableDict(OrderedDict):
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            # Unmangle `__root` to access the doubly linked list
+            root = getattr(self, "_OrderedDict__root")
+            # By default, make `start` as the first element, `end` as the last
+            start, end = root[1][2], root[0][2]
+            start = key.start or start
+            end = key.stop or end
+            step = key.step or 1
+            curr, result, begun, counter = root[1], [], False, 0
+
+            # Begin iterating
+            curr, result, begun = root[1], [], False
+            while curr is not root:
+                # If the end value is reached, `break` and `return`
+                if curr[2] == end:
+                    break
+                # If starting value is matched, start appending to `result`
+                if curr[2] == start:
+                    begun = True
+                if begun:
+                    if counter % step == 0:
+                        result.append((curr[2], self[curr[2]]))
+                    counter += 1
+
+                # Make the `curr` point to the next element
+                curr = curr[1]
+
+            return result
+
+        return super(SlicableDict, self).__getitem__(key)
+  
+
+  
+
+  >>> s = SlicableDict(a=1, b=2, c=3, d=4)
+>>> s
+SlicableDict([('a', 1), ('c', 3), ('b', 2), ('e', 5), ('d', 4), ('f', 6)])
+>>> s['a':'c']
+[('a', 1)]
+>>> s['a':]
+[('a', 1), ('c', 3), ('b', 2), ('e', 5), ('d', 4)]
+>>> s[:'a']
+[]
+>>> s['a':'f':2]
+[('a', 1), ('b', 2), ('d', 4)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30975441)
+ In Python 2, you can slice the  keys : 
+
+  x.keys()[1:3]
+  
+
+ and to support both Python 2 and Python 3, you'd convert to a list first: 
+
+  list(k)[1:3]
+  
+
+ The Python 2  OrderedDict.keys()  implementation does exactly that. 
+
+ In both cases you are given a list of keys in correct order. If creating a whole list first is an issue, you can use https://docs.python.org/3/library/itertools.html#itertools.islice and convert the iterable it produces to a list: 
+
+  from itertools import islice
+
+list(islice(x, 1, 3))
+  
+
+ All of the above also can be applied to the items; use  dict.viewitems()  in Python 2 to get the same iteration behaviour as Python 3  dict.items()  provides. You can pass the  islice()  object straight to another  OrderedDict()  in this case: 
+
+  OrderedDict(islice(x.items(), 1, 3))  # x.viewitems() in Python 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/7971660)
+ Python's  dict s are not ordered, so it's meaningless to ask for the "first N" keys. 
+
+ The http://docs.python.org/dev/library/collections.html#collections.OrderedDict class is available if that's what you need. You could efficiently get its first four elements as 
+
+  import itertools
+import collections
+
+d = collections.OrderedDict((('foo', 'bar'), (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')))
+x = itertools.islice(d.items(), 0, 4)
+
+for key, value in x:
+    print key, value
+  
+
+ http://docs.python.org/library/itertools.html#itertools.islice allows you to lazily take a slice of elements from any iterator. If you want the result to be reusable you'd need to convert it to a list or something, like so: 
+
+  x = list(itertools.islice(d.items(), 0, 4))
+  
+
+
+

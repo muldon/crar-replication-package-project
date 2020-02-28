@@ -1,0 +1,427 @@
+Query: Pythons fastest way of randomising case of a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8344981)
+  
+
+  word="this is a lower case string"
+caps = word.upper()
+''.join(x[random.randint(0,1)] for x in zip(word, caps))
+  
+
+ This should outperform your version because it makes many fewer calls to  upper  and because, more importantly, it avoids the O(N^2) successive appends you used in the version with the loops.  
+
+ With the modification to the question, you'll need to create both the lowercase and uppercase versions: 
+
+  word="This is a MixeD cAse stRing"
+caps = word.upper()
+lowers = word.lower()
+''.join(random.choice(x) for x in zip(caps, lowers))
+  
+
+ As suggested by Tim Pietzcker in the comments, I've used  random.choice  to select the letters from the tuples created by the  zip  call. 
+
+ Since the question has been changed to focus more on speed, the fastest approach is likely to be using Numpy: 
+
+  ''.join(numpy.where(numpy.random.randint(2, size=len(caps)), list(caps), list(lowers)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8344979)
+  import random
+s = 'this is a lower case string'
+
+''.join(random.choice((str.upper,str.lower))(x) for x in s)
+  
+
+  random.choice  randomly selects one from two functions  str.upper ,  str.lower . 
+
+ Then this function is applied to  x  for each letter in the input string  s . 
+
+ If initial string has all the letters in lowercase, that I would use this code: 
+
+  ''.join(x.upper() if random.randint(0,1) else x for x in s)
+  
+
+ because the initial code would use redundant  str.lowercase  on half of the letters in the case of lowercase initial string. 
+
+ By the way, look at the other answer by Michael J. Barber. Python have hefty charges for function calls. In his code he calls  str.upper  only once. In my code  str.upper  is called for about half the symbols of the initial string.  So still a temporary upper-cased string is created in memory, the time efficiency of his code may be much greater. 
+
+ 
+
+ Lo and behold: 
+
+ Code timing comparisons: https://ideone.com/eLygn 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3477394)
+ http://www.mail-archive.com/python-list@python.org/msg125198.html on the Python mailing list about a module that generates all permutations of a regex. I'm not so sure how you might go about randomising it though. I'll keep checking. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48422376)
+ So it's a speed race is it? 
+
+ Building on the work of Martijn Pieters, I've got a solution which cleverly leverages another library for generating random strings:   uuid . 
+
+ My solution is to generate a  uuid4 , base64 encode it and uppercase it, to get only the characters we're after, then slice it to a random length. 
+
+ This works for this case because the length of outputs we're after, (12-20), is shorter than the shortest base64 encoding of a uuid4.  It's also really fast, because  uuid  is very fast. 
+
+ I also made it a generator instead of a regular function, because they can be more efficient. 
+
+ Interestingly, using the standard library's  randint  function was faster than  numpy 's. 
+
+ Here is the test output: 
+
+  Timing 40k keys 10 times with produce_amount_keys
+20.899942063027993
+Timing 40k keys 10 times with produce_amount_keys, stdlib randint
+20.85920040300698
+Timing 40k keys 10 times with uuidgen
+3.852462349983398
+Timing 40k keys 10 times with uuidgen, stdlib randint
+3.136272903997451
+  
+
+ Here is the code for  uuidgen() : 
+
+  def uuidgen(count, _randint=np.random.randint):
+    generated = set()
+
+    while True:
+        if len(generated) == count:
+            return
+
+        candidate = b64encode(uuid4().hex.encode()).upper()[:_randint(12, 20)]
+        if candidate not in generated:
+            generated.add(candidate)
+            yield candidate
+  
+
+ And https://github.com/asday/uuidgen is the entire project.  (At commit https://github.com/Asday/uuidgen/tree/d9925de3c08688a1fb9026fe1a9041774a9ddd97 at the time of writing). 
+
+ 
+
+ Thanks to feedback from Martijn Pieters, I've improved the method somewhat, increasing the entropy, and speeding it up by a factor of about 1/6th. 
+
+ There is still a lot of entropy lost in casting all lowercase letters to uppercase.  If that's important, then it's possibly advisable to use  b32encode()  instead, which has the characters we want, minus  0 ,  1 ,  8 , and  9 . 
+
+ The new solution reads as follows: 
+
+  def urandomgen(count):
+    generated = set()
+
+    while True:
+        if len(generated) == count:
+            return
+
+        desired_length = randint(12, 20)
+
+        # # Faster than math.ceil
+        # urandom_bytes = urandom(((desired_length + 1) * 3) // 4)
+        #
+        # candidate = b64encode(urandom_bytes, b'//').upper()
+        #
+        # The above is rolled into one line to cut down on execution
+        # time stemming from locals() dictionary access.
+
+        candidate = b64encode(
+            urandom(((desired_length + 1) * 3) // 4),
+            b'//',
+        ).upper()[:desired_length]
+
+        while b'/' in candidate:
+            candidate = candidate.replace(b'/', choice(ALLOWED_CHARS), 1)
+
+        if candidate not in generated:
+            generated.add(candidate)
+            yield candidate.decode()
+  
+
+ And the test output: 
+
+  Timing 40k keys 10 times with produce_amount_keys, stdlib randint
+19.64966493297834
+Timing 40k keys 10 times with uuidgen, stdlib randint
+4.063803717988776
+Timing 40k keys 10 times with urandomgen, stdlib randint
+2.4056471119984053
+  
+
+ The new commit in my repository is https://github.com/Asday/uuidgen/tree/5625fdfd4bc167d34d865009a4d18682e10fb293. 
+
+ 
+
+ Martijn's comments on entropy got me thinking.  The method I used with  base64  and  .upper()  makes letters SO much more common than numbers.  I revisited the problem with a more binary mind on. 
+
+ The idea was to take output from  os.urandom() , interpret it as a long string of 6-bit unsigned numbers, and use those numbers as an index to a rolling array of the allowed characters.  The first 6-bit number would select a character from the range  A..Z0..9A..Z01 , the second 6-bit number would select a character from the range  2..9A..Z0..9A..T , and so on. 
+
+ This has a slight crushing of entropy in that the first character will be slightly less likely to contain  2..9 , the second character less likely to contain  U..Z0 , and so on, but it's so much better than before. 
+
+ It's slightly faster than  uuidgen() , and slightly slower than  urandomgen() , as shown below: 
+
+  Timing 40k keys 10 times with produce_amount_keys, stdlib randint
+20.440480664998177
+Timing 40k keys 10 times with uuidgen, stdlib randint
+3.430628580001212
+Timing 40k keys 10 times with urandomgen, stdlib randint
+2.0875444510020316
+Timing 40k keys 10 times with bytegen, stdlib randint
+2.8740892770001665
+  
+
+ I'm not entirely sure how to eliminate the last bit of entropy crushing; offsetting the start point for the characters will just move the pattern along a little, randomising the offset will be slow, shuffling the map will still have a period...  I'm open to ideas. 
+
+ The new code is as follows: 
+
+  from os import urandom
+from random import randint
+from string import ascii_uppercase, digits
+
+# Masks for extracting the numbers we want from the maximum possible
+# length of `urandom_bytes`.
+bitmasks = [(0b111111 << (i * 6), i) for i in range(20)]
+allowed_chars = (ascii_uppercase + digits) * 16  # 576 chars long
+
+
+def bytegen(count):
+    generated = set()
+
+    while True:
+        if len(generated) == count:
+            return
+
+        # Generate 9 characters from 9x6 bits
+        desired_length = randint(12, 20)
+        bytes_needed = (((desired_length * 6) - 1) // 8) + 1
+
+        # Endianness doesn't matter.
+        urandom_bytes = int.from_bytes(urandom(bytes_needed), 'big')
+
+        chars = [
+            allowed_chars[
+                (((urandom_bytes & bitmask) >> (i * 6)) + (0b111111 * i)) % 576
+            ]
+            for bitmask, i in bitmasks
+        ][:desired_length]
+
+        candidate = ''.join(chars)
+
+        if candidate not in generated:
+            generated.add(candidate)
+            yield candidate
+  
+
+ And the full code, along with a more in-depth README on the implementation, is over at https://github.com/Asday/uuidgen/commit/de0db8e62189e263528eae883b3f57a3dfb071e1/implementations. 
+
+ I tried several things to speed the implementation up, as visible in the repo.  Something that would definitely help is a character encoding where the numbers and ASCII uppercase letters are sequential. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2128985)
+ Some comments: 
+
+ Pythons  return "Error"  is not throwing an exception. It returns the string value "Error". 
+
+ Pythons  if not k:  is not equivalent to  if (k == 0)  there are more things that are "not", like empty lists, the None value, etc (that may not make a difference in this case). 
+
+ Pythons  foo = [for x in bar]  is a list comprehension.  
+
+  foo = []
+for x in bar:
+   foo.append(x)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13242206)
+ Sidestepping for a moment the question about your code, I will point out that one of the usual (and fastest) ways to count things is with the Counter class from the collections module.  Here is an example of its use, in the Python 2.7.3 interpreter: 
+
+  >>> from collections import Counter
+>>> lets=Counter('aaaaabadfasdfasdfafsdff')
+>>> lets
+Counter({'a': 9, 'f': 6, 'd': 4, 's': 3, 'b': 1})
+>>> s = "the quick brown fox jumped over the lazy dog"
+>>> Counter(s)
+Counter({' ': 8, 'e': 4, 'o': 4, 'd': 2, 'h': 2, 'r': 2, 'u': 2, 't': 2, 'a': 1, 'c': 1, 'b': 1, 'g': 1, 'f': 1, 'i': 1, 'k': 1, 'j': 1, 'm': 1, 'l': 1, 'n': 1, 'q': 1, 'p': 1, 'w': 1, 'v': 1, 'y': 1, 'x': 1, 'z': 1})
+  
+
+ To use reduce, define an auxiliary function  addto(oldtotal,newitem)  that adds  newitem  to  oldtotal  and returns a new total.  The initializer for the total is an empty dictionary,  {} .  Here is an interpreted example.  Note that the second parameter to get() is a default value to use when the key is not yet in the dictionary. 
+
+   >>> def addto(d,x):
+...     d[x] = d.get(x,0) + 1
+...     return d
+... 
+>>> reduce (addto, s, {})
+{' ': 8, 'a': 1, 'c': 1, 'b': 1, 'e': 4, 'd': 2, 'g': 1, 'f': 1, 'i': 1, 'h': 2, 'k': 1, 'j': 1, 'm': 1, 'l': 1, 'o': 4, 'n': 1, 'q': 1, 'p': 1, 'r': 2, 'u': 2, 't': 2, 'w': 1, 'v': 1, 'y': 1, 'x': 1, 'z': 1}
+  
+
+ The code shown below prints the execution times for 1000 passes each of several methods.  When executed on an old AMD Athlon 5000+ Linux 3.2.0-32 Ubuntu 12 system with two different strings  s  it printed: 
+
+  String length is 44   Pass count is 1000
+horsch1 : 0.77517914772
+horsch2 : 0.778718948364
+jreduce : 0.0403778553009
+jcounter: 0.0699260234833
+String length is 4931   Pass count is 100
+horsch1 : 8.25176692009
+horsch2 : 8.14318394661
+jreduce : 0.260674953461
+jcounter: 0.282369852066
+  
+
+ (The reduce method ran slightly faster than the Counter method.)
+The timing code follows.  It uses the http://docs.python.org/2/library/timeit.html#module-timeit module.  In the code as here, the first parameter to  timeit.Timer  is code to be repeatedly timed, and the second parameter is setup code. 
+
+  import timeit
+from collections import Counter
+passes = 1000
+
+m1 = lambda x: [int(ord(x) == i) for i in xrange(65,91)]
+
+def m2(x):
+    return [int(ord(x) == i) for i in xrange(65,91)]
+
+def es1(s):
+    add = lambda x,y: [x[i]+y[i] for i in xrange(len(x))]
+    freq = reduce(add,map(m1, s.upper()))
+    return freq
+
+def es2(s):
+    add = lambda x,y: [x[i]+y[i] for i in xrange(len(x))]
+    freq = reduce(add,map(m2, s.upper()))
+    return freq
+
+def addto(d,x):
+    d[x] = d.get(x,0) + 1
+    return d
+
+def jwc(s):
+    return Counter(s)
+
+def jwr(s):
+    return reduce (addto, s, {})
+
+s = "the quick brown fox jumped over the lazy dog"
+print 'String length is',len(s), '  Pass count is',passes
+print "horsch1 :",timeit.Timer('f(s)', 'from __main__ import s, m1,     es1 as f').timeit(passes)
+print "horsch2 :",timeit.Timer('f(s)', 'from __main__ import s, m2,     es2 as f').timeit(passes)
+print "jreduce :",timeit.Timer('f(s)', 'from __main__ import s, addto,  jwr as f').timeit(passes)
+print "jcounter:",timeit.Timer('f(s)', 'from __main__ import s, Counter,jwc as f').timeit(passes)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43616647)
+ Including a real User-Agent solved it for me: 
+
+  >>> requests.get("http://prnt.sc/", headers={'User-Agent': 'Mozilla/5.0 (Platform; Security; OS-or-CPU; Localization; rv:1.4) Gecko/20030624 Netscape/7.1 (ax)'}).status_code
+200
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52743884)
+ Four ways to do this. 
+
+ The first is just a regular 'ole loop: 
+
+  li=[]
+for s in a:
+    m = re.search(r'v-02-(\d\d\d)', s)
+    if m:
+        li.append(m.group(1))
+ # li=['001', '002', '003']
+  
+
+ Second in two calls to the same regex in a list comprehension: 
+
+  >>> [re.search(r'v-02-(\d\d\d)', s).group(1) for s in a if re.search(r'v-02-(\d\d\d)', s)]
+['001', '002', '003']
+  
+
+ Third is to use  map : 
+
+  >>> [m.group(1) for m in map(lambda s: re.search(r'v-02-(\d\d\d)', s), a) if m]
+['001', '002', '003']
+  
+
+ Finally, you can flatten the list with  .join  and then use  findall : 
+
+  >>> re.findall(r'\bv-02-(\d\d\d)\b', '\t'.join(a))
+['001', '002', '003']
+  
+
+ Or, use  \n  and  re.M  vs two  \b : 
+
+  >>> re.findall(r'^v-02-(\d\d\d)$', '\n'.join(a), flags=re.M)
+['001', '002', '003']
+  
+
+ I would probably write this in that same order if I were writing this bit of code.  
+
+ What is considered  more elegant  is in the eye of the beholder I suppose. I would consider the last one to be  more elegant.  
+
+ 
+
+ You can also skip the regex and use Python's string methods: 
+
+  >>> prefix='v-02-'
+>>> [e[len(prefix):] for e in filter(lambda s: s.startswith(prefix),a)]
+['001', '002', '003']
+  
+
+ That would likely be the  fastest  if that matters in this case. 
+
+ 
+
+ In December of 2019, there will be a more  elegant  alternative. As defined in https://www.python.org/dev/peps/pep-0572/, you will be able to use an assignment statement so you can assign the match and test the match in one step: 
+
+  [m.group(1) for s in a if (m:=re.search(r'v-02-(\d\d\d)', s))]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14388950)
+ I'm not usually the guy saying "use regex," but this is a good use-case for it: 
+
+  import re    
+c['date']=re.sub(r'.*(\w{4})(\w{2})(\w{2}).*',r"\1-\2-\3",c['date'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43865084)
+ We do not need any import to do this. This also works much faster 
+
+  def is_valid_ip(str_ip_addr):
+   """
+   :return: returns true if IP is valid, else returns False
+   """
+   ip_blocks = str(str_ip_addr).split(".")
+   if len(ip_blocks) == 4:
+       for block in ip_blocks:
+           # Check if number is digit, if not checked before calling this function
+           if not block.isdigit():
+               return False
+           tmp = int(block)
+           if 0 > tmp > 255:
+               return False
+       return True
+    return False
+  
+
+
+

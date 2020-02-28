@@ -1,0 +1,325 @@
+Query: Pandas Dataframe: Replacing NaN with row average
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/47776950)
+ As an alternative, you could also use an  apply  with a  lambda  expression like this: 
+
+  df.apply(lambda row: row.fillna(row.mean()), axis=1)
+  
+
+  
+
+      c1   c2   c3
+0  1.0  4.0  7.0
+1  2.0  5.0  3.5
+2  3.0  6.0  9.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24469699)
+ Since  np.average  doesn't handle  nan  itself, you'll have to handle them yourself.  The easiest way to do this is to just subset your  subdf  before doing anything on it.  Add  subdf = subdf.dropna(subset=['data'])  at the beginning of your  wavg  to get rid of rows that have NaN in the "data" column: 
+
+  def wavg(subdf):
+    series = pd.Series()
+    subdf = subdf.dropna(subset=['data'])
+
+    series['np.mean'] = np.mean(subdf['data'])
+    series['np.average (no weights)'] = np.average(subdf['data'])
+    series['np.average (weighted)'] = np.average(subdf['data'], weights=subdf['Weights'])
+    series['np.ma.average (weighted)'] = np.ma.average(subdf['data'], weights=subdf['Weights']) 
+
+    return series
+  
+
+ As I suggested in my comment, I removed the loop from  wavg .  You only want to return one set of averages (i.e., one mean, one average, one weighted average, one masked average) per group.  But with your loop, you are recomputing this same thing four times for every group (since there are four columns in your DataFrame). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33058777)
+ As commented the axis argument to fillna is https://github.com/pydata/pandas/issues/4514. 
+
+  df.fillna(df.mean(axis=1), axis=1)
+  
+
+  Note: this would be critical here as you don't want to fill in your nth columns with the nth row average.  
+
+  
+
+  In [11]: m = df.mean(axis=1)
+         for i, col in enumerate(df):
+             # using i allows for duplicate columns
+             # inplace *may* not always work here, so IMO the next line is preferred
+             # df.iloc[:, i].fillna(m, inplace=True)
+             df.iloc[:, i] = df.iloc[:, i].fillna(m)
+
+In [12]: df
+Out[12]:
+   c1  c2   c3
+0   1   4  7.0
+1   2   5  3.5
+2   3   6  9.0
+  
+
+ An alternative is to fillna the transpose and then transpose, which may be more efficient... 
+
+  df.T.fillna(df.mean(axis=1)).T
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40299102)
+ I think you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html and  apply  http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.fillna.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.mean.html. Then get  NaN  if some category has only  NaN  values, so use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.mean.html of all values of column for filling  NaN : 
+
+  df.value = df.groupby('category')['value'].apply(lambda x: x.fillna(x.mean()))
+df.value = df.value.fillna(df.value.mean())
+print (df)
+   id category  value
+0   1        A   6.25
+1   2        B   1.00
+2   3        A  10.50
+3   4        C   4.15
+4   5        A   2.00
+5   6        B   1.00
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54703092)
+ You need to handle numeric and non-numeric columns separately 
+
+  df.replace('?', np.nan, inplace = True)
+
+df['C1'] = df['C1'].astype(float)
+df['C1'] = df['C1'].astype(float).fillna(df['C1'].mean())
+
+non_numeric = ['C2', 'C3']
+df[non_numeric]=df[non_numeric].fillna(df.mode().iloc[0])
+
+    C1      C2  C3
+0   10.0    a   b
+1   10.0    a   b
+2   10.0    c   c
+3   10.0    a   b
+4   10.0    a   b
+5   10.0    a   b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45365687)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.apply.html with  axis=1  for process by rows: 
+
+  df1 = df1.apply(lambda x: x.fillna(x.mean()), axis=1)
+print(df1)
+
+     C1   C2   C3
+R1 -6.0 -2.0  2.0
+R2 -1.5 -6.0  3.0
+R3 -6.3  8.0  9.0
+R4 -7.0 -7.0 -7.0
+  
+
+ Also works: 
+
+  df1 = df1.T.fillna(df1.mean(1)).T
+print(df1)
+     C1   C2   C3
+R1 -6.0 -2.0  2.0
+R2 -1.5 -6.0  3.0
+R3 -6.3  8.0  9.0
+R4 -7.0 -7.0 -7.0
+  
+
+  
+
+  df1 = df1.fillna(df1.mean(1), axis=1)
+print(df1)
+  
+
+ 
+   NotImplementedError: Currently only can fill with dict/Series column by column 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27498754)
+ This is not the prettiest approach in the world but here goes. Start by finding the integer indices of desired data replacement  ind . In the following example I am replacing values of  df["col1"]  with  df["col2"]  
+
+  import numpy as np
+
+ind = np.where( df.col1.isnull() & df.col1.shift(-1).notnull() )
+
+df.loc[df.index[ind], "col1"] = df.loc[df.index[ind], "col2"]
+  
+
+ Is this what you wanted? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34275613)
+ IIUC you could use  apply  with  axis=1  and  fillna  with your custom function: 
+
+  In [80]: df
+Out[80]: 
+   ID  val0  val1  val2  valn
+0   0     1     2     3   NaN
+1   1     1   NaN     3     4
+2   2     0     0   NaN     1
+
+
+In [83]: df.apply(lambda x: x.fillna(pd.np.mean(x.iloc[1:])), axis=1)
+Out[83]: 
+   ID  val0      val1      val2  valn
+0   0     1  2.000000  3.000000     2
+1   1     1  2.666667  3.000000     4
+2   2     0  0.000000  0.333333     1
+  
+
+ Instead of  pd.np.mean  you could use your function.  x.iloc[1:]  is used because, as I understand, you want to use for your function only  val  columns. 
+
+  EDIT  
+
+ If you want to get column names for missing values you could apply or use that function for processing: 
+
+  def func(x):
+    x.loc[x.isnull()] = x.index[x.isnull()]
+    return x
+
+In [209]: df.apply(func, axis=1)
+Out[209]: 
+   ID  val0  val1  val2  valn
+0   0     1     2     3  valn
+1   1     1  val1     3     4
+2   2     0     0  val2     1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38230319)
+ IIUC you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.combine_first.html or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.fillna.html if need replace  NaN  by values of other column: 
+
+  print (df.A.combine_first(df.B))
+id
+1    13.0
+2    98.0
+3    20.0
+4    10.0
+5    39.0
+6    30.0
+Name: A, dtype: float64
+  
+
+  
+
+  print (df.A.fillna(df.B))
+id
+1    13.0
+2    98.0
+3    20.0
+4    10.0
+5    39.0
+6    30.0
+Name: A, dtype: float64
+
+
+print (df.A.combine_first(df.B) + df.B)
+id
+1     26.0
+2    196.0
+3     43.0
+4     55.0
+5    103.0
+6     40.0
+dtype: float64
+  
+
+ If need sum two columns with replacing  NaN  to  0  use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.add.html with parameter  fill_value : 
+
+  print (df.A.add(df.B, fill_value=0))
+id
+1     13.0
+2     98.0
+3     43.0
+4     55.0
+5    103.0
+6     40.0
+dtype: float64
+  
+
+ EDIT: 
+
+ You need: 
+
+  df.ix[1,'A'] = df.ix[1,'balance']
+print (df)
+       A   B  balance
+id                   
+1   23.0  13       23
+2    NaN  98       41
+3   20.0  23       12
+4   10.0  45       22
+5   39.0  64       32
+6   30.0  10        0
+  
+
+ EDIT1: 
+
+  df.ix[1,'A'] = df.ix[1,'balance']
+df.ix[1,'B'] = df.ix[1,'B'] + df.ix[1,'balance']
+
+print (df)
+       A   B  balance
+id                   
+1   23.0  36       23
+2    NaN  98       41
+3   20.0  23       12
+4   10.0  45       22
+5   39.0  64       32
+6   30.0  10        0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/42132783)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.combine_first.html or http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.fillna.html: 
+
+  df.B = df.B.combine_first(df.A)
+print (df)
+       A      B
+0  123.0  123.0
+1  456.0  456.0
+2    NaN  789.0
+  
+
+  
+
+  df.B = df.B.fillna(df.A)
+print (df)
+       A      B
+0  123.0  123.0
+1  456.0  456.0
+2    NaN  789.0
+  
+
+ Anf if no  NaN  values in  B  after replacing cast to  int : 
+
+  df.B = df.B.fillna(df.A).astype(int)
+print (df)
+       A    B
+0  123.0  123
+1  456.0  456
+2    NaN  789
+  
+
+
+

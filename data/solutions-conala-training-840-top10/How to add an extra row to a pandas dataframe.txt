@@ -1,0 +1,327 @@
+Query: How to add an extra row to a pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25376997)
+  
+
+  df.loc[len(df)]=['8/19/2014','Jun','Fly','98765'] 
+  
+
+ Warning: this method works only if there are no "holes" in the index. For example, suppose you have a dataframe with three rows, with indices 0, 1, and 3 (for example, because you deleted row number 2). Then, len(df) = 3, so by the above command does not add a new row - it overrides row number 3.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40447279)
+ 
+ split the dataframe into before and after 
+ df0, df1 = df.iloc[:1], df.iloc[1:]    
+ create a series of what goes in between 
+ s = pd.Series(0, df.columns).to_frame().T    
+ concatenate all 3 
+ pd.concat([df0, s, df1], ignore_index=True)    
+ 
+
+ 
+
+  df0, df1 = df.iloc[:1], df.iloc[1:]
+s = pd.Series(0, df.columns).to_frame().T
+pd.concat([df0, s, df1], ignore_index=True)
+  
+
+ https://i.stack.imgur.com/8qbYM.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34956415)
+ I think it is bug, see https://github.com/pydata/pandas/issues/6618. 
+
+ Maybe help little trick - add  types_header_for_insert  before first row to data: 
+
+  #! /usr/bin/env python
+import pandas as pd
+
+df = pd.DataFrame([[1, 2], [3, 4]], columns=list('AB'))
+
+# get count of header columns, add REAL for each one
+types_header_for_insert = list(df.columns.values)
+for idx, val in enumerate(types_header_for_insert):
+    types_header_for_insert[idx] = 'REAL'
+
+# count number of index columns, then add STRING for each one
+index_count = len(df.index.names)
+for idx in range(0, index_count):
+    df.reset_index(level=0, inplace=True)
+    types_header_for_insert.insert(0, 'STRING')
+
+# insert the new types column
+#df.columns = pd.MultiIndex.from_tuples(zip(df.columns, types_header_for_insert))
+
+#set new value to dataframe
+df.loc[-1]  = types_header_for_insert
+
+#sort index 
+df = df.sort_index()
+print df
+#     index     A     B
+#-1  STRING  REAL  REAL
+# 0       0     1     2
+# 1       1     3     4
+
+print df.to_csv(index=False)
+#index,A,B
+#STRING,REAL,REAL
+#0,1,2
+#1,3,4
+  
+
+ EDIT 
+
+ In large df you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.append.html: 
+
+  #empty df with column from df
+df1 = pd.DataFrame(columns = df.columns)
+#create series from types_header_for_insert
+s = pd.Series(types_header_for_insert, index=df.columns)
+print s
+index    STRING
+A          REAL
+B          REAL
+dtype: object
+
+df1 = df1.append(s, ignore_index=True).append(df, ignore_index=True)
+print df1
+    index     A     B
+0  STRING  REAL  REAL
+1       0     1     2
+2       1     3     4
+
+print df1.to_csv(index=False)
+index,A,B
+STRING,REAL,REAL
+0,1,2
+1,3,4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51240595)
+ Use parameter  startrow=1  for omit first row and write text to first cell, check also https://xlsxwriter.readthedocs.io/working_with_cell_notation.html: 
+
+  writer = pd.ExcelWriter('pandas_simple.xlsx', engine='xlsxwriter')
+df.to_excel(writer, sheet_name='Sheet1', startrow = 1, index=False)
+workbook  = writer.book
+worksheet = writer.sheets['Sheet1']
+
+text = 'Employee Salary Database'
+worksheet.write(0, 0, text)
+
+writer.save()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34357710)
+ With a small  DataFrame , if you want to insert a line, at position  1 : 
+
+  df = pd.DataFrame({'a':[0,1],'b':[2,3]})
+
+df1 = pd.DataFrame([4,5]).T  
+
+pd.concat([df[:1], df1.rename(columns=dict(zip(df1.columns,df.columns))), df[1:]])
+
+#Out[46]: 
+#   a  b
+#0  0  2
+#0  4  5
+#1  1  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48350336)
+ Have you tried initializing the columns as  nan , iterating through the dataframe by row, and assigning the values with  loc ? 
+
+  import numpy as np
+import pandas as pd
+
+df = pd.DataFrame(np.random.randint(0, 20, (10, 5)))
+
+df[5] = np.nan
+df[6] = np.nan
+
+for i, row in df.iterrows():
+    df.loc[i, 5] = row[1] + row[4]
+    df.loc[i, 6] = row[3] * 2
+
+print(df)
+  
+
+  
+
+      0   1   2   3   4
+0  17   4   3  11  10
+1  16   1  14  11  16
+2   4  18  12  19   7
+3  11   3   7  10   5
+4  11   0  10   1  17
+5   5  17  10   3   8
+6   0   0   7   3   6
+7   7  18  18  13   8
+8  16   4  12  11  16
+9  13   9  15   8  19
+
+    0   1   2   3   4     5     6
+0  17   4   3  11  10  14.0  22.0
+1  16   1  14  11  16  17.0  22.0
+2   4  18  12  19   7  25.0  38.0
+3  11   3   7  10   5   8.0  20.0
+4  11   0  10   1  17  17.0   2.0
+5   5  17  10   3   8  25.0   6.0
+6   0   0   7   3   6   6.0   6.0
+7   7  18  18  13   8  26.0  26.0
+8  16   4  12  11  16  20.0  22.0
+9  13   9  15   8  19  28.0  16.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31675177)
+ Suppose your data looks like this: 
+
+  import pandas as pd
+import numpy as np
+
+np.random.seed(2015)
+df = pd.DataFrame([])
+for i in range(5):
+    data = dict(zip(np.random.choice(10, replace=False, size=5),
+                    np.random.randint(10, size=5)))
+    data = pd.DataFrame(data.items())
+    data = data.transpose()
+    data.columns = data.iloc[0]
+    data = data.drop(data.index[[0]])
+    df = df.append(data)
+print('{}\n'.format(df))
+# 0   0   1   2   3   4   5   6   7   8   9
+# 1   6 NaN NaN   8   5 NaN NaN   7   0 NaN
+# 1 NaN   9   6 NaN   2 NaN   1 NaN NaN   2
+# 1 NaN   2   2   1   2 NaN   1 NaN NaN NaN
+# 1   6 NaN   6 NaN   4   4   0 NaN NaN NaN
+# 1 NaN   9 NaN   9 NaN   7   1   9 NaN NaN
+  
+
+ Then it could be replaced with  
+
+  np.random.seed(2015)
+data = []
+for i in range(5):
+    data.append(dict(zip(np.random.choice(10, replace=False, size=5),
+                         np.random.randint(10, size=5))))
+df = pd.DataFrame(data)
+print(df)
+  
+
+ In other words, do not form a new DataFrame for each row. Instead, collect all the data in a list of dicts, and then call  df = pd.DataFrame(data)  once at the end, outside the loop. 
+
+ Each call to  df.append  requires allocating space for a new DataFrame with one extra row, copying all the data from the original DataFrame into the new DataFrame, and then copying data into the new row. All that allocation and copying makes calling  df.append  in a loop very inefficient. The time cost of copying http://stackoverflow.com/a/36489724/190597 with the number of rows. Not only is the call-DataFrame-once code easier to write, it's performance will be much better -- the time cost of copying grows linearly with the number of rows. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19368360)
+ Upcoming pandas 0.13 version will allow to add rows through  loc  on non existing index data. 
+
+ Description is http://pandas.pydata.org/pandas-docs/stable/indexing.html#setting-with-enlargement and this new feature is called  Setting With Enlargement . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29841807)
+ To Add to the answer given by @Andy-Hayden, to do this inplace to the whole frame... not really sure why this works, but it does. There seems to be no control on the order. 
+
+      In [97]: A = pd.DataFrame(np.random.randint(0,100,(4,5)), columns=['one','two','three','four','five'])
+
+    In [98]: A
+    Out[98]: 
+    one  two  three  four  five
+    0   22   63     72    46    49
+    1   43   30     69    33    25
+    2   93   24     21    56    39
+    3    3   57     52    11    74
+
+    In [99]: A.values.sort
+    Out[99]: <function ndarray.sort>
+
+    In [100]: A
+    Out[100]: 
+    one  two  three  four  five
+    0   22   63     72    46    49
+    1   43   30     69    33    25
+    2   93   24     21    56    39
+    3    3   57     52    11    74
+
+    In [101]: A.values.sort()
+
+    In [102]: A
+    Out[102]: 
+    one  two  three  four  five
+    0   22   46     49    63    72
+    1   25   30     33    43    69
+    2   21   24     39    56    93
+    3    3   11     52    57    74
+    In [103]: A = A.iloc[:,::-1]
+
+    In [104]: A
+    Out[104]: 
+    five  four  three  two  one
+    0    72    63     49   46   22
+    1    69    43     33   30   25
+    2    93    56     39   24   21
+    3    74    57     52   11    3
+  
+
+ I hope someone can explain the why of this, just happy that it works 8) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/35731606)
+ You could use pd.apply. 
+
+  Eg:
+
+A = pd.DataFrame(np.random.randint(0,100,(4,5)), columns=['one','two','three','four','five']) 
+print (A)
+
+   one  two  three  four  five
+0    2   75     44    53    46
+1   18   51     73    80    66
+2   35   91     86    44    25
+3   60   97     57    33    79
+
+A = A.apply(np.sort, axis = 1) 
+print(A)
+
+   one  two  three  four  five
+0    2   44     46    53    75
+1   18   51     66    73    80
+2   25   35     44    86    91
+3   33   57     60    79    97
+  
+
+ Since you want it in descending order, you can simply multiply the dataframe with -1 and sort it. 
+
+  A = pd.DataFrame(np.random.randint(0,100,(4,5)), columns=['one','two','three','four','five'])
+A = A * -1
+A = A.apply(np.sort, axis = 1)
+A = A * -1
+  
+
+
+

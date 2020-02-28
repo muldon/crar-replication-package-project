@@ -1,0 +1,281 @@
+Query: Regex to match 'lol' to 'lolllll' and 'omg' to 'omggg', etc
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3897156)
+  
+
+  \b(?=lol)\S*(\S+)(?<=\blol)\1*\b
+  
+
+ (replace  lol  with  omg ,  haha  etc.) 
+
+ This will match  lol ,  lololol ,  lollll ,  lollollol  etc. but fail  lolo ,  lollllo ,  lolly  and so on. 
+
+ The rules:  
+
+ 
+ Match the word  lol  completely. 
+ Then allow any repetition of one or more characters at the end of the word (i. e.  l ,  ol  or  lol ) 
+ 
+
+ So  \b(?=zomg)\S*(\S+)(?<=\bzomg)\1*\b  will match  zomg ,  zomggg ,  zomgmgmg ,  zomgomgomg  etc. 
+
+  
+
+  result = re.sub(
+    r"""(?ix)\b    # assert position at a word boundary
+    (?=lol)        # assert that "lol" can be matched here
+    \S*            # match any number of characters except whitespace
+    (\S+)          # match at least one character (to be repeated later)
+    (?<=\blol)     # until we have reached exactly the position after the 1st "lol"
+    \1*            # then repeat the preceding character(s) any number of times
+    \b             # and ensure that we end up at another word boundary""", 
+    "lol", subject)
+  
+
+ This will also match the "unadorned" version (i. e.  lol  without any repetition). If you don't want this, use  \1+  instead of  \1* . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3895901)
+  FIRST APPROACH -  
+
+ Well, using regular expression(s) you could do like so -  
+
+  import re
+re.sub('g+', 'g', 'omgggg')
+re.sub('l+', 'l', 'lollll')
+  
+
+ etc. 
+
+ Let me point out that using regular expressions is a very fragile & basic approach to dealing with this problem. You could so easily get strings from users which will break the above regular expressions. What I am trying to say is that this approach requires lot of maintenance in terms of observing the patterns of mistakes the users make & then creating case specific regular expressions for them. 
+
+  SECOND APPROACH -  
+
+ Instead have you considered using  difflib  module? It's a module with helpers for computing deltas between objects. Of particular importance here for you is  SequenceMatcher . To paraphrase from http://docs.python.org/library/difflib.html-  
+
+ 
+   SequenceMatcher is a flexible class
+  for comparing pairs of sequences of
+  any type, so long as the sequence
+  elements are hashable. SequenceMatcher
+  tries to compute a "human-friendly
+  diff" between two sequences. The
+  fundamental notion is the longest
+   contiguous  & junk-free matching subsequence. 
+ 
+
+  import difflib as dl
+x   = dl.SequenceMatcher(lambda x : x == ' ', "omg", "omgggg")
+y   = dl.SequenceMatcher(lambda x : x == ' ', "omgggg","omg")
+avg = (x.ratio()+y.ratio())/2.0
+if avg>= 0.6: 
+    print 'Match!'
+else:
+    print 'Sorry!'
+  
+
+ According to documentation, any ratio() over 0.6 is a close match. You might need to explore tweak the ratio for your data needs. If you need more stricter matching I found any value over 0.8 serves well. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33607936)
+ You should understand first what your regex is doing. 
+
+ It matches the first  l  with  [b-df-hj-np-tv-z] , then a vowel  o  with  [aeiou] , and then the following  l  with  [b-df-hj-np-tv-z] . The match is found and returned. The index is at the second  o . This  o  cannot be matched with  [b-df-hj-np-tv-z] , thus, the match is failed, the index is moved on to the next  l . A match is found:  lol . Then again  o  cannot be matched, and then  lo  is not matched as there is no final third character there. 
+
+ You only need to use a look-ahead  (?=[b-df-hj-np-tv-z])  instead of a  [b-df-hj-np-tv-z]  so that the character is only  checked  and not  consumed : 
+
+  import re
+p = re.compile(r'[b-df-hj-np-tv-z][aeiou](?=[b-df-hj-np-tv-z])') 
+#                                        ^^^                 ^ 
+test_str = "lolololol"
+print(p.findall(test_str))
+print(len(p.findall(test_str)))
+  
+
+ See https://ideone.com/V2GgMd 
+
+ That way, the trailing "syllable" boundary is checked, but not consumed and is available to be tested during the next regex iteration. 
+
+ A must-read article about how http://www.rexegg.com/regex-lookarounds.html#stand_their_ground. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/118165)
+ That regular expression matches here, no idea what you are doing wrong: 
+
+  >>> import re
+>>> x = re.compile(r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|'
+... r'2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9]'
+... r'[0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
+>>> x.match("127.0.0.1")
+<_sre.SRE_Match object at 0x5a8860>
+>>> x.match("127.255.0.1")
+<_sre.SRE_Match object at 0x5a8910>
+>>> x.match("127.255.0.0")
+<_sre.SRE_Match object at 0x5a8860>
+  
+
+ Please note that  preg_match  translates to  re.search  in Python and not  re.match .   re.match  is for useful for lexing because it's anchored. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9396328)
+ You are not keeping the result of  x.replace() . Try the following instead: 
+
+  for tag in tags:
+    x = x.replace(tag, '')
+print x
+  
+
+ Note that your approach matches any substring, and not just full words. For example, it would remove the  LOL  in  RUN LOLA RUN . 
+
+ One way to address this would be to enclose each tag in a pair of  r'\b'  strings, and look for the resulting http://docs.python.org/library/re.html. The  r'\b'  would only match at word boundaries: 
+
+  for tag in tags:
+    x = re.sub(r'\b' + tag + r'\b', '', x)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19750289)
+ With the harder string Satoru added, this works: 
+
+  >>> import re
+>>> a = "one two three four five six one three four seven two"
+>>> re.findall("one(?!.*two.*four).*four", a)
+['one three four']
+  
+
+ But - someday - you're really going to regret writing tricky regexps.  If this were a problem I needed to solve, I'd do it like this: 
+
+  for m in re.finditer("one.*?four", a):
+    if "two" not in m.group():
+        break
+  
+
+ It's tricky enough that I'm using a minimal match there ( .*? ).  Regexps can be a real pain :-( 
+
+ EDIT:  LOL!  But the messier regexp at the top fails yet again if you make the string harder still: 
+
+  a = "one two three four five six one three four seven two four"
+  
+
+ FINALLY:  here's a correct solution: 
+
+  >>> a = 'one two three four five six one three four seven two four'
+>>> m = re.search("one([^t]|t(?!wo))*four", a)
+>>> m.group()
+'one three four'
+>>> m.span()
+(28, 42)
+  
+
+ I know you said you wanted  m.end()  to be 41, but that was incorrect. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50690264)
+ The reason why there are empty array literals  []  is because this line actually exists, but is either empty (containing just  \n ) or does not match the regex  '[a-zA-Z]{2}\d{8}' . And please note that  regex.findall(line)  returns an list, so if the regex did not find any that matches, it is an empty list. 
+
+ Your main error happened in this section:  if not k=='': . Note  k  is an list. 
+
+ Consider this code: 
+
+  import re
+
+k=''
+regex = re.compile(r'[a-zA-Z]{2}\d{8}')
+
+with open("omg.txt", 'r') as f:
+    for line in f:
+        line = line.replace(',', '')
+        line = line.replace('.', '')
+        k = regex.findall(line)
+        #k.append(line)
+
+        position = False        
+        if str(k) != '[]': # The `[]` is just the string representation of an empty array
+            position=True
+            print(k)
+        else:
+            position=False
+  
+
+ Given the file (Text after # are ignored, not part of the file) 
+
+  AZ23153133
+# Empty line
+AB12355342
+gz # No match
+XY93312344
+  
+
+ The output would be 
+
+  ['AZ23153133']
+['AB12355342']
+['XY93312344']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3549160)
+  Edited:  now it will work with multiline sentences too. 
+
+  >>> t = "OMG is this a question ! Is this a sentence ? My\n name is."
+>>> re.findall("[A-Z].*?[\.!?]", t, re.MULTILINE | re.DOTALL )
+['OMG is this a question !', 'Is this a sentence ?', 'My\n name is.']
+  
+
+ Only one thing left to explain -  re.DOTALL  makes  .  match newline as described http://docs.python.org/library/re.html#re.DOTALL 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35823095)
+ The issue is due to the fact you're using a repeated capturing group,  (,\d{3})*  in your pattern. Python's regex engine will match that against both the thousands and ones groups of your number, but only the last repetition will be captured. 
+
+ I suspect you want to use non-capturing groups instead. Add  ?:  to the start of each set of parentheses (I'd also recommend, on general principle, to use a raw string, though you don't have escaping issues in your current pattern): 
+
+  numComma = re.compile(r'^(?:\d{1,3})(?:,\d{3})*$')
+  
+
+ Since there are no groups being captured,  re.findall  will return the whole matched text, which I think is what you wanted. You can also use  re.find  or  re.search  and call the  group()  method on the returned  match  object to get the whole matched text. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31810122)
+ You can use negative look arounds to ensure that the title is not within  []  
+
+  \b<!\[)[A-Z ]{2,}!\])\b
+  
+
+ 
+   \b  Matches word boundary.  
+   <!\[)  Negative look behind. Checks if the matched string is not preceded by  [   
+   [A-Z ]{2,}  Matches 2 or more uppercase letters.  
+   !\])  Negative look ahead. Ensures that the string is not followed by  ]   
+ 
+
+  Example  
+
+  >>> string = """Hello this is JURASSIC WORLD shut up Ok
+... [REVIEW] The movie BATMAN is awesome lol"""
+>>> re.findall(r'\b<!\[)[A-Z ]{2,}!\])\b', string)
+[' JURASSIC WORLD ', ' BATMAN ']
+>>>
+  
+
+
+

@@ -1,0 +1,201 @@
+Query: Double-decoding unicode in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50066788)
+ Alright so I essentially just had to make some guesses at the encoding until I came up with the solution. The problem is that the data was cp1252 encoded as well (probably because the data is coming from a Windows system). The solution is to call  .decode('utf-8').encode('cp1252').decode('utf-8')  and  voila : 
+
+  >>> raw = '\xc3\x82\xc2\xa9\xc3\x82\xc2\xae\xc3\xa2\xe2\x80\x9e\xc2\xa2'
+>>> print raw.decode('utf-8').encode('cp1252').decode('utf-8')
+©®™
+  
+
+ I hope someone else gets help by stumbling across this! 
+
+ Found this which helped too: 
+
+ https://gist.github.com/litchfield/1282752/653b0c1944741ac90ca9c63c25ee3c2f609b323b 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1177542)
+ 
+>>> s = u'Rafa\xc5\x82'
+>>> s.encode('raw_unicode_escape').decode('utf-8')
+u'Rafa\u0142'
+>>>
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25815104)
+ First of all, the comments are right: for the sake of your sanity, you should only ever work with unicode inside your Python code, decoding from Shift-JIS that comes in, and encoding back to Shift-JIS if that's what you need to output: 
+
+  text = incoming_bytes.decode("shift_jis")
+# ... do stuff ...
+outgoing_bytes = text.encode("shift_jis")
+  
+
+ See: https://pythonhosted.org/kitchen/unicode-frustrations.html#convert-text-at-the-border. 
+
+ Now that you're doing it right re: unicode and encoded bytestrings, it's straightforward to get either "any digit" or "any double width digit" with a regex: 
+
+  >>> import re
+>>> s = u"２34"
+>>> digit = re.compile(r"\d", re.U)
+>>> for d in re.findall(digit, s):
+...     print d,
+... 
+２ 3 4
+>>> wdigit = re.compile(u"[０-９]+")
+>>> for wd in re.findall(wdigit, s):
+...     print wd,
+... 
+２
+  
+
+ In case the  re.U  flag is unfamiliar to you, it's documented https://docs.python.org/2/library/re.html#re.U. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4267360)
+ What you want is the encoding where Unicode code point X is encoded to the same byte value X. For code points inside 0-255 you have this in the latin-1 encoding: 
+
+  def double_decode(bstr):
+    return bstr.decode("utf-8").encode("latin-1").decode("utf-8")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36598556)
+ These are not "hex characters" but the internal representation (utf-8 encoded in the first case, unicode code point in the second case) of the unicode characters 'LEFT DOUBLE QUOTATION MARK' ('“') and 'RIGHT DOUBLE QUOTATION MARK' ('”').   
+
+  >>> s = "\xe2\x80\x9chttp://www.google.com\xe2\x80\x9d blah blah#%#@$^blah"
+>>> print s
+“http://www.google.com” blah blah#%#@$^blah
+>>> s.decode("utf-8")
+u'\u201chttp://www.google.com\u201d blah blah#%#@$^blah'
+>>> print s.decode("utf-8")
+“http://www.google.com” blah blah#%#@$^blah
+  
+
+ As how to remove them, they are just ordinary characters so a simple  str.replace()  will do: 
+
+  >>> s.replace("\xe2\x80\x9c", "").replace("\xe2\x80\x9d", "")
+'http://www.google.com blah blah#%#@$^blah'
+  
+
+ If you want to get rid of all non-ascii characters at once, you just have to decode to unicode then encode to ascii with the "ignore" parameter: 
+
+  >>> s.decode("utf-8").encode("ascii", "ignore")
+'http://www.google.com blah blah#%#@$^blah'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20922160)
+ Your data is UTF-8 encoded GB2312, at least as pasted into my UTF-8 configured terminal window: 
+
+  >>> data = '»Æ¹ûÊ÷'
+>>> data.decode('utf8').encode('latin1').decode('gb2312')
+u'\u9ec4\u679c\u6811'
+>>> print _
+黄果树
+  
+
+ Encoding to Latin 1 lets us interpret characters as bytes to fix the encoding. 
+
+ Rule of thumb: whenever you have double-encoded data, undo the extra 'layer' of encoding by decoding to Unicode using that codec, then encoding again with Latin-1 to get bytes again. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51717538)
+ On Python 2 (default string type is bytes): 
+
+  >>> s = 'HDCF\xc3\x82\xc2\xae FTAE\xc3\x82\xc2\xae Greater China'
+>>> s.decode('ascii',errors='ignore').encode('ascii')
+'HDCF FTAE Greater China'
+  
+
+ On Python 3 (default string type is Unicode): 
+
+  >>> s = 'HDCF\xc3\x82\xc2\xae FTAE\xc3\x82\xc2\xae Greater China'
+>>> s.encode('ascii',errors='ignore').decode('ascii')
+'HDCF FTAE Greater China'
+  
+
+ Note that the original string is a https://en.wikipedia.org/wiki/Mojibake.  Ideally fix how the string was read, but you can undo the damage with (Python 3): 
+
+  >>> s.encode('latin1').decode('utf8').encode('latin1').decode('utf8')
+'HDCF® FTAE® Greater China'
+  
+
+ The original string was double-encoded as UTF-8.  This works by converting the string directly 1:1 back to bytes<sup>1</sup>, decoding as UTF-8, then converting directly back to bytes again and decoding with UTF-8 again. 
+
+ Here's the Python 2 version: 
+
+  >>> s = 'HDCF\xc3\x82\xc2\xae FTAE\xc3\x82\xc2\xae Greater China'
+>>> print s.decode('utf8').encode('latin1').decode('utf8')
+HDCF® FTAE® Greater China
+  
+
+ <sup>1</sup>This works because the  latin1  codec is a 256-byte encoding and directly maps to the first 256 Unicode codepoints. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1177568)
+ Yow, that was fun! 
+
+  >>> original = "Rafa\xc3\x85\xc2\x82"
+>>> first_decode = original.decode('utf-8')
+>>> as_chars = ''.join([chr(ord(x)) for x in first_decode])
+>>> result = as_chars.decode('utf-8')
+>>> result
+u'Rafa\u0142'
+  
+
+ So you do the first decode, getting a Unicode string where each character is actually a UTF-8 byte value.  You go via the integer value of each of those characters to get back to a genuine UTF-8 string, which you then decode as normal. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1178086)
+  >>> weird = u'Rafa\xc5\x82'
+>>> weird.encode('latin1').decode('utf8')
+u'Rafa\u0142'
+>>>
+  
+
+ latin1 is just an abbreviation for Richie's nuts'n'bolts method. 
+
+ It is very curious that the seriously under-described  raw_unicode_escape  codec gives the same result as  latin1  in this case. Do they always give the same result? If so, why have such a codec? If not, it would preferable to know for sure exactly how the OP's client did the transformation from  'Rafa\xc5\x82'  to  u'Rafa\xc5\x82'  and then to reverse that process exactly -- otherwise we might come unstuck if different data crops up before the double encoding is fixed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44299288)
+  string = "\x22my quote\x22"
+print(string)
+  
+
+ You don't need to decode,  Python 3  does that for you, but you need the correct control character for the double quote  "  
+
+ If however you have a different character set, it appears you have Windows-1252, then you need to decode the byte string from that character set: 
+
+  str(b"\x94my quote\x94", "windows-1252")
+  
+
+ If your string isn't a byte string you have to encode it first, I found the latin-1 encoding to work: 
+
+  string = "\x94my quote\x94"
+str(string.encode("latin-1"), "windows-1252")
+  
+
+
+

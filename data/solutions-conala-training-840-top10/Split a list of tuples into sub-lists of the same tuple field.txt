@@ -1,0 +1,311 @@
+Query: Split a list of tuples into sub-lists of the same tuple field
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/54351733)
+ https://docs.python.org/3/library/collections.html#collections.defaultdict</h3>
+
+  itertools.groupby  requires the input to be sorted by the key field, otherwise you will have to sort  first , incurring O( n  log  n ) cost. For guaranteed O( n ) time complexity, you can use a  defaultdict  of lists: 
+
+  from collections import defaultdict
+
+dd = defaultdict(list)
+for item in data:
+    dd[item[1]].append(item)
+
+res = list(dd.values())
+
+print(res)
+
+[[(1, 'A', 'foo'), (2, 'A', 'bar'), (100, 'A', 'foo-bar')],
+ [('xx', 'B', 'foobar'), ('yy', 'B', 'foo')],
+ [(1000, 'C', 'py'), (200, 'C', 'foo')]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8092908)
+ Use http://docs.python.org/library/itertools.html#itertools.groupby: 
+
+  import itertools
+import operator
+
+data=[(1, 'A', 'foo'),
+    (2, 'A', 'bar'),
+    (100, 'A', 'foo-bar'),
+
+    ('xx', 'B', 'foobar'),
+    ('yy', 'B', 'foo'),
+
+    (1000, 'C', 'py'),
+    (200, 'C', 'foo'),
+    ]
+
+for key,group in itertools.groupby(data,operator.itemgetter(1)):
+    print(list(group))
+  
+
+  
+
+  [(1, 'A', 'foo'), (2, 'A', 'bar'), (100, 'A', 'foo-bar')]
+[('xx', 'B', 'foobar'), ('yy', 'B', 'foo')]
+[(1000, 'C', 'py'), (200, 'C', 'foo')]
+  
+
+ Or, to create one list with each group as a sublist, you could use a list comprehension: 
+
+  [list(group) for key,group in itertools.groupby(data,operator.itemgetter(1))]
+  
+
+ 
+
+ The second argument to  itertools.groupby  is a function which  itertools.groupby  applies to each item in  data  (the first argument). It is expected to return a  key .  itertools.groupby   groups together all contiguous items with the same  key . 
+
+ http://docs.python.org/library/operator.html#operator.itemgetter picks off the second item in a sequence. 
+
+ For example, if 
+
+  row=(1, 'A', 'foo')
+  
+
+  
+
+  operator.itemgetter(1)(row)
+  
+
+ equals  'A' . 
+
+ 
+
+ As @eryksun points out in the comments, if the categories of the tuples appear in some random order,  you must sort  data  first before applying  itertools.groupby . This is because  itertools.groupy  only collects  contiguous  items with the same key into groups. 
+
+ To sort the tuples by category, use: 
+
+  data2=sorted(data,key=operator.itemgetter(1))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13327164)
+  
+
+  myList = [(1,2),(2,3),(0,0),(4,0),(0,1),(3,9),(2,0),(2,4)]
+groupedList = []
+subList = []
+for tup in myList:
+    if tup[1] == 0:
+        if subList != []:
+            groupedList.append(subList)
+            subList = []
+    else:
+        subList.append(tup)
+if subList != []:
+    groupedList.append(subList)
+print groupedList
+  
+
+ Output: 
+
+  [[(1, 2), (2, 3)], [(0, 1), (3, 9)], [(2, 4)]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39441824)
+ If you consider using tuples to pair the items, then this works:    
+
+  >>> from pprint import pprint
+>>> lst = ['AGCTT 6 6 35 25 10', 'AGGGT 7 7 28 29 2']
+>>> new_lst = [list(zip(sub[0], sub[1:])) for sub in [i.split() for i in lst]]
+>>> pprint(new_lst)
+[[('A', '6'), ('G', '6'), ('C', '35'), ('T', '25'), ('T', '10')],
+ [('A', '7'), ('G', '7'), ('G', '28'), ('G', '29'), ('T', '2')]]
+  
+
+ 
+   [i.split() for i in lst] : An initial split on the string.  
+   zip(sub[0], sub[1:])) : Zip lists of alphabets and list of numbers  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39269494)
+ Here comes a solution 
+
+ A test file: 
+
+  In[19]: f = ["{} {}".format(i,j) for i,j in zip(xrange(10), xrange(10, 20))]
+In[20]: f
+Out[20]: 
+['0 10',
+ '1 11',
+ '2 12',
+ '3 13',
+ '4 14',
+ '5 15',
+ '6 16',
+ '7 17',
+ '8 18',
+ '9 19']
+  
+
+ One liner using comprehension, zip and map: 
+
+  In[27]: l, l2 = map(list,zip(*[(tuple(map(int, x.split())), tuple(map(int, x.split()))[::-1]) for x in f]))
+In[28]: l
+Out[28]: 
+[(0, 10),
+ (1, 11),
+ (2, 12),
+ (3, 13),
+ (4, 14),
+ (5, 15),
+ (6, 16),
+ (7, 17),
+ (8, 18),
+ (9, 19)]
+In[29]: l2
+Out[29]: 
+[(10, 0),
+ (11, 1),
+ (12, 2),
+ (13, 3),
+ (14, 4),
+ (15, 5),
+ (16, 6),
+ (17, 7),
+ (18, 8),
+ (19, 9)]
+  
+
+ Explaining, with  [(tuple(map(int, x.split())), tuple(map(int, x.split()))[::-1]) for x in f]  we build a list containing a pair tuple with the pair tuples and its reversed forms: 
+
+  In[24]: [(tuple(map(int, x.split())), tuple(map(int, x.split()))[::-1]) for x in f]
+Out[24]: 
+[((0, 10), (10, 0)),
+ ((1, 11), (11, 1)),
+ ((2, 12), (12, 2)),
+ ((3, 13), (13, 3)),
+ ((4, 14), (14, 4)),
+ ((5, 15), (15, 5)),
+ ((6, 16), (16, 6)),
+ ((7, 17), (17, 7)),
+ ((8, 18), (18, 8)),
+ ((9, 19), (19, 9))]
+  
+
+ Applaying  zip  to the unpack form we split the tuples inside the main tuple, so we have 2 tuples containing the tuples pairs in the first and the reversed in the others: 
+
+  In[25]: zip(*[(tuple(map(int, x.split())), tuple(map(int, x.split()))[::-1]) for x in f])
+Out[25]: 
+[((0, 10),
+  (1, 11),
+  (2, 12),
+  (3, 13),
+  (4, 14),
+  (5, 15),
+  (6, 16),
+  (7, 17),
+  (8, 18),
+  (9, 19)),
+ ((10, 0),
+  (11, 1),
+  (12, 2),
+  (13, 3),
+  (14, 4),
+  (15, 5),
+  (16, 6),
+  (17, 7),
+  (18, 8),
+  (19, 9))]
+  
+
+ Almost there, we just use  map  to transform that tuples into lists. 
+
+  EDIT: 
+as @PadraicCunningham asked, for filtering empty lines, just add a  if x  in the comprehension  [ ... for x in f if x]  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28505529)
+ You can use  all  for each sub-tuple to check your condition for each element of that tuple. For example, say you want to check if all the elements of the tuple are greater than  2  
+
+  def foo(tup):
+    for sub in tup:
+        if all(i > 2 for i in sub):
+            print("all greater than two")
+
+>>> foo(one_tuple)
+all greater than two
+all greater than two
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12473261)
+ Um... regex?  
+
+  
+
+  result = [] # list of tuples
+for line in your_file:
+    fields = line.split(':')
+    first = int(fields[0].strip())
+    fields = fields[1:] # remove first field
+    for field in fields:
+        last, new_first = [int(x.strip()) for x in field.split(':')]
+        result.append((first, last))
+        first = new_first
+  
+
+ ...but what about the last field (QUAD, STADION)? ... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40271222)
+ You could use https://docs.python.org/2/library/itertools.html#itertools.groupby since we don't have the indices of the items that are  '00'  beforehand: 
+
+  from itertools import groupby
+
+a = ['31', '20', '54', '68', '65', '72', '00', '00', '00', '82', '4d', '61', '72', '67', '69', '6e', '00', '00', '00', '00','00', '84', '92', '4d','91']
+
+result = []
+for i, g in groupby(a, lambda x: x!='00'):
+    if i:
+        result.append(tuple(g))
+print(result)
+# [('31', '20', '54', '68', '65', '72'), ('82', '4d', '61', '72', '67', '69', '6e'), ('84', '92', '4d', '91')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15616192)
+  split  returns a list, if you want a tuple, convert it to a tuple: 
+
+      data_list.append(tuple(line.strip().split(',')))
+  
+
+ Please use the  csv  module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/41004299)
+ Assuming that there are no unhashable elements of the sublists, I would convert them to tuples and feed them to  collections.Counter  
+
+  from collections import Counter
+
+big_list = [list1, list2, ...]
+c = Counter(tuple(sublist) for l in big_list for sublist in l)
+final = [list(i) for i in c if c[i] > 1] 
+  
+
+
+

@@ -1,0 +1,218 @@
+Query: How do I convert a string of hexadecimal values to a list of integers?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14961653)
+  In [11]: a
+Out[11]: '\x00\x00\x00\x01\x00\x00\x00\xff\xff\x00\x00'
+
+In [12]: import array
+
+In [13]: array.array('B', a)
+Out[13]: array('B', [0, 0, 0, 1, 0, 0, 0, 255, 255, 0, 0])
+  
+
+ Some timings; 
+
+  $ python -m timeit -s 'text = "\x00\x00\x00\x01\x00\x00\x00\xff\xff\x00\x00";' ' map(ord, text)'
+1000000 loops, best of 3: 0.775 usec per loop
+
+$ python -m timeit -s 'import array;text = "\x00\x00\x00\x01\x00\x00\x00\xff\xff\x00\x00"' 'array.array("B", text)'
+1000000 loops, best of 3: 0.29 usec per loop
+
+$ python -m timeit -s 'import struct; text = "\x00\x00\x00\x01\x00\x00\x00\xff\xff\x00\x00"'  'struct.unpack("11B",text)'
+10000000 loops, best of 3: 0.165 usec per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14961584)
+ use http://docs.python.org/2/library/struct.html#struct.unpack: 
+
+  >>> import struct
+>>> s = '\x00\x00\x00\x01\x00\x00\x00\xff\xff\x00\x00'
+>>> struct.unpack('11B',s)
+(0, 0, 0, 1, 0, 0, 0, 255, 255, 0, 0)
+  
+
+ This gives you a  tuple  instead of a  list , but I trust you can convert it if you need to.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14961627)
+ You can use http://docs.python.org/2/library/functions.html#ord in combination with http://docs.python.org/2/library/functions.html#map: 
+
+  >>> s = '\x00\x00\x00\x01\x00\x00\x00\xff\xff\x00\x00'
+>>> map(ord, s)
+[0, 0, 0, 1, 0, 0, 0, 255, 255, 0, 0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36446343)
+ Use the built-in function https://docs.python.org/3/library/functions.html#int: 
+
+  >> print(int('0e', 16))
+14
+  
+
+ The second argument tells  int()  to expect numbers in hex, i.e. base 16. 
+
+ Note that there is no such thing as a "hex value"; hexadecimal is just a notation used when printing the number.  14  and  0xe  are the same number. 
+
+ You can of course convert the entire list using a list comprehension: 
+
+  list2 = [int(x, 16) for x in list1]
+  
+
+ Assuming the original list of strings is  list1 . 
+
+ If you want to print the numbers in hex, use https://docs.python.org/3/library/functions.html#hex, another built-in: 
+
+  >>> print(hex(int('e', 16)))
+0xe
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52855519)
+ Use nested list comprehension: 
+
+  df = pd.DataFrame({'rnti':['0x00000034,0x0000008a,0x00000145','0x00000034,0x0000008a']})
+print (df)
+                               rnti
+0  0x00000034,0x0000008a,0x00000145
+1             0x00000034,0x0000008a
+
+rnti_list = [[int(idx, 16) for idx in x.split(",")] for x in df['rnti']]
+print (rnti_list)
+[[52, 138, 325], [52, 138]]
+  
+
+ 
+
+  df['new'] = [[int(idx, 16) for idx in x.split(",")] for x in df['rnti']]
+print (df)
+                               rnti             new
+0  0x00000034,0x0000008a,0x00000145  [52, 138, 325]
+1             0x00000034,0x0000008a       [52, 138]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38056839)
+ A  bytearray  is always a list of integers. How they are displayed is only their representation. The same applies to the way you entered them. Python understand the  0x??  (hexadicimal) and  0??  (octal) notation for integers but it will display the decimal notation. 
+
+ To convert an integer to a  string  in the  0x??  format use  hex(value) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41959873)
+ Since you are having string of  hex  values. You may remove  ' 0x'  from the string to get the single hex number string. For example: 
+
+  my_str =  "0x00 0x01 0x13 0x00"
+hex_str = my_str.replace(' 0x', '')
+  
+
+ where value hold by  hex_str  will be: 
+
+  '0x00011300'   # `hex` string
+  
+
+ Now you may convert  hex  string to  int  as: 
+
+  >>> int(hex_str, 16)
+70400
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50091679)
+ If you have a single-character separator ( |  here) and want to process all the thus encoded data, you don't need regular expression matching to look for it. Instead, just split the string at the separator occurrences with the  .split()  method. 
+
+ If you have multi-line textual data and want to process the lines individually, get them with the  .splitlines()  method. 
+
+  
+
+  lines = e_traffic.splitlines()
+data = [line.split('|') for line in lines]
+  
+
+  data  will now be a nested list of strings: 
+
+  [['', '101', '102', '103', '110', '111', ''], ['', '94', '81', '48', '32', '103', '120', '']]
+  
+
+ You can convert the sequences of digits (which are still strings) to integers with the  int()  function: 
+
+  int_data = [[int(s) for s in line if s] for line in data]
+  
+
+ (The  if s  part of the inner list comprehension removes the empty strings for the leading and closing  |  on each line.) 
+
+ This gives us a nice nested list of integers in  int_data : 
+
+  [[101, 102, 103, 110, 111], [94, 81, 48, 32, 103, 120]]
+  
+
+ Sequences of integers can be converted to binary data with the  bytes()  function: 
+
+  bin_data = [bytes(seq) for seq in int_data]
+  
+
+ and finally, binary data can be converted to its hexadecimal representation (a string, once more) with the  .hex()  method of the  bytes  type: 
+
+  hex_values = [b.hex() for b in bin_data]
+  
+
+ We now have a list of strings in  hex_values : 
+
+  ['6566676e6f', '5e5130206778']
+  
+
+ Or, all the above in a single expression</h3>
+
+  hex_values = [
+  bytes(
+    int(n) for n in l.split('|') if n
+  ).hex() for l in e_traffic.splitlines()
+]
+  
+
+  
+
+  hex_values = [
+  bytes(
+    map(int, filter(None, l.split('|')))
+  ).hex() for l in e_traffic.splitlines()
+]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52855578)
+ Using  apply  
+
+  Ex:  
+
+  import pandas as pd
+
+df = pd.DataFrame({"rnti": ["0x00000034,0x0000008a,0x00000145"]})    
+print( df["rnti"].str.split(",").apply(lambda x: [int(i, 16) for i in x]) )
+  
+
+  Output:  
+
+  0    [52, 138, 325]
+Name: rnti, dtype: object
+  
+
+
+

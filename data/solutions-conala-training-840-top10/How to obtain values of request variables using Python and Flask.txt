@@ -1,0 +1,244 @@
+Query: How to obtain values of request variables using Python and Flask
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13279573)
+ You can get posted form data from  request.form  and query string data from  request.args . 
+
+  myvar =  request.form["myvar"]
+  
+
+
+
+  myvar = request.args["myvar"]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20341272)
+ If you want to retrieve POST data, 
+
+  first_name = request.form.get("firstname")
+  
+
+ If you want to retrieve GET (query string) data, 
+
+  first_name = request.args.get("firstname")
+  
+
+ Or if you don't care/know whether the value is in the query string or in the post data, 
+
+  first_name = request.values.get("firstname"). 
+  
+
+ request.values is a CombinedMultiDict that combines Dicts from request.form and request.args. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41923758)
+ Adding more to Jason's more generalized way of retrieving the POST data or GET data 
+
+  from flask_restful import reqparse
+
+def parse_arg_from_requests(arg, **kwargs):
+    parse = reqparse.RequestParser()
+    parse.add_argument(arg, **kwargs)
+    args = parse.parse_args()
+    return args[arg]
+
+form_field_value = parse_arg_from_requests('FormFieldValue')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43115084)
+ http://localhost:5000/api/iterators/opel/next ?n=5   
+
+ For something like the case before  
+
+  from flask import Flask, request
+n = request.args.get("n")
+  
+
+ Can do the trick 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50728523)
+ Using  request.form . 
+
+ Instead of getting a single form data ( request.form["field_name"] ), you can obtain all posted data, by parsing the  ImmutableDict  provided by  request.form  object, like this: 
+
+  Flask (Route)  
+
+  @app.route('/data', methods=['POST'])                                           
+def f_data():                                                                   
+    if request.method == "POST":
+        fields = [k for k in request.form]                                      
+        values = [request.form[k] for k in request.form]
+        data = dict(zip(fields, values))
+    return jsonify(data) 
+  
+
+    
+
+  $ curl http://127.0.0.1:5000/data -d "name=ivanleoncz&role=Software Developer"
+{
+  "name": "ivanleoncz", 
+  "role": "Software Developer"
+}
+  
+
+ For more details, this https://gist.github.com/ivanlmj/68d5f2ad587d9bcf3a10209d119f5874. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/22383659)
+ The simple answer is you have not imported the  request  global object from the flask package. 
+
+  from flask import Flask, request
+  
+
+ This is easy to determine yourself by running the development server in debug mode by doing 
+
+  app.run(debug=True)
+  
+
+ This will give you a stacktrace including: 
+
+  print request.args['x']
+NameError: global name 'request' is not defined
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42568021)
+ you need flask to return something to the browser: 
+
+  from flask import jsonify
+
+@app.route("/register", methods=["POST"])
+def register():
+    # this line goes to the console/terminal in flask dev server
+    print request.form
+    # this line prints out the form to the browser
+    return jsonify(request.form.to_dict())
+  
+
+ http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.MultiDict.to_dict returns a normal python dict from the MultiDict. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16875941)
+ I'm a bit late with this answer, but the other solutions don't really account for your use of Flask. 
+
+ The fact that you're using Flask with Jinja2 makes your situation a bit different from other frameworks. Flask actually makes some global variables available to you in all Jinja2 templates without requiring you to pass them to the template explicitly.  
+
+ To quote a part of the Flask documentation at http://flask.pocoo.org/docs/templating/#standard-context: 
+
+ 
+   The following global variables are available within Jinja2 templates by default: 
+  
+   ... 
+  
+   request
+  The current request object (flask.request) 
+  
+   ... 
+ 
+
+ So for example to show the request parameter 'a' in the template: 
+
+  {{ request.args.get('a') }}
+  
+
+ The documentation link also lists the other global variables you can access in a similar way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19103241)
+  flask.g  will only store things for the duration of a request. The documentation mentioned that the values are stored on the application context rather than the request, but that is more of an implementation issue: it doesn't change the fact that objects in  flask.g  are only available in the same thread, and during the lifetime of a single request. 
+
+ For example, in the http://flask.pocoo.org/docs/tutorial/dbcon/, the connection is made once at the beginning of the request, then terminated at the end of the request. 
+
+ Of course, if you really wanted to, you could create the database connection once, store it in  __init__.py , and reference it (as a global variable) as needed. However, you shouldn't do this: the connection could close or timeout, and you could not use the connection in multiple threads. 
+
+ Since you didn't specify HOW you will be using Mongo in Python, I assume you will be using http://api.mongodb.org/python/current/, since that handles all of the http://api.mongodb.org/python/current/faq.html#how-does-connection-pooling-work-in-pymongo for you. 
+
+ In this case, you would do something like this... 
+
+  from flask import Flask
+from pymongo import MongoClient
+# This line of code does NOT create a connection
+client = MongoClient()
+
+app = Flask()
+
+# This can be in __init__.py, or some other file that has imported the "client" attribute
+@app.route('/'):
+def index():
+    posts = client.database.posts.find()
+  
+
+ You could, if you wish, do something like this... 
+
+  from flask import Flask, g
+from pymongo import MongoClient
+# This line of code does NOT create a connection
+client = MongoClient()
+
+app = Flask()
+
+@app.before_request
+def before_request():
+    g.db = client.database
+
+@app.route('/'):
+def index():
+    posts = g.db.posts.find()
+  
+
+ This really isn't all that different, however it can be helpful for logic that you want to perform on every request (such as setting  g.db  to a specific database depending on the user that is logged in). 
+
+ Finally, you can realize that most of the work of setting up PyMongo with Flask is probably done for you in http://flask-pymongo.readthedocs.org/en/latest/. 
+
+ Your other question deals with how you keep track of stuff specific to the user that is logged in. Well, in this case, you DO need to store some data that sticks around with the connection.  flask.g  is cleared at the end of the reuquest, so that's no good. 
+
+ What you want to use is http://flask.pocoo.org/docs/quickstart/#sessions. This is a place where you can store values that is (with the default implementation) stored in a cookie on the user's browser. Since the cookie will be passed along with every request the user's browser makes to your web site, you will have available the data you put in the session. 
+
+ Keep in mind, though, that the session is NOT stored on the server. It is turned into a string that is passed back and forth to the user. Therefore, you can't store things like DB connections onto it. You would instead store identifiers (like user IDs). 
+
+ Making sure that user authentication works is VERY hard to get right. The security concerns that you need to make sure of are amazingly complex. I would strongly recommend using something like http://flask-login.readthedocs.org/en/latest/ to handle this for you. You can still use the  session  for storing other items as needed, or you can let Flask-Login handle determining the user ID and store the values you need in the database and retrieving them from the database in every request. 
+
+ So, in summary, there are a few different ways to do what you want to do. Each have their usages. 
+
+ 
+ Globals are good for items that are thread-safe (such as the PyMongo's MongoClient). 
+  flask.g  can be used for storing data in the lifetime of a request. With SQLAlchemy-based flask apps, a common thing to do is to ensure that all changes happen at once, at the end of a request using an  after_request  method. Using  flask.g  for something like this is very helpful. 
+ The Flask  session  can be used to store simple data (strings and numbers, not connection objects) that can be used on subsequent requests that come from the same user. This is entirely dependent on using cookies, so at any point the user could delete the cookie and everything in the "session" will be lost. Therefore, you probably want to store much of your data in databases, with the session used to identify the data that relates to the user in the session. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/15281179)
+ You need to pass in  environ_base  when you call  get()  or  post() .  E.g., 
+
+  client = app.test_client()
+response = client.get('/your/url/', 
+                      environ_base={'HTTP_USER_AGENT': 'Chrome, etc'})
+  
+
+ Then your  request.user_agent  should be whatever you pass in, and you can access it via  request.headers['User-Agent'] . 
+
+ See http://werkzeug.pocoo.org/docs/test/#testing-api for more info. 
+
+
+

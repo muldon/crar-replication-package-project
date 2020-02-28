@@ -1,0 +1,189 @@
+Query: How do I programmatically compile Java class?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12246348)
+ The following code which uses  com.sun.tools.javac.Main   worked for me: 
+
+  Apple.java   
+
+  //This class is packaged in a jar named MyJavaCode.jar
+import com.xyz.pqr.SomeJavaExamples;
+public class Apple {
+    public static void main(String[] args) {
+        System.out.println("hello from Apple.main()");
+    }
+}
+  
+
+  AClass.java  
+
+  import com.sun.tools.javac.Main;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+public class AClass {
+    public static void main(String[] args) {
+        try {
+            //Specify classpath using next to -cp
+            //This looks just like how we specify parameters for javac
+            String[] optionsAndSources = {
+                "-g", "-source", "1.5",
+                "-target", "1.5", 
+                "-cp", ".:/home/JavaCode/MyJavaCode.jar",
+                "Apple.java"
+            };
+            PrintWriter out = new PrintWriter(new FileWriter("./out.txt"));
+            int status =  Main.compile(optionsAndSources, out);
+            System.out.println("status: " + status);
+            System.out.println("complete: ");
+        }catch (Exception e) {}
+    } 
+}
+  
+
+ Note: To compile this  AClass.java ,  tools.jar  needs to be in the  classpath , which is not there by default, so you will have to specify it. 
+
+ If you are using  Java 1.6  then you should consider using  javax.tools.JavaCompiler  instead, its http://docs.oracle.com/javase/6/docs/api/javax/tools/JavaCompiler.html#getTask%28java.io.Writer,%20javax.tools.JavaFileManager,%20javax.tools.DiagnosticListener,%20java.lang.Iterable,%20java.lang.Iterable,%20java.lang.Iterable%29) methods takes an argument  options  which can have the  classpath . 
+
+ For example: 
+
+  import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import javax.tools.JavaFileObject;
+
+public final class AClass {
+    private static boolean compile(JavaFileObject... source ){
+        List<String> options = new ArrayList<String>();
+        // set compiler's classpath to be same as the runtime's
+        options.addAll(Arrays.asList("-classpath", System.getProperty("java.class.path")));
+        //Add more options including classpath
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        final JavaCompiler.CompilationTask task = compiler.getTask(/*default System.err*/ null,
+            /*std file manager*/ null,
+            /*std DiagnosticListener */  null,
+            /*compiler options*/ options,
+            /*no annotation*/  null,
+            Arrays.asList(source));
+       return task.call();
+}
+  
+
+  com.sun.tools.javac.Main  is deprecated and undocumented too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17526282)
+ What you need is a class that extends JavaFileObject 
+
+  import java.net.URI;
+
+import javax.tools.SimpleJavaFileObject;
+
+public class JavaSourceFromString extends SimpleJavaFileObject {
+    final String code;
+
+    public JavaSourceFromString( String name, String code) {
+        super( URI.create("string:///" + name.replace('.','/') + Kind.SOURCE.extension),Kind.SOURCE);
+        this.code = code;
+    }
+
+    @Override
+    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+        return code;
+    }
+}
+  
+
+ Which can be used as follows: 
+
+  JavaCompiler jc = ToolProvider.getSystemJavaCompiler();
+if( jc == null) throw new Exception( "Compiler unavailable");
+
+String code = "public class CustomProcessor { /*custom stuff*/ }";
+JavaSourceFromString jsfs = new JavaSourceFromString( "CustomProcessor", code);
+
+Iterable<? extends JavaFileObject> fileObjects = Arrays.asList( jsfs);
+
+List<String> options = new ArrayList<String>();
+options.add("-d");
+options.add( compilationPath);
+options.add( "-classpath");
+URLClassLoader urlClassLoader = (URLClassLoader)Thread.currentThread().getContextClassLoader();
+StringBuilder sb = new StringBuilder();
+for (URL url : urlClassLoader.getURLs()) {
+    sb.append(url.getFile()).append(File.pathSeparator);
+}
+sb.append( compilationPath);
+options.add(sb.toString());
+
+StringWriter output = new StringWriter();
+boolean success = jc.getTask( output, null, null, options, null, fileObjects).call(); 
+if( success) {
+    logger.info( LOG_PREFIX + "Class has been successfully compiled");
+} else {
+    throw new Exception( "Compilation failed :" + output);
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12554299)
+ You should compile  Test.java  for  A.class  to be created. Then you should try to compile  B.java  and the compiler will find  A.class  in the current directory which is the default  CLASSPATH . 
+
+  C:\Temp\test>dir
+ Volume in drive C is OSDisk
+ Volume Serial Number is 1E37-6273
+
+ Directory of C:\Temp\test
+
+09/23/2012  10:48 PM    <DIR>          .
+09/23/2012  10:48 PM    <DIR>          ..
+09/23/2012  10:47 PM               100 B.java
+09/23/2012  10:47 PM                68 Test.java
+               2 File(s)            168 bytes
+               2 Dir(s)  171,760,668,672 bytes free
+
+C:\Temp\test>type Test.java
+class A
+{
+    static {
+        System.out.println("A");
+    }
+}
+C:\Temp\test>Type B.java
+class B extends A
+{
+    public static void main(String [] args)
+    {
+        new B();
+    }
+}
+C:\Temp\test>javac Test.java
+
+C:\Temp\test>dir
+ Volume in drive C is OSDisk
+ Volume Serial Number is 1E37-6273
+
+ Directory of C:\Temp\test
+
+09/23/2012  10:49 PM    <DIR>          .
+09/23/2012  10:49 PM    <DIR>          ..
+09/23/2012  10:49 PM               375 A.class
+09/23/2012  10:47 PM               100 B.java
+09/23/2012  10:47 PM                68 Test.java
+               3 File(s)            543 bytes
+               2 Dir(s)  171,760,668,672 bytes free
+
+C:\Temp\test>javac B.java
+
+C:\Temp\test>java B
+A
+
+C:\Temp\test>
+  
+
+
+

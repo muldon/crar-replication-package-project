@@ -1,0 +1,232 @@
+Query: How to do many-to-many Django query to find book with 2 given authors?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25617294)
+ Give related_name to 
+
+  authors = models.ManyToManyField(Author, related_name='book_auths')
+  
+
+  
+
+  author = Author.objects.get(id=43)
+auth_books = author.book_auths.all()
+
+#auth_books are all books which belong to one author
+  
+
+  
+
+  author = Author.objects.get(id=43)  
+books = Book.objects.filter(author=author) 
+  
+
+ Will give all books where the author is the given one.  
+
+  if you want to know for all authors 
+
+  authors = Authors.objects.all()
+books = Book.objects.filter(author__in=(x for x in authors))
+  
+
+ Gives you all books which have authors who exist in db.  
+
+ To know how many: just attach .count() to result queryset.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5302110)
+ Not intuitive at first but the answer is right in front of us. 
+
+  Book.objects.filter(author__id=1).filter(author__id=2)
+  
+
+ If you want an exact match, you could potentially further filter this result by those items that only have exactly 2 authors. 
+
+  Book.objects.annotate(count=Count('author')).filter(author__id=1)\
+                .filter(author__id=13).filter(count=2)
+  
+
+ If you want exact matches dynamically, how about something like this? 
+
+  def get_exact_match(model_class, m2m_field, ids)
+    query = model_class.objects.annotate(count=Count(m2m_field))\
+                .filter(count=len(ids))
+    for _id in ids
+        query = query.filter(**{m2m_field _id})
+    return query
+
+matches = get_exact_match(MyModel, 'my_m2m_field', [1, 2, 3, 4])
+
+# matches is still an unevaluated queryset, so you could run more filters
+# without hitting the database.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12430003)
+ You can use the Q object: 
+
+  AND = lambda q, value: q & Q(authors_in=value)
+Books.objects.filter(reduce(AND, authors, Q()))
+  
+
+ You can also AND together the book_set, if you have a list of Author instead of just their ids: 
+
+  books = reduce(lambda q,a: q & a.book_set.all(), authors, Book.objects.none())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/533770)
+  
+
+  books = Book.objects.filter(authorbook__author_id=1)
+  
+
+ to get a QuerySet of Book objects matching your author_id restriction. 
+
+ The nice thing about Django is you can cook this up and play around with it in the shell.  You may also find 
+http://docs.djangoproject.com/en/dev/topics/db/queries/#spanning-multi-valued-relationships
+to be useful. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12753036)
+ You could & together a bunch of Q objects: 
+
+  q = Q()
+for author in authors:
+    q &= Q(authors=author)
+Books.objects.filter(q)
+  
+
+ To exclude books that have authors outside the list, you could limit the query to books with exactly the number of authors in the list: 
+
+  Books.objects.annotate(count=Count('authors')).filter(count=len(authors)).filter(q)
+  
+
+  Update:  
+
+ Based on comments, I think the requirement is to get all books authored by at least one author in the list, but exclude books with any authors outside the list.  
+
+ So we build a queryset selecting the authors that we hate: 
+
+  # this queryset will be embedded as a subquery in the next
+bad_authors = Author.objects.exclude(name__in=['A1', 'A2'])
+  
+
+ Then exclude them to find the books we want: 
+
+  # get all books without any of the bad_authors
+Books.objects.exclude(authors__in=bad_authors)
+  
+
+ This will return all books except those authored by someone outside your list.  If you also want to exclude those with no authors listed, add another exclude call: 
+
+  Books.objects.exclude(authors__in=bad_authors).exclude(authors=None)
+  
+
+ This will leave us with just the books authored by one or more of the good ones! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/533799)
+ "AuthorBook" seems not correctly modeled. 
+
+ You should use a  ManyToManyField : 
+
+  class Book(models.Model):
+  name = models.CharField()
+  authors = models.ManyToManyField(Author)
+  
+
+  
+
+  books = Book.objects.filter(authors__id=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25617409)
+ All django objects have a built-in reverse relationship, so you can go "backwards" and "forwards". This means, that once you have an author, you can do this: 
+
+  a = Author.objects.get(name='A1 Author')
+a.book_set.count()
+  
+
+ To get counts for all authors: 
+
+  for a in Author.objects.all():
+   print('Author: {} - Number of Books: {}'.format(a, a.book_set.count()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22399772)
+  
+
+  Book.objects.filter(book_authors__person=adam).distinct()
+  
+
+ In general, if  Books  are what you want to end up with, you probably want to start your query with  Book.objects.filter() . Sometimes you can just use a related manager ( author.books.filter() ), and sometimes you might need to loop as you did (or use raw SQL), but in general I find it helpful to think about it from the result backwards: "What I need are  Books , where this and this and this are true..." 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51177246)
+ This is what I did, let´s suppose a Book can have more than one author and an Author can have more than one book:
+On Model: 
+
+  class Author(models.Model):
+    name = models.CharField(max_length=100, default="")
+    last_name = models.IntegerField(default=0)
+
+class Book(models.Model):
+    authors = models.ManyToManyField(Author, related_name="book_list", blank=True)
+    name = models.CharField(max_length=100, default="")
+    published = models.BooleanField(default=True)
+  
+
+  
+
+  class BookSerializer(serializers.ModelSerializer):
+    authors = serializers.PrimaryKeyRelatedField(queryset=Author.objects.all(), many=True)
+
+    class Meta:
+        model = Book
+        fields = ('id', 'name', 'published', 'authors')
+
+
+class AuthorSerializer(serializers.ModelSerializer):
+    book_list = BookSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Author
+        fields = ('id', 'name', 'last_name', 'book_list')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50890704)
+ Really, the best way to get the authors is to query for authors rather than books. You can follow the relationship via the double-underscore syntax: 
+
+  q = Author.objects.filter(book__title__icontains="the")
+  
+
+ But since you say your query is intensive and you would prefer to run it once, an alternative would be to use  select_related  to do a JOIN and then manually process the results to get the authors: 
+
+  q = Book.objects.select_related('author').filter(title__icontains="the")
+authors = set(book.author for book in q)
+  
+
+
+

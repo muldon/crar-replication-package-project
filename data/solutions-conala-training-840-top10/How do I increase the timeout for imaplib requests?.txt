@@ -1,0 +1,295 @@
+Query: How do I increase the timeout for imaplib requests?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19931781)
+ Though imaplib doesn't support timeout, you can set a default timeout on the socket which will be used when any socket connection is established. 
+
+  socket.setdefaulttimeout(15)
+  
+
+  
+
+  import socket
+def new_stuff():
+    host = "some-page.com"
+    port = 143
+    timeout = 10
+    socket.setdefaulttimeout(timeout)
+    try:
+        imapcon = imaplib.IMAP4(host, port)
+        header = imapcon.welcome
+    except Exception as e:  # Timeout or something else
+        header = "Something went wrong here: " + str(e)
+    return header
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16911242)
+ . It was more a try and error than pure knowledge, but it works. 
+
+  
+
+  import imaplib
+import socket
+
+class IMAP4(imaplib.IMAP4):
+""" Change imaplib to get a timeout """
+
+    def __init__(self, host, port, timeout):
+        # Override first. Open() gets called in Constructor
+        self.timeout = timeout
+        imaplib.IMAP4.__init__(self, host, port)
+
+
+    def open(self, host = '', port = imaplib.IMAP4_PORT):
+        """Setup connection to remote server on "host:port"
+            (default: localhost:standard IMAP4 port).
+        This connection will be used by the routines:
+            read, readline, send, shutdown.
+        """
+        self.host = host
+        self.port = port
+        # New Socket with timeout. 
+        self.sock = socket.create_connection((host, port), self.timeout)
+        self.file = self.sock.makefile('rb')
+
+
+def new_stuff():
+    host = "some-page.com"
+    port = 143
+    timeout = 10
+    try:
+        imapcon = IMAP4(host, port, timeout)
+        header = imapcon.welcome
+    except Exception as e:  # Timeout or something else
+        header = "Something went wrong here: " + str(e)
+    return header
+
+
+print new_stuff()
+  
+
+ Maybe this is helpful for others 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24422843)
+ The  imaplib  module doesn't provide a way to set timeout, but you can set a default timeout for new socket connections via the https://docs.python.org/2/library/socket.html#socket.setdefaulttimeout: 
+
+  import socket
+import imaplib
+socket.setdefaulttimeout(10)
+imap = imaplib.IMAP4('test.com', 666)
+  
+
+ Or you can also go about overriding the https://docs.python.org/2/library/imaplib.html#imap4-objects class with some knowledge from http://hg.python.org/cpython/file/2672e30d9095/Lib/imaplib.py and docs, which provides better control: 
+
+  import imaplib
+import socket
+
+class IMAP(imaplib.IMAP4):
+    def __init__(self, host='', port=imaplib.IMAP4_PORT, timeout=None):
+        self.timeout = timeout
+        # no super(), it's an old-style class
+        imaplib.IMAP4.__init__(self, host, port)
+
+    def open(self, host='', port=imaplib.IMAP4_PORT):
+        self.host = host
+        self.port = port
+        self.sock = socket.create_connection((host, port), timeout=self.timeout)
+        # clear timeout for socket.makefile, needs blocking mode
+        self.sock.settimeout(None)
+        self.file = self.sock.makefile('rb')
+  
+
+ Note that after creating the connection we should set the socket timeout back to  None  to get it to blocking mode for subsequent https://docs.python.org/2/library/socket.html#socket.socket.makefile call, as stated in the method docs: 
+
+ 
+   ...
+  The socket must be in blocking mode (it can not have a timeout). ... 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16112967)
+ There is simple http://bugs.python.org/file27400/imapidle.patch proposed at http://bugs.python.org/issue11245 implementing http://tools.ietf.org/html/rfc2177 command in a synchronous way ( to wait for more than 1 IMAP server you have to use threads or other means of parallel execution ). It uses stdlib select to wait on socket including timeout. This patch will http://bugs.python.org/issue11245#msg171889 be added to stdlib, http://bugs.python.org/issue11245#msg172383.
+The http://tools.ietf.org/html/rfc2177 command is what you https://blogs.oracle.com/chienr/entry/gmail_supports_imap_idle for gmail IMAP push-notification.
+Hope, this will help :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3767450)
+ The exception is imaplib.IMAP4.abort (http://docs.python.org/library/imaplib.html) so catching that should work 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32461466)
+ I got the same issues when using Python requests to send testing requests to WordPress (I installed WordPress on a dedicate server). 
+I tried to update SSL- packages without success. 
+
+ Then, I realised that the requests sent to server got delays in receiving response. The long delays requests were always "kicked-off" and caused ('Connection aborted.', error(54, 'Connection reset by peer')).
+It turned out that the web server (apache) resets the connection while the request is still waiting for response. 
+
+ I increase the KeepAliveTimeout from 5 seconds to 20 seconds (in Apache web server) and never get this error again. 
+
+  Improve code for Exceptions: 
+Increasing KeepAliveTimeout works in most of the tests. However, in some tests, I still got the same error and program stops. I add the code that catches Exception and repeat the request it occurs. 
+
+  import requests
+...
+while(1):
+    requestOK = True
+    try:
+       r = session.get(requestURL, headers=headers, timeout=None)
+    except requests.exceptions.ConnectionError: 
+       print ("'Connection aborted.', error(54, 'Connection reset by peer')")
+       print ("\tResend request...")
+       requestOK = False
+    if requestOK:
+       break
+  
+
+ Hope this will help! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28193244)
+ Drop the  time.sleep(60)  and http://janeelix.com/piers/python/imaplib.html instead. A 29-minute timeout is fine. You may have to use a shorter timeout if you have a broken NAT gateway in front of your network. 
+
+ The IMAP command IDLE instructs the server to let the client know as soon as anything has changed. So you run IDLE, then when the server says something, you rerun your search. You should be able to react to changes within a second or two that way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19614509)
+  
+
+ There are three kinds of  DeadlineExceededError  in AppEngine. 
+https://developers.google.com/appengine/articles/deadlineexceedederrors 
+
+ 
+   
+   google.appengine.runtime.DeadlineExceededError: raised if the overall request times out, typically after 60 seconds, or 10 minutes
+  for task queue requests. 
+   google.appengine.runtime.apiproxy_errors.DeadlineExceededError: raised if an RPC exceeded its deadline. This is typically 5 seconds,
+  but it is settable for some APIs using the 'deadline' option. 
+   google.appengine.api.urlfetch_errors.DeadlineExceededError: raised if the URLFetch times out. 
+   
+ 
+
+ . The 10mins limit of  taskqueue  only help the google.appengine.runtime.DeadlineExceededError . The type of  DeadlineExceededError  can be identified via traceback (list below). In this case, it is  google.appengine.runtime.apiproxy_errors.DeadlineExceededError . Which will raise in 5secs by default. (I will update the post after figure out how to change it) 
+
+ TYPE 1. google.appengine.runtime.DeadlineExceededError 
+
+ The traceback looks like 
+
+  Traceback (most recent call last):
+  File "/base/data/home/runtimes/python27/python27_lib/versions/1/google/appengine/runtime/wsgi.py", line 266, in Handle
+    result = handler(dict(self._environ), self._StartResponse)
+  File "/base/data/home/runtimes/python27/python27_lib/versions/third_party/webapp2-2.3/webapp2.py", line 1505, in __call__
+    rv = self.router.dispatch(request, response)
+  File "/base/data/home/runtimes/python27/python27_lib/versions/third_party/webapp2-2.3/webapp2.py", line 1253, in default_dispatcher
+    return route.handler_adapter(request, response)
+  File "/base/data/home/runtimes/python27/python27_lib/versions/third_party/webapp2-2.3/webapp2.py", line 1077, in __call__
+    return handler.dispatch()
+  File "/base/data/home/runtimes/python27/python27_lib/versions/third_party/webapp2-2.3/webapp2.py", line 545, in dispatch
+    return method(*args, **kwargs)
+  File "/base/data/home/apps/s~tagtooadex2/test.371204033771063679/index.py", line 9, in get
+    pass
+DeadlineExceededError
+  
+
+ Solution</h3>
+
+ This exception can be solved by using taskqueue (10mins), backend or manual scaling options.
+https://developers.google.com/appengine/docs/python/modules/#Python_Instance_scaling_and_class 
+
+ TYPE 2. google.appengine.runtime.apiproxy_errors.DeadlineExceededError 
+
+ The traceback looks like      
+
+  DeadlineExceededError: The API call remote_socket.Receive() took too long to respond and was cancelled.
+  
+
+ TYPE 3. google.appengine.api.urlfetch_errors.DeadlineExceededError 
+
+ The traceback looks like 
+
+  DeadlineExceededError: Deadline exceeded while waiting for HTTP response from URL:     http://www.sogi.com.tw/newforum/article_list.aspx?topic_ID=6089521
+  
+
+ Solution:</h3>
+
+ This exception can be solved by extend the deadline. 
+
+  urlfetch.fetch(url, deadline=10*60)
+  
+
+ https://developers.google.com/appengine/docs/python/urlfetch/fetchfunction 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43983723)
+ In this situation, concurrency will not help much since the server seems to be the limiting factor. One solution is to send a request with a timeout interval, if the interval has exceeded, then try the request again after a few seconds. Then gradually increase the time between retries until you get the data that you want. For instance, your code might look like this: 
+
+  import time
+import requests
+
+def get_content(url, timeout):
+    # raise Timeout exception if more than x sends have passed
+    resp = requests.get(url, timeout=timeout)
+    # raise generic exception if request is unsuccessful
+    if resp.status_code != 200:
+        raise LookupError('status is not 200')
+    return resp.content
+
+
+timeout = 5 # seconds
+retry_interval = 0
+max_retry_interval = 120
+while True:
+    try:
+        response = get_content('https://example.com', timeout=timeout)
+        retry_interval = 0        # reset retry interval after success
+        break
+    except (LookupError, requests.exceptions.Timeout):
+        retry_interval += 10
+        if retry_interval > max_retry_interval:
+            retry_interval = max_retry_interval
+        time.sleep(retry_interval)
+
+# process response
+  
+
+ If concurrency is required, consider the Scrapy project. It uses the Twisted framework. In Scrapy you can replace  time.sleep  with  reactor.callLater(fn, *args, **kw)  or use one of hundreds of middleware plugins. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39661787)
+ You can increase the timeout period for the request by doing the following: 
+
+  response = requests.get(url, timeout=60)
+  
+
+ Also, you will need to increase the timeout period for your lambda function. To do this: 
+
+ 
+ Open your lambda function in AWS 
+ Select 'Configuration', then 'Advanced Settings' 
+ Increase your time out period (up to 5 minutes) 
+ Select 'Save' 
+ 
+
+ Also, I believe 'request.get' should be 'requests.get'. 
+
+
+

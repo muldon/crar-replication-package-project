@@ -1,0 +1,190 @@
+Query: applying functions to groups in pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18137592)
+ The problem is that  np.log2  cannot deal with the first column.  Instead, you need to pass just your numeric column.  You can do this as suggested in the comments, or define a  lambda : 
+
+  df.groupby('type').apply(lambda x: np.mean(np.log2(x['v'])))
+  
+
+ 
+
+ As per comments, I would define a function: 
+
+  df['w'] = [5, 6, 7,8]
+
+def foo(x):
+     return x._get_numeric_data().apply(axis=0, func=np.log2).mean()
+
+df.groupby('type').apply(foo)
+
+#              v         w
+# type                    
+# X     0.000000  2.321928
+# Y     1.528321  2.797439
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15497210)
+  import pandas as pd
+from StringIO import StringIO
+
+data =  StringIO("""Type     time
+A        0
+A        1
+A        2
+B        10
+B        11
+B        12""")
+df = pd.read_csv(data, delim_whitespace=True, dtype="O")
+
+def set_first(x):
+    x["ptime"] = x.time.values[0]
+    x = x[1:]
+    r = x.Type + "." + x.time + "-" + x.Type + "." + x.ptime
+    return r
+
+print df.groupby(df.Type, group_keys=False).apply(set_first)
+  
+
+ output: 
+
+  1      A.1-A.0
+2      A.2-A.0
+4    B.11-B.10
+5    B.12-B.10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27422749)
+  df.groupby('l_customer_id_i').agg(lambda x: ','.join(x))  does already return a dataframe, so you cannot loop over the groups anymore. 
+
+ In general: 
+
+ 
+   df.groupby(...)  returns a  GroupBy  object (a DataFrameGroupBy or SeriesGroupBy), and with this, you can iterate through the groups (as explained in the docs http://pandas.pydata.org/pandas-docs/stable/groupby.html#iterating-through-groups). You can do something like: 
+
+  grouped = df.groupby('A')
+
+for name, group in grouped:
+    ...
+   
+  When you apply a function on the groupby, in your example  df.groupby(...).agg(...)  (but this can also be  transform ,  apply ,  mean , ...), you  combine  the result of  applying  the function to the different groups together in one dataframe (the apply and combine step of the 'split-apply-combine' paradigm of groupby). So the result of this will always be again a DataFrame (or a Series depending on the applied function).  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20690287)
+  
+
+  groups.get_group('name')
+  
+
+ For more elaboration, https://stackoverflow.com/q/14734533/263858 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52564105)
+ You can use  GroupBy  +  transform  with  first . This should be more efficient as it avoids expensive  lambda  function calls. 
+
+ You may also see a performance improvement by working with the NumPy array via https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.values.html: 
+
+  first = df.groupby('subject_id')['date'].transform('first').values
+
+df['days_elapsed'] = (df['date'].values - first).astype('timedelta64[D]').astype(int)
+
+print(df)
+
+   subject_id      data       date  days_elapsed
+0           1  1.079472 2018-01-01             0
+1           1 -0.197255 2018-01-02             1
+2           1 -0.687764 2018-01-03             2
+3           2  0.023771 2018-01-04             0
+4           4 -0.538191 2018-01-05             0
+5           4  1.479294 2018-01-08             3
+6           5 -1.993196 2018-01-07             0
+7           5 -2.111831 2018-01-08             1
+8           5 -0.934775 2018-01-09             2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27319509)
+ just use a lambda, something like this 
+
+  df.groupby('Category').apply(lambda r: function_map[r.name](r.Total))
+  
+
+ also, you should use  numpy  functions so  np.mean ,  np.max ,  np.min  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49390165)
+ from DataFrame.groupby() docs: 
+
+  by : mapping, function, str, or iterable
+    Used to determine the groups for the groupby.
+    If ``by`` is a function, it's called on each value of the object's
+    index. If a dict or Series is passed, the Series or dict VALUES
+    will be used to determine the groups (the Series' values are first
+    aligned; see ``.align()`` method). If an ndarray is passed, the
+    values are used as-is determine the groups. A str or list of strs
+    may be passed to group by the columns in ``self``
+  
+
+  
+
+  In [35]: df.set_index('num1').groupby(num1_greater_than_60)[['name']].count()
+Out[35]:
+         name
+greater    15
+less        5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18636518)
+ There is more than one way to "separate things into groups". One way would be to make a list of groups. But that is not the ideal way when dealing with a Pandas DataFrame. Once you have a list, you are forced to loop over the list in a Python loop. Those are comparatively slow compared to native Pandas operations. 
+
+ Assuming you have enough memory, a better way would be to add an column or index to the DataFrame: 
+
+  import pandas as pd
+df = pd.DataFrame({'STEPS_ID':range(1107,1113)*2})
+df['GROUP'] = (df['STEPS_ID'] < df['STEPS_ID'].shift(1)).astype('int').cumsum()
+# df.set_index('GROUP', inplace=True, append=True)
+print(df)
+  
+
+  
+
+      STEPS_ID  GROUP
+0       1107      0
+1       1108      0
+2       1109      0
+3       1110      0
+4       1111      0
+5       1112      0
+6       1107      1
+7       1108      1
+8       1109      1
+9       1110      1
+10      1111      1
+11      1112      1
+  
+
+ Now you can do aggregation/transformation operations on each group by calling 
+
+  df.groupby('GROUP')....
+  
+
+
+

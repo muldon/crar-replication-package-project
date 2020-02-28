@@ -1,0 +1,215 @@
+Query: how to find the target file's full(absolute path) of the symbolic link or soft link in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3220786)
+  os.path.realpath(path)
+  
+
+ http://docs.python.org/library/os.path.html#os.path.realpath returns the canonical path of the specified filename, eliminating any symbolic links encountered in the path. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3220762)
+ http://docs.python.org/library/os.path.html#os.path.abspath 
+
+ also joinpath and normpath, depending on whether you're in the current working directory, or you're working with things elsewhere.  normpath  might be more direct for you. 
+
+ Update: 
+
+ specifically: 
+
+  os.path.normpath( 
+  os.path.join( 
+    os.path.dirname( '/etc/fonts/conf.d/70-yes-bitmaps.conf' ), 
+    os.readlink('/etc/fonts/conf.d/70-yes-bitmaps.conf') 
+  ) 
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9643181)
+ As unutbu says,  os.path.realpath(path)  should be the right answer, returning the canonical path of the specified filename, resolving any symbolic links to their targets.  But it's broken under Windows. 
+
+ I've created a patch for Python 3.2 to fix this bug, and uploaded it to: 
+
+ http://bugs.python.org/issue9949 
+
+ It fixes the  realpath()  function in  Python32\Lib\ntpath.py  
+
+ I've also put it on my server, here: 
+
+ http://www.burtonsys.com/ntpath_fix_issue9949.zip 
+
+ Unfortunately, the bug is present in Python 2.x, too, and I know of no fix for it there. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22113036)
+ In terms of file system, soft links will not work if the target it is pointing to has been moved/renamed/deleted. 
+
+ It continues to points to the old target, now a non-existing location or file. Because symbolic link contains a text string that is automatically interpreted and followed by the operating system as a path to another file or directory called target. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17806123)
+ The difference between  os.path.abspath  and  os.path.realpath  is that  os.path.abspath  does not resolve symbolic links, so it should be exactly what you are looking for.  
+
+  /home/user$ mkdir test
+/home/user$ mkdir test/real
+/home/user$ mkdir test/link
+/home/user$ touch test/real/file
+/home/user$ ln -s /home/user/test/real/file test/link/file
+/home/user$ ls -lR test
+
+  test:
+  d... link
+  d... real
+
+  test/real:
+  -... file
+
+  test/link:
+  l... file -> /home/user/test/real/file
+
+/home/user$ python
+
+  ... python 3.3.2 ...
+  >>> import os
+  >>> print(os.path.realpath('test/link/file'))
+  /home/user/test/real/file
+  >>> print(os.path.abspath('test/link/file'))
+  /home/user/test/link/file
+  
+
+ So there you go. How are you using  os.path.abspath  that you say it resolves your symbolic link? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26995106)
+ In Linux, adding a symbolic link in the directory your python script is located works. 
+
+   
+
+  ln -s /absolute/path/to/module/module.py /absolute/path/to/script/module.py
+  
+
+ python will create  /absolute/path/to/script/module.pyc  and will update it if you change the contents of  /absolute/path/to/module/module.py  
+
+ then include the following in mypythonscript.py 
+
+  from module import *
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54794412)
+  pathlib.Path  has an  absolute  method that does what you want. 
+
+  $  mkdir folder
+$  touch target
+$  ln -s ~/target ~/folder/link
+$  ls -l folder/
+total 0
+lrwxrwxrwx 1 me users 16 Feb 20 19:47 link -> /home/me/target
+$  cd folder
+
+$/folder  python3.7 -c import os.path;print(os.path.abspath("link"))
+/home/me/folder/link
+
+$/folder  python3.7 -c import pathlib;p = pathlib.Path("link");print(p.absolute())
+/home/me/folder/link
+  
+
+ The method doesnt appear in the module documentation, but its https://github.com/python/cpython/blob/3.7/Lib/pathlib.py#L1119 reads: 
+
+ 
+   Return an absolute version of this path.  This function works
+  even if the path doesnt point to anything.
+  No normalization is done, i.e. all . .. .
+  Use resolve() to get the canonical path to a file. 
+ 
+
+ Its worth noting that there are comments in the method code (in the 3.7 branch) that suggest it may not be fully tested on all platforms. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33232471)
+ To determine if a directory entry is a symlink use this: 
+
+ https://docs.python.org/2/library/os.path.html#os.path.islink 
+
+ Return True if path refers to a directory entry that is a symbolic link. Always False if symbolic links are not supported. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38326779)
+ I was working on a GTK+ 3 file manager in Python and came across the same need when looping through files. 
+
+ The computer I was working on has Linux and OS X partitions. When the file manager application (running on the root Linux partition) would attempt to index the files on the OS X partition, it would quickly come across an absolute symlink from "/media/mac-hd/User Guides And Information" to "/Library/Documentation/User Guides and Information.localized" and choke. The problem was that the file manager was looking for the absolute target of that link on it's own file system where it does not exist instead of the OS X partition mounted at /media/mac-hd. So, I needed a way to identify that a file was on a different mount point and prepend that mount point to the absolute target of the link. 
+
+ I began with the edited solution in  Fred Foo 's answer. It seemed to help provide a solution to the specific error I was trying to work around. When I would call  find_mount_point('/media/mac-hd/User Guides And Information') , it would return  /media/mac-hd . Great, I thought. 
+
+ I noticed  insecure 's comment below the answer about making it work with symlinks and also noticed he was correct about /var/run: 
+
+ 
+   To make your code work with symlinks, e.g. /var/run -> ../run, replace  os.path.abspath()  with  os.path.realpath()  or  find_mount_point()  will return "/". 
+ 
+
+ When I tried replacing  os.path.abspath()  with  os.path.realpath() , I would get the correct return value of  /run  for  /var/run . However I also noticed that I would no longer get the value I wanted when calling  find_mount_point('/media/mac-hd/User Guides And Information')  because it now returned  / . 
+
+ The following is the solution I ended up using.  
+
+  def find_mount_point(path):
+    if not os.path.islink(path):
+        path = os.path.abspath(path)
+    elif os.path.islink(path) and os.path.lexists(os.readlink(path)):
+        path = os.path.realpath(path)
+    while not os.path.ismount(path):
+        path = os.path.dirname(path)
+        if os.path.islink(path) and os.path.lexists(os.readlink(path)):
+            path = os.path.realpath(path)
+    return path
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/37863619)
+  os.path.realpath  derefences symbolic links on those operating systems which support them. 
+
+  os.path.abspath  simply removes things like  .    ..  from the path giving a full path from the root of the directory tree to the named file (or symlink) 
+
+ For example, on Ubuntu 
+
+  $ ls -l
+total 0
+-rw-rw-r-- 1 guest guest 0 Jun 16 08:36 a
+lrwxrwxrwx 1 guest guest 1 Jun 16 08:36 b -> a
+
+$ python
+Python 2.7.11 (default, Dec 15 2015, 16:46:19) 
+[GCC 4.8.4] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+
+>>> from os.path import abspath, realpath
+
+>>> abspath('b')
+'/home/guest/play/paths/b'
+
+>>> realpath('b')
+'/home/guest/play/paths/a'
+  
+
+ Symlinks can contain relative paths, hence the need to use both. The inner call to  realpath  might return a path with embedded  ..  parts, which  abspath  then removes. 
+
+
+

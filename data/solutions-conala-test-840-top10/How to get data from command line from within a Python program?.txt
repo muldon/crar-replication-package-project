@@ -1,0 +1,202 @@
+Query: How to get data from command line from within a Python program?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8220418)
+ This is a portable solution in pure python : 
+
+  import os
+import stat
+import time
+
+# pick a file you have ...
+file_name = 'll.py'
+file_stats = os.stat(file_name)
+
+# create a dictionary to hold file info
+file_info = {
+    'fname': file_name,
+    'fsize': file_stats [stat.ST_SIZE],
+    'f_lm': time.strftime("%m/%d/%Y %I:%M:%S %p",time.localtime(file_stats[stat.ST_MTIME])),
+}
+
+
+print("""
+Size: {} bytes
+Name: {}
+Time: {}
+ """
+).format(file_info['fsize'], file_info['fname'], file_info['f_lm'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8217671)
+ The easiest way to get the output of a tool called through your Python script is to use the http://docs.python.org/library/subprocess.html module in the standard library. Have a look at <a href="http://docs.python.org/library/subprocess.html#subprocess.check_output".check_output . 
+
+  >>> subprocess.check_output("echo \"foo\"", shell=True)
+'foo\n'
+  
+
+ (If your tool gets input from untrusted sources, make sure not to use the  shell=True  argument.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20456745)
+ In Python, You can pass a plain OS command with spaces, subquotes and newlines into the  subcommand  module so we can parse the response text like this: 
+
+ 
+  Save this into test.py: 
+
+  #!/usr/bin/python
+import subprocess
+
+command = ('echo "this echo command' + 
+' has subquotes, spaces,\n\n" && echo "and newlines!"')
+
+p = subprocess.Popen(command, universal_newlines=True, 
+shell=True, stdout=subprocess.PIPE, 
+stderr=subprocess.PIPE)
+text = p.stdout.read()
+retcode = p.wait()
+print text;
+   
+   
+
+  python test.py 
+   
+   
+
+  this echo command has subquotes, spaces,
+
+
+and newlines!
+   
+ 
+
+ If this isn't working for you, it could be troubles with the python version or the operating system.  I'm using Python 2.7.3 on Ubuntu 12.10 for this example. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8217646)
+ Use the subprocess module: 
+
+  import subprocess
+
+command = ['ls', '-l']
+p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.IGNORE)
+text = p.stdout.read()
+retcode = p.wait()
+  
+
+ Then you can do whatever you want with variable  text : regular expression, splitting, etc. 
+
+ The 2nd and 3rd parameters of  subprocess.Popen  are optional and can be removed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8217752)
+ This is typically a subject for a bash script that you can run in python : 
+
+  #!/bin/bash
+# vim:ts=4:sw=4
+
+for arg; do
+    size=$(du -sh "$arg" | awk '{print $1}')
+    date=$(stat -c "%y" "$arg")
+    cat<<EOF
+Size: $size
+Name: ${arg##*/}
+Date: $date 
+EOF
+
+done
+  
+
+  Edit : How to use it  : open a pseuso-terminal, then copy-paste this : 
+
+  cd
+wget http://pastie.org/pastes/2900209/download -O info-files.bash
+  
+
+ In python2.4 :  
+
+  import os
+import sys
+
+myvar = ("/bin/bash ~/info-files.bash '{}'").format(sys.argv[1])
+myoutput = os.system(myvar) # myoutput variable contains the whole output from the shell
+print myoutput
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14596726)
+ Command line options are stored in sys.argv. You may want to check this: 
+
+ http://docs.python.org/3/library/sys.html?highlight=argv#sys.argv 
+
+ Beside, if you need more complex command-line argument parsing and deciding your program logic based on that, you should try http://docs.python.org/3/library/argparse.html?highlight=argparse#argparse 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/16788200)
+ I can hardly imagine a case where one would prefer wrapping a library's command line interface over wrapping the library itself. (Unless there is a library that comes with a neat command line interface while being a total mess internally; but the OP indicates that the same functionality available via the command line is easily accessible in terms of library function calls). 
+
+ The biggest advantage of writing a Python binding is a clearly defined data interface between the library and Python. Ideally, the library can operate directly on memory managed by Python, without any data copying involved.  
+
+ To illustrate this, let's assume a library function does something more complicated than printing the current time, i.e., it obtains a significant amount of data as an input, performs some operation, and returns a significant amount of data as an output. If the input data is expected as an input file, Python would need to generate this file first. It must make sure that the OS has finished writing the file before calling the library via the command line (I have seen several C libraries where  sleep(1)  calls were used as a band-aid for this issue...). And Python must get the output back in some way. 
+
+ If the command line interface does not rely on files but obtains all arguments on the command line and prints the output on  stdout , Python probably needs to convert between binary data and string format, not always with the expected results. It also needs to pipe  stdout  back and parse it. Not a problem, but getting all this right is a lot of work. 
+
+  Well, the command line interface will probably handle errors by printing error messages on  stderr . So Python needs to capture, parse and process these as well. OTOH, the corresponding library function will almost certainly make a success flag accessible to the calling program. This is much more directly usable for Python. 
+
+ All of this is obviously affecting performance, which you already mentioned. 
+
+ As another point, if you are developing the library yourself, you will probably find after some time that the Python workflow has made the whole command line interface obsolete, so you can drop supporting it altogether and save yourself a lot of time.  
+
+ So I think there is a clear case to be made for the Python bindings. To me, one of the biggest strengths of Python is the ease with which such wrappers can be created and maintained. Unfortunately, there are about 7 or 8  equally easy  ways to do this. To get started, I recommend  ctypes , since it does not require a compiler and will work with  PyPy . For best performance use the native C-Python API, which I also found very easy to learn. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45038133)
+ You can call it from python and get the output as a string by using `subprocess.check_output'  https://docs.python.org/2/library/subprocess.html#subprocess.check_output: 
+
+  >>> import subprocess
+>>> subprocess.check_output(["echo", "Hello World!"])
+    'Hello World!\n'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8140080)
+ Since the Python 3 and Python 2 interpreters are totally separate executables and have separate libraries installed on your system, using  subprocess  to invoke one from the other  is  the best practice.  It's not a hack at all.  There are a number of ways to pass data between them but the two interpreters should be run as separate processes. 
+
+ That said, you may need to keep in mind the startup time associated with launching an interpreter process.  That gets back to how to pass data between the two processes.  If your Python 2 code is going to be frequently calling the Python 3 routines, you may need to structure the Python 3 program as a daemon.  But you would still use  subprocess  to launch it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/32594896)
+ Yes, if you wrap the problematic function inside a try-except construct: 
+
+  for a, b in zip(la, lb):
+    try:
+        spss.Submit('''
+TEMPORARY.
+SELECT IF %s=%s.
+FREQUENCY someVar.
+        ''' % (a, b))
+    except:
+        pass
+  
+
+
+

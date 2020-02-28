@@ -1,0 +1,307 @@
+Query: Regex and Octal Characters
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34750797)
+ . 
+
+ If you want to capture the octal code for the character, you can do: 
+
+  s = r"char x = '\077';"
+codes = re.findall(r"\\([0-7]{3})", s)
+  
+
+ But if you want the characters, you must add: 
+
+  characters = [chr(int(c, 8)) for c in codes]
+  
+
+ If your intention is  bytes  (Python 3): 
+
+  bytes_result = bytes(characters)
+  
+
+ Or otherwise string: 
+
+  str_result = ''.join(characters)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34750174)
+ You need to define your input as  raw string : 
+
+  >>> str = r"char x = '\077'; \nprintf(\"%c\", x);"
+  
+
+ Prefix  r  is for defining a raw string. 
+
+ Then use: 
+
+  >>> print re.findall(ur"'\\[0-7]{1,3}'", str)
+["'\\077'"]
+  
+
+ https://regex101.com/r/jX5rR7/1 
+
+ 
+
+ Code to read text from stdin and apply regex: 
+
+  #!/usr/bin/python
+import sys
+import re
+
+str = sys.stdin.read()
+print re.findall(ur"'\\[0-7]{1,3}'", str)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10657409)
+  \1  and  \2  are getting interpreted as octal character code escapes, rather than just getting passed to the regex engine. Using raw strings  r"\1"  instead of  "\1"  prevents this interpretation. 
+
+  >>> "\17"
+'\x0f'
+>>> r"\17"
+'\\17'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33273207)
+ The literal comes from the ordinal representation of the characters (or integer value of the unicode codepoints for a unicode string) within the specified range in the specified regex pattern. 
+
+  >>> chr(20)
+'\x14'
+>>> chr(67)
+'C'
+>>> chr(50)
+'2'
+  
+
+ If you are confused as to why there is a  '\x14' , it came from  '\24'  which is the octal representation of the integer  20 , or hex  0x14 . 
+
+  >>> '\24'
+'\x14'
+  
+
+  
+
+  >>> rr = re.compile(u"[\u24C2]+", re.DEBUG)
+max_repeat 1 4294967295
+  literal 9410
+  
+
+ Now there is only one literal 9410 or the integer representation of the unicode codepoint that will be matched. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34371639)
+ Use raw string literals; both Python string literal syntax and regex interpret backslashes;  \1  in a python string literal is interpreted as an octal escape, but not in a raw string literal: 
+
+  re.sub(r"([,\w])\n(\w)", r"\1 \2", x)
+  
+
+ The alternative would be to double all backslashes so that they reach the regex engine as such. 
+
+ See the https://docs.python.org/2/howto/regex.html#the-backslash-plague of the Python regex HOWTO. 
+
+  
+
+  >>> import re
+>>> x = 'the meaning\nof life'
+>>> re.sub(r"([,\w])\n(\w)", r"\1 \2", x)
+'the meaning of life'
+  
+
+ It might be easier just to split on newlines; use the https://docs.python.org/2/library/stdtypes.html#str.splitlines, then re-join with spaces using https://docs.python.org/2/library/stdtypes.html#str.join: 
+
+  ' '.join(ex.splitlines())
+  
+
+ but admittedly this won't distinguish between newlines between words and extra newlines elsewhere. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35573798)
+ The output you get is correct, it just needs to be formatted a bit. The leading  0b  indicates that it is a binary number, similarly to how  0x  stands for hexadecimal and  0  for octal. 
+
+ First, slice away the  0b  with  [2:]  and use  zfill  to add leading zeros: 
+
+  >>> value = '05808080'
+>>> b = bin(int(value, 16))
+>>> b[2:]
+'101100000001000000010000000'
+>>> b[2:].zfill(32)
+'00000101100000001000000010000000'
+  
+
+ Finally, split the string in intervals of four characters and join those with spaces: 
+
+  >>> s = b[2:].zfill(32)
+>>> ' '.join(s[i:i+4] for i in range(0, 32, 4))
+'0000 0101 1000 0000 1000 0000 1000 0000'
+  
+
+ If you can live without those separator spaces, you can also use a https://docs.python.org/3/library/string.html#formatstrings: 
+
+  >>> '{:032b}'.format(int(value, 16))
+'00000101100000001000000010000000'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29486550)
+ Test on sites like regexpal: http://regexpal.com/
+It's easier to get the output and check if the regex is right. 
+
+ You should change your regex to something like: '\.\.' if you want to remove only double dots.
+If you want to remove when there's at least 2 dots you can use '\.{2,}'. 
+
+ Every character you put inside a [] will be checked against your expression
+And the dot character has a special meaning on a regex, to avoid this meaning you should prefix it with a escape character: \ 
+
+ You can read more about regular expressions metacharacters here: https://www.hscripts.com/tutorials/regular-expression/metacharacter-list.php 
+
+ 
+   [a-z] A range of characters. Matches any character in the specified
+  range. 
+  
+   . . 
+  
+   \ Specifies the next character as either a special character, a literal, a back reference, or an octal escape. 
+ 
+
+ Your new code: 
+
+  import re 
+
+s = "haha..hehe.hoho"
+#pattern = '\.\.' #If you want to remove when there's 2 dots
+pattern = '\.{2,}' #If you want to remove when there's at least 2 dots
+s = re.sub(pattern, ' ', s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21858059)
+ Use  format(i, '03o')  to format to octal numbers without leading  0o  indicator, or  str.format()  to include the literal backslash too: 
+
+  >>> format(16, '03o')
+'020'
+>>> '\\{:03o}'.format(16)
+'\\020'
+  
+
+ and just loop over the encoded  bytes  value; each character is yielded as an integer: 
+
+  char = ''.join(['\\{:03o}'.format(c) for c in char.encode('utf8')])
+  
+
+  
+
+  >>> char = '\U00010165'
+>>> ''.join(['\\{:03o}'.format(c) for c in char.encode('utf8')])
+'\\360\\220\\205\\245'
+>>> print(''.join(['\\{:03o}'.format(c) for c in char.encode('utf8')]))
+\360\220\205\245
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53578867)
+ You can use regex or this code with list comprehension, split() and the int() method: 
+
+  import sys
+
+if len(sys.argv) == 2:
+
+    s=sys.argv[1]
+    print(s)
+    print(s.split("\\"))
+    rslt=[ 10 if e=="n" else int(e,8) for e in s.split("\\") if e ]
+    print(rslt)
+  
+
+ The quotation marks are important: 
+
+  $ python3 myscript.py "\334\n\226"
+\334\n\226
+['', '334', 'n', '226']
+[220, 10, 150]
+  
+
+ EDIT:
+In Python3 this code works: 
+
+  b= bytes(sys.argv[1],"utf8")
+print(b)
+#rslt= [ ord(c) for c in str(b,"unicode-escape") ]
+rslt= [ ord(c) for c in b.decode("unicode-escape") ]
+print(rslt) 
+
+b'\\334\\ne\\226'
+[220, 10, 101, 150]
+  
+
+ EDIT2: 
+
+  import ast
+
+s= ast.literal_eval("'"+sys.argv[1]+"'")  # It interprets the escape sequences,too.
+print( [ord(c) for c in s ] )
+
+[220, 10, 101, 150]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44100965)
+ There are several issues here. 
+
+ 
+ There is no capturing groups in the regex pattern, but in the replacement pattern, you define  \1  backreference  to Group 1 - so, the most natural workaround is to use a backreference to Group 0, i.e. the whole match, that is  \g<0> . 
+ The  \1  in the replacement is not actually parsed as a backreference, but as a a char with an octal value 1 because the backslash in the regular (not raw) string literals forms  escape sequences . Here, it is an octal escape. 
+ The  +  after the  ]  means that the regex engine must match 1 or more occurrences of text matching the character class, so you match  sequences  of emojis rather than each separate emoji. 
+ 
+
+ Use 
+
+  import re
+
+text = "I am very #happy man but my wife is not "
+print(text) #line a
+
+reg = re.compile(u'['
+    u'\U0001F300-\U0001F64F'
+    u'\U0001F680-\U0001F6FF'
+    u'\u2600-\u26FF\u2700-\u27BF]', 
+    re.UNICODE)
+
+#padding the emoji with space at both ends
+new_text = reg.sub(r' \g<0> ',text) 
+print(new_text) #line b
+
+# this is just to test if it can still identify the emojis in new_text
+new_text2 = reg.sub(r'#\g<0>#', new_text) 
+print(new_text2) # line c
+  
+
+ See the http://rextester.com/UXJ28002 printing 
+
+  I am very #happy man but my wife is not 
+I am very #happy man but     my wife   is not     
+I am very #happy man but ##  ##  my wife ##  is not  ##  ## 
+  
+
+
+

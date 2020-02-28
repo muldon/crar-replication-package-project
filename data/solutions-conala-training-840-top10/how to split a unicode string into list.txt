@@ -1,0 +1,173 @@
+Query: how to split a unicode string into list
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15488003)
+ The  u  at the front stands for unicode, allowing the string to contain unicode charactors, used in non python 3.0+ versions (python 3.0+ is unicode by default) 
+
+ as for your split, you can do the following to split into the columns you desire: 
+
+  # search for parts you need in column 3
+for subitem in re.findall("(.*?) \((.*?)\)", item[2]):
+    temp_split = [subitem[0]]
+    temp_split.extend(subitem[1].split("/"))
+  
+
+ You cannot add columns in the middle of a list. 
+You can create a new list like so: 
+
+  for item_index in range(len(data)):
+    item = data[item_index]
+
+    for subitem in re.findall("(.*?) \((.*?)\)", item[2]):
+        # part before the ( )
+        temp_split = [subitem[0]]
+        # part in the ( )
+        temp_split.extend(subitem[1].split("/"))
+
+    temp_item = item[:2]
+    temp_item.extend(temp_split)
+    temp_item.extend(item[3:])
+
+    data[item_index] = temp_item
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8233460)
+  
+
+  >>> a = u'{0.128,0.128,0.133,0.137,0.141,0.146,0.15,0.155,0.159,0.164,0.169,0.174,0.179,0.185,0.19,0.196,0.202,0.208,0.214,0.22}'
+>>> [float(i) for i in a.strip('{}').split(',')]
+[0.128, 0.128, 0.133, 0.137, 0.141, 0.146, 0.15, 0.155, 0.159, 0.164, 0.169, 0.174, 0.179, 0.185, 0.19, 0.196, 0.202, 0.208, 0.214, 0.22]
+  
+
+ Unicode is very similar to  str  and you can use  .split() , as well as  strip() . Furthermore, casting to  float  works the way it works for  str . 
+
+ So, first strip your string of the unnecessary curly braces ( {  and  } ) by using  .strip('{}') , then split the resulting string by commas ( , ) using  .split(',') . After that you can just use list comprehension, converting each item to  float , as in the example above. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13858054)
+ Decode the bytes into unicode (str) and then use  str.split : 
+
+<pre class="lang-none prettyprint-override"> Python 3.2.3 (default, Oct 19 2012, 19:53:16) 
+[GCC 4.7.2] on linux2
+Type "help", "copyright", "credits" or "license" for more information.
+>>> a = b'asdf\nasdf'
+>>> a.split('\n')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: Type str doesn't support the buffer API
+>>> a = a.decode()
+>>> a.split('\n')
+['asdf', 'asdf']
+>>> 
+  
+
+ You can also split by  b'\n' , but I guess you have to work with strings not bytes anyway. So convert all your input data to  str  as soon as possible and work only with unicode in your code and convert it to bytes when needed for output as late as possible. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53553635)
+  You should encode your string not decode . Your provided list (array of string as you mentioned) consists of a unicode sting. To represent a unicode string as a string of bytes is known as encoding, use  u'...'.encode(encoding) . Then by using  string.split()  you can break that encoded string down into smaller chunks, or strings. 
+
+  lst = [u'ROWKEY\ufffdACCOUNTID\ufffdACCOUNTIDDSC']
+new_list = [i.encode('utf8') for i in lst[0].split(u'\ufffd')]
+print(new_list)
+  
+
+ Output would be: 
+
+  ['ROWKEY', 'ACCOUNTID', 'ACCOUNTIDDSC']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/88663)
+ You can use  split  from the  re  module.   
+
+ http://docs.python.org/library/re.html#re.split 
+
+ 
+   Split string by the occurrences of pattern. If capturing parentheses
+  are used in pattern, then the text of all groups in the pattern are
+  also returned as part of the resulting list. 
+ 
+
+ Example code: 
+
+  import re
+data = re.split(r'(\D)', '2+24*48/32')
+  
+
+ 
+
+ \D 
+
+ 
+   When the UNICODE flag is not specified, \D matches any non-digit
+  character; this is equivalent to the set [^0-9]. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/5001462)
+  Converting a unicode string to a list of strings.
+BTW, you need to know the encoding when dealing with unicode. Here I have used utf-8 
+
+  >>> s = u'[obj1,obj2,ob3]'
+>>> n = [e.encode('utf-8') for e in s.strip('[]').split(',')]
+>>> n
+['obj1', 'obj2', 'ob3']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45031497)
+ You can use https://docs.python.org/2/library/shlex.html, handy for parsing quoted strings: 
+
+  >>> import shlex
+>>> text = 'This is "a simple" test'
+>>> shlex.split(text, posix=False)
+['This', 'is', '"a simple"', 'test']
+  
+
+ Doing this in  non-posix  mode prevents the removal of the inner quotes from the split result.  posix  is set to  True  by default: 
+
+  >>> shlex.split(text)
+['This', 'is', 'a simple', 'test']
+  
+
+ If you have multiple lines of this type of text or you're reading from a stream, you can split efficiently (excluding the quotes in the output) using https://docs.python.org/2/library/csv.html#csv.reader: 
+
+  import io
+import csv
+
+s = io.StringIO(text.decode('utf8')) # in-memory streaming
+f = csv.reader(s, delimiter=' ', quotechar='"')
+print list(f)
+# [['This', 'is', 'a simple', 'test']]
+  
+
+ <sub>If on Python 3, you won't need to decode the string to unicode as all strings are already unicode. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34480857)
+ Why not simply encode and split: 
+
+  data = sc.textFile("README.md")
+trans = data.map(lambda x: x.encode("ascii", "ignore").split())
+trans.first()
+## ['#', 'Apache', 'Spark']
+  
+
+
+

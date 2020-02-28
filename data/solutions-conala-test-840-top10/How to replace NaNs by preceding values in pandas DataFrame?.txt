@@ -1,0 +1,323 @@
+Query: How to replace NaNs by preceding values in pandas DataFrame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35494936)
+ Try http://pandas.pydata.org/pandas-docs/stable/missing_data.html#interpolation.  Example from the panda docs: 
+
+  In [65]: df = pd.DataFrame({'A': [1, 2.1, np.nan, 4.7, 5.6, 6.8],
+   ....:                    'B': [.25, np.nan, np.nan, 4, 12.2, 14.4]})
+   ....: 
+
+In [66]: df
+Out[66]: 
+     A      B
+0  1.0   0.25
+1  2.1    NaN
+2  NaN    NaN
+3  4.7   4.00
+4  5.6  12.20
+5  6.8  14.40
+
+In [67]: df.interpolate()
+Out[67]: 
+     A      B
+0  1.0   0.25
+1  2.1   1.50
+2  3.4   2.75
+3  4.7   4.00
+4  5.6  12.20
+5  6.8  14.40
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43130665)
+  ffill  now has it's own method http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.ffill.html 
+
+  df.ffill()
+
+     0    1    2
+0  1.0  2.0  3.0
+1  4.0  2.0  3.0
+2  4.0  2.0  9.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53846656)
+  Only one column version  
+
+ 
+ Fill NAN with  last valid value  
+ 
+
+
+
+  df[column_name].fillna(method='ffill', inplace=True)
+  
+
+
+
+ 
+ Fill NAN with  next valid value  
+ 
+
+
+
+  df[column_name].fillna(method='backfill', inplace=True)
+  
+
+
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42849419)
+ One thing that I noticed when trying this solution is that if you have N/A at the start or the end of the array, ffill and bfill don't quite work.  . 
+
+  In [224]: df = pd.DataFrame([None, 1, 2, 3, None, 4, 5, 6, None])
+
+In [225]: df.ffill()
+Out[225]:
+     0
+0  NaN
+1  1.0
+...
+7  6.0
+8  6.0
+
+In [226]: df.bfill()
+Out[226]:
+     0
+0  1.0
+1  1.0
+...
+7  6.0
+8  NaN
+
+In [227]: df.bfill().ffill()
+Out[227]:
+     0
+0  1.0
+1  1.0
+...
+7  6.0
+8  6.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27905354)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.fillna.html with the  method='ffill'  option.  'ffill'  stands for 'forward fill' and will propagate last valid observation forward. The alternative is  'bfill'  which works the same way, but backwards. 
+
+  import pandas as pd
+
+df = pd.DataFrame([[1, 2, 3], [4, None, None], [None, None, 9]])
+df = df.fillna(method='ffill')
+
+print(df)
+#   0  1  2
+#0  1  2  3
+#1  4  2  3
+#2  4  2  9
+  
+
+ There is also a direct synonym function for this, http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.ffill.html, to make things simpler. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44318297)
+ The accepted answer is perfect. I had a related but slightly different situation where I had to fill in forward but only within groups. In case someone has the same need, know that fillna works on a DataFrameGroupBy object. 
+
+  >>> example = pd.DataFrame({'number':[0,1,2,nan,4,nan,6,7,8,9],'name':list('aaabbbcccc')})
+>>> example
+  name  number
+0    a     0.0
+1    a     1.0
+2    a     2.0
+3    b     NaN
+4    b     4.0
+5    b     NaN
+6    c     6.0
+7    c     7.0
+8    c     8.0
+9    c     9.0
+>>> example.groupby('name')['number'].fillna(method='ffill') # fill in row 5 but not row 3
+0    0.0
+1    1.0
+2    2.0
+3    NaN
+4    4.0
+5    4.0
+6    6.0
+7    7.0
+8    8.0
+9    9.0
+Name: number, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49236633)
+ I think you need: 
+
+ 
+ http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html by first column 
+ replace  NaN s by back filling and check  NaN s by  isnull()  
+ replace NaNs by forward filling and replace  NaN s by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.mask.html 
+ last http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html for index to column 
+ 
+
+ 
+
+  df = df.set_index('Name')
+m = df.bfill(axis=1).isnull()
+df = df.ffill(axis=1).mask(m)
+print (df)
+    Name    A    B    C    D    E    F    G
+0    Matt  1.0  1.0  1.0  1.0  5.0  5.0  5.0
+1    Jake  NaN  NaN  2.0  2.0  3.0  NaN  NaN
+2    Paul  2.0  2.0  3.0  3.0  3.0  8.0  NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27905350)
+ You could use the http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.fillna.html method on the DataFrame and specify the method as  ffill  (forward fill): 
+
+  >>> df = pd.DataFrame([[1, 2, 3], [4, None, None], [None, None, 9]])
+>>> df.fillna(method='ffill')
+   0  1  2
+0  1  2  3
+1  4  2  3
+2  4  2  9
+  
+
+ This method... 
+
+ 
+   propagate[s] last valid observation forward to next valid 
+ 
+
+ To go the opposite way, there's also a  bfill  method. 
+
+ This method doesn't modify the DataFrame inplace - you'll need to rebind the returned DataFrame to a variable or else specify  inplace=True : 
+
+  df.fillna(method='ffill', inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52248716)
+ Replace by  np.nan  and use  ffill()  
+
+  df.loc[df.TAIR <= -990, 'TAIR'] = np.nan
+df.ffill()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/42946934)
+ You can use: 
+
+  #column a is changed for 2 groups of 4
+df = pd.DataFrame({
+"a" : [4,4,4,4,4,4,4,4,4,4,4,4,4,4,7,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5], 
+"b" : [3,3,3,3,3,3,3,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,7,7], 
+"c" : [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,1,2,2,2,2,2,2,2,2,3,3]})
+  
+
+ Solution counts consecutives 4 with reset if  NaN  created by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.where.html and then apply  boolean mask  to original  df  for replace  4  to  5  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.mask.html: 
+
+  a = df == 4
+mask = a.cumsum()-a.cumsum().where(~a).ffill().fillna(0) > 10
+df1 = df.mask(mask, 5)
+  
+
+
+
+  print (df1)
+    a  b  c
+0   4  3  4
+1   4  3  4
+2   4  3  4
+3   4  3  4
+4   4  3  4
+5   4  3  4
+6   4  3  4
+7   4  4  4
+8   4  4  4
+9   4  4  4
+10  5  4  5
+11  5  5  5
+12  5  5  5
+13  5  5  5
+14  7  5  5
+15  4  5  5
+16  4  5  5
+17  4  5  5
+18  4  5  5
+19  4  5  5
+20  4  5  5
+21  4  5  1
+22  4  5  2
+23  4  5  2
+24  4  5  2
+25  5  5  2
+26  5  5  2
+27  5  5  2
+28  5  6  2
+29  5  6  2
+30  5  7  3
+31  5  7  3
+  
+
+ For better checking values is possible use  concat : 
+
+  print (pd.concat([df, df1], axis=1, keys=['orig','new']))
+   orig       new      
+      a  b  c   a  b  c
+0     4  3  4   4  3  4
+1     4  3  4   4  3  4
+2     4  3  4   4  3  4
+3     4  3  4   4  3  4
+4     4  3  4   4  3  4
+5     4  3  4   4  3  4
+6     4  3  4   4  3  4
+7     4  4  4   4  4  4
+8     4  4  4   4  4  4
+9     4  4  4   4  4  4
+10    4  4  4   5  4  5
+11    4  5  4   5  5  5
+12    4  5  4   5  5  5
+13    4  5  4   5  5  5
+14    7  5  4   7  5  5
+15    4  5  4   4  5  5
+16    4  5  4   4  5  5
+17    4  5  4   4  5  5
+18    4  5  5   4  5  5
+19    4  5  5   4  5  5
+20    4  5  5   4  5  5
+21    4  5  1   4  5  1
+22    4  5  2   4  5  2
+23    4  5  2   4  5  2
+24    4  5  2   4  5  2
+25    4  5  2   5  5  2
+26    4  5  2   5  5  2
+27    4  5  2   5  5  2
+28    4  6  2   5  6  2
+29    5  6  2   5  6  2
+30    5  7  3   5  7  3
+31    5  7  3   5  7  3
+  
+
+
+

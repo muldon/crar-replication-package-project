@@ -1,0 +1,210 @@
+Query: Calling a function of a module from a string with the function's name in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9272378)
+ For what it's worth, if you needed to pass the function (or class) name and app name as a string, then you could do this: 
+
+  myFnName  = "MyFn"
+myAppName = "MyApp"
+app = sys.modules[myAppName]
+fn  = getattr(app,myFnName)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19393328)
+ Given a string, with a complete python path to a function, this is how I went about getting the result of said function: 
+
+  import importlib
+function_string = 'mypackage.mymodule.myfunc'
+mod_name, func_name = function_string.rsplit('.',1)
+mod = importlib.import_module(mod_name)
+func = getattr(mod, func_name)
+result = func()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18045575)
+ Use http://docs.python.org/2/library/inspect.html module functions. For example, 
+
+  import inspect
+
+def b():
+    f = inspect.currentframe()
+    current = inspect.getframeinfo(f)
+    caller = inspect.getframeinfo(f.f_back)
+    #caller = inspect.getframeinfo(inspect.getouterframes(f)[1][0])
+    print(__name__, current.filename, current.function, current.lineno, caller.function)
+
+def a():
+    b()
+
+a()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/18543271)
+ sys._getframe() is not guaranteed to be available in all implementations of Python (http://docs.python.org/2/library/sys.html) ,you can use the traceback module to do the same thing, eg. 
+
+  import traceback
+def who_am_i():
+   stack = traceback.extract_stack()
+   filename, codeline, funcName, text = stack[-2]
+
+   return funcName
+  
+
+ A call to stack[-1] will return the current process details. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12025554)
+ . If the class that we need to instance is in the same file, we can use something like this: 
+
+  # Get class from globals and create an instance
+m = globals()['our_class']()
+
+# Get the function (from the instance) that we need to call
+func = getattr(m, 'function_name')
+
+# Call it
+func()
+  
+
+ For example: 
+
+  class A:
+    def __init__(self):
+        pass
+
+    def sampleFunc(self, arg):
+        print('you called sampleFunc({})'.format(arg))
+
+m = globals()['A']()
+func = getattr(m, 'sampleFunc')
+func('sample arg')
+
+# Sample, all on one line
+getattr(globals()['A'](), 'sampleFunc')('sample arg')
+  
+
+ And, if not a class: 
+
+  def sampleFunc(arg):
+    print('you called sampleFunc({})'.format(arg))
+
+globals()['sampleFunc']('sample arg')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26463785)
+ The  if __name__ == '__main__'  is mainly used to make a single python script executable. For instance, you define a function that does something, you use it by importing it and running it, but you also want that function to be executed when you run your python script with  python module1.py . 
+
+ For the question you asked, the best I could come up with is that you wanted a function defined in "module1.py" to run when you invoke "module2.py". That would be something like this: 
+
+  ### module1.py:
+def main():
+    # does something
+    ...
+
+if __name__ == '__main__':
+    main()
+
+### module2.py:
+from module1 import main as main_from_module_one
+
+if __name__ == '__main__':
+    main_from_module_one()  # calling function main defined in module1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14072943)
+ none of what was suggested helped me. . 
+
+  <object>.__getattribute__(<string name>)(<params>)
+  
+
+ I am using python 2.66  
+
+ Hope this helps 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4605)
+ Patrick's solution is probably the cleanest.
+If you need to dynamically pick up the module as well, you can import it like: 
+
+  module = __import__('foo')
+func = getattr(module, 'bar')
+func()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22959509)
+ The answer (I hope) no one ever wanted 
+
+ Eval like behavior 
+
+  getattr(locals().get("foo") or globals().get("foo"), "bar")()
+  
+
+ Why not add auto-importing 
+
+  getattr(
+    locals().get("foo") or 
+    globals().get("foo") or
+    __import__("foo"), 
+"bar")()
+  
+
+ In case we have extra dictionaries we want to check 
+
+  getattr(next((x for x in (f("foo") for f in 
+                          [locals().get, globals().get, 
+                           self.__dict__.get, __import__]) 
+              if x)),
+"bar")()
+  
+
+  
+
+  getattr(next((x for x in (f("foo") for f in 
+              ([locals().get, globals().get, self.__dict__.get] +
+               [d.get for d in (list(dd.values()) for dd in 
+                                [locals(),globals(),self.__dict__]
+                                if isinstance(dd,dict))
+                if isinstance(d,dict)] + 
+               [__import__])) 
+        if x)),
+"bar")()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/834451)
+  locals()["myfunction"]()
+  
+
+  
+
+  globals()["myfunction"]()
+  
+
+ http://docs.python.g/library/functions.html#locals returns a dictionary with a current local symbol table. http://docs.python.g/library/functions.html#globals returns a dictionary with global symbol table. 
+
+
+

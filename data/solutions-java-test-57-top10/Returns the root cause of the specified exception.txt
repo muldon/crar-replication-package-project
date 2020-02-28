@@ -1,0 +1,231 @@
+Query: Returns the root cause of the specified exception
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/28565320)
+ I normally use the implementation below instead of Apache's one.
+<P>Besides it complexity Apache's implementation returns null when no cause is found, which force me to perform an additional check for null.
+ Normally when looking for an exception's root/cause I already have a non-null exception to start with, which is for all intended proposes is the cause of the failure at hand, if a deeper cause can't be found.    
+
+  Throwable getCause(Throwable e) {
+    Throwable cause = null; 
+    Throwable result = e;
+
+    while(null != (cause = result.getCause())  && (result != cause) ) {
+        result = cause;
+    }
+    return result;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17747258)
+  } catch (Exception ex) {
+    while (ex.getCause() != null)
+        ex = ex.getCause();
+    System.out.println("Root cause is " + ex.getMessage());
+}
+  
+
+ Were you expecting something more complicated? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27815130)
+ In http://commons.apache.org/proper/commons-lang/apidocs/src-html/org/apache/commons/lang3/exception/ExceptionUtils.html; the implementation is like below.  
+
+ The highlight is  list.contains(throwable) == false  
+
+  public static Throwable getRootCause(final Throwable throwable) {
+    final List<Throwable> list = getThrowableList(throwable);
+    return list.size() < 2 ? null : (Throwable)list.get(list.size() - 1);
+}
+
+public static List<Throwable> getThrowableList(Throwable throwable) {
+    final List<Throwable> list = new ArrayList<Throwable>();
+    while (throwable != null && list.contains(throwable) == false) {
+        list.add(throwable);
+        throwable = ExceptionUtils.getCause(throwable);
+    }
+    return list;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17747232)
+ Are you asking for something like this? 
+
+  Throwable cause = originalException;
+while(cause.getCause() != null && cause.getCause() != cause) {
+    cause = cause.getCause();
+}
+  
+
+ or am I missing something? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/883080)
+ That is called http://en.wikipedia.org/wiki/Exception_chaining. By wrapping an exception in a different exception you can let exceptions bubble up the stack without having your main application classes to worry about some low-level exceptions. 
+
+ Example: 
+
+  public void doStuff() throws StuffException {
+    try {
+        doDatabaseStuff();
+    } catch (DatabaseException de1) {
+        throw new StuffException("Could not do stuff in the database.", de1);
+    }
+}
+  
+
+ This way your application only has to handle  StuffException  but it can get to the underlying  DatabaseException  if it really needs to. 
+
+ To get to the bottom-most (and all other) exception(s) of an exception you caught you can iterator over its root causes: 
+
+      ...
+} catch (SomeException se1) {
+    Throwable t = se1;
+    logger.log(Level.WARNING, "Top exception", se1);
+    while (t.getCause() != null) {
+        t = t.getCause();
+        logger.log(Level.WARNING, "Nested exception", t);
+    }
+    // now t contains the root cause
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37245292)
+ Using java 8 Stream API, this can be achieved by: 
+
+  Optional<Throwable> rootCause = Stream.iterate(exception, Throwable::getCause)
+                                      .filter(element -> element.getCause() == null)
+                                      .findFirst();
+  
+
+ Note that this code is not immune to exception cause loops and therefore should be avoided in production. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48753471)
+ Try this, you can put this function in a kind of Util class: 
+
+  public static Throwable getRootException(Throwable exception){
+ Throwable rootException=exception;
+ while(rootException.getCause()!=null){
+  rootException = rootException.getCause();
+ }
+ return rootException;
+}
+  
+
+ Example of usage : 
+
+  catch(MyException e){
+  System.out.println(getRootException(e).getLocalizedMessage());
+}
+  
+
+ Source : https://tutoref.com/how-to-get-the-root-exception-of-any-exception/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/13602807)
+ To get to the root cause you can do something like this: 
+
+  try {
+    //insert
+} catch (NestedSQLException e) {
+    Throwable t = e;
+    while(t.getCause() != null) {
+        t = t.getCause();
+    }
+    //in your situation, now t should be MySQLIntegrityConstraintViolationException 
+    if (t instanceOf MySQLIntegrityConstraintViolationException) {
+        //do something
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9017846)
+ I think you are wrapping your exception in another exception (which isn't in your code above). If you try out this code: 
+
+  public static void main(String[] args) {
+    try {
+        throw new RuntimeException("Cannot move file");
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(null, "Error: " + ex.getMessage());
+    }
+}
+  
+
+ ...you will see a popup that says exactly what you want. 
+
+ 
+
+ However, to solve your problem (the wrapped exception) you need get to the "root" exception with the "correct" message. To do this you need to create a own recursive method  getRootCause : 
+
+  public static void main(String[] args) {
+    try {
+        throw new Exception(new RuntimeException("Cannot move file"));
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(null,
+                                      "Error: " + getRootCause(ex).getMessage());
+    }
+}
+
+public static Throwable getRootCause(Throwable throwable) {
+    if (throwable.getCause() != null)
+        return getRootCause(throwable.getCause());
+
+    return throwable;
+}
+  
+
+  Note: Unwrapping exceptions like this however, sort of breaks the abstractions. I encourage you to find out why the exception is wrapped and ask yourself if it makes sense.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45176471)
+ Based on Patrick Boos answer:
+If you using Apache Commons Lang 3 you can check: 
+
+  indexOfThrowable : Returns the (zero based) index of the first Throwable that matches the specified class ( exactly ) in the exception chain.  Subclasses of the specified class do not match  
+
+  if (ExceptionUtils.indexOfThrowable(e, clazz) != -1) {
+    // your code
+}
+  
+
+ or 
+
+  indexOfType : Returns the (zero based) index of the first Throwable that matches the specified  class or subclass  in the exception chain.  Subclasses of the specified class do match  
+
+  if (ExceptionUtils.indexOfType(e, clazz) != -1) {
+    // your code
+}
+  
+
+ Example for multiple types with Java 8: 
+
+  Class<? extends Throwable>[] classes = {...}
+boolean match = Arrays.stream(classes)
+            .anyMatch(clazz -> ExceptionUtils.indexOfType(e, clazz) != -1);
+  
+
+
+

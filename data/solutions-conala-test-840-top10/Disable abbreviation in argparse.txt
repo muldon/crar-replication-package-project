@@ -1,0 +1,191 @@
+Query: Disable abbreviation in argparse
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30587574)
+ As of Python 3.5.0 you can disable abbreviations by initiating the ArgumentParser with the following: 
+
+  parser = argparse.ArgumentParser(allow_abbrev=False)
+  
+
+ Also see https://docs.python.org/3.5/library/argparse.html#allow-abbrev. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13609712)
+ From argparse documentation it is not clear that it supports such automatic abbreviation for subparser but you can explicitly set alias like this: 
+
+  foo_parser = subparsers.add_parser('foo', aliases=['f'])
+  
+
+ On the other hand, arguments abbreviation is http://docs.python.org/dev/library/argparse.html#argument-abbreviations. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39479562)
+ Another way for Python 2.7.    Say you want to recognize  --dog  without abbreviation. 
+
+  p = argparse.ArgumentParser()
+p.add_argument('--dog')
+p.add_argument('--dox', help=argparse.SUPPRESS, metavar='IGNORE')
+  
+
+ By adding a second argument  --dox  that differs from the argument you want only in the third letter,  --d  and  --do  become ambiguous.  Therefore, the parser will refuse to recognize them.  You would need to add code to catch the resulting exception and process it according to the context in which you are calling  parse_args .  You might also need to suppress/tweak the help text. 
+
+ The  help=...  keeps the argument out of the option list on the default help message (per https://docs.python.org/2/library/argparse.html#help), and  metavar='IGNORE'  is just to make it clear you really aren't doing anything with this option :) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33900999)
+ The ability to disable abbreviated long options was only added in Python 3.5. From the https://docs.python.org/3/library/argparse.html#argument-abbreviations-prefix-matching: 
+
+ 
+   The  parse_args()  method  by default  allows long options to be abbreviated to a prefix, if the abbreviation is unambiguous (the prefix matches a unique option) ...  This feature can be disabled by setting  allow_abbrev  to  False .  
+ 
+
+ So if you're on Python 3.5, you can create your parser with  allow_abbrev=False : 
+
+  parser = argparse.ArgumentParser(..., allow_abbrev=False)
+  
+
+ If you're on optparse or pre-3.5 argparse, you just have to live with abbreviated options. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10751356)
+ . 
+
+ The code snippet @Vladimir posted, i suppose that is not what you are looking for. The actual code that is doing this is: 
+
+  def _get_option_tuples(self, option_string):
+    ...
+    if option_string.startswith(option_prefix):
+    ...
+  
+
+ See the check is  startswith  not  == . 
+
+ And you can always extend  argparse.ArgumentParser  to provide your own  _get_option_tuples(self, option_string)  to change this behavior. I just did by replacing two occurrence of  option_string.startswith(option_prefix)  to  option_string == option_prefix  and: 
+
+  >>> parser = my_argparse.MyArgparse
+>>> parser = my_argparse.MyArgparse()
+>>> parser.add_argument('--send', action='store_true')
+_StoreTrueAction(option_strings=['--send'], dest='send', nargs=0, const=True, default=False, type=None, choices=None, help=None, metavar=None)
+>>> parser.parse_args(['--se'])
+usage: [-h] [--send]
+: error: unrecognized arguments: --se
+  
+
+  A word of caution  
+
+ The method  _get_option_tuples  is prefixed with  _ , which typically means a private method in python. And it is not a good idea to override a private. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32807403)
+ 
+   Is it possible to remove or disable an argument in argparse, such that
+  it does not show in the help? 
+ 
+
+ Set  help  to  argparse.SUPPRESS  when you add the argument, like this: 
+
+  parser.add_argument('--arg1', help=argparse.SUPPRESS)
+  
+
+ This will prevent the argument from showing up in the default help output. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47228403)
+ A patch to allow abbreviations of the subparser names was implemented, but then withdrawn when it proved to be buggy:  
+
+ https://bugs.python.org/issue12713 
+
+ Allowing users to turn off abbreviations for long options is a different issue, handled in   
+
+ https://bugs.python.org/issue14910 
+
+ Two different parts of the code. 
+
+ 
+   allow_abbrev - Allows  long  options to be abbreviated if the abbreviation is unambiguous. 
+ 
+
+ A long option is created with: 
+
+  caesar.add_argument('-f','--foobar')
+  
+
+ With the default  allow_abbrev  value, this would work with '-f', '--foo', and '--foobar'.  The  long_option  in this case is '--foobar'.  With it  False , '--foo' would not work. 
+
+ It's the main  parser  that decides whether  c  or  caesar  or  cae  are valid subparser commands (via  subp , the  special action object  created by  parser.add_subparsers ).  This behaves more like a positional with  choices . 
+
+  parser.add_argument('foo', choices = ['c', 'caesar'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18840050)
+  argparse  adds  --help  and  -h  options by default. If you don't want to use the built-in help feature, you need to disable it with: 
+
+  parser = argparse.ArgumentParser(add_help=False)
+  
+
+ See the http://docs.python.org/dev/library/argparse.html#add-help 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10751093)
+ No, apparently this is not possible. At least in Python 2.7.2. 
+
+ First, I took a look into the documentation - to no avail. 
+
+ Then I opened the Lib\argparse.py and looked through the source code. Omitting a lot of details, it seems that each argument is parsed by a regular expression like this (argparse:2152): 
+
+      # allow one or more arguments
+    elif nargs == ONE_OR_MORE:
+        nargs_pattern = '(-*A[A-]*)'
+  
+
+ This regex will successfully parse both '-' and '--', so we have no control over the short and long arguments. Other regexes use the -* construct too, so it does not depend on the type of the parameter (no sub-arguments, 1 sub-argument etc). 
+
+ Later in the code double dashes are converted to one dash (only for non-optional args), again, without any flags to control by user: 
+
+      # if this is an optional action, -- is not allowed
+    if action.option_strings:
+        nargs_pattern = nargs_pattern.replace('-*', '')
+        nargs_pattern = nargs_pattern.replace('-', '')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23298208)
+ I see two issues in your example: 
+
+ 1) The use of '--disable' in both the parser and subparsers.  https://stackoverflow.com/questions/23178097
+deals with that overlapping  dest . 
+
+ 2) The repeated set of arguments in the subparsers.   parents  is certainly one way to simplify that.  But you could easily write your own code: 
+
+  parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest='subparser_name')
+
+parser.add_argument('--disable', dest='main_disable')    # This flag...
+
+for name in ['compile', 'launch']:
+    sp = subparsers.add_parser(name)
+    sp.add_argument('zones', nargs='*')
+    sp.add_argument('--disable', dest=name+'_disable')        # Is repeated...
+  
+
+
+

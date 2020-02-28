@@ -1,0 +1,183 @@
+Query: How to create single Python dict from a list of dicts by summing values with common keys?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13992173)
+ python 3.2 
+
+  from collections import defaultdict
+c=defaultdict(list)
+for i in myDic:
+     for m,n in i.items():
+            c[m].append(n)
+new_dic={i:sum(v) for i,v in c.items()if len(v)==len(myDic)}
+print(new_dic)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45649241)
+ I would do this in two steps: 
+
+ 
+  Collect all keys into a single iterable: 
+
+  >>> import operator
+>>> from functools import reduce
+>>> all_keys = reduce(operator.or_, (d.keys() for d in foo))
+>>> all_keys
+{'a', 'b', 'c'}
+   
+  Use a dict comprehension to create the desired result: 
+
+  >>> bar = {key: [d.get(key) for d in foo] for key in all_keys}
+>>> bar
+{'a': ['x', 'j'], 'b': ['y', None], 'c': ['z', 'z']}
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13986230)
+  l = [{2:1, 3:1, 5:2}, {3:4, 6:4, 2:3}, {2:5, 3:6}]
+
+new_dict = {}
+
+def unique_key_value(a,b):
+    return set(a).intersection(set(b))
+
+def dict_sum(k, v):
+    if k not in new_dict.keys():
+        new_dict[k] = v
+    else:
+        new_dict[k] = new_dict[k] + v
+
+for i in reduce(unique_key_value, l):
+    for k in l:
+        if i in k.keys():
+            dict_sum(i, k[i])
+
+print new_dict
+  
+
+ hope this helps.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47102108)
+ This will work 
+
+  from collections import defaultdict
+values = defaultdict(int)
+def combine(d, values):
+    for k, v in d.items():
+        values[k] += v
+
+for v in a.values():
+    combine(v, values)
+
+print(dict(values))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31226402)
+  
+
+  def merge_dicts(*dicts):
+    res = {}
+    for key in set(sum(map(list, dicts), [])):
+        res[key] = 0
+        for dct in dicts:
+            res[key] += dct.get(key, 0)
+    return res
+  
+
+ Example usage: 
+
+  merge_dicts(d1, d2, d3)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8443646)
+ You can use a http://docs.python.org/library/collections.html#collections.defaultdict to help here.  This is a  dict  that will create default values for missing keys.  Firstly you'll want a  defaultdict  that has a default value of  0  to do your aggregation.  Next you'll need a  defaultdict  that has the first kind of  defaultdict  as its default so you can build up to the two levels. 
+
+  >>> A = [{u'CI': {u'RP': 1}}, {u'CI': {u'RP': 1}},  {u'JI': {u'RP': 1}}]
+>>> B = defaultdict(lambda: defaultdict(int))
+>>> for d in A:
+...     for (key,d2) in d.iteritems():
+...         for (key2, value) in d2.iteritems():
+...             B[key][key2] += value
+... 
+>>> B.items()
+[(u'CI', defaultdict(<type 'int'>, {u'RP': 2})), (u'JI', defaultdict(<type 'int'>, {u'RP': 1}))]
+  
+
+ If you really want a list of single key dicts rather than a single dict with different keys you can convert the  defaultdict  as follows: 
+
+  >>> [{key: dict(value)} for key,value in B.iteritems()]
+[{u'CI': {u'RP': 2}}, {u'JI': {u'RP': 1}}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23273276)
+ Use a dict of sets: 
+
+  d={    'k1': [1,2,3],
+       'k2': [2],
+       'k3': [10],
+       'k4': [3,2]
+    }
+
+com_keys={}
+for k, v in d.items():
+    for e in v:
+        com_keys.setdefault(e, set()).add(k)    
+
+print com_keys   
+# {1: set(['k1']), 10: set(['k3']), 3: set(['k1', 'k4']), 2: set(['k2', 'k1', 'k4'])}
+  
+
+ Then if you only want the ones that have more than one key in common, just filter with a dict comprehension (or the like for older Pythons): 
+
+  >>> {k:v for k,v in com_keys.items() if len(v)>1 }
+{2: set(['k2', 'k1', 'k4']), 3: set(['k1', 'k4'])}
+  
+
+ It get a  little  more challenging if your dict is a non-homogenous combination of containers that support iteration (lists, tuples, etc) with 'single items' that either do not support iteration (ints, floats) or things that you do not want to iterate with a  for  loop (strings, unicode, other dicts, etc) 
+
+ For example, assume you have a combination of lists and 'single items' that are ints and strings: 
+
+  import collections
+
+d={    'k1': [1,2,3],
+       'k2': 2,
+       'k3': [10],
+       'k4': [3,2],
+       'k5': 'string',
+       'k6': ['string',2]
+    }
+
+com_keys={}
+for k, v in d.items():
+    if not isinstance(v, basestring) and isinstance(v, collections.Iterable):   
+        for e in v:
+            com_keys.setdefault(e, set()).add(k)    
+    else:        
+        com_keys.setdefault(v, set()).add(k)
+
+print com_keys
+# {1: set(['k1']), 10: set(['k3']), 3: set(['k1', 'k4']), 2: set(['k2', 'k1', 'k6', 'k4']), 'string': set(['k6', 'k5'])}
+print {k:v for k,v in com_keys.items() if len(v)>1 }   
+# {2: set(['k2', 'k1', 'k6', 'k4']), 3: set(['k1', 'k4']), 'string': set(['k6', 'k5'])}
+  
+
+
+

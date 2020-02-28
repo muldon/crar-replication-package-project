@@ -1,0 +1,155 @@
+Query: Removing index column in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41094151)
+ You can set one of the columns as an index in case it is an "id" for example. 
+In this case the index column will be replaced by one of the columns you have chosen. 
+
+  df.set_index('id', inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49129170)
+  df.reset_index(drop=True, inplace=True)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20107825)
+  DataFrames  and  Series  always have an index. Although it displays alongside the column(s), it is not a column, which is why  del df['index']  did not work. 
+
+ If you want to replace the index with simple sequential numbers, use  df.reset_index() . I strongly suggest reading a little bit of the pandas documentation, like http://pandas.pydata.org/pandas-docs/stable/10min.html to get a sense for why the index is there is how it is used.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36572039)
+ When reading to and from your CSV file include the argument  index=False  so for example: 
+
+   df.to_csv(filename, index=False)
+  
+
+ and to read from the csv 
+
+  df.read_csv(filename, index=False)  
+  
+
+ This should prevent the issue so you don't need to fix it later. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20107708)
+ you can specify which column is an index in your csv file by using index_col parameter of from_csv function
+if this doesn't solve you problem please provide example of your data 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34922434)
+ If your problem is same as mine where you just want to reset the column headers from 0 to column size.  
+
+  df = pd.DataFrame(df.values);
+  
+
+ EDIT: 
+
+ Not a good idea if you have heterogenous data types. Better just use  
+
+  df.columns = range(len(df.columns))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53220786)
+ It is https://github.com/pandas-dev/pandas/issues/12652#issuecomment-197958059 related with grouping by  MutiIndex in columns . 
+
+ If working with  MultiIndex in index , it working with small modification - removing levels used for grouping for avoid duplicates levels. 
+
+ Your solution is modified by transpose for  MultiIndex in index , apply function and transpose back: 
+
+  def f(x):
+    idx = pd.IndexSlice
+    x.loc[idx[x.name[0], x.name[1], 'V'], :]=0
+    x.index = x.index.droplevel([0,1])
+    return x
+
+df = df.T.groupby(level=[0,1], axis=0).apply(f).T.astype(int)
+print (df)
+    E                     T                  
+    X          Y          W          Z       
+    r   s  V   r   s  V   r   s  V   r   s  V
+a   0   1  0   2   3  0   6   7  0   4   5  0
+b   8   9  0  10  11  0  14  15  0  12  13  0
+c  16  17  0  18  19  0  22  23  0  20  21  0
+d  24  25  0  26  27  0  30  31  0  28  29  0
+  
+
+ 
+
+  def f(x):
+    idx = pd.IndexSlice
+    x.loc[idx[x.name[0], x.name[1], 'V'], :]=0
+    return x
+
+df = df.T.groupby(level=[0,1], axis=0).apply(f).T.astype(int)
+print (df)
+    E                     T                  
+    X          Y          W          Z       
+    E          E          T          T       
+    X          Y          W          Z       
+    r   s  V   r   s  V   r   s  V   r   s  V
+a   0   1  0   2   3  0   6   7  0   4   5  0
+b   8   9  0  10  11  0  14  15  0  12  13  0
+c  16  17  0  18  19  0  22  23  0  20  21  0
+d  24  25  0  26  27  0  30  31  0  28  29  0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51695325)
+  
+
+  import pandas as pd
+df = pd.DataFrame(np.array([[0,0,0,1,0,0,0], [0,1,0,0,0,0,0], 
+                            [0,0,0,0,0,0,1]]))
+df.columns = [1,1,2,2,2,3,3]
+df1 = df.groupby(lambda x:x, axis=1).sum()
+df1.index = range(1,4)
+df1
+  
+
+ outputs the desired dataframe you posted. The following  df1.index = range(1,4)  is just to re-index the rows because they start with  1  in your  example. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38875658)
+ Instead of removing the extra index, why don't try setting the new index that you want and then use slicing ? 
+
+ step 1: Set the new index you want: 
+         df.columns = df.iloc[0]  
+step 2: Create a new dataframe removing extra row. 
+         df_new = df[1:]   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49989490)
+ By using  add  with  fill_value=0 , you also need  dropna  at the end  
+
+  A.add(B,fill_value=0).dropna().astype(int)
+Out[434]: 
+   bar  foo  foo2
+0    1    2     1
+1    2    2     2
+2    3    5     3
+3    3    4     3
+  
+
+
+

@@ -1,0 +1,265 @@
+Query: How do I change directory back to my original working directory with Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5963196)
+ Python is case sensitive so when typing the path make sure it's the same as the directory
+you want to set. 
+
+  import os
+
+os.getcwd()
+
+os.chdir('C:\\')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/299462)
+ You simply need to add the line: 
+
+  os.chdir(owd)
+  
+
+ Just a note this was also answered in your other <A href="http://stackoverflow.com/questions/299249/how-can-i-get-my-python-version-25-script-to-run-a-jar-file-inside-a-folder-ins">question</A>. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/300204)
+ The advice to use  os.chdir(owd)  is good.  It would be wise to put the code which needs the changed directory in a  try:finally  block (or in python 2.6 and later, a  with:  block.)  That reduces the risk that you will accidentally put a  return  in the code before the change back to the original directory. 
+
+  def run(): 
+    owd = os.getcwd()
+    try:
+        #first change dir to build_dir path
+        os.chdir(testDir)
+        #run jar from test directory
+        os.system(cmd)
+    finally:
+        #change dir back to original working directory (owd)
+        os.chdir(owd)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/299464)
+ os.chdir(owd) should do the trick (like you've done when changing to testDir) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37996581)
+ A context manager is a very appropriate tool for this job: 
+
+  from contextlib import contextmanager
+
+@contextmanager
+def cwd(path):
+    oldpwd=os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(oldpwd)
+  
+
+ ...used as: 
+
+  os.chdir('/tmp') # for testing purposes, be in a known directory
+print 'before context manager: %s' % os.getcwd()
+with cwd('/'):
+    # code inside this block, and only inside this block, is in the new directory
+    print 'inside context manager: %s' % os.getcwd()
+print 'after context manager: %s' % os.getcwd()
+  
+
+ ...which will yield something like: 
+
+  before context manager: /tmp
+inside context manager: /
+after context manager: /tmp
+  
+
+ This is actually  superior  to the  cd -  shell builtin, inasmuch as it also takes care of changing directories back when a block is exited due to an exception being thrown. 
+
+ 
+
+ For your specific use case, this would instead be: 
+
+  with cwd(testDir):
+    os.system(cmd)
+  
+
+ 
+
+ Another option to consider is using  subprocess.call()  instead of  os.system() , which will let you specify a working directory for the command to run: 
+
+  # note: better to modify this to not need shell=True if possible
+subprocess.call(cmd, cwd=testDir, shell=True)
+  
+
+ ...which would prevent you from needing to change the interpreter's directory at all. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8675236)
+ I think I have found the answer to this, basically it involves changing the current working directory, starting the server and then returning back to your original working directory.  
+
+ This is how I achieved it, I've commented out two sets of options for you, as the solution for me was just moving to a folder within my app directory and then back up one level to the original app directory. But, you might want to go to an entire other directory in your file system and then return someplace else or not at all.  
+
+  #Setup file server
+import SimpleHTTPServer
+import SocketServer
+import os
+
+PORT = 5002
+
+#  -- OPTION 1 --
+#os.chdir(os.path.join(os.path.abspath(os.curdir),'PATH_TO_FOLDER_IN_APP_DIR'))
+#  -- OPTION 2 --
+#os.chdir('PATH_TO_ROOT_DIRECTORY')
+
+Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+
+httpd = SocketServer.TCPServer(("", PORT), Handler)
+
+print "serving at port", PORT
+httpd.serve_forever()
+
+#  -- OPTION 1 --
+#os.chdir(os.path.abspath('..'))
+#  -- OPTION 2 --
+#os.chdir('PATH_TO_ORIGINAL_WORKING_DIR')
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21871161)
+ I've found it useful to have a  contextmanager  version of  os.chdir() : on exit it  chdir() s back to the original directory. 
+
+ This allows you to emulate a common (Bourne) shell-scripting pattern: 
+
+  (
+cd <some dir>
+<do stuff>
+)
+  
+
+ I.e. you change to a new dir  <some dir>  inside a subshell (the  (   ) ) so that you are sure to return to your original dir, even if the  <do stuff>  causes an error. 
+
+ Compare the context manager and vanilla versions in Python.   
+
+  original_dir = os.getcwd()
+os.chdir(<some dir>)
+try:
+    <do stuff>
+finally:
+    os.chdir(original_dir)
+  
+
+ Using a context manager: 
+
+  with os.chdir(<some dir>):
+    <do stuff>
+  
+
+ The latter is much nicer! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12280309)
+ think about using absolute paths 
+
+  import os
+pwd = '/home/Desktop/folder'
+
+if some_condition == true :
+    path = os.path.join(pwd, "nodes/hellofolder")
+    os.chdir(path)
+    print os.getcwd()
+if another_condition  == true:
+    path = os.path.join(pwd, "nodes")
+    os.chdir(path) 
+    print os.getcwd()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/13744539)
+ Try to  os.chdir(path)  before invoking the command. 
+
+ From http://docs.python.org/2/library/os.html#os.chdir: 
+
+ 
+   os.chdir(path) Change the current working directory to path. 
+  
+   Availability: Unix, Windows 
+ 
+
+  EDIT  
+
+ This will change the current working dir, you can get the current working by: 
+
+  os.getcwd()
+  
+
+ If you want to save it and restore it later, if you need to do some work in the original working dir. 
+
+  EDIT 2  
+
+ In any case you should probably move to  subprocess  (http://docs.python.org/2/library/subprocess.html#module-subprocess) as suggested <a href="http://docs.python.org/2/library/os.html#os.system" . If you use  subprocess 's  Popen  you have the choice of providing  cwd  parameter to specify the working directory for the subprocess: http://docs.python.org/2/library/subprocess.html#popen-constructor. 
+
+  subprocess.Popen(args, bufsize=0, executable=None, stdin=None,
+stdout=None, stderr=None, preexec_fn=None, close_fds=False,
+shell=False, cwd=None, env=None, universal_newlines=False,
+startupinfo=None, creationflags=0)
+  
+
+ 
+   ... 
+  
+   If cwd is not None, the child’s current directory will be changed to
+  cwd before it is executed. Note that this directory is not considered
+  when searching the executable, so you can’t specify the program’s path
+  relative to cwd. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/24176022)
+  cd()  is easy to write using a generator and a decorator. 
+
+  from contextlib import contextmanager
+import os
+
+@contextmanager
+def cd(newdir):
+    prevdir = os.getcwd()
+    os.chdir(os.path.expanduser(newdir))
+    try:
+        yield
+    finally:
+        os.chdir(prevdir)
+  
+
+ Then, the directory is reverted even after an exception is thrown: 
+
+  os.chdir('/home')
+
+with cd('/tmp'):
+    # ...
+    raise Exception("There's no place like home.")
+# Directory is now back to '/home'.
+  
+
+
+

@@ -1,0 +1,176 @@
+Query: How do I read entries in a zip or compressed file?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8830967)
+ http://commons.apache.org/compress/ is easy to use. 
+
+ Here's an example of reading a tar's entries: 
+
+  import java.io.FileInputStream;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+
+public class Taread {
+    public static void main(String[] args) {
+        try {
+            TarArchiveInputStream tarInput = new TarArchiveInputStream(new FileInputStream(args[0]));
+            TarArchiveEntry entry;
+            while (null!=(entry=tarInput.getNextTarEntry())) {
+                System.out.println(entry.getName());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40543167)
+ If you want to look through zip files within zip files recursively,  
+
+      public void lookupSomethingInZip(InputStream fileInputStream) throws IOException {
+        ZipInputStream zipInputStream = new ZipInputStream(fileInputStream);
+        String entryName = "";
+        ZipEntry entry = zipInputStream.getNextEntry();
+        while (entry!=null) {
+            entryName = entry.getName();
+            if (entryName.endsWith("zip")) {
+                //recur if the entry is a zip file
+                lookupSomethingInZip(zipInputStream);
+            }
+            //do other operation with the entries..
+
+            entry=zipInputStream.getNextEntry();
+        }
+    }
+  
+
+ Call the method with the file input stream derived from the file - 
+
+  File file = new File(name);
+lookupSomethingInZip(new FileInputStream(file));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4722238)
+  ZipFile zipFile = new ZipFile("archive.zip");
+try {
+  for (Enumeration<? extends ZipEntry> entries = zipFile.entries(); entries.hasMoreElements();) {
+    ZipEntry entry = entries.nextElement();
+
+    if (entry.isDirectory()) {
+      new File(entry.getName()).mkdirs();
+    } else {
+      InputStream in = zipFile.getInputStream(entry);
+      try {
+        OutputStream out = new BufferedOutputStream(new FileOutputStream(entry.getName()));
+          try {
+            // this util class is taken from apache commons io (see http://commons.apache.org/io/)
+            IOUtils.copy(in, out);
+          } finally {
+            out.close();
+          }
+      } finally {
+        in.close();
+      }
+    }
+  }
+} catch (IOException e) {
+  e.printStackTrace();
+} finally {
+  zipFile.close();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4169546)
+ Read http://download.oracle.com/javase/1.4.2/docs/api/java/util/zip/ZipEntry.html#getSize%28%29 for ZipEntry. . You can read the content using the following (it just prints the size of the zipentry, change it process data appropriately): 
+
+  ZipEntry entry = zipIn.getNextEntry();
+int BUFSIZE = 1024;
+byte [] buffer = new byte[BUFSIZE];
+int read = 0;
+int total = 0;
+while( (read = zipIn.read(buffer, 0, BUFSIZE)) >0 ) { 
+  total += read;
+  // what do you want to do with the data read? Do it here
+}   
+System.err.println("Total: " + total);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3048744)
+ The function renames the existing zip file to a temporary file and then adds all entries in the existing zip along with the new files, excluding the zip entries that have the same name as one of the new files.  
+
+  public static void addFilesToExistingZip(File zipFile,
+         File[] files) throws IOException {
+        // get a temp file
+    File tempFile = File.createTempFile(zipFile.getName(), null);
+        // delete it, otherwise you cannot rename your existing zip to it.
+    tempFile.delete();
+
+    boolean renameOk=zipFile.renameTo(tempFile);
+    if (!renameOk)
+    {
+        throw new RuntimeException("could not rename the file "+zipFile.getAbsolutePath()+" to "+tempFile.getAbsolutePath());
+    }
+    byte[] buf = new byte[1024];
+
+    ZipInputStream zin = new ZipInputStream(new FileInputStream(tempFile));
+    ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile));
+
+    ZipEntry entry = zin.getNextEntry();
+    while (entry != null) {
+        String name = entry.getName();
+        boolean notInFiles = true;
+        for (File f : files) {
+            if (f.getName().equals(name)) {
+                notInFiles = false;
+                break;
+            }
+        }
+        if (notInFiles) {
+            // Add ZIP entry to output stream.
+            out.putNextEntry(new ZipEntry(name));
+            // Transfer bytes from the ZIP file to the output file
+            int len;
+            while ((len = zin.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+        }
+        entry = zin.getNextEntry();
+    }
+    // Close the streams        
+    zin.close();
+    // Compress the files
+    for (int i = 0; i < files.length; i++) {
+        InputStream in = new FileInputStream(files[i]);
+        // Add ZIP entry to output stream.
+        out.putNextEntry(new ZipEntry(files[i].getName()));
+        // Transfer bytes from the file to the ZIP file
+        int len;
+        while ((len = in.read(buf)) > 0) {
+            out.write(buf, 0, len);
+        }
+        // Complete the entry
+        out.closeEntry();
+        in.close();
+    }
+    // Complete the ZIP file
+    out.close();
+    tempFile.delete();
+}
+  
+
+
+

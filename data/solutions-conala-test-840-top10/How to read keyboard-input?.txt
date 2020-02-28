@@ -1,0 +1,420 @@
+Query: How to read keyboard-input?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/45061947)
+ This should work  
+
+  yourvar = input('Choose a number: ')
+print('you entered: ' + yourvar)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32671356)
+ So for instance you have a Python code like this: 
+
+ file1.py</h3>
+
+  #!/bin/python
+... do some stuff...
+  
+
+ And at a certain point of the document you want to always check for input: 
+
+  while True:
+    input = raw_input(">>>")
+    ... do something with the input...
+  
+
+ That will always wait for input. You can thread that infinite loop as a separate process and do other things in the meanwhile, so that the user input can have an effect in the tasks you are doing. 
+
+ If you instead want to ask for input ONLY when a key is pressed, and do that as a loop, with this code (taken from http://code.activestate.com/recipes/577977-get-single-keypress/) you can wait for the key press to happen, and then ask for an input, execute a task and return back to the previous state. 
+
+ 
+  import sys
+
+try:
+    import tty, termios
+except ImportError:
+    # Probably Windows.
+    try:
+        import msvcrt
+    except ImportError:
+        # FIXME what to do on other platforms?
+        # Just give up here.
+        raise ImportError('getch not available')
+    else:
+        getch = msvcrt.getch
+else:
+    def getch():
+        """getch() -> key character
+
+        Read a single keypress from stdin and return the resulting character. 
+        Nothing is echoed to the console. This call will block if a keypress 
+        is not already available, but will not wait for Enter to be pressed. 
+
+        If the pressed key was a modifier key, nothing will be detected; if
+        it were a special function key, it may return the first character of
+        of an escape sequence, leaving additional characters in the buffer.
+        """
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+  
+ 
+
+  Well, now just call  getch()  every time you want to wait for a key press.  
+
+  while True:
+    getch() # this also returns the key pressed, if you want to store it
+    input = raw_input("Enter input")
+    do_whatever_with_it
+  
+
+ You can also thread that and do other tasks in the meanwhile.  
+
+ Remember that Python 3.x does no longer use raw_input, but instead simply input(). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53344690)
+ Non-blocking, multi-threaded example: 
+
+ As blocking on keyboard input (since the  input()  function blocks) is frequently  not  what we want to do (we'd frequently like to keep doing other stuff), here's a  very-stripped-down multi-threaded example  to demonstrate  how to keep running your main application while still reading in keyboard inputs whenever they arrive . 
+
+ This works by creating one thread to run in the background, continually calling  input()  and then passing any data it receives to a queue.  
+
+ In this way, your main thread is left to do anything it wants, receiving the keyboard input data from the first thread whenever there is something in the queue.  
+
+ 1. Bare Python 3 code example (no comments): 
+
+  import threading
+import queue
+import time
+
+def read_kbd_input(inputQueue):
+    print('Ready for keyboard input:')
+    while (True):
+        input_str = input()
+        inputQueue.put(input_str)
+
+def main():
+    EXIT_COMMAND = "exit"
+    inputQueue = queue.Queue()
+
+    inputThread = threading.Thread(target=read_kbd_input, args=(inputQueue,), daemon=True)
+    inputThread.start()
+
+    while (True):
+        if (inputQueue.qsize() > 0):
+            input_str = inputQueue.get()
+            print("input_str = {}".format(input_str))
+
+            if (input_str == EXIT_COMMAND):
+                print("Exiting serial terminal.")
+                break
+
+            # Insert your code here to do whatever you want with the input_str.
+
+        # The rest of your program goes here.
+
+        time.sleep(0.01) 
+    print(".")
+
+if (__name__ == '__main__'): 
+    main()
+  
+
+ 2. Same Python 3 code as above, but with extensive explanatory comments: 
+
+  """
+read_keyboard_input.py
+
+Gabriel Staples
+www.ElectricRCAircraftGuy.com
+14 Nov. 2018
+
+References:
+- https://pyserial.readthedocs.io/en/latest/pyserial_api.html
+- *****https://www.tutorialspoint.com/python/python_multithreading.htm
+- *****https://en.wikibooks.org/wiki/Python_Programming/Threading
+- https://stackoverflow.com/questions/1607612/python-how-do-i-make-a-subclass-from-a-superclass
+- https://docs.python.org/3/library/queue.html
+- https://docs.python.org/3.7/library/threading.html
+
+To install PySerial: `sudo python3 -m pip install pyserial`
+
+To run this program: `python3 this_filename.py`
+
+"""
+
+import threading
+import queue
+import time
+
+def read_kbd_input(inputQueue):
+    print('Ready for keyboard input:')
+    while (True):
+        # Receive keyboard input from user.
+        input_str = input()
+
+        # Enqueue this input string.
+        # Note: Lock not required here since we are only calling a single Queue method, not a sequence of them 
+        # which would otherwise need to be treated as one atomic operation.
+        inputQueue.put(input_str)
+
+def main():
+
+    EXIT_COMMAND = "exit" # Command to exit this program
+
+    # The following threading lock is required only if you need to enforce atomic access to a chunk of multiple queue
+    # method calls in a row.  Use this if you have such a need, as follows:
+    # 1. Pass queueLock as an input parameter to whichever function requires it.
+    # 2. Call queueLock.acquire() to obtain the lock.
+    # 3. Do your series of queue calls which need to be treated as one big atomic operation, such as calling
+    # inputQueue.qsize(), followed by inputQueue.put(), for example.
+    # 4. Call queueLock.release() to release the lock.
+    # queueLock = threading.Lock() 
+
+    #Keyboard input queue to pass data from the thread reading the keyboard inputs to the main thread.
+    inputQueue = queue.Queue()
+
+    # Create & start a thread to read keyboard inputs.
+    # Set daemon to True to auto-kill this thread when all other non-daemonic threads are exited. This is desired since
+    # this thread has no cleanup to do, which would otherwise require a more graceful approach to clean up then exit.
+    inputThread = threading.Thread(target=read_kbd_input, args=(inputQueue,), daemon=True)
+    inputThread.start()
+
+    # Main loop
+    while (True):
+
+        # Read keyboard inputs
+        # Note: if this queue were being read in multiple places we would need to use the queueLock above to ensure
+        # multi-method-call atomic access. Since this is the only place we are removing from the queue, however, in this
+        # example program, no locks are required.
+        if (inputQueue.qsize() > 0):
+            input_str = inputQueue.get()
+            print("input_str = {}".format(input_str))
+
+            if (input_str == EXIT_COMMAND):
+                print("Exiting serial terminal.")
+                break # exit the while loop
+
+            # Insert your code here to do whatever you want with the input_str.
+
+        # The rest of your program goes here.
+
+        # Sleep for a short time to prevent this thread from sucking up all of your CPU resources on your PC.
+        time.sleep(0.01) 
+
+    print(".")
+
+# If you run this Python file directly (ex: via `python3 this_filename.py`), do the following:
+if (__name__ == '__main__'): 
+    main()
+  
+
+ Sample output: 
+
+ 
+   $ python3 read_keyboard_input.py 
+  Ready for keyboard input: 
+  hey 
+  input_str = hey 
+  hello 
+  input_str = hello 
+  7000 
+  input_str = 7000 
+  exit 
+  input_str = exit 
+  Exiting serial terminal. 
+  .   
+ 
+
+ References: 
+
+ 
+ https://pyserial.readthedocs.io/en/latest/pyserial_api.html 
+ *****https://www.tutorialspoint.com/python/python_multithreading.htm 
+ *****https://en.wikibooks.org/wiki/Python_Programming/Threading 
+ https://stackoverflow.com/questions/1607612/python-how-do-i-make-a-subclass-from-a-superclass 
+ https://docs.python.org/3/library/queue.html 
+ https://docs.python.org/3.7/library/threading.html 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5404116)
+   
+
+  raw_input('Enter your input:')  # If you use Python 2
+input('Enter your input:')      # If you use Python 3
+  
+
+ and if you want to have a numeric value 
+just convert it:  
+
+  :
+    mode=int(raw_input('Input:'))
+except ValueError:
+    print "Not a number"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30240295)
+  input(prompt)  is basically equivalent to 
+
+  def input(prompt):
+    print(prompt, end='', file=sys.stderr)
+    return sys.stdin.readline()
+  
+
+ You can read directly from  sys.stdin  if you like.  
+
+  lines = sys.stdin.readlines()
+
+lines = [line for line in sys.stdin]
+
+five_lines = list(itertools.islice(sys.stdin, 5))
+  
+
+ The first two require that the input end somehow, either by reaching the end of a file or by the user typing Control-D (or Control-Z in Windows) to signal the end. The last one will return after five lines have been read, whether from a file or from the terminal/keyboard. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52712599)
+ You can install the https://pypi.org/project/keyboard/ package and use the  keyboard.on_press  method to listen to events of keyboard presses: 
+
+  import keyboard
+import time
+import sys
+
+def on_press(event):
+    global pos
+    move = event.name
+    if move == "w":
+        pos[0] = (pos[0] + 1)
+        print(pos)
+    elif move == "d":
+        pos[1] = (pos[1] + 1)
+        print(pos)
+    elif move == "x":
+        sys.exit()
+
+pos = [0,0]
+keyboard.on_press(on_press, suppress=True)
+while True:
+    time.sleep(1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22388289)
+  input([prompt])  is equivalent to  eval(raw_input(prompt))  and available since python 2.6 
+
+ As it is unsafe (because of eval), raw_input should be preferred for critical applications. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24213225)
+ If you do not dismiss the events in the event queue, the window becomes unresponsive and input is not grabbed properly.  
+
+  import pygame
+import time
+
+pygame.init()
+pygame.display.init()
+
+o_canvas = pygame.display.set_mode((320, 240))
+
+while True:
+    for e in pygame.event.get():
+        pass
+    # or pygame.event.clear()
+    print pygame.key.get_pressed()[pygame.K_SPACE]
+    time.sleep(0.3)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47503081)
+ Linux input subsystem is composed of three parts: the driver layer, the input subsystem core layer and the event processing layer.
+and the keyboard or other input event is all describe by  input_event . 
+
+ use below code and type in your Terminal  python filename.py | grep "keyboard"  
+
+  #!/usr/bin/env python
+#coding: utf-8
+import os
+
+deviceFilePath = '/sys/class/input/'
+
+def showDevice():
+    os.chdir(deviceFilePath)
+    for i in os.listdir(os.getcwd()):
+        namePath = deviceFilePath + i + '/device/name'
+        if os.path.isfile(namePath):
+            print "Name: %s Device: %s" % (i, file(namePath).read())
+
+if __name__ == '__main__':
+    showDevice()
+  
+
+ you should get  Name: event1 Device: AT Translated Set 2 keyboard .
+then use  
+
+  #!/usr/bin/env python
+#coding: utf-8
+from evdev import InputDevice
+from select import select
+
+def detectInputKey():
+    dev = InputDevice('/dev/input/event1')
+
+    while True:
+        select([dev], [], [])
+        for event in dev.read():
+            print "code:%s value:%s" % (event.code, event.value)
+
+
+if __name__ == '__main__':
+    detectInputKey()
+  
+
+  evdev  is a package provides bindings to the generic input event interface in Linux. The evdev interface serves the purpose of passing events generated in the kernel directly to userspace through character devices that are typically located in /dev/input/.and select  is  select . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1860125)
+ My previous answer apparently was completely wrong, sorry.
+I think the correct approach would be to read from /dev/input/event1 (?) 
+
+ This short test showed scancodes for me, even if the terminal did not have focus: 
+
+  from struct import unpack
+port = open("/dev/input/event1","rb")    
+
+while 1:    
+  a,b,c,d = unpack("4B",port.read(4))    
+  print a,b,c,d
+  
+
+ I do not know if /dev/input/event1 is always the keyboard or how to determine which one is, but at least for me it worked  
+
+
+

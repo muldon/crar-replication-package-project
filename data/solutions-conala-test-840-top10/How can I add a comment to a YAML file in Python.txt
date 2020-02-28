@@ -1,0 +1,816 @@
+Query: How can I add a comment to a YAML file in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30994992)
+ Within your  with  block, you can write anything you want to the file.  Since you just need a comment at the top, add a call to  f.write()  before you call ruamel: 
+
+  with open('test.yml', "w") as f:
+    f.write('# Data for Class A\n')
+    ruamel.yaml.dump(
+        d, f, Dumper=ruamel.yaml.RoundTripDumper,
+        default_flow_style=False, width=50, indent=8)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29605424)
+ If you want to add something to a yaml document that contains comments, you should look at https://pypi.python.org/pypi/ruamel.yaml (of which I am the author). It is a enhancement of PyYAML, that preserves comments in the YAML file. 
+
+ That way if you want to add something to the sequence in this  input.yml  file: 
+
+  - alpha   # first one
+- beta    # another one
+  
+
+  
+
+  # coding: utf-8
+
+import ruamel.yaml
+
+file_name = 'input.yml'
+
+config = ruamel.yaml.load(open(file_name), ruamel.yaml.RoundTripLoader)
+config.append('ω')
+
+ruamel.yaml.dump(config, open('output.yml', 'w'),
+                 Dumper=ruamel.yaml.RoundTripDumper)
+ruamel.yaml.dump(config, open('unicode.yml', 'w'), allow_unicode=True,
+                 Dumper=ruamel.yaml.RoundTripDumper)
+  
+
+ and get in  output.yml  (with what I think you call proper escaping): 
+
+  - alpha   # first one
+- beta    # another one
+- "\u03C9"
+  
+
+ and  unicode.yml : 
+
+  - alpha   # first one
+- beta    # another one
+- ω
+  
+
+ Please note that the comments are preserved, something e.g. PyYAML doesn't do.
+Adding a comment to the appended element is possible as well. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/26070382)
+ . The following Python script will do just that provided that your YAML file is named  data.yml . 
+
+<pre class="lang-py prettyprint-override"> import yaml
+with open("data.yml", "r") as f:
+    data = yaml.load(f)
+exec data['list']
+  
+
+ Also make sure to add the imports in your Python code in the YAML file: 
+
+  list: |
+    import numpy as np
+    print np.arange(1,5)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32720633)
+ The quotes are there because the  -  is a reserved word. If you want to make a sequence in YAML you have include a list in Python, and you only have dictionaries (which are output as mappings). 
+
+  
+
+  data = {'A':{'B': [{'c':'d'}]}}
+yaml.dump(data, sys.stdout, default_flow_style = False)
+  
+
+  
+
+  A:
+  B:
+  - c: d
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40705671)
+ There is indeed not a function in  ruamel.yaml<=0.12.18  to insert a comment on the line before a key, but there is a function to set a comment at beginning of a structure:  .yaml_set_start_comment . With that you could already set two of the three comments you want to add: 
+
+  import sys
+import ruamel.yaml
+
+yaml_str = """\
+xyz:
+  a: 1    # comment 1
+  b: 2
+
+test1:
+  test2:
+    test3: 3
+"""
+
+data = ruamel.yaml.round_trip_load(yaml_str)
+data['test1'].yaml_set_start_comment('before test2', indent=2)
+data['test1']['test2'].yaml_set_start_comment('after test2', indent=4)
+ruamel.yaml.round_trip_dump(data, sys.stdout)
+  
+
+  
+
+  xyz:
+  a: 1    # comment 1
+  b: 2
+
+test1:
+  # before test2
+  test2:
+    # after test2
+    test3: 3
+  
+
+ There is actually a "comment" constituting of the empty line between the value for  xyz  and  test1 , but if you append your comment to that structure and then insert a new key before  test1  things don't show up as you want. Therefore the thing to do is insert the comment explicitly before key  test1 . You can round-trip load your expected output to see what the internal  Comment  should look like: 
+
+  yaml_str_out = """\
+xyz:
+  a: 1    # comment 1
+  b: 2
+
+# before test1 (top level)
+test1:
+  # before test2
+  test2:
+    # before test3
+    test3: 3
+"""
+test = ruamel.yaml.round_trip_load(yaml_str_out)
+print(test.ca)
+  
+
+ gives (wrapped this for easier viewing): 
+
+  Comment(comment=None,
+        items={'test1': [None, 
+                        [CommentToken(value='# before test1 (top level)\n')], 
+                        None, 
+                        [CommentToken(value='# before test2\n')]]})
+  
+
+ As you see  # before test2  is considered to be a comment after the key.
+And doing  test['test1'].yaml_set_start_comment('xxxxx', indent=2)  will
+not have any effect as the comment associated with  test1  overrules that and  # xxxxx  will  not  show up in a dump. 
+
+ With that information and some background knowledge, I adapted some of the code from  yaml_set_start_comment()  (assuming the original imports and  yaml_str ): 
+
+  def yscbak(self, key, before=None, indent=0, after=None, after_indent=None):
+    """
+    expects comment (before/after) to be without `#` and possible have multiple lines
+    """
+    from ruamel.yaml.error import Mark
+    from ruamel.yaml.tokens import CommentToken
+
+    def comment_token(s, mark):
+        # handle empty lines as having no comment
+        return CommentToken(('# ' if s else '') + s + '\n', mark, None)
+
+    if after_indent is None:
+        after_indent = indent + 2
+    if before and before[-1] == '\n':
+        before = before[:-1]  # strip final newline if there
+    if after and after[-1] == '\n':
+        after = after[:-1]  # strip final newline if there
+    start_mark = Mark(None, None, None, indent, None, None)
+    c = self.ca.items.setdefault(key, [None, [], None, None])
+    if before:
+        for com in before.split('\n'):
+            c[1].append(comment_token(com, start_mark))
+    if after:
+        start_mark = Mark(None, None, None, after_indent, None, None)
+        if c[3] is None:
+            c[3] = []
+        for com in after.split('\n'):
+            c[3].append(comment_token(com, start_mark))
+
+if not hasattr(ruamel.yaml.comments.CommentedMap, 
+               'yaml_set_comment_before_after_key'):
+    ruamel.yaml.comments.CommentedMap.yaml_set_comment_before_after_key = yscbak
+
+
+data = ruamel.yaml.round_trip_load(yaml_str)
+data.yaml_set_comment_before_after_key('test1', 'before test1 (top level)',
+                                       after='before test2', after_indent=2)
+data['test1']['test2'].yaml_set_start_comment('after test2', indent=4)
+ruamel.yaml.round_trip_dump(data, sys.stdout)
+  
+
+ and get: 
+
+  xyz:
+  a: 1    # comment 1
+  b: 2
+
+# before test1 (top level)
+test1:
+  # before test2
+  test2:
+    # after test2
+    test3: 3
+  
+
+ The test with  hasattr  is to make sure you don't overwrite such a function when it gets added to  ruamel.yaml  
+
+ BTW: All comments are end-of-line comments in YAML, there might just be valid YAML before some of those comments. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43927974)
+ Add  uncomment_block  function inspired by @Anthon's answer, and some enhancements for  comment_block : 
+
+  from copy import deepcopy
+from ruamel.yaml import round_trip_dump, round_trip_load
+from ruamel.yaml.error import StreamMark
+from ruamel.yaml.tokens import CommentToken
+
+
+def comment_block(root, key_hierarchy_list, indent, seq_indent):
+    found = False
+    comment_key = key_hierarchy_list[-1]
+    parent = root
+    for ki in key_hierarchy_list[:-1]:
+        parent = parent[ki]
+    # don't just pop the value for key_hierarchy_list[-1] that way you lose comments
+    # in the original YAML, instead deepcopy and delete what is not needed
+    block_2b_commented = deepcopy(parent)
+    previous_key = None
+    for key in parent.keys():
+        if key == comment_key:
+            found = True
+        else:
+            if not found:
+                previous_key = key
+            del block_2b_commented[key]
+
+    # now delete the key and its value, but preserve its preceding comments
+    preceding_comments = parent.ca.items.get(comment_key, [None, None, None, None])[1]
+    del parent[comment_key]
+
+    if previous_key is None:
+        if parent.ca.comment is None:
+            parent.ca.comment = [None, []]
+        comment_list = parent.ca.comment[1]
+    else:
+        comment_list = parent[previous_key].ca.end = []
+        parent[previous_key].ca.comment = [None, None]
+
+    if preceding_comments is not None:
+        comment_list.extend(preceding_comments)
+
+    # startmark can be the same for all lines, only column attribute is used
+    start_mark = StreamMark(None, None, None, indent * (len(key_hierarchy_list) - 1))
+    skip = True
+    for line in round_trip_dump(block_2b_commented, indent=indent, block_seq_indent=seq_indent).splitlines(True):
+        if skip:
+            if not line.startswith(comment_key + ':'):
+                continue
+            skip = False
+        comment_list.append(CommentToken('#' + line, start_mark, None))
+
+    return False
+
+
+def uncomment_block(root, key_hierarchy_list, indent, seq_indent):
+    '''
+    FIXME: comments may be attached to the parent's neighbour
+    in document like the following. (srv2 block is attached by volumes, not servies, not srv1).
+    version: '2'
+       services:
+           srv1: foobar
+           #srv2:
+           #    image: alpine
+           #    container_name: srv2
+           #    volumes_from:
+           #        - some-volume
+       volumes:
+           some-volume:
+    '''
+    found = False
+    parent = root
+    commented_key = key_hierarchy_list[-1]
+    comment_indent = indent * (len(key_hierarchy_list) - 1)
+    for ki in key_hierarchy_list[:-1]:
+        parent = parent[ki]
+
+    if parent.ca.comment is not None:
+        comment_list = parent.ca.comment[1]
+        found, start, stop = _locate_comment_boundary(comment_list, commented_key, comment_indent)
+
+    if not found:
+        for key in parent.keys():
+            bro = parent[key]
+            while hasattr(bro, 'keys') and bro.keys():
+                bro = bro[bro.keys()[-1]]
+
+            if not hasattr(bro, 'ca'):
+                continue
+
+            comment_list = bro.ca.end
+            found, start, stop = _locate_comment_boundary(comment_list, commented_key, comment_indent)
+
+    if found:
+        block_str = u''
+        commented = comment_list[start:stop]
+        for ctoken in commented:
+            block_str += ctoken.value.replace('#', '', 1)
+        del(comment_list[start:stop])
+
+        block = round_trip_load(block_str)
+        parent.update(block)
+    return found
+
+
+def _locate_comment_boundary(comment_list, commented_key, comment_indent):
+    found = False
+    start_idx = 0
+    stop_idx = len(comment_list)
+    for idx, ctoken in enumerate(comment_list):
+        if not found:
+            if ctoken.start_mark.column == comment_indent\
+                    and ctoken.value.replace('#', '', 1).startswith(commented_key):
+                found = True
+                start_idx = idx
+        elif ctoken.start_mark.column != comment_indent:
+            stop_idx = idx
+            break
+    return found, start_idx, stop_idx
+
+
+if __name__ == "__main__":
+    import sys
+    from ruamel.yaml.util import load_yaml_guess_indent
+
+    yaml_str = """\
+version: '2'
+services:
+    # 1 indent after services
+    srv1:
+        image: alpine
+        container_name: srv1
+        volumes:
+          - some-volume
+        # some comments
+    srv2:
+        image: alpine
+        container_name: srv2  # second container
+        volumes_from:
+          - some-volume
+        # 2 indent after srv2 volume
+# 0 indent before volumes
+volumes:
+    some-volume:
+"""
+
+    for srv in ['srv1', 'srv2']:
+        # Comment a service block
+        yml, indent, block_seq_indent = load_yaml_guess_indent(yaml_str)
+        comment_block(yml, ['services', srv], indent=indent, seq_indent=block_seq_indent)
+        commented = round_trip_dump(
+            yml, indent=indent, block_seq_indent=block_seq_indent, explicit_end=True,
+        )
+        print(commented)
+
+        # Now uncomment it
+        yml, indent, block_seq_indent = load_yaml_guess_indent(commented)
+        uncomment_block(yml, ['services', srv], indent=indent, seq_indent=block_seq_indent)
+
+        round_trip_dump(
+            yml, sys.stdout, indent=indent, block_seq_indent=block_seq_indent, explicit_end=True,
+        )
+  
+
+ Output: 
+
+  version: '2'
+services:
+    # 1 indent after services
+    #srv1:
+    #    image: alpine
+    #    container_name: srv1
+    #    volumes:
+    #      - some-volume
+    #        # some comments
+    srv2:
+        image: alpine
+        container_name: srv2  # second container
+        volumes_from:
+          - some-volume
+        # 2 indent after srv2 volume
+# 0 indent before volumes
+volumes:
+    some-volume:
+...
+
+version: '2'
+services:
+    # 1 indent after services
+    srv2:
+        image: alpine
+        container_name: srv2  # second container
+        volumes_from:
+          - some-volume
+        # 2 indent after srv2 volume
+# 0 indent before volumes
+    srv1:
+        image: alpine
+        container_name: srv1
+        volumes:
+          - some-volume
+        # some comments
+volumes:
+    some-volume:
+...
+version: '2'
+services:
+    # 1 indent after services
+    srv1:
+        image: alpine
+        container_name: srv1
+        volumes:
+          - some-volume
+        # some comments
+    #srv2:
+    #    image: alpine
+    #    container_name: srv2      # second container
+    #    volumes_from:
+    #      - some-volume
+    #        # 2 indent after srv2 volume
+    ## 0 indent before volumes
+volumes:
+    some-volume:
+...
+
+version: '2'
+services:
+    # 1 indent after services
+    srv1:
+        image: alpine
+        container_name: srv1
+        volumes:
+          - some-volume
+        # some comments
+    srv2:
+        image: alpine
+        container_name: srv2  # second container
+        volumes_from:
+          - some-volume
+        # 2 indent after srv2 volume
+# 0 indent before volumes
+volumes:
+    some-volume:
+...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30995720)
+ That is possible in principle, because you can round-trip such "start-of-file" comments, but it is not nicely supported in the current ruamel.yaml 0.10 and certainly not when "starting from scratch" (i.e. no changing an existing file). At the bottom is an easy an relatively nice solution but I would first like to present an ugly workaround and a step-wise how to get this done. 
+
+  Ugly : 
+The ugly way to do this is to just add the comment to the file before you write the YAML data to it. That is insert: 
+
+  f.write('# Data for Class A\n')
+  
+
+ just before  ruamel.yaml.dump(...)  
+
+  Step by step : 
+To insert the comment on the data structure, so the above hack is not necessary, you first 
+need to make sure your  d  data is a  CommentedMap  type. If 
+you compare the difference of that  d  variable with one that has a the comment by loading the commented YAML back into  c  
+
+  import ruamel.yaml
+from ruamel.yaml.comments import Comment, CommentedSeq, CommentedMap
+
+d = CommentedMap()             # <<<<< most important
+for m in ['B1', 'B2', 'B3']:
+    d2 = {}
+    for f in ['A1', 'A2', 'A3']:
+        d2[f] = CommentedSeq(['test', 'test2'])
+        if f != 'A2':
+            d2[f].fa.set_flow_style()
+    d[m] = d2
+
+yaml_str = ruamel.yaml.dump(d, Dumper=ruamel.yaml.RoundTripDumper,
+                            default_flow_style=False, width=50, indent=8)
+
+assert not hasattr(d, Comment.attrib)  # no attribute on the CommentedMap
+
+comment = 'Data for Class A'
+commented_yaml_str = '# ' + comment + '\n' + yaml_str
+c = ruamel.yaml.load(commented_yaml_str, Loader=ruamel.yaml.RoundTripLoader)
+assert hasattr(c, Comment.attrib)  # c has the attribute
+print c.ca                         # and this is what it looks like
+print d.ca                         # accessing comment attribute creates it empty
+assert hasattr(d, Comment.attrib)  # now the CommentedMap has the attribute
+  
+
+ This prints: 
+
+  Comment(comment=[None, [CommentToken(value=u'# Data for Class A\n')]],
+  items={})
+Comment(comment=None,
+  items={})
+  
+
+ A  Comment  has an attribute  comment  that needs to be set to a 2 element list that consist of the EOL comment (always only one) and a list of preceding line comments (in the form of  CommentTokens ) 
+
+ To create a CommentToken you need a (fake) StartMark that tells which column it starts: 
+
+  from ruamel.yaml.error import Mark
+start_mark = Mark(None, None, None, 0, None, None)  # column 0
+  
+
+  
+
+  from ruamel.yaml.tokens import CommentToken
+
+ct = CommentToken('# ' + comment + '\n', start_mark, None)
+  
+
+ Assign the token as the first element of the preceding list on your CommentedMap: 
+
+  d.ca.comment = [None, [ct]]
+print d.ca   # in case you want to check
+  
+
+  
+
+  Comment(comment=[None, [CommentToken(value='# Data for Class A\n')]],
+  items={})
+  
+
+  
+
+  print ruamel.yaml.dump(d, Dumper=ruamel.yaml.RoundTripDumper)  
+  
+
+    
+
+  # Data for Class A
+B1:
+        A1: [test, test2]
+        A3: [test, test2]
+        A2:
+        - test
+        - test2
+B2:
+        A1: [test, test2]
+        A3: [test, test2]
+        A2:
+        - test
+        - test2
+B3:
+        A1: [test, test2]
+        A3: [test, test2]
+        A2:
+        - test
+        - test2
+  
+
+ Of course you don't need to create the  c  object, that is just for illustration. 
+
+  What you should use :
+To make the whole exercise somewhat easier you can just forget about the details and patch in the following method to  CommentedBase  once: 
+
+  from ruamel.yaml.comments import CommentedBase
+
+def set_start_comment(self, comment, indent=0):
+    """overwrites any preceding comment lines on an object
+    expects comment to be without `#` and possible have mutlple lines
+    """
+    from ruamel.yaml.error import Mark
+    from ruamel.yaml.tokens import CommentToken
+    if self.ca.comment is None:
+        pre_comments = []
+        self.ca.comment = [None, pre_comments]
+    else:
+        pre_comments = self.ca.comments[1]
+    if comment[-1] == '\n':
+        comment = comment[:-1]  # strip final newline if there
+    start_mark = Mark(None, None, None, indent, None, None)
+    for com in comment.split('\n'):
+        pre_comments.append(CommentToken('# ' + com + '\n', start_mark, None))
+
+if not hasattr(CommentedBase, 'set_start_comment'): # in case it is there
+    CommentedBase.set_start_comment = set_start_comment
+  
+
+ and then just do: 
+
+  d.set_start_comment('Data for Class A')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54749413)
+ Given an input file: 
+
+  ...
+
+heartbeat.monitors:
+- type: icmp
+  fields:
+    a: steven
+    b: kumar
+  # If this option is set to true, the custom fields are stored as top-level
+  # fields in the output document instead of being grouped under a fields
+  # sub-dictionary. Default is false.
+  fields_under_root: True
+  
+
+ your program should have a function that does all the work, then it is easy to test
+both versions of the input, by updating the input file.: 
+
+  import ruamel.yaml
+from datetime import datetime
+import os
+import json
+
+# name for json file
+json_name = 'stack.json'
+yaml_name = 'stack.yaml'
+
+
+# Current time stamp
+timestamp = datetime.now().strftime('%B %d %Y, %H:%M:%S')
+
+
+def gen_output(data, json_filename):
+    ip = '192.168.1.1'
+    val = {'monitor.ip': ip}
+    result = dict(timestamp=val)
+
+    # getting data from the field and assign it to variable
+
+    for item in data:
+        if item['type'] == 'icmp':
+            fields = item.pop('fields')
+            if item['fields_under_root']:
+                val.update(fields)
+            else:
+                nf = {}
+                for k in fields:
+                    nf['fields.' + k] = fields[k]
+                val.update(nf)
+
+    with open(json_filename, 'w') as fp:
+        json.dump(result, fp, ensure_ascii=False)
+
+
+# load data from YAML file
+yaml = ruamel.yaml.YAML(typ='safe')
+with open('stack.yaml') as fp:
+    data = yaml.load(fp)
+data2 = data.get('heartbeat.monitors')
+
+gen_output(data2, json_name)
+
+# show the output file
+with open('stack.json') as fp:
+    print(fp.read())
+
+print('---------')
+# update the YAML input file
+with open('stack.yaml') as fp:
+    yamlrt = ruamel.yaml.YAML() # default is round-trip, preserving comments
+    data = yaml.load(fp)
+data['heartbeat.monitors'][0]['fields_under_root'] = False
+with open(yaml_name, 'wb') as fp:
+    yamlrt.dump(data, fp)
+
+with open('stack.yaml') as fp:
+    data = yaml.load(fp)
+data2 = data.get('heartbeat.monitors')
+
+gen_output(data2, json_name)
+with open('stack.json') as fp:
+    print(fp.read())
+  
+
+  
+
+  {"timestamp": {"monitor.ip": "192.168.1.1", "a": "steven", "b": "kumar"}}
+---------
+{"timestamp": {"monitor.ip": "192.168.1.1", "fields.a": "steven", "fields.b": "kumar"}}
+  
+
+ Generic comments: 
+
+ 
+  don't test for  == False  or  == True , if at all test with  is
+False  or  is True , but better just test a variable  x  that
+contains a boolean with  if x:  and don't do both, a boolean, if not
+ True  is  False , hence use a plain  else:   
+  don't hassle with outputting JSON. No need to truncate, seek
+etc. Just make sure your data is correctly formed and then dump in one go. That 
+makes sure your output is valid JSON.  
+  don't add comments stating the obvious   #ip   
+  add a space after the comment token  # , many lint-ers complain about not having that  
+  I use ruamel.yaml in the above (disclaimer: I am the author of that package), because with
+PyYAML programmaticly updating your YAML file would lose you the comment information.
+And because  YAML(typ='safe').load()  is faster than PyYAML's  yaml.load() 
+(Apart from that PyYAML  only  supports the outdated YAML 1.1)  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27103244)
+ If you are using block structured YAML, you can use the python package¹ https://pypi.python.org/pypi/ruamel.yaml which is a derivative of PyYAML and  supports round trip preservation of comments : 
+
+  import sys
+import ruamel.yaml
+
+yaml_str = """\
+# example
+name:
+  # details
+  family: Smith   # very common
+  given: Alice    # one of the siblings
+"""
+
+yaml = ruamel.yaml.YAML()  # defaults to round-trip if no parameters given
+code = yaml.load(yaml_str)
+code['name']['given'] = 'Bob'
+
+yaml.dump(code, sys.stdout)
+  
+
+ with result: 
+
+<pre class="lang-none prettyprint-override"> # example
+name:
+  # details
+  family: Smith   # very common
+  given: Bob      # one of the siblings
+  
+
+ Note that the end-of-line comments are still aligned.  
+
+ Instead of normal  list  and  dict  objects the  code  consists of wrapped versions² on which the comments attached. 
+
+ ¹ <sub>Install with  pip install ruamel.yaml . Works on Python 2.6/2.7/3.3+
+</sub> 
+² <sub>  ordereddict  is used in case of a mapping, to preserve ordering</sub> 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31151983)
+ Assuming you are using PyYAML as you probably are, the output you show is  not  copy-paste of what a  yaml.dump()  generated as it includes a comment, and PyYAML doesn't write those. 
+
+ If you want to preserve that comment, as well as e.g the key ordering in the file (nice when you store the file in a revision control system) use ¹: 
+
+  import ruamel.yaml as yaml
+
+yaml_str = """\
+# tree format
+treeroot:
+    branch1:
+        name: Node 1
+        branch1-1:
+            name: Node 1-1   # should be its own level
+    branch2:
+        name: Node 2
+        branch2-1:
+            name: Node 2-1
+"""
+
+data = yaml.load(yaml_str, Loader=yaml.RoundTripLoader)
+print yaml.dump(data, Dumper=yaml.RoundTripDumper, indent=4)
+  
+
+ which gets you  exactly  the input: 
+
+  # tree format
+treeroot:
+    branch1:
+        name: Node 1
+        branch1-1:
+            name: Node 1-1   # should be its own level
+    branch2:
+        name: Node 2
+        branch2-1:
+            name: Node 2-1
+  
+
+ ¹ <sub>This was done using https://pypi.python.org/pypi/ruamel.yaml an enhanced version of PyYAML of which I am the author. 
+
+
+

@@ -1,0 +1,208 @@
+Query: Returning distinct rows in SQLAlchemy with SQLite
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17223926)
+ According to the docs: 
+
+ 
+   When present, the Postgresql dialect will render a DISTINCT ON
+  (>) construct. 
+ 
+
+ So, passing column expressions to  distinct()  works for PostgreSQL only (because there is  DISTINCT ON ). 
+
+ In the expression  session.query(Tag).distinct(Tag.name).count()  sqlalchemy ignores  Tag.name  and produces the query (distinct on all fields): 
+
+  SELECT DISTINCT tag.country_id AS tag_country_id, tag.name AS tag_name 
+FROM tag
+  
+
+ As you said, in your case  distinct(Tag.name)  is applied - so instead of just  count()  consider using this: 
+
+  session.query(Tag).distinct(Tag.name).group_by(Tag.name).count()
+  
+
+ Hope that helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17224056)
+ When you use  session.query(Tag)  you alway query for the whole  Tag  object, so if your table contains other columns it won't work. 
+
+ Let's assume there is an  id  column, then the query 
+
+  sess.query(Tag).distinct(Tag.name)
+  
+
+  
+
+  SELECT DISTINCT tag.id AS tag_id, tag.name AS tag_name FROM tag
+  
+
+ The argument to the distinct clause is ignored completely. 
+
+ If you really only want the distinct names from the table, you must explicitly select only the names: 
+
+  sess.query(Tag.name).distinct()
+  
+
+  
+
+  SELECT DISTINCT tag.name AS tag_name FROM tag
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41519527)
+ If you want the distinct  device_id s from the table, you must explicitly select only the device_id: 
+
+  device = db.session.query(Device.device_id).distinct()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28374649)
+ Assuming that  Autoresponder  is a mapped class: 
+
+  class Autoresponder(Base):
+    __tablename__ = 'autoresponder'
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("account.id"))
+    # account_id = Column(Integer)  # @note: probably a ForeignKey("account.id"))
+    campaign_id = Column(Integer)  # @note: probably as well a FK
+    is_active = Column(Boolean)
+  
+
+  
+
+  from sqlalchemy import func
+cnt = (session.query(func.count(Autoresponder.campaign_id.distinct()).label("count"))
+    .filter(Autoresponder.account_id == account_id)
+    .filter(Autoresponder.is_active == True)
+).scalar()
+print(cnt)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2189662)
+ When you execute a plain text statement, you're at the mercy of the DBAPI you're using as to whether or not the new PK value is available and via what means.   With SQlite and MySQL DBAPIs you'll have it as result.lastrowid, which just gives you the value of ..   With PG, Oracle, etc., there's no ".lastrowid" - as someone else said you can use "RETURNING" for those in which case results are available via result.fetchone() (although using RETURNING with oracle, again not taking advantage of SQLAlchemy expression constructs, requires several awkward steps), or if RETURNING isn't available you can use direct sequence access (NEXTVAL in pg), or a "post fetch" operation (CURRVAL in PG, @@identity or scope_identity() in MSSQL). 
+
+ Sounds complicated right ?  That's why you're better off using  table.insert() .  SQLAlchemy's primary system of providing newly generated PKs is designed to work with these constructs.   One you're there, the  result.last_inserted_ids()  method gives you the newly generated (possibly composite) PK in all cases, regardless of backend.     .lastrowid, sequence execution, RETURNING etc. are all dealt with for you (0.6 uses RETURNING when available). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17764794)
+ You can use the  RETURNING  clause and handle this yourself: 
+
+  INSERT INTO test (...) VALUES (...) RETURNING id
+  
+
+ Then you can retrieve the id as you normally retrieve values from queries.  
+
+ Note that this works on Postgres, but does not work on other db engines like MySQL or sqlite. 
+
+ I don't think there is a db agnostic way to do this within SQLAlchemy without using the ORM functionality. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43281472)
+ You can use  func.unnest : 
+
+  from sqlalchemy import func
+
+session.query(func.unnest(Image.tags)).distinct().all()
+  
+
+  distinct()  will make the result a set and  unnest  will split the arrays into separate rows (like the postgresql function  unnest ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36225905)
+ You can use http://www.postgresql.org/docs/current/static/queries-with.html in PostgreSQL 
+
+  WITH moved_posts AS (
+    DELETE FROM post
+    WHERE expiry > time_stamp
+    RETURNING *
+)
+INSERT INTO old_post
+SELECT * from moved_posts
+  
+
+ CTE support for DELETE will be added in SQLAlchemy 1.1. In current release you can execute raw SQL 
+
+  from sqlalchemy import text
+
+sql = text('''
+WITH moved_posts AS (
+    DELETE FROM post
+    WHERE expiry > ?
+    RETURNING *
+)
+INSERT INTO old_post
+SELECT * from moved_posts
+''')
+db.session.execute(sql, [time_stamp])
+db.session.commit()
+  
+
+ In SQLAlchemy 1.1 it would look like this 
+
+  posts = Post.__table__
+old_posts = OldPost.__table__
+moved_posts = (
+    posts.delete()
+    .where(posts.c.expiry > ts)
+    .returning(*(posts.c._all_columns))
+    .cte('moved_posts'))
+insert = (
+    old_posts.insert()
+    .from_select(
+        [c.name for c in moved_posts.columns],
+        moved_posts.select()
+    ))
+db.session.execute(insert)
+db.session.commit()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46370887)
+ This is SQLAlchemy's expected behavior. You need to interact with the ResultProxy. As per SQLAlchemy's http://docs.sqlalchemy.org/en/rel_1_1/core/connections.html: 
+
+ 
+   The returned result is an instance of ResultProxy, which references a DBAPI cursor and provides a largely compatible interface with that of the DBAPI cursor. The DBAPI cursor will be closed by the ResultProxy when all of its result rows (if any) are exhausted. A ResultProxy that returns no rows, such as that of an UPDATE statement (without any returned rows), releases cursor resources immediately upon construction. 
+ 
+
+ The ResultProxy http://docs.sqlalchemy.org/en/rel_1_1/core/connections.html#sqlalchemy.engine.ResultProxy allows you to fetch the data: 
+
+  results = connection.execute('SELECT COUNT(DISTINCT(id)) FROM csv.agencies')
+id_count = results.first()[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36035958)
+ Inspired by the https://stackoverflow.com/questions/2594829/finding-duplicate-values-in-a-sql-table this might help you to select duplicate dates: 
+
+  query = session.query(
+    MyTable
+).\
+    having(func.count(MyTable.date) > 1).\
+    group_by(MyTable.date).all()
+  
+
+ If you only want to show unique dates; https://stackoverflow.com/questions/17223174/returning-distinct-rows-in-sqlalchemy-with-sqlite is what you might need 
+
+
+

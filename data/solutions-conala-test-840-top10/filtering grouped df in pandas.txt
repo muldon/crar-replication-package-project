@@ -1,0 +1,240 @@
+Query: filtering grouped df in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18261958)
+ As of pandas 0.12 you can do: 
+
+  >>> grouped.filter(lambda x: len(x) > 1)
+
+     A  B
+0  foo  0
+2  foo  2
+3  foo  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/50065986)
+ You just need add  all   
+
+  df.groupby('group').filter(lambda x: (x.value3 == x.value3.mean()).all())
+Out[409]: 
+   group  value3
+9      C      98
+10     C      98
+11     C      98
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51658633)
+ I have found  transform  to be much more efficient than  filter  for very large dataframes:  
+
+  element_group_sizes = df['A'].groupby(df['A']).transform('size')
+df[element_group_sizes>1]
+  
+
+  
+
+  df[df['A'].groupby(df['A']).transform('size')>1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50066312)
+ You can use nunique as a different method: 
+
+  df.groupby('group').filter(lambda x: x.value3.nunique() == 1)
+  
+
+ Output: 
+
+     group  value3
+9      C      98
+10     C      98
+11     C      98
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13181960)
+ If you still need a workaround: 
+
+  In [49]: pd.concat([group for _, group in grouped if len(group) > 1])
+Out[49]: 
+     A  B
+0  foo  0
+2  foo  2
+3  foo  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47919371)
+ import pandas 
+df=df[df["pct"]>50.00] 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38045266)
+ You can use the grouped by  filter  from pandas: 
+
+  df.groupby('name').filter(lambda g: any(g.nickname == 'X')) 
+
+#       name   nickname
+# 0        A          X
+# 1        A          Y
+# 2        B          X
+# 3        B          Z
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44824863)
+ Here's the way to do it with  groupby . 
+
+  import pandas as pd 
+import numpy as np
+
+df1 = pd.DataFrame([[1, 0, 0],
+                    [1, 1, 1],
+                    [0, 0, 1]],    columns=['a', 'b', 'c'],      index=[1, 2, 3])
+df2 = pd.DataFrame([[1, 0, 0, 1],
+                    [0, 0, 1, 0],
+                    [1, 1, 1, 1]], columns=['a', 'b', 'c', 'd'], index=[1, 3, 4])
+df3 = pd.DataFrame([[1, 1, 0, 1],
+                    [0, 0, 1, 0],
+                    [1, 1, 1, 1]], columns=['c', 'd', 'e', 'f'], index=[4, 5, 6])
+
+# combine the first and second df
+df4 = pd.concat([df1, df2])
+grouped = df4.groupby(level=0)
+df5 = grouped.first()
+
+# combine (first and second combined), with the third
+df6 = pd.concat([df5, df3])
+grouped = df6.groupby(level=0)
+df7 = grouped.first()
+
+# fill na values with 0
+df7.fillna('0', inplace=True)
+
+print(df)
+
+    a   b   c   d   e   f
+1   1   0   0   1   0   0
+2   1   1   1   0   0   0
+3   0   0   1   0   0   0
+4   1   1   1   1   0   1
+5   0   0   0   0   1   0
+6   0   0   1   1   1   1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46927273)
+ I think you can http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html + http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html first, then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.map.html for  Series  (it is like http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.transform.html, but not implemented in  dask  too) and last filter by http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing: 
+
+  df = pd.DataFrame({'A':list('aacaaa'),
+                   'B':[4,5,4,5,5,4],
+                   'C':[7,8,9,4,2,3],
+                   'D':[1,3,5,7,1,0],
+                   'E':[5,3,6,9,2,4],
+                   'F':list('aaabbc')})
+
+print (df)
+   A  B  C  D  E  F
+0  a  4  7  1  5  a
+1  a  5  8  3  3  a
+2  c  4  9  5  6  a
+3  a  5  4  7  9  b
+4  a  5  2  1  2  b
+5  a  4  3  0  4  c
+  
+
+ 
+
+  a = df.groupby('F')['A'].size()
+print (a)
+F
+a    3
+b    2
+c    1
+Name: A, dtype: int64
+
+s = df['F'].map(a)
+print (s)
+0    3
+1    3
+2    3
+3    2
+4    2
+5    1
+Name: F, dtype: int64
+
+df = df[s > 1]
+print (df)
+   A  B  C  D  E  F
+0  a  4  7  1  5  a
+1  a  5  8  3  3  a
+2  c  4  9  5  6  a
+3  a  5  4  7  9  b
+4  a  5  2  1  2  b
+  
+
+ EDIT: 
+
+ I think here is not necessary  groupby : 
+
+  df_notall4 = df[df.C != 4].drop_duplicates(subset=['A','D'])['D'].compute()
+  
+
+  
+
+  def filter_4(x):
+        return x[x.C != 4]
+
+df_notall4 = df.groupby('A').apply(filter_4, meta=df).D.unique().compute()
+print (df_notall4)
+0    1
+1    3
+2    0
+3    5
+Name: D, dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46930991)
+ Thanks to @jezrael I reviewed my implementation and created the following solution (see my provided example). 
+
+  df_notall4 = []
+for d in list(df[df.C != 4].D.unique().compute()):
+    df_notall4.append(df.groupby('D').get_group(d))
+
+df_notall4 = dd.concat(df_notall4, interleave_partitions=True)
+  
+
+  
+
+  In [8]:
+df_notall4.D.unique().compute()
+Out[8]:
+0    1
+1    3
+2    5
+3    0
+Name: D, dtype: object
+  
+
+
+

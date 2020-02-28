@@ -1,0 +1,326 @@
+Query: Dynamically changing log level in python without restarting the application
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19617375)
+  fileConfig  is a mechanism to configure the log level for you based on a file; you can dynamically change it at any time in your program. 
+
+ Call http://docs.python.org/2/library/logging.html#logging.Logger.setLevel on the logging object for which you want to change the log level. Usually you'd do that on the root: 
+
+  logging.getLogger().setLevel(logging.DEBUG)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19617393)
+ This might be what you are looking for: 
+
+  import logging
+logging.getLogger().setLevel(logging.INFO)
+  
+
+ Note that  getLogger()  called without any arguments returns the root logger. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46710435)
+ In addition to the accepted answer: Depending on how you initialized the logger, you might also have to update the logger's handlers: 
+
+  import logging
+
+level = logging.DEBUG
+logger = logging.getLogger()
+logger.setLevel(level)
+for handler in logger.handlers:
+    handler.setLevel(level)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20177277)
+ I finally settled with using inotify and gevent to check for the file write operation, and once I know the file has been changed then I go and set the level for each logger I have based on the config. 
+
+  import gevent
+import gevent_inotifyx as inotify
+from gevent.queue import Queue
+
+class FileChangeEventProducer(gevent.Greenlet):
+    def __init__(self, fd, queue):
+        gevent.Greenlet.__init__(self)
+        self.fd = fd
+        self.queue = queue
+
+    def _run(self):
+        while True:
+            events = inotify.get_events(self.fd)
+            for event in events:
+                self.queue.put(event)
+                gevent.sleep(0)
+
+
+class FileChangeEventConsumer(gevent.Greenlet):
+    def __init__(self, queue, callBack):
+        gevent.Greenlet.__init__(self)
+        self.queue = queue
+        self.callback = callBack
+
+    def _run(self):
+        while True:
+            _ = self.queue.get()
+            self.callback()
+            gevent.sleep(0)
+
+
+class GeventManagedFileChangeNotifier:
+    def __init__(self, fileLocation, callBack):
+        self.fileLocation = fileLocation
+        self.callBack = callBack
+        self.queue = Queue()
+        self.fd = inotify.init()
+        self.wd = inotify.add_watch(self.fd, self.fileLocation, inotify.IN_CLOSE_WRITE)
+
+
+    def start(self):
+        producer = FileChangeEventProducer(self.fd, self.queue)
+        producer.start()
+        consumer = FileChangeEventConsumer(self.queue, self.callBack)
+        consumer.start()
+        return (producer, consumer)
+  
+
+ The above code gets used like below, 
+
+      def _setUpLoggingConfigFileChangeNotifier(self):
+        loggingFileNameWithFullPath = self._getFullPathForLoggingConfig()
+        self.gFsNotifier = GeventManagedFileChangeNotifier(loggingFileNameWithFullPath, self._onLogConfigChanged)
+        self.fsEventProducer, self.fsEventConsumer = self.gFsNotifier.start()
+
+
+    def _onLogConfigChanged(self):
+        self.rootLogger.info('Log file config has changed - examining the changes')
+        newLoggingConfig = Config(self.resourcesDirectory, [self.loggingConfigFileName]).config.get('LOG')
+        self.logHandler.onLoggingConfigChanged(newLoggingConfig)
+  
+
+ Once I have the new log file config I can wire in the right logging level for each logger from config. I just wanted to share the answer and it might help someone if they are trying to use it with gevent. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51976835)
+ I believe you can set the logging level dynamically using the setLevel API.
+As an example: logger.setLevel(logging.DEBUG) 
+
+ For further info, you may refer to : https://docs.python.org/2/library/logging.html 
+
+ Hope it helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38496484)
+ You'd have to traverse to the specific handler: 
+
+  console_handler = logging.getLogger().handlers[0]
+old_level = console_handler.level
+console_handler.setLevel(logging.DEBUG)
+  
+
+ The index matches the order from the  handlers  in your logging configuration (any previous handlers on a given logger are cleared whet the config is loaded). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19617430)
+ It is certainly possible to use  fileConfig()  to change logging configuration on the fly, though for simple changes a programmatic approach as suggested in Martijn Pieters' answer might be appropriate. Logging even provides a socket server to listen for config changes using the  listen()  /  stopListening()  APIs, as documented http://docs.python.org/2/howto/logging-cookbook.html#configuration-server-example. To get logging to listen on a particular port, you use 
+
+  t = logging.config.listen(PORT_NUMBER)
+t.start()
+  
+
+ and to stop listening, call 
+
+  logging.config.stopListening()
+  
+
+ To send data to the server, you can use e.g. 
+
+  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect(('localhost', PORT_NUMBER))
+with open(CONFIG_FILE) as f:
+    data_to_send = f.read()
+s.send(struct.pack('>L', len(data_to_send)))
+s.send(data_to_send)
+s.close()
+  
+
+  Update:  Due to backwards-compatibility constraints, the internal implementation of the  fileConfig()  call means that you can't specify  disable_existing_loggers=False  in the  call, which makes this feature less useful in certain scenarios. You can use the same API to send a JSON file using the dictConfig schema, which will allow better control over the reconfiguration. This requires Python 2.7/3.2 or above (where  dictConfig()  was added). Or, you can use the stdlib code to implement your own listener which works in the same way but which is tailored to your specific needs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28168053)
+ As I know gunicorn haven't option  log-file , only  access-logfile  and  error-logfile : 
+
+ http://gunicorn-docs.readthedocs.org/en/latest/settings.html#logging 
+
+ But to log errors in your flask application you have to setup python logger in it. For example, it can be done like this: 
+
+  from logging.handlers import WatchedFileHandler
+
+@app.before_first_request
+def setup_logging():
+    """
+    Setup logging
+    """
+    handler = WatchedFileHandler("/var/log/your_flask_app.log")
+    app.logger.addHandler(handler)
+    app.logger.setLevel(logging.INFO)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15780368)
+ Try using logging.getLogger( to get your logging object instance 
+
+ http//docs.python.org/3/library/logging.html#logging.getLogger 
+
+ 
+   All calls to this function with a given name return the same logger instance. This means that logger instances never need to be passed between different parts of an application. 
+ 
+
+  UPDATE  
+
+ The recommended way to do this is to use the getLogger( function and configure it (setting a handler, formatter, etc... 
+
+  # main.py
+import logging
+import lib
+
+
+def main(
+    logger = logging.getLogger('custom_logger'
+    logger.setLevel(logging.INFO
+    logger.addHandler(logging.FileHandler('test.log'
+    logger.info('logged from main module'
+    lib.log(
+
+if __name__ == '__main__'
+    main(
+
+# lib.py
+import logging
+
+
+def log(
+    logger = logging.getLogger('custom_logger'
+    logger.info('logged from lib module'
+  
+
+ If you  really  need to extend the logger class take a look at  logging.setLoggerClass(klass  
+
+  UPDATE 2  
+
+ Example on how to add a custom logging level without changing the Logging class 
+
+  # main.py
+import logging
+import lib
+
+
+# Extend Logger class
+CUSTOM_LEVEL_NUM = 9
+logging.addLevelName(CUSTOM_LEVEL_NUM, 'CUSTOM'
+def custom(self, msg, *args, **kwargs
+    self._log(CUSTOM_LEVEL_NUM, msg, args, **kwargs
+logging.Logger.custom = custom
+
+# Do global logger instance setup
+logger = logging.getLogger('custom_logger'
+logger.setLevel(logging.INFO
+logger.addHandler(logging.FileHandler('test.log'
+
+
+def main(
+    logger = logging.getLogger('custom_logger'
+    logger.custom('logged from main module'
+    lib.log(
+
+if __name__ == '__main__'
+    main(
+  
+
+ Note that adding custom level is not recommended http//docs.python.org/2/howto/logging.html#custom-levels 
+
+ Defining a custom handler and maybe using more than one logger may do the trick for your other requirement optional output to stderr. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/24722284)
+ There's multiple ways to set the IPython working directory. If you don't set any of that in your IPython profile/config, environment or notebook, the log should be in your working directory. Also try  $ ipython locate  to print the default IPython directory path, the log may be there. 
+
+ What about giving it an absolute file path to see if it works at all? 
+
+ Other than that the call to  logging.basicConfig  doesn't seem to do anything inside an IPython notebook: 
+
+  # In:
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger()
+logger.debug('root debug test')
+  
+
+ There's no output. 
+
+ As per the docs, the https://docs.python.org/2/library/logging.html#logging.basicConfig doesn't do anything if the root logger already has handlers configured for it. This seems to be the case, IPython apparently already has the root logger set up.  
+
+  # In:
+import logging
+logger = logging.getLogger()
+logger.handlers
+
+# Out:
+[<logging.StreamHandler at 0x106fa19d0>]
+  
+
+ So we can try setting the root logger level manually: 
+
+  import logging
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.debug('root debug test')
+  
+
+ which yields a formatted output in the notebook: 
+
+   
+
+ Now onto setting up the file logger: 
+
+  # In:
+import logging
+
+# set root logger level
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+
+# setup custom logger
+logger = logging.getLogger(__name__)
+handler = logging.FileHandler('model.log')
+handler.setLevel(logging.INFO)
+logger.addHandler(handler)
+
+# log
+logger.info('test info my')
+  
+
+ which results in writing the output both to the notebook and the  model.log  file, which for me is located in a directory I started IPython and notebook from. 
+
+ Mind that repeated calls to this piece of code without restarting the IPython kernel will result in creating and attaching yet another handler to the logger on every run and the number of messages being logged to the file with each log call will grow. 
+
+
+

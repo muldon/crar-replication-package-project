@@ -1,0 +1,305 @@
+Query: Can a list of all member-dict keys be created from a dict of dicts using a list comprehension?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41251424)
+ Here's one way to do it: 
+
+  >>> [k for d in foo.values() for k in d]
+['key1', 'key2', 'key3', 'key4', 'key5']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41251532)
+ An approach would be using https://docs.python.org/3/library/itertools.html#itertools.chain: 
+
+  import itertools
+
+[k for k in itertools.chain(*(d.keys() for d in foo.values()))]
+  
+
+ If what you want is just a one line of code, and not necessarily a list comprehension, you can also try (mentioned by @Duncan): 
+
+  list(itertools.chain(*foo.values()))
+  
+
+  Output:  
+
+  >>> [k for k in itertools.chain(*(d.keys() for d in foo.values()))]
+['key3', 'key2', 'key1', 'key5', 'key4']
+>>>
+>>> list(itertools.chain(*foo.values()))
+['key3', 'key2', 'key1', 'key5', 'key4']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/29264896)
+ You can use a list comprehension : 
+
+  >>> dic={'Tim':3, 'Kate':2}
+>>> [{'Name':i, 'Age':j} for i,j in dic.items()]
+[{'Age': 3, 'Name': 'Tim'}, {'Age': 2, 'Name': 'Kate'}]
+  
+
+  
+
+  >>> l=[{'Name':i, 'Age':j} for i,j in dic.items()]
+>>> dict((i.values()[::-1] for i in l))
+{'Tim': 3, 'Kate': 2}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22996708)
+ You can merge dicts using the https://docs.python.org/2/library/stdtypes.html#dict method: 
+
+  y = {}
+for element in list_of_elements:
+  y.update(_myfunction(element))
+  
+
+ You can also use a (double-loop) dict-comprehension: 
+
+  y = {
+    k:v
+    for element in list_of_elements
+    for k,v in _myfunction(element).items()
+}
+  
+
+ Finally, if you take any of the answers to https://stackoverflow.com/q/38987/2096752, for merging two dicts (and name it  merge_dicts ), you can use https://docs.python.org/2/library/functions.html#reduce to merge more than two: 
+
+  dicts = [_myfunction(element) for element in list_of_elements]
+y = reduce(merge_dicts, dicts, {})
+  
+
+ Either way, in case of repeated dict keys,  later keys overwrite earlier ones . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49884426)
+ One way is to restructure your dictionary and use a list comprehension to retrieve the keys with minimum value: 
+
+  d = {
+     3: {5: 0.6, 37: 0.98, 70: 0.36},
+     5: {5: 2.67, 37: 0.01, 70: 0.55},
+     7: {5: 0.2, 37: 0.3, 70: 1.2}
+    }
+
+res_dict = {}
+
+for k, v in d.items():
+    for k2, v2 in v.items():
+        res_dict[(k, k2)] = v2
+
+minval = min(res_dict.values())
+res = [k for k, v in res_dict.items() if v == minval]
+
+print(res)
+# [(5, 37)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9427216)
+  
+
+  [dict(t) for t in {tuple(d.items()) for d in l}]
+  
+
+ The strategy is to convert the list of dictionaries to a list of tuples where the tuples contain the items of the dictionary. Since the tuples can be hashed, you can remove duplicates using  set  (using a  set comprehension  here, older python alternative would be  set(tuple(d.items()) for d in l) ) and, after that, re-create the dictionaries from tuples with  dict . 
+
+ where: 
+
+ 
+  l  is the original list 
+  d  is one of the dictionaries in the list 
+  t  is one of the tuples created from a dictionary 
+ 
+
+ Edit: If you want to preserve ordering, the one-liner above won't work since  set  won't do that. However, with a few lines of code, you can also do that: 
+
+  l = [{'a': 123, 'b': 1234},
+        {'a': 3222, 'b': 1234},
+        {'a': 123, 'b': 1234}]
+
+seen = set()
+new_l = []
+for d in l:
+    t = tuple(d.items())
+    if t not in seen:
+        seen.add(t)
+        new_l.append(d)
+
+print new_l
+  
+
+ Example output: 
+
+  [{'a': 123, 'b': 1234}, {'a': 3222, 'b': 1234}]
+  
+
+ Note: As pointed out by @alexis it might happen that two dictionaries with the same keys and values, don't result in the same tuple. That could happen if they go through a different adding/removing keys history. If that's the case for your problem, then consider sorting  d.items()  as he suggests. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45649241)
+ I would do this in two steps: 
+
+ 
+  Collect all keys into a single iterable: 
+
+  >>> import operator
+>>> from functools import reduce
+>>> all_keys = reduce(operator.or_, (d.keys() for d in foo))
+>>> all_keys
+{'a', 'b', 'c'}
+   
+  Use a dict comprehension to create the desired result: 
+
+  >>> bar = {key: [d.get(key) for d in foo] for key in all_keys}
+>>> bar
+{'a': ['x', 'j'], 'b': ['y', None], 'c': ['z', 'z']}
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11919150)
+  
+
+  keys, (newkey, newvalue) = list_address[:-2], list_address[-2:]
+reduce(dict.__getitem__, keys, dict_nested)[newkey] = newvalue
+  
+
+ Note:  dict.get  and  operator.getitem  would produce wrong exceptions here. 
+
+ An explicit for-loop as in https://stackoverflow.com/a/11918901/4279 might be more readable. 
+
+ If you want to create non-existing intermediate dictionaries: 
+
+  reduce(lambda d,k: d.setdefault(k, {}), keys, dict_nested)[newkey] = newvalue
+  
+
+ If you want to override existing intermediate values that are not dictionaries e.g., strings, integers: 
+
+  from collections import MutableMapping
+
+def set_value(d, keys, newkey, newvalue, default_factory=dict):
+    """
+    Equivalent to `reduce(dict.get, keys, d)[newkey] = newvalue`
+    if all `keys` exists and corresponding values are of correct type
+    """
+    for key in keys:
+        try:
+            val = d[key]
+        except KeyError:
+            val = d[key] = default_factory()
+        else:
+            if not isinstance(val, MutableMapping):
+                val = d[key] = default_factory()
+        d = val
+    d[newkey] = newvalue
+  
+
+ Example</h3>
+
+  list_address = ["key1", "key1.2", "key1.2.1", "key1.2.1.1", "value"]
+dict_nested = {
+    "key1": {
+                "key1.1": {
+                            "...": "...",
+                },
+                "key1.2": {
+                            "key1.2.1": "change_this",
+                },
+            },
+
+    "key2": {
+                "...": "..."
+            },
+}
+
+set_value(dict_nested, list_address[:-2], *list_address[-2:])
+assert reduce(dict.get, list_address[:-1], dict_nested) == list_address[-1]
+  
+
+ Tests</h3>
+
+  >>> from collections import OrderedDict
+>>> d = OrderedDict()
+>>> set_value(d, [], 'a', 1, OrderedDict) # non-existent key
+>>> d.items()
+[('a', 1)]
+>>> set_value(d, 'b', 'a', 2) # non-existent intermediate key
+>>> d.items()
+[('a', 1), ('b', {'a': 2})]
+>>> set_value(d, 'a', 'b', 3) # wrong intermediate type
+>>> d.items()
+[('a', {'b': 3}), ('b', {'a': 2})]
+>>> d = {}
+>>> set_value(d, 'abc', 'd', 4)
+>>> reduce(dict.get, 'abcd', d) == d['a']['b']['c']['d'] == 4
+True
+>>> from collections import defaultdict
+>>> autovivify = lambda: defaultdict(autovivify)
+>>> d = autovivify()
+>>> set_value(d, 'abc', 'd', 4)
+>>> reduce(dict.get, 'abcd', d) == d['a']['b']['c']['d'] == 4
+True
+>>> set_value(1, 'abc', 'd', 4) #doctest:+IGNORE_EXCEPTION_DETAIL
+Traceback (most recent call last):
+...
+TypeError:
+>>> set_value([], 'abc', 'd', 4) #doctest:+IGNORE_EXCEPTION_DETAIL
+Traceback (most recent call last):
+...
+TypeError:
+>>> L = [10]
+>>> set_value(L, [0], 2, 3)
+>>> L
+[{2: 3}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17823836)
+ Iterate over a list of keys from A and B 
+
+  >>> A = {(3,'x'):-2, (6,'y'):3, (8, 'b'):9}
+>>> B = {(3,'y'):4, (6,'y'):6}
+>>> C = dict()
+>>> for key in set(A.keys() + B.keys()):
+...     C[key] = A.get(key, 0) + B.get(key, 0)
+... 
+>>> C
+{(3, 'y'): 4, (8, 'b'): 9, (3, 'x'): -2, (6, 'y'): 9}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/38858907)
+ How about using a dictionary comprehension with  sum : 
+
+  d1 = {'A': 0.0, 'B': 1.0, 'C': 1.0, 'D': 1.0, 'E': 1.0}
+d2 = {'A': 2.0, 'B': 1.2, 'C': 3.0, 'D': 1.0, 'E': 3.0}
+dicts = {"d1": d1, "d2": d2}
+n = len(dicts)
+res = {k: sum(d[k] for d in dicts.values()) / n for k in d1}
+# {'A': 1.0, 'B': 1.1, 'C': 2.0, 'D': 1.0, 'E': 2.0}
+  
+
+ Note: This is assuming that, as you wrote in the question, all the dicts have  the same  keys, or are  defaultdicts , so that missing keys don't cause an error. 
+
+
+

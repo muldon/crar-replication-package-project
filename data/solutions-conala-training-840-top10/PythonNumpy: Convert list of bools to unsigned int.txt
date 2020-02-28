@@ -1,0 +1,161 @@
+Query: Python/Numpy: Convert list of bools to unsigned int
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4065774)
+   
+
+  >>> x = [False, False, True, True]
+>>> sum([int(y[1])*2**y[0] for y in enumerate(x)])
+12
+  
+
+ You can convert a numpy array to a regular list using a  list()  cast. 
+
+  >>> a = numpy.array([1,2,3,4])
+>>> a
+array([1, 2, 3, 4])
+>>> list(a)
+[1, 2, 3, 4]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4147570)
+ If you have a matrix, you probably want to do it like this: 
+
+  #precompute powers of two
+vals = 2.**np.arange(20)
+
+B = ....
+compressed = np.dot(B, vals) # matrix multiplication.
+  
+
+ np.dot should be faster than any loop in Python. Much faster. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24835595)
+ numpy has the http://docs.scipy.org/doc/numpy/reference/generated/numpy.packbits.html function for this.
+It also supports operations along axes: 
+
+  In [3]: B = scipy.signbit(scipy.randn(1000,8)).astype("i1")
+
+In [3]: B[0]
+Out[3]: array([0, 1, 0, 0, 0, 1, 0, 0], dtype=int8)
+
+In [4]: np.packbits(B[0])
+Out[4]: array([68], dtype=uint8)
+
+In [5]: %timeit np.packbits(B, axis=1)
+10000 loops, best of 3: 37 µs per loop
+  
+
+ it works for int8 sizes for larger sizes you have to shift and or 
+
+  In [8]: x # multiple of 8
+Out[8]: array([1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1], dtype=int8)
+
+In [9]: r = np.packbits(x).astype(np.int32); r
+Out[9]: array([171, 129], dtype=uint8)
+
+In [10]: r[0] << 8 | r[1] 
+Out[10]: 33237
+
+In [11]: sum(1<<i for i, b in enumerate(x[::-1]) if b)
+Out[11]: 33237
+  
+
+ if  x  is no multiple of 8 you have to pad in zeros 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2636023)
+ Assuming your list of booleans is not too long: 
+
+  bools = [True, True, False, True, True, False, True]
+
+print ''.join(chr(ord('A') + i) if b else ' ' for i, b in enumerate(bools))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21040596)
+ using numpy for example: 
+
+  import numpy
+result = numpy.uint32( numpy.int32(myval) )
+  
+
+  
+
+  arr = numpy.array(range(10))
+result = numpy.uint32( numpy.int32(arr) )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4065778)
+ Most Pythonic might be this: 
+
+  sum(2**i*b for i, b in enumerate(x))
+  
+
+ . 
+
+ In numpy I would use 
+
+  numpy.sum(2**numpy.arange(len(x))*x)
+  
+
+ but this won't be faster for small arrays  x , and it won't work for big arrays  x  since machine size integers are used instead of Pythons arbitrary precision ints. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4065807)
+  reduce(lambda a,b:2*a+b, reversed(x))
+  
+
+ You could get rid of reversed() if you had least significant bit at the end of array. This works with numpy.array too, and doesn't need enumerate(). From my tests seem to be faster too: no need to use exponentiation. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4065779)
+ An elegant, pythonic, always-working way is this: 
+
+  def powers(x):
+    """yield powers of x, starting from x**0 forever"""
+    power = 1
+    while True:
+        yield power
+        power *= x
+
+def bools_to_int(bools):
+    # in Python 2, use itertools.izip!
+    return sum(int(place) * place_weight for place_weight, place in 
+               zip(powers(2), bools))
+  
+
+ Note that you  can  get rid of  powers  (by enumerate and squaring in the comprehension, as other answers do) - but maybe it's clearer this way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18411768)
+ I was trying  ipython %timeit  and it seems that doing the following is faster: 
+
+  y = 0
+for i,j in enumerate(x):
+    if j: y += 1<<i
+  
+
+ In addition, if your boolean vector is a numpy.ndarray, converting it to python array  x.tolist()  and running the same seems to work faster in this case. It's all marginal, but consistent as well as, at these speeds, marginals add up well. 
+
+
+

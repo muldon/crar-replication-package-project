@@ -1,0 +1,178 @@
+Query: SQLAlchemy: a better way for update with declarative?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30218458)
+ Similar functionality is available via the  update()  method on Table object. 
+
+  class User(Base):
+    __tablename__   = 'user'
+    id = Column('id', Integer(), primary_key=True)
+    name = Column('name', String(50))
+
+stmt = User.__table__.update().where(User.id==5).values(name='user #5')
+  
+
+ To use  User.__table__  is how its done in SQLAlchemy. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2632919)
+ There's also some update capability at the ORM level. It doesn't handle any tricky cases yet but for the trivial case of single row update (or bulk update) it works fine. It even goes over any already loaded objects and applies the update on them also. You can use it like this: 
+
+  session.query(User).filter_by(id=123).update({"name": u"Bob Marley"})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/77962)
+ via the  __table__  attribute on your declarative class 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/156968)
+  
+
+  class Users(Base):
+    __tablename__   = 'users'
+    __table_args__  = {'autoload':True}
+
+users = Users()
+print users.__table__.select()
+  
+
+ ...SELECT users....... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2632080)
+ You're working on  clause  level here, not on model/entity/object level. Clause level is lower than mapped objects. And yes, something have to be done to convert one terms into others. 
+
+ You could also stay on object level and do: 
+
+  session = Session()
+u = session.query(User).get(123)
+u.name = u"Bob Marley"
+session.commit()
+  
+
+ but it will be significantly slower since it leads to the mapped object construction. . 
+
+ In the example your provided I see the most natural and “right” solution. I would not worry about little  __table__  magic. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/17842431)
+ You can have Flask-SQLAlchemy expose your own base Model instead of it's built-in one.  Just subclass  SQLAlchemy  and override  make_declarative_base . 
+
+  from flask.ext.sqlalchemy import SQLAlchemy
+
+
+class CustomAlchemy(SQLAlchemy):
+    def make_declarative_base(self):
+        base = declarative_base(...)
+        ...
+        return base
+
+db = CustomAlchemy()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19242894)
+ SQLAlchemy works in layers. At the base layer, SQLAlchemy provides stuff such as a unified interface to databases using various database drivers, and a connection pool implementation. Above this sits a SQL Expression Language, allowing you to define the tables and columns of your database using Python objects, and then use those objects to create SQL expressions using the APIs that SQLAlchemy gives you. Then there is the ORM. The ORM builds on these existing layers, and so even if you use the ORM, you can still drop down to use the expression API. You are a level even above that, using the declarative model (which builds on the ORM). 
+
+ Most of the expression API is based on the SQLAlchemy Table object and the columns. The tables are accessible by the  __table__  property on the mapped class, and the columns are available as the properties on the mapped class. So, even though you are at the declarative level, you can still utilize much of what you have available to you there while using the models you mapped using declarative. So, the http://docs.sqlalchemy.org/en/rel_0_8/core/tutorial.html#correlated-updates... 
+
+  >>> stmt = select([addresses.c.email_address]).\
+...             where(addresses.c.user_id == users.c.id).\
+...             limit(1)
+>>> conn.execute(users.update().values(fullname=stmt)) 
+  
+
+ ...can translate to a declarative ORM model by using the  __table__  attribute and declarative columns... 
+
+  >>> stmt = select([Addresses.email_address]).\
+...             where(Addresses.user_id == Users.id).\
+...             limit(1)
+>>> conn.execute(Users.__table__.update().values(fullname=stmt)) 
+  
+
+ Here is what I believe your correlated query would look like.. 
+
+  stmt = select([Location.id]).\
+    where(and_(Location.x==Stopover.x, Location.y==Stopover.y)).limit(1)
+
+conn.execute(Stopover.__table__.update().values(location_id=stmt)
+  
+
+ The resulting SQL: 
+
+<pre class="lang-sql prettyprint-override"> UPDATE stopovers SET location_id=(SELECT locations.id 
+FROM locations 
+WHERE locations.x = stopovers.x AND locations.y = stopovers.y
+LIMIT ? 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5287693)
+ You can access the table objects for a mapped class through the sqlalchemy.orm.class_mapper function: 
+
+  
+users_table = class_mapper(User).mapped_table 
+users_table.insert(..)
+  
+
+ If you're using declarative syntax, you can do this: 
+
+  
+users_table = User.__table__
+users_table.insert(..)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4868337)
+ For common queries I add a class method to a mapped (ORM) class. 
+For example: 
+
+  class User(object):
+
+    @classmethod
+    def get_by_username(cls, dbsession, username):
+        return dbsession.query(cls).filter(cls.username==username).one()
+  
+
+ The mapped class is essentially the manager.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44395983)
+ SQLAlchemy supports  ON CONFLICT  now with two methods  on_conflict_do_update()  and  on_conflict_do_nothing() : 
+
+ Copying from the documentation: 
+
+  from sqlalchemy.dialects.postgresql import insert
+
+stmt = insert(my_table).values(user_email='a@b.com', data='inserted data')
+stmt = stmt.on_conflict_do_update(
+    index_elements=[my_table.c.user_email],
+    index_where=my_table.c.user_email.like('%@gmail.com'),
+    set_=dict(data=stmt.excluded.data)
+    )
+conn.execute(stmt)
+  
+
+ http://docs.sqlalchemy.org/en/latest/dialects/postgresql.html?highlight=conflict#insert-on-conflict-upsert 
+
+
+

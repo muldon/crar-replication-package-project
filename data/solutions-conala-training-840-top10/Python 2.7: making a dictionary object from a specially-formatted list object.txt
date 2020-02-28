@@ -1,0 +1,241 @@
+Query: Python 2.7: making a dictionary object from a specially-formatted list object
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23914857)
+ Using  zip , dict comprehension: 
+
+  >>> f = [
+...     77.0, 'USD', 77.95,
+...     103.9549, 'EUR', 107.3634,
+...     128.1884, 'GBP', 132.3915,
+...     0.7477, 'JPY', 0.777
+... ]
+>>> {currency: [v1, v2] for v1, currency, v2 in zip(*[iter(f)]*3)}
+{'JPY': [0.7477, 0.777],
+ 'USD': [77.0, 77.95],
+ 'GBP': [128.1884, 132.3915],
+ 'EUR': [103.9549, 107.3634]}
+  
+
+  [iter(f)]*3  came from  grouper  in https://docs.python.org/2/library/itertools.html#recipes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23914873)
+ This has to be the ugliest one-liner in the history of one-liners, but hey, it works: 
+
+  print dict(zip((i[1] for i in zip(f[::3],f[1::3],f[2::3])), ([i[0],i[2]] for i in zip(f[::3],f[1::3],f[2::3]))))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17368681)
+  
+
+  print template.format(*map(str, l))
+=>      2013-06-26 09:00:00       2013-06-26 09:00:00
+  
+
+ It works by first converting the  datetime  objects to a string, which then can be formatted with the  format  method without problems. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/26127262)
+ For your needs, don't store you variables in  __dict__ . Use your own dictionary instead, and override  .__getattr__  (for  print k.apple ) and  __setattr__  (for  k.apple=2 ): 
+
+  # Initial dictionary
+myData = {'apple':'1', 'banana':'2', 'house':'3', 'car':'4', 'hippopotamus':'5'}
+
+# Create the container class
+class Struct:
+    _dict = {}
+    def __init__(self, **entries):
+        self._dict = entries
+
+    def __getattr__(self, name):
+        try:
+            return self._dict[name]
+        except KeyError:
+            raise AttributeError(
+                "'{}' object has no attribute or key '{}'".format(
+                    self.__class__.__name__, name))
+
+
+    def __setattr__(self, name, value):
+        if name in self._dict:
+            self._dict[name] = value
+        else:
+            self.__dict__[name] = value
+
+    def testMe(self):
+        self.myVariable = 67
+
+    def FormattedDump(self):
+        return str(self._dict)
+
+# Finally create the instance and bind the dictionary to it
+k = Struct(**myData)
+
+print k.apple
+print k.FormattedDump()
+k.testMe()
+k.apple = '2'
+print k.FormattedDump()
+  
+
+ 
+
+ In the alternative, if your  FormattedDump()  routine is bothering you, you could just fix  it : 
+
+  # Initial dictionary
+myData = {'apple':'1', 'banana':'2', 'house':'3', 'car':'4', 'hippopotamus':'5'}
+
+# Create the container class
+class Struct:
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+        self.public_names = entries.keys()
+
+    def testMe(self):
+        self.myVariable = 67
+
+    def GetPublicDict(self):
+        return {key:getattr(self, key) for key in self.public_names}
+    def FormattedDump(self):
+        return str(self.GetPublicDict())
+
+# Finally create the instance and bind the dictionary to it
+k = Struct(**myData)
+
+print k.apple
+print k.FormattedDump()
+k.testMe()
+k.apple = '2'
+print k.FormattedDump()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/33658764)
+ It's what that  collections.Counter()  is for: 
+
+  >>> from collections import Counter
+>>> 
+>>> Counter(map(tuple,data))
+Counter({(0, 1): 2, (2, 3): 1, (0, 2): 1})
+>>> Counter(map(tuple,data)).items()
+[((0, 1), 2), ((2, 3), 1), ((0, 2), 1)]
+  
+
+ Note that since list objects are not hashable you can not use them as the dictionary keys.So you need to convert them to tuple which is a hashable object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35096505)
+ Use https://docs.python.org/2/library/ast.html#ast.literal_eval: 
+
+ 
+    Safely  evaluate an expression node or a Unicode or Latin-1 encoded string containing a Python literal or container display. The string or node provided may only consist of the following Python literal structures: strings, numbers, tuples, lists, dicts, booleans, and None. 
+ 
+
+  from ast import literal_eval
+
+print(literal_eval(wldev))
+  
+
+  
+
+  >>> from ast import literal_eval
+>>> 
+>>> wldev = """[['eth1','8C:3A:E3:95:77:21',-85,54000,1000,31365,0],
+... ['eth1','A4:77:33:0C:E0:BE',-41,72223,72223,42239,0],
+... ['eth2','58:B0:35:7A:20:C1',-34,104000,130000,21017,1],
+... ['eth2','A4:77:33:66:BC:F6',-48,39000,58500,43956,1]]"""
+>>> 
+>>> literal_eval(wldev)
+[['eth1', '8C:3A:E3:95:77:21', -85, 54000, 1000, 31365, 0], ['eth1', 'A4:77:33:0C:E0:BE', -41, 72223, 72223, 42239, 0], ['eth2', '58:B0:35:7A:20:C1', -34, 104000, 130000, 21017, 1], ['eth2', 'A4:77:33:66:BC:F6', -48, 39000, 58500, 43956, 1]]
+  
+
+ As a result you get a Python list of lists printed. To make a dictionary out of it and since there are non-unique first items in the sublists, I would use a https://docs.python.org/2/library/collections.html#collections.defaultdict: 
+
+  from collections import defaultdict
+
+l = literal_eval(wldev)
+
+d = defaultdict(list)
+for item in l:
+    d[item[0]].append(item[1:])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17368609)
+ The problem here is that  datetime  objects have a  __format__  method which is basically just an alias for  datetime.strftime .  When you do the formatting, the format function gets passed the string  '>25'  which, as you've seen,  dt.strftime('>25')  just returns  '>25' .   
+
+ The workaround here it to specify that the field should be formatted as a string explicitly using  !s : 
+
+  import datetime
+dt = datetime.datetime(2013, 6, 26, 9, 0)
+l = [dt, dt]
+template = "{0!s:>25} {1!s:>25} " 
+out = template.format(*l)
+print out
+  
+
+ (tested on both python2.6 and 2.7). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21842325)
+ Your dates are formatted using the ISO8601 format, making them lexicographically sortable. 
+
+ Just sort your list on the  Datetime  key of each dictionary: 
+
+  from operator import itemgetter
+
+for entry in sorted(list_of_dicts, key=itemgetter('Datetime')):
+    # format your output
+  
+
+  
+
+  >>> list_of_dicts = [
+...     {'Source': 'Log1', 'Type': 'Connection', 'Datetime': '2014-02-13 14:10:00', 'fullpath':'N/A'},
+...     {'Source': 'Log2', 'Type': 'Disconnect', 'Datetime': '2014-05-13 11:00:00', 'fullpath':'N/A'},
+...     {'Source': 'Log4', 'Type': 'Other', 'Datetime': '2014-05-10 02:50:00', 'fullpath':'N/A'},
+... ]
+>>> from operator import itemgetter
+>>> for entry in sorted(list_of_dicts, key=itemgetter('Datetime')):
+...     print entry
+... 
+{'Source': 'Log1', 'fullpath': 'N/A', 'Type': 'Connection', 'Datetime': '2014-02-13 14:10:00'}
+{'Source': 'Log4', 'fullpath': 'N/A', 'Type': 'Other', 'Datetime': '2014-05-10 02:50:00'}
+{'Source': 'Log2', 'fullpath': 'N/A', 'Type': 'Disconnect', 'Datetime': '2014-05-13 11:00:00'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24023242)
+ I would use a https://docs.python.org/3/library/collections.html#collections.defaultdict: 
+
+  def preparer_donnees(data):
+    from collections import defaultdict
+
+    ret = defaultdict(list)
+
+    for v in data:
+        ret[v[0]].append(v[1:])
+
+    return ret
+  
+
+
+

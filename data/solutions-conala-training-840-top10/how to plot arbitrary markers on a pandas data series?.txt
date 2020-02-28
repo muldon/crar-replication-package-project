@@ -1,0 +1,384 @@
+Query: how to plot arbitrary markers on a pandas data series?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/28980437)
+ Use the option 
+
+  ts.plot(marker='o')
+  
+
+  
+
+  ts.plot(marker='.')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19939403)
+ I had to take a slightly different approach avoiding pandas plotting methods altogether. That's somewhat a shame, since they format the x-axis so nicely.  
+
+  import datetime
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas
+from pandas import Series, date_range
+
+markers = Series([True, False, False, True, True, True, False, False, True, True],
+                 index=date_range('1/1/2000', periods=10))
+ts = Series(np.random.uniform(size=10), index=date_range('1/1/2000', periods=10))
+ts = ts.cumsum()
+ts2 = ts[markers]    
+
+fig, ax1 = plt.subplots()
+ax1.plot(ts.index, ts, 'b-')       
+ax1.plot(ts2.index, ts2,'g^')
+fig.autofmt_xdate()
+  
+
+ 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43932913)
+ You can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.interp.html to interpolate the data.  
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+trig = np.array([0.4,1.3,2.1])
+time = np.linspace(0,3,9)
+signal = np.sin(time)+1.3
+
+fig, ax = plt.subplots()
+ax.plot(time, signal)
+for x in trig:
+    ax.axvline(x, color="limegreen")
+#interpolate:
+y = np.interp(trig, time, signal)
+ax.plot(trig, y, ls="", marker="*", ms=15,  color="crimson")
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/zLLFU.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48119208)
+ The only way I have seen lines plotted with different color markers is by plotting the markers as a scatter plot and then plotting the line. In this situation I would plot the dates with the marker  -  and then make a scatter plot over the top like so: 
+
+  import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+df = pd.DataFrame({'points': np.random.randint(1,100, 61)}, 
+index=pd.date_range(start='11-1-2017', end='12-31-2017', freq='D'))
+df['dow'] = df.index.dayofweek
+colors = dict(zip(df.dow.unique(), ['orange', 'yellow', 'green', 'blue', 'purple', 'black', 'red']))
+
+
+fig, ax = plt.subplots();
+ax.plot_date(df.index, df.points, '-')
+ax.scatter(df.index, df.points, color=df.dow.map(lambda x: colors[x]))
+ax.xaxis.set_minor_locator(mdates.WeekdayLocator(byweekday=(0), interval=1))
+ax.xaxis.set_minor_formatter(mdates.DateFormatter('%d\n%a'))
+ax.xaxis.grid(True, which="minor")
+ax.yaxis.grid()
+ax.xaxis.set_major_locator(mdates.MonthLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('\n\n\n%b\n%Y'))
+  
+
+ https://i.stack.imgur.com/Qjcnr.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39247062)
+ First we need to choose random marker. It could be done via  matplotlib.markers.MarkerStyle.markers  dictionary which contains all available markers. Also markers means 'nothing', starting with 'tick' and 'caret' should be dropped Some more http://matplotlib.org/api/markers_api.html abour markers. Let's make list with valid markers and then random choose from them how many we need for plotting DataFrame or you could use second option with  filled_markers : 
+
+  import matplotlib as mpl
+import numpy as np
+
+# create valid markers from mpl.markers
+valid_markers = ([item[0] for item in mpl.markers.MarkerStyle.markers.items() if 
+item[1] is not 'nothing' and not item[1].startswith('tick') 
+and not item[1].startswith('caret')])
+
+# use fillable markers
+# valid_markers = mpl.markers.MarkerStyle.filled_markers
+
+markers = np.random.choice(valid_markers, df.shape[1], replace=False)
+  
+
+ For example: 
+
+  In [146]: list(markers )
+Out[146]: ['H', '^', 'v', 's', '3', '.', '1', '_']
+  
+
+ Then for markers you could plot your dataframe, and set markers for each line via  set_marker  method. Then you could add legend to your plot: 
+
+  import pandas as pd
+
+np.random.seed(2016)
+df = pd.DataFrame(np.random.rand(10, 8))
+
+ax = df.plot(kind='line')
+for i, line in enumerate(ax.get_lines()):
+    line.set_marker(markers[i])
+
+# for adding legend
+ax.legend(ax.get_lines(), df.columns, loc='best')
+  
+
+ Original: 
+
+ https://i.stack.imgur.com/sP8Sj.png 
+
+ Modified: 
+
+ <a href="https://i.stack.imgur.com/qyA96.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52385869)
+ You can directly use pandas for plotting. 
+
+  pandas via groupby  
+
+  fig, ax = plt.subplots()
+df.groupby("logic").plot(x="n_index", y="value", marker="o", ax=ax)
+ax.legend(["False","True"])
+  
+
+ https://i.stack.imgur.com/RLS9F.png 
+
+ The drawback here would be that the legend needs to be created manually. 
+
+  pandas via pivot  
+
+  df.pivot_table("value", "n_index", "logic").plot(marker="o")
+  
+
+ <a href="https://i.stack.imgur.com/WHx4Y.png"  
+
+  seaborn lineplot  
+
+ For seaborn lineplot it seems a single marker is enough to get the desired result. 
+
+  sns.lineplot(x="n_index", y="value", hue="logic", data=df, marker="o")
+  
+
+ <a href="https://i.stack.imgur.com/MQj8o.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52105861)
+ Whilst, I guess technically not a scatter plot, you can use the  pandas.plot  function with point markers drawn on and no lines. 
+
+  df.plot(marker='o', linewidth=0)
+  
+
+ https://i.stack.imgur.com/FRbEP.png 
+
+ This then allows us to use all of the convenient pandas functionality you desire. e.g. plot two series and different scales, using a single function, 
+
+  df.plot(marker='o', linewidth=0, secondary_y='y2')
+  
+
+ <a href="https://i.stack.imgur.com/AJcAO.png"  
+
+ The downside to this is that you lose some of the scatter functionality such as shading and sizing the markers differently. 
+
+ Still, if your aim is a quick scatter plot, this might be the easiest route. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50263275)
+ First of all your conditional series may be empty. . 
+
+ To plot conditional series look at this example: 
+
+  import pandas as pd
+import numpy as np
+import matplotlib.pylab as plt
+
+# Create a dataframe
+df = pd.DataFrame( {'lat':[1,2,3,4,5], 'long':[1,2,3,4,5],  'T': [42, 52, 36, 24, 70]})
+print (df)
+
+plt.figure(figsize = (5, 5))
+
+# selection condition
+df1 = df[(df['T'] < 50)]
+# ~ means not
+df2 = df[~(df['T'] < 50)]
+print(df2)
+print(df1)
+# plot
+plt.plot(df1.long, df1.lat, 'b+')
+ax = plt.gca()
+ax.plot(df2.long, df2.lat, 'r*')
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/Ms7s1.png 
+
+ Test output: 
+
+      T  lat  long
+0  42    1     1
+1  52    2     2
+2  36    3     3
+3  24    4     4
+4  70    5     5
+    T  lat  long
+1  52    2     2
+4  70    5     5
+    T  lat  long
+0  42    1     1
+2  36    3     3
+3  24    4     4
+  
+
+ As well you do not need to convert series to lists. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49675980)
+ Yes this is all possible! So first let's get all three time series on the same plot 
+
+  import matplotlib.pyplot as plt
+
+plt.figure()
+plt.subplot(1,1,1)
+line1, = plt.plot(df.index, df['Series1'])
+line2, = plt.plot(df.index, df['Series2'])
+line3, = plt.plot(df.index, df['Series3'])
+
+plt.scatter(df.index, df['Series1'], c = df['day'], marker = 'o')
+plt.scatter(df.index, df['Series2'], c = df['day'], marker = 'v')
+plt.scatter(df.index, df['Series3'], c = df['day'], marker = 'x')
+
+plt.legend(handles=[line1, line2, line3])
+plt.show()
+  
+
+ https://i.stack.imgur.com/zoMdc.png 
+
+ 
+
+ If you want to make sure that the markers are in front of the lines in order to get a cleaner plot we can use the  zorder  property. 
+
+  import matplotlib.pyplot as plt
+
+plt.figure()
+plt.subplot(1,1,1)
+line1, = plt.plot(df.index, df['Series1'], zorder=1)
+line2, = plt.plot(df.index, df['Series2'], zorder=1)
+line3, = plt.plot(df.index, df['Series3'], zorder=1)
+
+plt.scatter(df.index, df['Series1'], c = df['day'], marker = 'o', s = 100, zorder=2)
+plt.scatter(df.index, df['Series2'], c = df['day'], marker = 'v', s = 100, zorder=2)
+plt.scatter(df.index, df['Series3'], c = df['day'], marker = 'x', s = 100, zorder=2)
+
+plt.legend(handles=[line1, line2, line3])
+plt.show()
+  
+
+ <a href="https://i.stack.imgur.com/MHZLE.png"  
+
+ 
+
+ You can show the difference in days using a colorbar 
+
+  import matplotlib.pyplot as plt
+
+plt.figure()
+plt.subplot(1,1,1)
+line1, = plt.plot(df.index, df['Series1'], zorder=1)
+line2, = plt.plot(df.index, df['Series2'], zorder=1)
+line3, = plt.plot(df.index, df['Series3'], zorder=1)
+
+plt.scatter(df.index, df['Series1'], c = df['day'], marker = 'o', s = 100, zorder=2)
+plt.scatter(df.index, df['Series2'], c = df['day'], marker = 'v', s = 100, zorder=2)
+plt.scatter(df.index, df['Series3'], c = df['day'], marker = 'x', s = 100, zorder=2)
+
+plt.legend(handles=[line1, line2, line3])
+plt.colorbar()
+plt.show()
+  
+
+ <a href="https://i.stack.imgur.com/d83uL.png"  
+
+ 
+
+ If you want the legend to contain the color associated with the different days then you can make a custom colormap and then have a custom legend as 
+
+  from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+import matplotlib.pyplot as plt
+
+# define the colormap
+cmap = plt.cm.jet
+cmaplist = [cmap(i) for i in range(1,cmap.N,cmap.N//max(df['day']))]
+
+plt.figure()
+plt.subplot(1,1,1)
+line1, = plt.plot(df.index, df['Series1'], zorder=1)
+line2, = plt.plot(df.index, df['Series2'], zorder=1)
+line3, = plt.plot(df.index, df['Series3'], zorder=1)
+
+plt.scatter(df.index, df['Series1'], c = df['day'], cmap='jet', marker = 'o', s = 100, zorder=2)
+plt.scatter(df.index, df['Series2'], c = df['day'], cmap='jet', marker = 'v', s = 100, zorder=2)
+plt.scatter(df.index, df['Series3'], c = df['day'], cmap='jet', marker = 'x', s = 100, zorder=2)
+
+legend_elements = [Line2D([0], [0], color='b', lw=4, label='Line'),
+                   Line2D([0], [0], marker='o', color='w', label='Scatter',
+                          markerfacecolor='g', markersize=15),
+                   Patch(facecolor='orange', edgecolor='r',
+                         label='Color Patch')]
+legend_elements = []
+for ix, i in enumerate(df['day']):
+    temp = Line2D([0], [0], color = cmaplist[i-1][0:3], lw=4, label=str(i))
+    legend_elements.append(temp)
+
+
+plt.legend(handles=legend_elements)
+plt.show()
+  
+
+ <a href="https://i.stack.imgur.com/FNT58.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/18774741)
+ let  matplotlib  take the log for you: 
+
+  fig = plt.figure()
+ax = plt.gca()
+ax.scatter(data['o_value'] ,data['time_diff_day'] , c='blue', alpha=0.05, edgecolors='none')
+ax.set_yscale('log')
+ax.set_xscale('log')
+  
+
+ If you are using all the same size and color markers, it is faster to use  plot  
+
+  fig = plt.figure()
+ax = plt.gca()
+ax.plot(data['o_value'] ,data['time_diff_day'], 'o', c='blue', alpha=0.05, markeredgecolor='none')
+ax.set_yscale('log')
+ax.set_xscale('log')
+  
+
+
+

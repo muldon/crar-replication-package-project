@@ -1,0 +1,227 @@
+Query: How to efficiently convert Matlab engine arrays to numpy ndarray?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34155926)
+ Moments after posting the question I found the solution. 
+
+ For one-dimensional arrays, access only the  _data  property of the Matlab array. 
+
+  import timeit
+print 'From list'
+print timeit.timeit('np.array(x)', setup=setup_range, number=1000)
+print 'From matlab'
+print timeit.timeit('np.array(x)', setup=setup_matlab, number=1000)
+print 'From matlab_data'
+print timeit.timeit('np.array(x._data)', setup=setup_matlab, number=1000)
+  
+
+  
+
+  From list
+0.0719847538787
+From matlab
+7.12802865169
+From matlab_data
+0.118476275533
+  
+
+ For multi-dimensional arrays you need to reshape the array afterwards. In the case of two-dimensional arrays this means calling 
+
+  np.array(x._data).reshape(x.size[::-1]).T
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39380073)
+ Tim's answer is great for 2D arrays, but a way to adapt it to N dimensional arrays is to use the  order  parameter of np.reshape() : 
+
+  np_x = np.array(x._data).reshape(x.size, order='F')  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33380222)
+ A more generic approach, which I'm using productively now, also allowing me to round the values if needed (careful though, rounding takes more calculation time): 
+
+  from math import log10, floor
+
+def convert(self, x, ROUND=0):
+
+    conv = []
+
+    for _ in range(x.size[0]):
+        lst = x._data[_::x.size[0]].tolist()
+
+        if ROUND is not 0:
+            lst = [self.round_sig(elem, ROUND) if elem != 0 and
+                   elem == elem else elem for elem in lst]
+
+        conv.append(lst)
+
+    return conv
+
+def round_sig(self, x, sig=2):
+    return round(x, sig-int(floor(log10(abs(x))))-1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49702122)
+ My situation was a bit different (python script called from matlab) but for me converting the ndarray into an array.array massively speed up the process. Basically it is very similar to Alexandre Chabot solution but without the need to alter any files: 
+
+  #untested i.e. only deducted from my "matlab calls python" situation
+import numpy
+import array
+
+data1 = numpy.random.uniform(low = 0.0, high = 30000.0, size = (1000000,))
+ar = array.array('d',data1.flatten('F').tolist())
+p = matlab.double(ar)
+C = matlab.reshape(p,data1.shape) #this part I am definitely not sure about if it will work like that
+  
+
+ At least if done from Matlab the combination of "array.array" and "double" is relative fast. Tested with Matlab 2016b + python 3.5.4 64bit. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30017109)
+ With the input from the discussion below I managed to find a reasonable way: 
+
+  c = []
+for _ in range(x.size[1]):
+    c.append(x._data[_*x.size[0]:_*x.size[0]+x.size[0]].tolist())
+return c
+  
+
+ This way the command takes around 0.009s instead of 0.045s from before. Using the zip function was around 0.022s. Thanks alot, the code runs 5 times faster now! 
+
+ For clarification:  x.size[i]  gives me the size of the  matlab.double  array.  x._data  gives an one dimensional array of type: 
+
+  array('d', [1.0,2.0,4.0 ... ])
+  
+
+ Therefore it includes a tolist() method to get an actual list, which I needed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40295988)
+ This is a shot in the dark, because I don't have Matlab to test it, but I suspect you'll have to return a python https://docs.python.org/3/library/array.html object, not a numpy array.
+ 
+
+  import numpy as np
+import array
+
+
+def computecoreset(mat, coresetSize):
+    c = np.random.choice(mat, coresetSize)
+    return array.array('d', c)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/27561942)
+ To convert a two-dimensional numpy array to single-precision, use  astype  and give it the  float32  argument. For example: 
+
+  >>> import numpy as np
+>>> a = np.array([[1.], [2.], [3.]])
+>>> a
+array([[ 1.],
+       [ 2.],
+       [ 3.]])
+>>> a = a.astype('float32')
+>>> a
+array([[ 1.],
+       [ 2.],
+       [ 3.]], dtype=float32)
+  
+
+ For more about numeric and array data types, see http://docs.scipy.org/doc/numpy/reference/arrays.dtypes.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40296916)
+ https://www.mathworks.com/matlabcentral/answers/157347-convert-python-numpy-array-to-double 
+
+ The accepted answer suggests   py.array.array  function: 
+
+  data = double(py.array.array('d',py.numpy.nditer(x)));
+  
+
+ Which is also listed on 
+
+ https://www.mathworks.com/help/matlab/matlab_external/handling-data-returned-from-python.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45290997)
+ 
+ Passing numpy arrays efficiently  
+
+ Take a look at the file  mlarray_sequence.py  in the folder  PYTHONPATH\Lib\site-packages\matlab\_internal . There you will find the construction of the MATLAB array object. The performance problem comes from copying data with loops within the  generic_flattening  function.  
+
+ To avoid this behavior we will edit the file a bit. This fix should work on complex and non-complex datatypes. 
+
+ 
+ Make a backup of the original file in case something goes wrong. 
+ Add  import numpy as np  to the other imports at the beginning of the file 
+  In line 38 you should find:  
+
+<pre class="lang-py prettyprint-override"> init_dims = _get_size(initializer)  # replace this with 
+     try:
+         init_dims=initializer.shape
+     except:
+         init_dims = _get_size(initializer)
+   
+  In line 48 you should find:  
+
+<pre class="lang-py prettyprint-override"> if is_complex:
+    complex_array = flat(self, initializer,
+                         init_dims, typecode)
+    self._real = complex_array['real']
+    self._imag = complex_array['imag']
+else:
+    self._data = flat(self, initializer, init_dims, typecode)
+
+#Replace this with:
+
+if is_complex:
+    try:
+        self._real = array.array(typecode,np.ravel(initializer, order='F').real)
+        self._imag = array.array(typecode,np.ravel(initializer, order='F').imag)
+    except:
+        complex_array = flat(self, initializer,init_dims, typecode)
+        self._real = complex_array['real']
+        self._imag = complex_array['imag']
+else:
+    try:
+        self._data = array.array(typecode,np.ravel(initializer, order='F'))
+    except:
+        self._data = flat(self, initializer, init_dims, typecode)
+   
+ 
+
+ Now you can pass a numpy array directly to the MATLAB array creation method. 
+
+<pre class="lang-py prettyprint-override"> data1 = np.random.uniform(low = 0.0, high = 30000.0, size = (1000000,))
+#faster
+data1m = matlab.double(data1)
+#or slower method
+data1m = matlab.double(data1.tolist())
+
+data2 = np.random.uniform(low = 0.0, high = 30000.0, size = (1000000,)).astype(np.complex128)
+#faster
+data1m = matlab.double(data2,is_complex=True)
+#or slower method
+data1m = matlab.double(data2.tolist(),is_complex=True)
+  
+
+ The performance in MATLAB array creation increases by a factor of 15 and the interface is easier to use now. 
+
+
+

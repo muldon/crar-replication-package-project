@@ -1,0 +1,321 @@
+Query: How to count the number of times something occurs inside a certain string?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1666709)
+ why not read the docs first, it's very simple: 
+
+  >>> "The big brown fox is brown".count("brown")
+2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1666756)
+ One thing worth learning if you're a Python beginner is how to use http://docs.python.org/tutorial/interpreter.html#interactive-mode to help with this.  The first thing to learn is the http://docs.python.org/library/functions.html which will tell you the attributes of an object. 
+
+  >>> mystring = "The big brown fox is brown"
+>>> dir(mystring)
+['__add__', '__class__', '__contains__', '__delattr__', '__doc__', '__eq__', '__
+ge__', '__getattribute__', '__getitem__', '__getnewargs__', '__getslice__', '__g
+t__', '__hash__', '__init__', '__le__', '__len__', '__lt__', '__mod__', '__mul__
+', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__rmod__', '
+__rmul__', '__setattr__', '__str__', 'capitalize', 'center', 'count', 'decode',
+'encode', 'endswith', 'expandtabs', 'find', 'index', 'isalnum', 'isalpha', 'isdi
+git', 'islower', 'isspace', 'istitle', 'isupper', 'join', 'ljust', 'lower', 'lst
+rip', 'partition', 'replace', 'rfind', 'rindex', 'rjust', 'rpartition', 'rsplit'
+, 'rstrip', 'split', 'splitlines', 'startswith', 'strip', 'swapcase', 'title', '
+translate', 'upper', 'zfill']
+  
+
+ Remember, in Python, methods are also attributes.  So now he use the http://docs.python.org/library/functions.html to inquire about one of the methods that looks promising: 
+
+  >>> help(mystring.count)
+Help on built-in function count:
+
+count(...)
+    S.count(sub[, start[, end]]) -> int
+
+    Return the number of non-overlapping occurrences of substring sub in
+    string S[start:end].  Optional arguments start and end are interpreted
+    as in slice notation.
+  
+
+ This displays the http://www.python.org/dev/peps/pep-0257/#what-is-a-docstring of the method - some help  text which you should get in to the habit of putting in your own methods too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46080857)
+ Couple of ways using  count  or  sum  
+
+  In [338]: df
+Out[338]:
+  col1 education
+0    a       9th
+1    b       9th
+2    c       8th
+
+In [335]: df.loc[df.education == '9th', 'education'].count()
+Out[335]: 2
+
+In [336]: (df.education == '9th').sum()
+Out[336]: 2
+
+In [337]: df.query('education == "9th"').education.count()
+Out[337]: 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52882897)
+  Short answer : you did  not  use a regex, but a https://stackoverflow.com/questions/2081640/what-exactly-do-u-and-r-string-flags-do-and-what-are-raw-string-literals, and thus count occurrences of the string  [a-zA-Z] . 
+
+ Because a string of the format  r..  is  not  a regex, it is a  raw  string  literal . If you write  r\n , you write a string with  two  characters: a backslash and an  n .  not  a new line. Raw strings are useful in the context of regexes, because regexes use a lot of escaping as well. 
+
+ For example: 
+
+  >>> r\n
+\\n
+>>> type(r\n
+<class str>
+  
+
+ But here you thus count the number of times the  string   [a-zA-Z]  occurs, and unless your  spam_data[text][0]  literally contains a square bracket  [  followed by  a , etc., the count will be zero. Or as specified in the documentation of https://docs.python.org/2/library/string.html#string.count: 
+
+ 
+     string.count(s, sub[, start[, end]]   
+  
+   Return the number of (non-overlapping occurrences of  substring   sub  in string  s[start:end] . Defaults for  start  and  end  and interpretation of negative values are the same as for slices. 
+ 
+
+ In case the string is rather large, and you do not want to construct a list of matches, you can count the number of elements with: 
+
+  sum(1 for _ in re.finditer([a-zA-Z], mystring
+  
+
+ It is however typically faster to simply use  re.findall(..  and then calculate the number of elements. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51258500)
+ If want count only one value use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.count.html: 
+
+  df['22 Count'] = df['Value'].str.count('22')
+print (df)
+                         Value  22 Count
+Index                                   
+0                  22,88,22,24         2
+1                        24,24         0
+2                        22,24         1
+3      11,22,24,12,24,24,22,24         2
+4                           22         1
+  
+
+ For all columns count need: 
+
+  from collections import Counter
+
+df1 = df['Value'].apply(lambda x: pd.Series(Counter(x.split(','))), 1).fillna(0).astype(int)
+  
+
+  
+
+  df1 = pd.DataFrame([Counter(x.split(',')) for x in df['Value']]).fillna(0).astype(int)
+  
+
+  
+
+  from sklearn.feature_extraction.text import CountVectorizer
+
+countvec = CountVectorizer()
+counts = countvec.fit_transform(df['Value'].str.replace(',', ' '))
+df1 = pd.DataFrame(counts.toarray(), columns=countvec.get_feature_names())
+  
+
+ 
+
+  print (df1)
+   11  12  22  24  88
+0   0   0   2   1   1
+1   0   0   0   2   0
+2   0   0   1   1   0
+3   1   1   2   4   0
+4   0   0   1   0   0
+  
+
+ Last if need add to original: 
+
+  df = df.join(df1.add_suffix(' Count'))
+print (df)
+                         Value  11 Count  12 Count  22 Count  24 Count  \
+Index                                                                    
+0                  22,88,22,24         0         0         2         1   
+1                        24,24         0         0         0         2   
+2                        22,24         0         0         1         1   
+3      11,22,24,12,24,24,22,24         1         1         2         4   
+4                           22         0         0         1         0   
+
+       88 Count  
+Index            
+0             1  
+1             0  
+2             0  
+3             0  
+4             0  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51292965)
+ If you have a long list, you should put all numbers into a https://docs.python.org/3/library/collections.html#collections.Counter. 
+
+  from collections import Counter
+data = [1,2,3,2,1]
+c = Counter(data)
+
+cleaned = [x for x in data if c[x] > 1]
+
+print(cleaned)
+  
+
+ This will count all occurences with one pass of your list ( O(n) ) and the lookup how often it occurs inside the created dictionary is  O(1) . Together this is much faster then use a list comprehension like   
+
+  result = [x for x in data if data.count(x) > 1]
+  
+
+ for a list of 100 values it will go through your 100 values 100 times, to count each single one of them wich is O(n^2) - bad thing to have. 
+
+ Output: 
+
+  [1,2,2,1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11800782)
+ Use the  count  method. For example: 
+
+  (x, mylist.count(x)) for x in set(mylist)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/15455909)
+ You can also use MultiIndex, when it's sorted, it is faster to find the count: 
+
+  s = StringIO("""A  B  C  D
+1  1  2  0
+3  3  2  1
+3  1  1  0
+3  1  1  0
+3  3  2  1
+1  2  3  4""")
+df = pd.read_table(s,delim_whitespace=True)
+s = pd.Series(range(len(df)), index=pd.MultiIndex.from_arrays(df.values.T))
+s = s.sort_index()
+idx = s[3,1,1,0]
+print idx.count(), idx.values
+  
+
+ output: 
+
+  2 [2 3]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35179221)
+ Let us assume that you have the list of strings as you gave it. 
+
+ http://www.tutorialspoint.com/python/python_lists.htm 
+
+ list.index(x) 
+
+ Return the index in the list of the first item whose value is x. It is an error if there is no such item. 
+
+ Get the index for your start and the index for the end. If both a begin and an end exist and the index of the end is greater than the index of the start, just process using the range on the start and end indices to get the elements that you want. 
+
+ Of course, you would have to put in the appropriate error checking and decide what to do if you have a start indicator but reach the end of the list with no end indicator (as an example of an error case that must be handled) 
+
+ Note that list.index() finds the first occurrence of the start string. If there are more, then start the range at the first occurrence of the end string and do it again. This can be done in an appropriate  do ... while  loop where the while checks to see if there is another occurrence of the start string. 
+
+ Note that if there is another occurrence of the start string inside the list, it will not be treated as resetting the start but will be just another entry. 
+
+  mylist = ('string' 'start' 'string' 'start' 'string' 'end' 'string)
+  
+
+  
+
+  ('start' 'string' 'start' 'string' 'end')
+  
+
+  
+
+  start = 0
+
+while True:
+    try:
+        start = mylist[start:].index(firststring)
+    except:
+        # index did not find start string. nothing to do, force exit
+        break
+    try:
+        end = mylist[start:].index(laststring)
+        count = mylist[start:end].count(findstring)
+        # process findstring
+        start = end # set up for the next loop
+    except:
+        # index did not find end string but did find start
+        count = mylist[start:].count(findstring)
+        # process findstring
+        break # reached the end of the list, exit the while
+  
+
+ Now that you have the start and end index 
+
+ Indexing, Slicing, and Matrixes 
+
+ Because lists are sequences, indexing and slicing work the same way for lists as they do for strings. So just use list[a:b].count(string) with the appropriate slicing indicators.. 
+
+ list.count(obj) 
+
+ Returns count of how many times obj occurs in list 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16450031)
+ You'd need to use a dictionary to store the values, since if you directly add the counts you lose information about exactly which vowel you are counting. 
+
+  def countVowels(s):
+    s = s.lower() #so you don't have to worry about upper and lower cases
+    vowels = 'aeiou'
+    return {vowel:s.count(vowel) for vowel in vowels} #a bit inefficient, but easy to understand
+  
+
+ An alternate method would be: 
+
+  def countVowels(s):
+    s = s.lower()
+    vowels = {'a':0,'e':0,'i':0,'o':0,'u':0}
+    for char in s:
+        if char in vowels:
+            vowels[char]+=1
+    return vowels
+  
+
+  
+
+  def printResults(result_dict):
+    print "a, e, i, o, u, appear, respectively, {a},{e},{i},{o},{u} times".format(**result_dict)
+  
+
+
+

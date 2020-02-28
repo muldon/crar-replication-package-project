@@ -1,0 +1,188 @@
+Query: how do i return a string from a regex match in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9853204)
+ You have to mark the string as a raw string, due to the  \  in there, by putting an  r  in front of the regex: 
+
+  m = re.match(r"<(.*)>phone</\1>", "<bar>phone</bar>")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22407829)
+ http://docs.python.org/2/library/re.html#re.match is what  re.match()  says  If zero or more characters at the beginning of string match the regular expression pattern ...  
+
+ In your case the string doesn't have any digit  \d  at the beginning. But for the  \w  it has  t  at the beginning at your string. 
+
+ If you want to check for digit in your string using same mechanism, then add  .*  with your regex: 
+
+  digit_regex = re.compile('.*\d')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37186654)
+ The  \b  word boundary makes it impossible to match  (  at the beginning of a string since there is no word there (i.e.  \b  requires a letter, digit or underscore to be right before  (  in your pattern, and that is not the case). 
+
+ As you confirm you need to match values that are fully enclosed with  (...) , you need  regex = re.compile(r'\(.*\)$')  with  re.match . 
+
+ Use 
+
+  import re
+full = ['webb', 'ellis', '(sportswear)']
+regex = re.compile(r'\(.*\)$')
+filtered = [i for i in full if not regex.match(i)]
+print(filtered)
+  
+
+ See the https://ideone.com/lhXGYB 
+
+ The  re.match  will anchor the match at the start of the string, and the  $  will anchor the match at the end of the string.  
+
+ Note that if your string has newlines in it, use  flags=re.DOTALL  when compiling the regex (so that  .  could also match newline symbols, too). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43508156)
+ an alternative that requires a  simpler  regular expression is to find all substrings that match  100.00%  and test if the count == 3. 
+
+ example 
+
+  import re
+
+p = re.compile(r'100\.00%')
+texts = ['some string 100.00% foo 100.00% 100.00%',
+         'some string  99.91%  foo 100.00% 99.91%',
+         'some string 100.00%100.00%100.00%']
+
+matches = [i for i, t in enumerate(texts)
+           if len(re.findall(p, t)) == 3]
+# matches = [0, 2]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17502838)
+ If you use  regex.finditer  you could get the line number like this: 
+
+  regex = re.compile("(?<=i)s")
+s = """This
+is
+a multiline
+string"""
+for match in regex.finditer(s):
+    lineno = s.count('\n', 0, match.start())
+    ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/44980529)
+ There are a couple of options in Python to match an entire input with a regex. 
+
+ Python 2 
+
+ In Python 2.x, you may use 
+
+  re.match(r'\d+$') # re.match anchors the match at the start of the string, so $ is what remains to add
+  
+
+ or - to avoid matching before the final  \n  in the string: 
+
+  re.match(r'\d+\Z') # \Z will only match at the very end of the string
+  
+
+ Or the same as above with  re.search  method requiring the use of  ^  /  \A  start-of-string anchor as it does not anchor the match at the start of the string: 
+
+  re.search(r'^\d+$')
+re.search(r'\A\d+\Z')
+  
+
+ Note that  \A  is an unambiguous string start anchor, its behavior cannot be redefined with any modifiers ( re.M  /  re.MULTILINE  can only redefine the  ^   and  $  behavior). 
+
+ Python 3 
+
+ All those cases described in the Python 2 section and one more useful method, https://docs.python.org/3/library/re.html#re.fullmatch (also present in the https://pypi.python.org/pypi/regex/): 
+
+ 
+   If the whole  string  matches the regular expression  pattern , return a corresponding match object. Return  None  if the string does not match the pattern; note that this is different from a zero-length match. 
+ 
+
+ So, after you compile the regex, just use the appropriate method: 
+
+  _rex = re.compile("\d+")
+if _rex.fullmatch(s):
+    doStuff()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/118165)
+ That regular expression matches here, no idea what you are doing wrong: 
+
+  >>> import re
+>>> x = re.compile(r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|'
+... r'2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9]'
+... r'[0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)')
+>>> x.match("127.0.0.1")
+<_sre.SRE_Match object at 0x5a8860>
+>>> x.match("127.255.0.1")
+<_sre.SRE_Match object at 0x5a8910>
+>>> x.match("127.255.0.0")
+<_sre.SRE_Match object at 0x5a8860>
+  
+
+ Please note that  preg_match  translates to  re.search  in Python and not  re.match .   re.match  is for useful for lexing because it's anchored. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12205838)
+  Solution 1:  
+
+  >>> re.sub(r"\d{4}-\d{4}", r"(\g<0>)", "Alan Turing 1912-1954")
+'Alan Turing (1912-1954)'
+  
+
+  \g<0>  is a backreference to the entire match ( \0  doesn't work; it would be interpreted as  \x00 ). 
+
+  Solution 2:  
+
+  >>> regex = re.compile(r"\d{4}-\d{4}")
+>>> regex.sub(lambda m: '({0})'.format(m.group(0)), "Alan Turing 1912-1954")
+'Alan Turing (1912-1954)'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39861056)
+ Maybe other way to do this is having a  regex , for example: 
+
+  val regExtractor = """a(b+)(c+)(d*)""".r
+  
+
+ And then match the  String:  
+
+  val string = "abbbbbbbbbccdd"
+
+val newString = string match {
+  case regExtractor(g1, g2, g3) =>
+    s"""String Replaced: ${g1.replace(g1, "XXXXX")},
+        | ${g2.replace(g2, "YYYYY")}""".stripMargin
+}
+  
+
+  newString  will be: 
+
+  "String Replaced: XXXXX, YYYYY"
+  
+
+
+

@@ -1,0 +1,248 @@
+Query: Python: Extract variables out of namespace
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26993638)
+ . 
+
+   
+
+  dom = ET.parse(u'C:\\filepath\\1.xml')
+rootxml = dom.getroot()
+  
+
+ Object rootxml contains dictionary nsmap, which contains all namespaces that I want. 
+
+ So, simplest solution I've found: 
+
+  dom = ET.parse(u'C:\\filepath\\1.xml')
+rootxml = dom.getroot()
+nss = rootxml.nsmap
+for subtag in rootxml.xpath(u'//par:actual', namespaces=nss):
+    #do something
+    print(subtag)
+  
+
+ That works. 
+
+  UPD:  that works if user understand what means 'par' in XML he works with. For example, comparing supposed namespace with existing namespace before any other operations. 
+
+ Still, I like much variant with XPath that understands {...}actual, that was what I tried to achieve. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2316912)
+ Since it is http://docs.python.org/library/functions.html#locals to modify the dict that locals() returns  
+
+  >>> d={'a':6, 'b':"hello", 'c':set()}
+>>> exec '\n'.join("%s=%r"%i for i in d.items())
+>>> a
+6
+>>> b
+'hello'
+>>> c
+set([])
+  
+
+ But using exec like this is ugly. You should redesign so you don't need to dynamically add to your local namespace 
+
+  Edit:  See Mike's reservations about using repr in the comments. 
+
+  >>> d={'a':6, 'b':"hello", 'c':set()}
+>>> exec '\n'.join("%s=d['%s']"%(k,k) for k in d)
+>>> id(d['c'])
+3079176684L
+>>> id(c)
+3079176684L
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14903641)
+ You have several options to create your 'namespace'. The easiest two are: 
+
+ 
+  Create a quick custom class: 
+
+  class Namespace(object):
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+def dump_into_namespace(**kw):
+    return Namespace(**kw)
+  
+
+ Call with  dump_into_namespace(a='a', b='b', c='c') ; this takes an arbitrary number of keyword arguments.  
+  Use a http://docs.python.org/2/library/collections.html#collections.namedtuple: 
+
+  from collections import namedtuple
+
+Namespace = namedtuple('Namespace', 'a b c')
+
+def dump_into_namespace(a, b, c):
+    return Namespace(a, b, c)
+  
+
+ Call with  dump_into_namespace('a', 'b', 'c') ; this only takes a fixed number of arguments, but your  dump_into_namespace()  function could provide defaults.  
+ 
+
+ What you call 'dot notation' is really just attribute access. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14903651)
+ To be honest, the easiest way is just to assign them: 
+
+  e.a = a
+e.b = b
+e.c = c
+  
+
+ You can't really do it more dynamically, because a variable doesn't know its own name. You would have to pass them as keyword arguments, in which case you can just update the namespace's  __dict__  directly: 
+
+  def dump_into_namespace(e, **kwargs):
+    e.__dict__.update(kwargs)
+  
+
+  
+
+  dump_into_namespace(e, a=a, b=b, c=c)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14364672)
+ 
+   However, the namespace used may change, and I don't want to depend on this. 
+ 
+
+ Are you saying that the namespace uri might change, or that the prefix might? If it's just the prefix, then that's not an issue, because what matters is that the prefixes in your XPath match the prefixes you supply to the XPath evaluator. And in either case, auto-detecting the namespaces is probably a bad call. Suppose someone decides to start generating that XML like this: 
+
+  <proj:project xmlns:proj="http://maven.apache.org/POM/4.0.0" 
+xmlns:other="http://maven.apache.org/POM/5.0.0"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+                    http://maven.apache.org/maven-v4_0_0.xsd">
+  
+
+ which is still perfectly representing the XML in the same namespace as your example, but you have no idea that the  proj  prefix is the namespace prefix you're looking for. 
+
+ I think it's unlikely that Apache would suddenly change the namespace for one of their official XML formats, but if you are genuinely worried about it, there should always be the option of using local-name() to namespace-agnostically find a node you're looking for: 
+
+  version = root.find('./*[local-name() = "version"]')
+  
+
+ Also, I'm not familiar with the elementTree library, but you  could  try this to try to get information about the XML document's namespaces, just to see if you can: 
+
+  namespaces = root.findall('//namespace::*')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14363251)
+ Unfortunately,  ElementTree  namespace support is rather patchy. 
+
+ You'll need to use an internal method from the  xml.etree.ElementTree  module to get a namespace map out: 
+
+  _, namespaces = ET._namespaces(root, 'utf8')
+  
+
+  namespaces  is now a dict with URIs as keys, and prefixes as values. 
+
+ You could switch to http://lxml.de/ instead. That library implements the same ElementTree API, but has augmented that API considerably. 
+
+ For example, each node includes a  .nsmap  attribute which maps prefixes to URIs, including the default namespace under the key  None . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/997076)
+ You could write a basic lexer for it. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2316835)
+  
+
+      locals().update(my_dict)
+  
+
+ EDIT: 
+
+  gnibbler  has made a very valid point that locals shouldn't be modified (check: http://docs.python.org/library/functions.html#locals). Still, Python docs doesn't say it's not safe, it only says that changes to locals may not affect values of variables. Before answering the question I tried in my Python's 2.6 IDLE that updating locals actually works, both in global scope and inside a function. That's why I'm not deleting my answer, but instead I'm adding a  warning  that it might work under certain (platform-specific?) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14903818)
+ The solution below provides syntax very close to your requirement, the only difference is that you have to pass to the function environment where the variables are defined explicitly:   
+
+  x = 10
+y = 20
+
+class dump_into_namespace:
+    def __init__(self, env, *vars):
+        self.vars = dict([(x, env[x]) for v in vars for x in env if v is env[x]])
+    def __getattr__(self, name): return self.vars[name]
+
+o = dump_into_namespace(locals(), x, y)
+print o.x, o.y
+  
+
+ You can then 'dump' back the variables to your locals (say, in a different function): 
+
+  >>> locals().update(o.vars)
+>>> x
+10
+  
+
+ EDIT: 
+
+ Thanks to the suggestion of eyquem this can be even shorter. The idea is to put variables into  self.__dict__  of the 'dump' object (note: syntax of update changes here): 
+
+  class dump_into_namespace:
+    def __init__(self, env, *vs):
+        vars(self).update(dict([(x, env[x]) for v in vs for x in env if v is env[x]]))
+
+def f():
+    x = 10
+    y = 20
+    return dump_into_namespace(locals(), x, y)
+
+o = f() 
+print o.x, o.y 
+globals().update(vars(o))
+print x
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/8306355)
+ If you want them as globals, you can do: 
+
+  globals().update(vars(args))
+  
+
+ If you're in a function and want them as local variables of that function, you can do this in Python 2.x as follows: 
+
+  def foo(args):
+   locals().update(vars(args))       
+   print a, b, c
+   return
+   exec ""  # forces Python to use a dict for all local vars
+            # does not need to ever be executed!  but assigning
+            # to locals() won't work otherwise.
+  
+
+ This trick doesn't work in Python 3, where  exec  is not a statement, nor likely in other Python variants such as Jython or IronPython. 
+
+ Overall, though, I would recommend just using a shorter name for the  args  object, or use your clipboard.   
+
+
+

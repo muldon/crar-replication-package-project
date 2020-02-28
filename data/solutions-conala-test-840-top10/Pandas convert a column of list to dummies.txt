@@ -1,0 +1,380 @@
+Query: Pandas convert a column of list to dummies
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/43946053)
+   str.get_dummies     
+
+  df.tags.str.join('|').str.get_dummies().add_prefix('tags_')
+
+   tags_a  tags_b  tags_c
+0       1       0       1
+1       0       1       1
+  
+
+  include  join     
+
+  df[['name']].join(df.tags.str.join('|').str.get_dummies().add_prefix('tags_'))
+
+    name  tags_a  tags_b  tags_c
+0    Rob       1       0       1
+1  Erica       0       1       1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51420716)
+   Very fast solution in case you have a large dataframe     
+
+ Using http://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.MultiLabelBinarizer.html 
+
+  import pandas as pd
+from sklearn.preprocessing import MultiLabelBinarizer
+
+df = pd.DataFrame(
+    {'groups':
+        [['a','b','c'],
+        ['c'],
+        ['b','c','e'],
+        ['a','c'],
+        ['b','e']]
+    }, columns=['groups'])
+
+s = df['groups']
+
+mlb = MultiLabelBinarizer()
+
+pd.DataFrame(mlb.fit_transform(s),columns=mlb.classes_, index=df.index)
+  
+
+  
+
+      a   b   c   e
+0   1   1   1   0
+1   0   0   1   0
+2   0   1   1   1
+3   1   0   1   0
+4   0   1   0   1
+  
+
+ Worked for me and also was suggested https://stackoverflow.com/questions/47786822/how-do-you-one-hot-encode-columns-with-a-list-of-strings-as-values and <a href="https://stackoverflow.com/questions/45312377/how-to-one-hot-encode-from-a-pandas-column-containing-a-list"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45312569)
+ Use  get_dummies : 
+
+  df_out = df.assign(**pd.get_dummies(df.Col3.apply(lambda x:pd.Series(x)).stack().reset_index(level=1,drop=True)).sum(level=0))
+  
+
+ Output: 
+
+    Col1  Col2                     Col3  Apple  Banana  Grape  Orange
+0    C  33.0  [Apple, Orange, Banana]      1       1      0       1
+1    A   2.5           [Apple, Grape]      1       0      1       0
+2    B  42.0                 [Banana]      0       1      0       0
+  
+
+ Cleanup column: 
+
+  df_out.drop('Col3',axis=1)
+  
+
+ Output: 
+
+    Col1  Col2  Apple  Banana  Grape  Orange
+0    C  33.0      1       1      0       1
+1    A   2.5      1       0      1       0
+2    B  42.0      0       1      0       0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40213278)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.get_dummies.html, but first convert  list  column to new  DataFrame : 
+
+  print (pd.DataFrame(test.category.values.tolist()))
+      0     1
+0  cat1  cat2
+1  cat1  cat3
+
+print (pd.get_dummies(pd.DataFrame(test.category.values.tolist()), prefix_sep='', prefix=''))
+   cat1  cat2  cat3
+0     1     1     0
+1     1     0     1
+  
+
+ Last add column  name  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html: 
+
+  print (pd.concat([pd.get_dummies(pd.DataFrame(test.category.values.tolist()),
+                                 prefix_sep='', prefix='' ), 
+        test[['name']]], axis=1))
+   cat1  cat2  cat3 name
+0     1     1     0    a
+1     1     0     1    b
+  
+
+ Another solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.get_dummies.html: 
+
+  print (test.category.astype(str).str.strip('[]'))
+0    'cat1', 'cat2'
+1    'cat1', 'cat3'
+Name: category, dtype: object
+
+df = test.category.astype(str).str.strip('[]').str.get_dummies(', ')
+df.columns = df.columns.str.strip("'")
+print (df)
+   cat1  cat2  cat3
+0     1     1     0
+1     1     0     1
+
+print (pd.concat([df, test[['name']]], axis=1))
+   cat1  cat2  cat3 name
+0     1     1     0    a
+1     1     0     1    b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54568290)
+ Use  get_dummies : 
+
+  >>> pd.get_dummies(df).rename(columns=lambda x: x[2:]).max(axis=1, level=0)
+      a  d  b  c  f  m  n
+Key1  1  1  1  1  0  0  0
+Key2  0  1  0  0  1  0  0
+Key3  1  0  0  1  0  1  1
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41676643)
+ Even though this quest was answered, I have a faster solution: 
+
+  df.groups.apply(lambda x: pd.Series([1] * len(x), index=x)).fillna(0, downcast='infer')
+  
+
+ And, in case you have empty groups or  NaN , you could just: 
+
+  df.loc[df.groups.str.len() > 0].apply(lambda x: pd.Series([1] * len(x), index=x)).fillna(0, downcast='infer')
+  
+
+ How it works 
+
+ Inside the lambda,  x  is your list, for example  ['a', 'b', 'c'] . So  pd.Series  will be as follows: 
+
+  In [2]: pd.Series([1, 1, 1], index=['a', 'b', 'c'])
+Out[2]: 
+a    1
+b    1
+c    1
+dtype: int64
+  
+
+ When all  pd.Series  comes together, they become  pd.DataFrame  and their  index  become  columns ; missing  index  became a  column  with  NaN  as you can see next: 
+
+  In [4]: a = pd.Series([1, 1, 1], index=['a', 'b', 'c'])
+In [5]: b = pd.Series([1, 1, 1], index=['a', 'b', 'd'])
+In [6]: pd.DataFrame([a, b])
+Out[6]: 
+     a    b    c    d
+0  1.0  1.0  1.0  NaN
+1  1.0  1.0  NaN  1.0
+  
+
+ Now  fillna  fills those  NaN  with  0 : 
+
+  In [7]: pd.DataFrame([a, b]).fillna(0)
+Out[7]: 
+     a    b    c    d
+0  1.0  1.0  1.0  0.0
+1  1.0  1.0  0.0  1.0
+  
+
+ And  downcast='infer'  is to downcast from  float  to  int : 
+
+  In [11]: pd.DataFrame([a, b]).fillna(0, downcast='infer')
+Out[11]: 
+   a  b  c  d
+0  1  1  1  0
+1  1  1  0  1
+  
+
+ PS.: It's not required the use of  .fillna(0, downcast='infer') . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29036042)
+ Using  s  for your  df['groups'] : 
+
+  In [21]: s = pd.Series({0: ['a', 'b', 'c'], 1:['c'], 2: ['b', 'c', 'e'], 3: ['a', 'c'], 4: ['b', 'e'] })
+
+In [22]: s
+Out[22]:
+0    [a, b, c]
+1          [c]
+2    [b, c, e]
+3       [a, c]
+4       [b, e]
+dtype: object
+  
+
+ This is a possible solution: 
+
+  In [23]: pd.get_dummies(s.apply(pd.Series).stack()).sum(level=0)
+Out[23]:
+   a  b  c  e
+0  1  1  1  0
+1  0  0  1  0
+2  0  1  1  1
+3  1  0  1  0
+4  0  1  0  1
+  
+
+ The logic of this is: 
+
+ 
+  .apply(Series)  converts the series of lists to a dataframe 
+  .stack()  puts everything in one column again (creating a multi-level index) 
+  pd.get_dummies( )  creating the dummies 
+  .sum(level=0 ) for remerging the different rows that should be one row (by summing up the second level, only keeping the original level ( level=0 )) 
+ 
+
+ An slight equivalent is  pd.get_dummies(s.apply(pd.Series), prefix='', prefix_sep='').sum(level=0, axis=1)  
+
+ If this will be efficient enough, I don't know, but in any case, if performance is important, storing lists in a dataframe is not a very good idea. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33467682)
+ You can take your dataframe (df) and pass it in to the get_dummies() call along with the list of columns that you'd like to convert.  
+
+ Lets say you have a df with a bunch of columns and you'd like to create dummy variables just from the "Religion" column. 
+
+  df = pd.DataFrame({'Name': ['Adam', 'Brad', 'Charlie', 'David','Eric'],
+                   'Religion': ['Christian', 'Hindu', 'Muslim','Hindu','Christian'],
+                   'Age': [28, 25, 35, 24, 39,],
+                   'State':['CA','CA','AZ','NV','OR']})
+  
+
+ Here's what the df looks like: 
+
+     Age     Name   Religion State
+0   28     Adam  Christian    CA
+1   25     Brad      Hindu    CA
+2   35  Charlie     Muslim    AZ
+3   24    David      Hindu    NV
+4   39     Eric  Christian    OR
+  
+
+ To create dummy variables of the "Religion" column: 
+
+  df = pd.get_dummies(df, columns=['Religion'])
+  
+
+ Output: 
+
+     Age     Name State  Religion_Christian  Religion_Hindu  Religion_Muslim
+0   28     Adam    CA                   1               0                0
+1   25     Brad    CA                   0               1                0
+2   35  Charlie    AZ                   0               0                1
+3   24    David    NV                   0               1                0
+4   39     Eric    OR                   1               0                0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47921546)
+  Option 1  
+Using  get_dummies  
+
+  df
+
+   Survived
+0         1
+1         0
+2         1
+3         0
+4         0
+5         1
+6         1
+7         0
+
+df['Survived'] = pd.get_dummies(df.Survived).values[:, ::-1].tolist()
+df
+
+  Survived
+0   [1, 0]
+1   [0, 1]
+2   [1, 0]
+3   [0, 1]
+4   [0, 1]
+5   [1, 0]
+6   [1, 0]
+7   [0, 1]
+  
+
+ 
+
+  Option 2  
+Alternatively, with numpy indexing, assuming your column only has 0s and 1s. 
+
+  i = np.array([[0, 1], [1, 0]])
+df['Survived'] = i[df['Survived'].values].tolist()
+
+df
+
+  Survived
+0   [1, 0]
+1   [0, 1]
+2   [1, 0]
+3   [0, 1]
+4   [0, 1]
+5   [1, 0]
+6   [1, 0]
+7   [0, 1]
+  
+
+ 
+
+  Timings  
+
+  df = pd.concat([df] * 100000, ignore_index=True)
+  
+
+
+
+  %timeit pd.get_dummies(df.Survived).values[:, ::-1].tolist()
+1 loop, best of 3: 295 ms per loop
+  
+
+
+
+  %timeit i[df['Survived'].values].tolist()
+1 loop, best of 3: 273 ms per loop
+  
+
+
+
+  %timeit np.where((df["Survived"] == 1)[:, None], [1,0],[0,1]).tolist()
+1 loop, best of 3: 285 ms per loop
+  
+
+
+
+  %timeit df.Survived.apply(lambda x: [0,1] if x == 0 else [1,0])
+1 loop, best of 3: 368 ms per loop
+  
+
+ All of these solutions are equally competitive. It's a matter of choice, which one you decide to use. 
+
+
+

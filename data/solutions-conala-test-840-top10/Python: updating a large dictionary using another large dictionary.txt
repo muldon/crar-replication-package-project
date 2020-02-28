@@ -1,0 +1,279 @@
+Query: Python: updating a large dictionary using another large dictionary
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12717765)
+ You should use the http://docs.python.org/library/stdtypes.html#dict.update method to merge dictionaries: 
+
+  b.update(d)
+  
+
+ . 
+
+ At the moment you are iterating over  d  for every key in  b ... which is slow. You can get around this by setting up two dictionaries which will have matching keys (and equal dates will hash the same -  perhaps the cool thing to note here is that datetime objects hash ): 
+
+  b1 = dict( (parser.parse(k),v) for k,v for b.iteritems() )
+d1 = dict( (parser.parse(k),v) for k,v for d.iteritems() )
+
+d1.update(b1) # update d1 with the values from b1
+  
+
+ Edit:</h3>
+
+ I've just realised that you're not  quite  doing an update, since only those shared values are being updated, so instead (again by just iterating once): 
+
+  for k_d1 in d1:
+    if k_d1 in b1:
+        d1[k_d1] = b1[k_d1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12718206)
+ Suggested changes: 
+
+ 
+ Use  .iteritems()  instead of  .items() .  The way you have it, a list of pairs is created in memory and iterated over, which is wasteful. 
+ You said that the date format is different between  b  and  d .  I'm guessing the month and day are switched?  If so, you can still make big savings by computing what the  d  key would be and then checking membership. 
+ 
+
+ Code with changes: 
+
+  def switch_month_day(datestr):
+  fields = datestr.split("-")
+  return "%s-%s-%s" % (fields[0], fields[2], fields[1])
+
+for key, val in b.iteritems():
+  DateK = switch_month_day(key)
+  if DateK in d:
+    d[DateK] = val
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51237178)
+  List Comprehension:  
+
+  [i.update({"score": x["newscore"]}) for x in b for i in a if i['id']==x['id']]
+print(a)
+  
+
+ Output: 
+
+  [{'id': 1, 'score': 500}, {'id': 2, 'score': 600}, {'id': 3, 'score': 400}]
+  
+
+    
+
+  %timeit [i.update({"score": x["newscore"]}) for x in b for i in a if i['id']==x['id']]
+  
+
+ Output: 
+
+  100000 loops, best of 3: 3.9 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51237058)
+ Create a dictionary indexed by  id  using the first array. 
+Loop through the second array using the  id . 
+
+  for replacement in b:
+   v = lookup.get(replacement['id'], None)
+   if v is not None:
+      v['score'] = replacement['newscore']
+  
+
+ This converts an  O(n^2)  problem to an  O(n)  problem. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27208535)
+ 
+   "Is it possible to add a key to a Python dictionary after it has been created?  .add() method." 
+ 
+
+ Yes it is possible, and it does have a method that implements this, but you don't want to use it directly. 
+
+ To demonstrate how and how not to use it, let's create an empty dict with the dict literal,  {} : 
+
+  my_dict = {}
+  
+
+ Best Practice 1: Subscript notation 
+
+ To update this dict with a single new key and value, you can use https://docs.python.org/2/reference/datamodel.html#the-standard-type-hierarchy that provides for item assignment:  
+
+  my_dict['new key'] = 'new value'
+  
+
+  my_dict  is now: 
+
+  {'new key': 'new value'}
+  
+
+ Best Practice 2: The  update  method - 2 ways 
+
+ We can also update the dict with multiple values efficiently as well using https://docs.python.org/2/library/stdtypes.html#dict.update.  We may be unnecessarily creating an extra  dict  here, so we hope our  dict  has already been created and came from or was used for another purpose: 
+
+  my_dict.update({'key 2': 'value 2', 'key 3': 'value 3'})
+  
+
+  my_dict  is now: 
+
+  {'key 2': 'value 2', 'key 3': 'value 3', 'new key': 'new value'}
+  
+
+ Another efficient way of doing this with the update method is with keyword arguments, but since they have to be legitimate python words, you can't have spaces or special symbols or start the name with a number, but many consider this a more readable way to create keys for a dict, and here we certainly avoid creating an extra unnecessary  dict : 
+
+  my_dict.update(foo='bar', foo2='baz')
+  
+
+ and  my_dict  is now: 
+
+  {'key 2': 'value 2', 'key 3': 'value 3', 'new key': 'new value', 
+ 'foo': 'bar', 'foo2': 'baz'}
+  
+
+ So now we have covered three Pythonic ways of updating a  dict .  
+
+ 
+
+ Magic method,  __setitem__ , and why it should be avoided 
+
+ There's another way of updating a  dict  that you shouldn't use, which uses the  __setitem__  method. Here's an example of how one might use the  __setitem__  method to add a key-value pair to a  dict , and a demonstration of the poor performance of using it: 
+
+  >>> d = {}
+>>> d.__setitem__('foo', 'bar')
+>>> d
+{'foo': 'bar'}
+
+
+>>> def f():
+...     d = {}
+...     for i in xrange(100):
+...         d['foo'] = i
+... 
+>>> def g():
+...     d = {}
+...     for i in xrange(100):
+...         d.__setitem__('foo', i)
+... 
+>>> import timeit
+>>> number = 100
+>>> min(timeit.repeat(f, number=number))
+0.0020880699157714844
+>>> min(timeit.repeat(g, number=number))
+0.005071878433227539
+  
+
+ So we see that using the subscript notation is actually much faster than using  __setitem__ . Doing the Pythonic thing, that is, using the language in the way it was intended to be used, usually is both more readable and computationally efficient. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10592728)
+  >>> l1 = [{'domain':'Ratios'},{'domain':'Geometry'}]
+>>> l2 = [3, 6]
+>>> for d,num in zip(l1,l2):
+        d['count'] = num
+
+
+>>> l1
+[{'count': 3, 'domain': 'Ratios'}, {'count': 6, 'domain': 'Geometry'}]
+  
+
+ Another way of doing it, this time with a list comprehension which does not mutate the original: 
+
+  >>> [dict(d, count=n) for d, n in zip(l1, l2)]
+[{'count': 3, 'domain': 'Ratios'}, {'count': 6, 'domain': 'Geometry'}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6585251)
+ Please don't use 'dict' as variable name. 
+
+ You can also use the following code: 
+
+  a = {"A":{"B":1}, "G":{"P":2}}
+b = {"A":{"H":10}, "G":{"L":5}}
+
+def append_to_dict(dataDict, dictToAppend):
+    for k,v in dictToAppend.iteritems():
+        if k in dataDict:
+            dataDict[k].update(v)
+        else:
+            dataDict[k] = v
+    return dataDict
+
+print append_to_dict(a,b)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6585232)
+ When you have created the dict by parsing a line, update your  master  dict thus: 
+
+  master = {}
+
+master.setdefault('A', {}).update({'B':1})
+# {'A': {'A': 1}}
+master.setdefault('A', {}).update({'H':10})
+# {'A': {'A': 1, 'H': 10}}
+master.setdefault('G', {}).update({'P':2})
+# {'A': {'A': 1, 'H': 10}, 'G': {'P': 2}}
+master.setdefault('G', {}).update({'L':5})
+# {'A': {'A': 1, 'H': 10}, 'G': {'L': 5, 'P': 10}}
+  
+
+ Alternatively, you could use a defaultdict: 
+
+  from collections import defaultdict
+master = defaultdict(dict)
+master['A'].update({'B': 1})
+  
+
+ So, your code will look something like: 
+
+  infile = open('myfile')
+master = {}
+for line in infile:
+    # parse the line
+    d = {'A': {'B': 1}}
+    for k, v in d.iteritems():
+        master.setdefault(k, {}).update(v)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10592814)
+  
+
+  # list index
+l_index=0
+
+# iterate over all dictionary objects in dict1 list
+for d in dict1:
+
+    # add a field "count" to each dictionary object with
+    # the appropriate value from the list
+    d["count"]=list1[l_index]
+
+    # increase list index by one
+    l_index+=1
+  
+
+ 
+
+ This solution doesn't create a new list. Instead, it updates the existing  dict1  list. 
+
+
+

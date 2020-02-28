@@ -1,0 +1,240 @@
+Query: Removing _id element from Pymongo results
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51159619)
+ Above answer fails if we want specific fields and still ignore _id. Use the following in such cases: 
+
+  db.collection.find({'required_column_A':1,'required_col_B':1, '_id': False})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12345646)
+ To exclude the  _id  field in a find query in pymongo, you can use: 
+
+  db.collection.find({}, {'_id': False})
+  
+
+ The documentation is somewhat missleading on this as it says the  _id  field is always included. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12345444)
+  
+
+  del objects['_id']
+  
+
+  
+
+ The cursor object is obviously an iterable over the result set and not single
+document that you can manipulate. 
+
+  for obj in objects:
+     del obj['_id']
+  
+
+ . 
+
+ So your claim is completely wrong as the following code shows: 
+
+  import pymongo
+
+c = pymongo.Connection()
+db = c['mydb']
+db.foo.remove({})
+db.foo.save({'foo' : 42})
+
+for row in db.foo.find():
+    del row['_id']
+    print row
+
+
+
+$ bin/python foo.py 
+
+> {u'foo': 42}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36429761)
+ If your arrays only have one element then your update won't work because in JavaScript (which mongodb is heavily influenced by) https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array. This should work: 
+
+  collection.update({"field.0": {"$exists": True}},
+                  {"$set": {'field': "field.0"}},
+                  multi=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13348913)
+ If you are not restricted to having the query be in one single step, you could try: 
+
+ step 1) use the aggregate function with the $unwind and $group operators to find the minimum item for each document 
+
+  myresults = db.megas.aggregate( [ { "$unwind": "$items" },  
+    {"$group": { '_id':'$_id' , 'minitem': {'$min': "$items.item" } } } ] )
+  
+
+ step 2) the loop through the results and $pull the element from the array 
+
+  for result in myresults['result']:
+    db.megas.update( { '_id': result['_id'] }, 
+        { '$pull': { 'items': { 'item': result['minitem'] } } } )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21170871)
+ Simply use http://docs.mongodb.org/manual/reference/method/db.collection.remove/ the same way you use  find . 
+
+ If the following line returns the records to be removed: 
+
+  db.animals.find({'color':'red'})
+  
+
+ then this will remove them: 
+
+  db.animals.remove({'color':'red'})
+  
+
+ If you already have a list of IDs to remove, you can remove with a filter on the  _id , using the http://docs.mongodb.org/manual/reference/operator/query/in/ operator, like this: 
+
+  db.animals.remove({'_id': {'$in': idsToRemove}})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51596795)
+ The pymongo driver accepts fairly standard mongo syntax, try the following: 
+
+  collection = app.data.driver.db['collection']
+
+last = collection.find().sort([('_created', -1)]).limit(1)
+  
+
+ This will sort the documents newest to oldest, and return a cursor with 1 result, that being the newest possible document.Getting the first element ( last[0] ) of the cursor returns a dictionary as intended. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48602131)
+ When using a  projection  you need to use either  1  or  0  and not  True  or  False  respectively. 
+
+  
+
+  find( {'material_type':'solid', 
+      'material.isotopes.atomic_number' : {'$eq': 6 } 
+      },
+      {'_id' : 0, 'performance' : 1,  
+      'material.isotopes.atomic_number.$' : 1 } )
+  
+
+ Returns: 
+
+  {
+    "performance" : 10.0,
+    "material" : {
+        "isotopes" : [ 
+            {
+                "abundance" : 0.9,
+                "atomic_number" : 6.0
+            }
+        ]
+    }
+}
+
+/* 2 */
+{
+    "performance" : 9.0,
+    "material" : {
+        "isotopes" : [ 
+            {
+                "abundance" : 0.7,
+                "atomic_number" : 6.0
+            }
+        ]
+    }
+}
+  
+
+ You use  $  in the  projection  when you only need one particular array element in selected documents. You could of tried  $elemMatch  if your array wasen't nested. 
+
+ You could then put the results into a  list  and then select the two elements you want to print: 
+
+  results = list( db.collection_name.find(
+          {'material_type':'solid',  
+          'material.isotopes.atomic_number' : {'$eq': 6 }},
+          {'performance':1, 
+           'material.isotopes.atomic_number.$':1 }
+          ))
+  
+
+ I'm running pymongo 3.6.0 and mongodb v3.6 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16737116)
+ I'm pretty sure there's a more beautiful way to achieve what you want, but here's what I've came up to using  find() . 
+
+  
+
+  db.so.find({'papers.paragraphs': {$elemMatch: {'sentences': {$elemMatch: {'words': {$elemMatch: {'ID': {$regex: 'W'}}}}}}}}, {'papers.paragraphs.sentences.words.text': 1}).pretty();
+  
+
+ python code: 
+
+  #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import pymongo
+
+mongo_db = pymongo.MongoClient().test
+
+cursor = mongo_db.so.find({'papers.paragraphs':
+                               {'$elemMatch':
+                                    {'sentences':
+                                         {'$elemMatch':
+                                              {'words':
+                                                   {'$elemMatch':
+                                                        {'ID': {'$regex': 'W'}}}}}}}},
+                          {'papers.paragraphs.sentences.words.text': 1})
+
+results = []
+for result in cursor:
+    for paragraph in result['papers']['paragraphs']:
+        for sentence in paragraph['sentences']:
+            for word in sentence['words']:
+                results.append(word['text'])
+
+print results  # prints [u'RT', u'sydest', ... ]
+  
+
+ Hope that helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/4549963)
+ You can do so by using $ / $in operats.  
+
+  
+
+  pymongo_collection_object.remove({'$': [{'sku': '100-00'}, {'sku': '200-00'}]}, safe=True)
+  
+
+  
+
+  pymongo_collection_object.remove({'sku': {'$in': ['100-00', '200-00']}}, safe=True)
+  
+
+
+

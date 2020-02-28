@@ -1,0 +1,391 @@
+Query: python, best way to convert a pandas series into a pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48783805)
+ This is one way. 
+
+  from itertools import chain; concat = chain.from_iterable
+import pandas as pd
+
+lst = [[751883787],
+       [751026090],
+       [752575831],
+       [751031278]]
+
+pd.DataFrame({'a': pd.Series([str(i).zfill(11) for i in concat(lst)])})
+
+             a
+0  00751883787
+1  00751026090
+2  00752575831
+3  00751031278
+  
+
+ Some benchmarking, relevant since your dataframe is large: 
+
+  from itertools import chain; concat = chain.from_iterable
+import pandas as pd
+
+lst = [[751883787],
+       [751026090],
+       [752575831],
+       [751031278],
+       [751032392],
+       [751027358],
+       [751052118]]*300000
+
+%timeit pd.DataFrame(lst, columns=['a'])['a'].astype(str).str.zfill(11)
+# 1 loop, best of 3: 7.88 s per loop
+
+%timeit pd.DataFrame({'a': pd.Series([str(i).zfill(11) for i in concat(lst)])})
+# 1 loop, best of 3: 2.06 s per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30113715)
+ <s>It turns out that the  str.split  in Pandas (in  core/strings.py  as  str_split ) is actually very slow; it isn't any more efficient, and still iterates through using Python, offering no speedup whatsoever.</s> 
+
+ Actually, see below. Pandas performance on this is simply miserable; it's not just Python vs C iteration, as doing the same thing with Python lists is the fastest method! 
+
+ Interestingly, though, there's a trick solution that's much faster: writing the Series out to text, and then reading it in again, with '.'  
+
+  df[['ip0', 'ip1', 'ip2', 'ip3']] = \
+    pd.read_table(StringIO(df['ip'].to_csv(None,index=None)),sep='.')
+  
+
+ To compare, I use Marius' code and generate 20,000 ips: 
+
+  import pandas as pd
+import random
+import numpy as np
+from StringIO import StringIO
+
+def make_ip():
+    return '.'.join(str(random.randint(0, 255)) for n in range(4))
+
+df = pd.DataFrame({'ip': [make_ip() for i in range(20000)]})
+
+%timeit df[['ip0', 'ip1', 'ip2', 'ip3']] = df.ip.str.split('.', return_type='frame')
+# 1 loops, best of 3: 3.06 s per loop
+
+%timeit df[['ip0', 'ip1', 'ip2', 'ip3']] = df['ip'].apply(lambda x: pd.Series(x.split('.')))
+# 1 loops, best of 3: 3.1 s per loop
+
+%timeit df[['ip0', 'ip1', 'ip2', 'ip3']] = \
+    pd.read_table(StringIO(df['ip'].to_csv(None,index=None)),sep='.',header=None)
+# 10 loops, best of 3: 46.4 ms per loop
+  
+
+ 
+
+ Ok, so I wanted to compare all of this to just using a Python list and the Python split, which should be slower than using the more efficient Pandas: 
+
+  iplist = list(df['ip'])
+%timeit [ x.split('.') for x in iplist ]
+100 loops, best of 3: 10 ms per loop
+  
+
+  Apparently, the best way to do a simple string operation on a large number of strings is to  throw out Pandas entirely .  Using Pandas makes the process 400 times slower.  If you want to use Pandas, though, you may as well just convert to a Python list and back: 
+
+  %timeit df[['ip0', 'ip1', 'ip2', 'ip3']] = \
+    pd.DataFrame([ x.split('.') for x in list(df['ip']) ])
+# 100 loops, best of 3: 18.4 ms per loop
+  
+
+ There's something  very  wrong here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35600418)
+ I think you can use comprehension: 
+
+  import pandas as pd
+
+flagInfoSeries = pd.Series(({'a': 1, 'b': 2}, {'a': 10, 'b': 20}))
+print flagInfoSeries
+0      {u'a': 1, u'b': 2}
+1    {u'a': 10, u'b': 20}
+dtype: object
+
+print pd.DataFrame(flagInfoSeries.to_dict()).T
+    a   b
+0   1   2
+1  10  20
+
+print pd.DataFrame([x for x in flagInfoSeries])
+    a   b
+0   1   2
+1  10  20
+  
+
+  Timing : 
+
+  In [203]: %timeit pd.DataFrame(flagInfoSeries.to_dict()).T
+The slowest run took 4.46 times longer than the fastest. This could mean that an intermediate result is being cached 
+1000 loops, best of 3: 554 µs per loop
+
+In [204]: %timeit pd.DataFrame([x for x in flagInfoSeries])
+The slowest run took 5.11 times longer than the fastest. This could mean that an intermediate result is being cached 
+1000 loops, best of 3: 361 µs per loop
+
+In [209]: %timeit flagInfoSeries.apply(lambda dict: pd.Series(dict))
+The slowest run took 4.76 times longer than the fastest. This could mean that an intermediate result is being cached 
+1000 loops, best of 3: 751 µs per loop
+  
+
+ EDIT: 
+
+ If you need keep index, try add  index=flagInfoSeries.index  to  DataFrame  constructor: 
+
+  print pd.DataFrame([x for x in flagInfoSeries], index=flagInfoSeries.index)
+  
+
+  Timings : 
+
+  In [257]: %timeit pd.DataFrame([x for x in flagInfoSeries], index=flagInfoSeries.index)
+1000 loops, best of 3: 350 µs per loop
+  
+
+  Sample : 
+
+  import pandas as pd
+
+flagInfoSeries = pd.Series(({'a': 1, 'b': 2}, {'a': 10, 'b': 20}))
+flagInfoSeries.index = [2,8]
+print flagInfoSeries
+2      {u'a': 1, u'b': 2}
+8    {u'a': 10, u'b': 20}
+
+print pd.DataFrame(flagInfoSeries.to_dict()).T
+    a   b
+2   1   2
+8  10  20
+
+print pd.DataFrame([x for x in flagInfoSeries], index=flagInfoSeries.index)
+    a   b
+2   1   2
+8  10  20
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40255518)
+ After hours of editing and searching. I solved my problem this the resultant code. Any suggestion welcomed 
+
+  import rpy2.robjects as robjects
+import pandas.rpy.common as com
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+#loading external rda file
+robj=robjects.r['load']("AAPL.rda")
+
+myRData=None
+for sets in robj:
+   myRData = com.load_data(sets)
+   # convert to DataFrame
+   if not isinstance(myRData, pd.DataFrame):
+       myRData = pd.DataFrame(myRData)
+
+myRData.tail(10)    
+
+#fetching UTC data from rda file  
+ts=np.array(robjects.r('attr(AAPL,"index")')).astype(int)
+
+#converting UTC to local time
+d= np.array([])
+for t in ts:
+    s=datetime.utcfromtimestamp(t)
+    d=np.append(s,d)
+
+#sorting datetime 
+d=np.sort(d, axis=0)
+
+#changing index
+myRData.index=pd.to_datetime(d)
+
+myRData.tail(10)
+  
+
+  
+
+               AAPL.Open   AAPL.High    AAPL.Low  AAPL.Close  AAPL.Volume  \
+2016-10-11  117.699997  118.690002  116.199997  116.300003   64041000.0   
+2016-10-12  117.349998  117.980003  116.750000  117.339996   37586800.0   
+2016-10-13  116.790001  117.440002  115.720001  116.980003   35192400.0   
+2016-10-14  117.879997  118.169998  117.129997  117.629997   35652200.0   
+2016-10-17  117.330002  117.839996  116.779999  117.550003   23624900.0   
+2016-10-18  118.180000  118.209999  117.449997  117.470001   24553500.0   
+2016-10-19  117.250000  117.760002  113.800003  117.120003   20034600.0   
+2016-10-20  116.860001  117.379997  116.330002  117.059998   24125800.0   
+2016-10-21  116.809998  116.910004  116.279999  116.599998   23192700.0   
+2016-10-24  117.099998  117.739998  117.000000  117.650002   23311700.0  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53451488)
+ There are many reasons you should not use lists in Pandas series objects. Your first port of call should be to extract the strings and convert you series to categorical data: 
+
+  df = pd.DataFrame({'A': [[], ['steel'], ['steel'], [], ['tarmac'], []]})
+
+df['A'] = df['A'].str[0].fillna('other').astype('category')
+
+print(df)
+
+        A
+0   other
+1   steel
+2   steel
+3   other
+4  tarmac
+5   other
+  
+
+ 
+
+ If you insist on using inefficient and non-vectorisable operations via Python-level loops, then you can achieve what you want this way: 
+
+  df['A'] = df['A'].str[0].fillna('other').apply(lambda x: [x])
+
+print(df)
+
+          A
+0   [other]
+1   [steel]
+2   [steel]
+3   [other]
+4  [tarmac]
+5   [other]
+  
+
+ At this point, categorical data is not an option, because series of lists are not supported by categoricals, since  list  is not hashable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47387908)
+ Best i found so for in converting into pandas dataframe and then convert the column, then go back to dask  
+
+  df1 = df.compute()
+df1[["a","b"]] = df1["c"].apply(pd.Series)
+df = dd.from_pandas(df1,npartitions=1)
+  
+
+ This will work well, if the df is too big for memory, you can either:
+1.compute only the wanted column, convert it into two columns and then use merge to get the split results into the original df 
+2.split the df into chunks, then converting each chunk and adding it into an hd5 file, then using dask to read the entire hd5 file into the dask dataframe 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51651337)
+ I think best is transpose  DataFrame  first for  columns  from  rows  for same dtypes per columns: 
+
+  df = df.T
+  
+
+ And then convert column  Date  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_datetime.html and add   Time  converted http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_timedelta.html: 
+
+  df['dates'] = pd.to_datetime(df['Date']) + pd.to_timedelta(df['Time'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45901074)
+ You can use  from_items  like this (assuming that your lists are of the same length): 
+
+  pd.DataFrame.from_items(zip(s.index, s.values))
+
+   0  1
+0  1  4
+1  2  5
+2  3  6
+  
+
+  
+
+  pd.DataFrame.from_items(zip(s.index, s.values)).T
+
+   0  1  2
+0  1  2  3
+1  4  5  6
+  
+
+ depending on your desired output. 
+
+ This can be much faster than using an  apply  (as used in https://stackoverflow.com/a/45901030/1534017 which, however, does also wk f lists of different length): 
+
+  %timeit pd.DataFrame.from_items(zip(s.index, s.values))
+1000 loops, best of 3: 669 µs per loop
+
+%timeit s.apply(lambda x:pd.Series(x)).T
+1000 loops, best of 3: 1.37 ms per loop
+  
+
+  
+
+  %timeit pd.DataFrame.from_items(zip(s.index, s.values)).T
+1000 loops, best of 3: 919 µs per loop
+
+%timeit s.apply(lambda x:pd.Series(x))
+1000 loops, best of 3: 1.26 ms per loop
+  
+
+ Also https://stackoverflow.com/a/45901040/1534017 is quite fast (also wks f lists of different length): 
+
+  %timeit pd.DataFrame(item f item in s)
+1000 loops, best of 3: 636 µs per loop
+  
+
+   
+
+  %timeit pd.DataFrame(item f item in s).T
+1000 loops, best of 3: 884 µs per loop
+  
+
+ Fastest solution seems to be https://stackoverflow.com/a/45901240/1534017 (tested f Python 2; also wks f lists of different length; use  itertools.zip_longest  in Python 3.6+): 
+
+  %timeit pd.DataFrame.from_recds(izip_longest(*s.values))
+1000 loops, best of 3: 529 µs per loop
+  
+
+ An additional option: 
+
+  pd.DataFrame(dict(zip(s.index, s.values)))
+
+   0  1
+0  1  4
+1  2  5
+2  3  6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44839228)
+ A bit faster solution is convert to numpy array by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.values.html and then https://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html: 
+
+  #[3000 rows x 4 columns]
+df = pd.concat([df]*1000).reset_index(drop=True)
+#print (df)
+
+In [49]: %timeit (df.fillna('').sum(axis=1))
+100 loops, best of 3: 4.08 ms per loop
+
+In [50]: %timeit (pd.Series(df.fillna('').values.sum(axis=1), index=df.index))
+1000 loops, best of 3: 1.49 ms per loop
+
+In [51]: %timeit (pd.Series(np.sum(df.fillna('').values, axis=1), index=df.index))
+1000 loops, best of 3: 1.5 ms per loop
+  
+
+
+

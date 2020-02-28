@@ -1,0 +1,296 @@
+Query: Pandas dataframe get first row of each group
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20067665)
+  >>> df.groupby('id').first()
+     value
+id        
+1    first
+2    first
+3    first
+4   second
+5    first
+6    first
+7   fourth
+  
+
+ If you need  id  as column: 
+
+  >>> df.groupby('id').first().reset_index()
+   id   value
+0   1   first
+1   2   first
+2   3   first
+3   4  second
+4   5   first
+5   6   first
+6   7  fourth
+  
+
+ To get n first records, you can use head(): 
+
+  >>> df.groupby('id').head(2).reset_index(drop=True)
+    id   value
+0    1   first
+1    1  second
+2    2   first
+3    2  second
+4    3   first
+5    3   third
+6    4  second
+7    4   fifth
+8    5   first
+9    6   first
+10   6  second
+11   7  fourth
+12   7   fifth
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40311311)
+ maybe this is what you want 
+
+  import pandas as pd
+idx = pd.MultiIndex.from_product([['state1','state2'],   ['county1','county2','county3','county4']])
+df = pd.DataFrame({'pop': [12,15,65,42,78,67,55,31]}, index=idx)
+  
+
+ 
+                  pop
+state1 county1   12
+       county2   15
+       county3   65
+       county4   42
+state2 county1   78
+       county2   67
+       county3   55
+       county4   31
+  
+ 
+
+  df.groupby(level=0, group_keys=False).apply(lambda x: x.sort_values('pop', ascending=False)).groupby(level=0).head(3)
+
+> Out[29]: 
+                pop
+state1 county3   65
+       county4   42
+       county2   15
+state2 county1   78
+       county2   67
+       county3   55
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50704235)
+ For  first , you could use  head  instead: 
+
+  np.random.seed(123)
+df = pd.DataFrame({'A':np.random.choice(list('ABC'), 50),'values':np.random.randint(0,100,50)})
+df.groupby('A').head(1)
+  
+
+ OUtput: 
+
+     A  values
+0  C      75
+1  B      34
+4  A      22
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49148885)
+ I'd suggest to use  .nth(0)  rather than  .first()  if you need to get the first row.  
+
+ The difference between them is how they handle NaNs, so  .nth(0)  will return the first row of group no matter what are the values in this row, while  .first()  will eventually return the first  not   NaN  value in each column. 
+
+ E.g.  if your dataset is : 
+
+  df = pd.DataFrame({'id' : [1,1,1,2,2,3,3,3,3,4,4],
+            'value'  : ["first","second","third", np.NaN,
+                        "second","first","second","third",
+                        "fourth","first","second"]})
+
+>>> df.groupby('id').nth(0)
+    value
+id        
+1    first
+2    NaN
+3    first
+4    first
+  
+
+  
+
+  >>> df.groupby('id').first()
+    value
+id        
+1    first
+2    second
+3    first
+4    first
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36073837)
+ This will give you the second row of each group (zero indexed, nth(0) is the same as first()): 
+
+  df.groupby('id').nth(1) 
+  
+
+ Documentation: http://pandas.pydata.org/pandas-docs/stable/groupby.html#taking-the-nth-row-of-each-group 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20087787)
+ If you use  apply  on the groupby, the function you pass is called on each group, passed as a DataFrame.   
+
+  df.groupby('ID').apply(lambda t: t.iloc[1])
+  
+
+ However, this will raise an error if the group doesn't have at least two rows.  If you want to exclude groups with fewer than two rows, that could be trickier.  I'm not aware of a way to exclude the result of  apply  only for certain groups.  You could try filtering the group list first by removing small groups, or return a one-row  nan -filled DataFrame and do  dropna  on the result. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50808480)
+ Find the last row per group and then subtract by n. 
+
+  data.iloc[data.groupby((data.date < data.date.shift()).cumsum()).tail(1).index - 1]
+
+   date  value
+1     2      2
+5     3      6
+8     2      9
+  
+
+  
+
+  (data.date < data.date.shift()).cumsum()
+
+0    0
+1    0
+2    0
+3    1
+4    1
+5    1
+6    1
+7    2
+8    2
+9    2
+Name: date, dtype: int64
+  
+
+ Which is the grouper here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31861396)
+ Here is another way to do it: 
+
+  In [183]: df.stack().groupby(level=0).first().reindex(df.index)
+Out[183]: 
+0     1
+1     3
+2     4
+3   NaN
+dtype: float64
+  
+
+ 
+
+ The idea here is to use  stack  to move the columns into a row index level: 
+
+  In [184]: df.stack()
+Out[184]: 
+0  A    1
+   C    2
+1  B    3
+2  B    4
+   C    5
+dtype: float64
+  
+
+ Now, if you group by the first row level -- i.e. the original index -- and take the first value from each group, you essentially get the desired result: 
+
+  In [185]: df.stack().groupby(level=0).first()
+Out[185]: 
+0    1
+1    3
+2    4
+dtype: float64
+  
+
+ All we need to do is reindex the result (using the original index) so as to
+include rows that are completely NaN: 
+
+  df.stack().groupby(level=0).first().reindex(df.index)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42181477)
+ IIUC you can do it this way: 
+
+  In [83]: df.groupby('campaignname', as_index=False) \
+           .apply(lambda x: x.nlargest(1, columns=['amount'])) \
+           .reset_index(level=1, drop=1)
+Out[83]:
+  campaignname category_type  amount
+0            A       cat_A_2     4.0
+1            B       cat_B_0     3.0
+2            C       cat_C_1     2.0
+  
+
+  
+
+  In [76]: df.sort_values('amount', ascending=False).groupby('campaignname').head(1)
+Out[76]:
+  campaignname category_type  amount
+4            A       cat_A_2     4.0
+5            B       cat_B_0     3.0
+7            C       cat_C_1     2.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/20087789)
+ I  think  the nth method is supposed to do just that: 
+
+  In [11]: g.nth(1).dropna()
+Out[11]: 
+    col1 col2  col3     col4 col5
+ID                               
+1    1.1    D   4.7    x/y/z  200
+2    3.4    B   3.8    x/u/v  404
+3    1.1    A   2.5  x/y/z/n  404
+5    2.6    B   4.6      x/y  500
+  
+
+ In 0.13 another way to do this is to use cumcount: 
+
+  df[g.cumcount() == n - 1]
+  
+
+ ...which is  significantly  faster. 
+
+  In [21]: %timeit g.nth(1).dropna()
+100 loops, best of 3: 11.3 ms per loop
+
+In [22]: %timeit df[g.cumcount() == 1]
+1000 loops, best of 3: 286 µs per loop
+  
+
+
+

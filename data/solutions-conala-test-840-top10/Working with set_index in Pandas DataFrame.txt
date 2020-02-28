@@ -1,0 +1,320 @@
+Query: Working with set_index in Pandas DataFrame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52266229)
+ Create a mock DataFrame and use  set_index : 
+
+  pd.DataFrame(index=multi).set_index(idx, append=True).index
+  
+
+  
+
+  MultiIndex(levels=[[1, 2], ['blue', 'red'], ['a', 'b']],
+           labels=[[0, 0, 1, 1], [1, 0, 1, 0], [0, 0, 0, 1]],
+           names=['number', 'color', 'letter'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17819120)
+ Once we have a DataFrame 
+
+  import pandas as pd
+df = pd.read_csv("input.csv", index_col=0)  # or from another source
+  
+
+ and a function mapping each index to a tuple (below, it is for the example from this question) 
+
+  def process_index(k):
+    return tuple(k.split("|"))
+  
+
+ we can create a hierarchical index in the following way: 
+
+  df.index = pd.MultiIndex.from_tuples([process_index(k) for k,v in df.iterrows()])
+  
+
+ An alternative approach is to create two columns then set them as the index (the original index will be dropped): 
+
+  df['e-mail'] = [x.split("|")[0] for x in df.index] 
+df['date'] = [x.split("|")[1] for x in df.index]
+df = df.set_index(['e-mail', 'date'])
+  
+
+  
+
+  df['e-mail'], df['date'] = zip(*map(process_index, df.index))
+df = df.set_index(['e-mail', 'date'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43298438)
+ Multi index works a little different from single index.  Here are some methods for multi-indexed dataframe. 
+
+  df = pd.DataFrame({'col1': ['a', 'b','c', 'd'], 'col2': ['X','X','Y', 'Y'], 'col3': [1, 2, 3, 4]}, columns=['col1', 'col2', 'col3'])
+df = df.set_index(['col1', 'col2'])
+  
+
+  in df.index  works for the first level only when checking single index value. 
+
+  'a' in df.index     # True
+'X' in df.index     # False
+  
+
+ Check  df.index.levels  for other levels. 
+
+  'a' in df.index.levels[0] # True
+'X' in df.index.levels[1] # True
+  
+
+ Check in  df.index  for an index combination tuple. 
+
+  ('a', 'X') in df.index  # True
+('a', 'Y') in df.index  # False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51804940)
+ Using  pd.Grouper  with  agg : 
+
+  dct = {'open': 'first', 'high': 'max', 'low': 'min',
+       'close': 'last', 'stock': 'first', 'label': 'last'}
+
+(df.set_index(pd.to_datetime(df.label, errors='coerce'))
+    .groupby(pd.Grouper(freq='3min'))
+    .agg(dct)
+    .reset_index(drop=True)
+)
+  
+
+ Output: 
+
+       open     high     low    close stock     label
+0  283.44  283.580  283.32  283.580   SPY  09:32 AM
+1  283.54  283.690  283.54  283.675   SPY  09:35 AM
+2  283.66  283.795  283.48  283.545   SPY  09:38 AM
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51979218)
+ All solutions working if same number of rows and same index values in both DataFrames. 
+
+ 
+
+ Problem is duplicated index values, solution is create boolean mask if want working with one value of index: 
+
+  df2['total'] *= 10
+df.loc[df.index == 1, 'total'] = df2.loc[1, 'total']
+print (df)
+      dma    age  total
+size                   
+1     501  20-25   10.0
+1     501  30-35   20.0
+1     501  40-45   10.0
+2     501  20-25    3.0
+2     501  30-35    5.0
+2     501  40-45    5.0
+3     501  20-25    6.0
+3     501  30-35    2.0
+3     501  40-45    2.0
+4     501  20-25    1.0
+4     501  30-35    7.0
+4     501  40-45    2.0
+1     502  20-25   50.0
+1     502  30-35   40.0
+1     502  40-45   20.0
+2     502  20-25    5.0
+2     502  30-35    5.0
+2     502  40-45    5.0
+3     502  20-25    3.0
+3     502  30-35    8.0
+3     502  40-45    7.0
+4     502  20-25    2.0
+4     502  30-35    7.0
+4     502  40-45    6.0
+  
+
+ Or create new column by assign for more general solution: 
+
+  df2['total'] *= 10
+df['total1'] = df2['total']
+#working with one DataFrame
+df.loc[[1, 4], 'total'] = df.loc[[1, 4], 'total1']
+print (df)
+      dma    age  total  total1
+size                           
+1     501  20-25   10.0    10.0
+1     501  30-35   20.0    20.0
+1     501  40-45   10.0    10.0
+2     501  20-25    3.0    30.0
+2     501  30-35    5.0    50.0
+2     501  40-45    5.0    50.0
+3     501  20-25    6.0    60.0
+3     501  30-35    2.0    20.0
+3     501  40-45    2.0    20.0
+4     501  20-25   10.0    10.0
+4     501  30-35   70.0    70.0
+4     501  40-45   20.0    20.0
+1     502  20-25   50.0    50.0
+1     502  30-35   40.0    40.0
+1     502  40-45   20.0    20.0
+2     502  20-25    5.0    50.0
+2     502  30-35    5.0    50.0
+2     502  40-45    5.0    50.0
+3     502  20-25    3.0    30.0
+3     502  30-35    8.0    80.0
+3     502  40-45    7.0    70.0
+4     502  20-25   20.0    20.0
+4     502  30-35   70.0    70.0
+4     502  40-45   60.0    60.0
+  
+
+ Another solution is create mask and filter in both DataFrames: 
+
+  df2['total'] *= 10
+
+mask = df.index.isin([1,4])
+df.loc[mask, 'total'] = df2.loc[mask, 'total']
+print (df)
+      dma    age  total
+size                   
+1     501  20-25   10.0
+1     501  30-35   20.0
+1     501  40-45   10.0
+2     501  20-25    3.0
+2     501  30-35    5.0
+2     501  40-45    5.0
+3     501  20-25    6.0
+3     501  30-35    2.0
+3     501  40-45    2.0
+4     501  20-25   10.0
+4     501  30-35   70.0
+4     501  40-45   20.0
+1     502  20-25   50.0
+1     502  30-35   40.0
+1     502  40-45   20.0
+2     502  20-25    5.0
+2     502  30-35    5.0
+2     502  40-45    5.0
+3     502  20-25    3.0
+3     502  30-35    8.0
+3     502  40-45    7.0
+4     502  20-25   20.0
+4     502  30-35   70.0
+4     502  40-45   60.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54082545)
+ Try changing  df.loc[dfb[dfb.a>2].index]['c']=10  to  df.loc[dfb[dfb.a>2].index,'c']=10 . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38941063)
+  df.rename(columns=variables_table.set_index('variable')['label'])
+Out: 
+  male 18 to 19 years male 20 years male 21 years
+0                 100           300           500
+1                 200           200           100
+2                 300           100           200
+  
+
+ Note that  variables_table.set_index('variable')['label']  is a Series whose index is 'variable`. It will do the mapping on that index. 
+
+ This is not an inplace operation. If you want to change the actual dataframe, assign it back to df:  df = df.rename(columns=variables_table.set_index('variable')['label'])  or use the inplace parameter:  df.rename(columns=variables_table.set_index('variable')['label'], inplace=True)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51805010)
+ Use  resample : 
+
+  df.set_index(pd.to_datetime(df['label'], errors='coerce'))\
+  .resample('3T')\
+  .agg({'stock': 'first',
+        'label': 'last',
+        'open': 'first', 
+        'high': 'max', 
+        'low': 'min',
+        'close': 'last'})\
+  .reset_index(drop=True)[['stock','label','open','high','low','close']]
+  
+
+ Output: 
+
+    stock     label    open     high     low    close
+0   SPY  09:32 AM  283.44  283.580  283.32  283.580
+1   SPY  09:35 AM  283.54  283.690  283.54  283.675
+2   SPY  09:38 AM  283.66  283.795  283.48  283.545
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51889956)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.mask.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.max.html: 
+
+  df = df.mask(df == 0, df.max(axis=1), axis=0)
+print (df)
+     a    b    c
+0  0.1  0.1  0.1
+1  2.1  2.1  2.1
+2  1.9  1.9  1.9
+3  7.8  7.8  6.5
+  
+
+ If want set all values by  max : 
+
+  arr = df.values.max(axis=1)
+df = pd.DataFrame(np.repeat(arr[:, np.newaxis], len(df.columns), axis=1),
+                  index=df.index, columns=df.columns)
+print (df)
+     a    b    c
+0  0.1  0.1  0.1
+1  2.1  2.1  2.1
+2  1.9  1.9  1.9
+3  7.8  7.8  7.8
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/42630788)
+ if your index was not datetime object.  
+
+  import pandas as pd
+df = pd.DataFrame({'data': [1772.031568, 19884.42243,28696.72159, 24906.20355,9059.120325]},index=[1,2,3,4,5])
+print df.head()
+rng = pd.date_range('1/1/2017',periods =len(df.index), freq='D')
+df.set_index(rng,inplace=True)
+print df.head()
+  
+
+   
+
+             data
+1   1772.031568
+2  19884.422430
+3  28696.721590
+4  24906.203550
+5   9059.120325
+                    data
+2017-01-01   1772.031568
+2017-01-02  19884.422430
+2017-01-03  28696.721590
+2017-01-04  24906.203550
+2017-01-05   9059.120325
+  
+
+
+

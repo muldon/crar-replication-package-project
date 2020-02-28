@@ -1,0 +1,214 @@
+Query: how to uniqify a list of dict in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6281063)
+ If your value is hashable this will work: 
+
+  >>> [dict(y) for y in set(tuple(x.items()) for x in d)]
+[{'y': 4, 'x': 3}, {'y': 2, 'x': 1}]
+  
+
+ EDIT: 
+
+ I tried it with no duplicates  it seemed to work fine 
+
+  >>> d = [{'x':1, 'y':2}, {'x':3, 'y':4}]
+>>> [dict(y) for y in set(tuple(x.items()) for x in d)]
+[{'y': 4, 'x': 3}, {'y': 2, 'x': 1}]
+  
+
+  
+
+  >>> d = [{'x':1,'y':2}]
+>>> [dict(y) for y in set(tuple(x.items()) for x in d)]
+[{'y': 2, 'x': 1}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6281179)
+ Avoid this whole problem and use namedtuples instead 
+
+  from collections import namedtuple
+
+Point = namedtuple('Point','x y'.split())
+better_d = [Point(1,2), Point(3,4), Point(1,2)]
+print set(better_d)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2527511)
+  set([a, b, c, a])
+  
+
+ Leave it in that form if possible. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54249329)
+ Or  groupby  of  itertools : 
+
+  import itertools
+lst = [
+{'number': 1, 'favorite': False, 'color': 'red'},
+{'number': 1, 'favorite': False, 'color': 'green'},
+{'number': 1, 'favorite': False, 'color': 'red'},
+{'number': 1, 'favorite': True, 'color': 'red'},
+{'number': 2, 'favorite': False, 'color': 'red'}]
+l=[list(y) for x,y in itertools.groupby(sorted(lst,key=lambda x: (x['number'],x['favorite'])),lambda x: (x['number'],x['favorite']))]
+print([{k:(v if k!='color' else list(set([x['color'] for x in i]))) for k,v in i[0].items()} for i in l])
+  
+
+ Output: 
+
+  [{'number': 1, 'favorite': False, 'color': ['green', 'red']}, {'number': 1, 'favorite': True, 'color': ['red']}, {'number': 2, 'favorite': False, 'color': ['red']}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54249252)
+ A solution in pure Python would be to use a  defaultdict  with a composite key. You could use that to merge your values.
+Afterwards you can create a list again out of that dictionary. 
+
+  from collections import defaultdict
+
+dct = defaultdict([])
+
+for entry in lst:
+    dct[(entry['number'], entry['favorite'])].append(entry['color'])
+
+lst = [{'number': key[0], 'favorite': key[1], color: value if len(value) > 1 else value[0]}
+    for key, value in dct.items()]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54256921)
+ You can use an ordered dictionary with default  set  values.<sup>1</sup> Then iterate your list of dictionaries, using  (number, favorite)  as keys. This works since tuples are hashable and therefore permitted to be used as dictionary keys. 
+
+ It's good practice to use a consistent structure. So, instead of having strings for single values and sets for multiple, use sets throughout: 
+
+  from collections import OrderedDict, defaultdict
+
+class DefaultOrderedDict(OrderedDict):
+    def __missing__(self, k):
+        self[k] = set()
+        return self[k]
+
+d = DefaultOrderedDict()  # Python 3.7+: d = defaultdict(set)
+
+for i in lst:
+    d[(i['number'], i['favorite'])].add(i['color'])
+
+res = [{'number': num, 'favorite': fav, 'color': col} for (num, fav), col in d.items()]
+
+print(res)
+# [{'color': {'green', 'red'}, 'favorite': False, 'number': 1},
+#  {'color': {'red'}, 'favorite': True, 'number': 1},
+#  {'color': {'red'}, 'favorite': False, 'number': 2}]
+  
+
+ If you insist on having different types depending on number of colours, you can redefine the list comprehension to use a ternary statement: 
+
+  res = [{'number': num, 'favorite': fav, 'color': next(iter(col)) if len(col) == 1 else col} \
+       for (num, fav), col in d.items()]
+
+print(res)
+# [{'color': {'green', 'red'}, 'favorite': False, 'number': 1},
+#  {'color': 'red', 'favorite': True, 'number': 1},
+#  {'color': 'red', 'favorite': False, 'number': 2}]
+  
+
+ 
+
+ <sup>1</sup> The point is noteworthy in Python versions prior to 3.7, where dictionaries are not guaranteed to be insertion ordered. With Python 3.7+, you can take advantage of insertion ordering and just use  dict  or a subclass of  dict  such as  collections.defaultdict . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48027864)
+ This https://www.peterbe.com/plog/fastest-way-to-uniquify-a-list-in-python-3.6 by Peter Bengtsson suggests two of the fastest ways to make a list of unique items in Python 3.6+ are: 
+
+  # Unordered (hashable items)
+list(set(seq))
+
+# Order preserving
+list(dict.fromkeys(seq))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54249069)
+ Using pure python, you can do insert into an  OrderedDict  to retain insertion order: 
+
+  from collections import OrderedDict
+
+d = OrderedDict()
+for l in lst:
+    d.setdefault((l['number'], l['favorite']), set()).add(l['color'])
+
+[{'number': k[0], 'favorite': k[1], 'color': v.pop() if len(v) == 1 else v} 
+    for k, v in d.items()]   
+# [{'color': {'green', 'red'}, 'favorite': False, 'number': 1},
+#  {'color': 'red', 'favorite': True, 'number': 1},
+#  {'color': 'red', 'favorite': False, 'number': 2}]
+  
+
+ 
+
+ This can also be done quite easily using the pandas  GroupBy  API: 
+
+  import pandas as pd
+
+d = (pd.DataFrame(lst)
+       .groupby(['number', 'favorite'])
+       .color
+       .agg(set)
+       .reset_index()
+       .to_dict('r'))
+d
+# [{'color': {'green', 'red'}, 'favorite': False, 'number': 1},
+#  {'color': {'red'}, 'favorite': True, 'number': 1},
+#  {'color': {'red'}, 'favorite': False, 'number': 2}]
+  
+
+ If the condition of a string for a single element is required, you can use 
+
+  [{'color': (lambda v: v.pop() if len(v) == 1 else v)(d_.pop('color')), **d_} 
+     for d_ in d]
+# [{'color': {'green', 'red'}, 'favorite': False, 'number': 1},
+#  {'color': 'red', 'favorite': True, 'number': 1},
+#  {'color': 'red', 'favorite': False, 'number': 2}]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3665808)
+ I would reconsider the data structure to fit your needs better (for example dict hashed with name with list of scores as value), but I would do like this: 
+
+  import operator as op
+import itertools as it
+
+result = ({'name': 'xxx', 'score': 120L },
+          {'name': 'xxx', 'score': 100L},
+          {'name': 'xxx', 'score': 10L},
+          {'name':'yyy', 'score':20})
+# groupby
+
+highscores = tuple(max(namegroup, key=op.itemgetter('score'))
+                   for name,namegroup in it.groupby(result,
+                                                    key=op.itemgetter('name'))
+                   )
+print highscores
+  
+
+
+

@@ -1,0 +1,197 @@
+Query: How do I execute stored procedure?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19996773)
+ Since its a procedure you're trying to call, you need to use a http://docs.oracle.com/javase/7/docs/api/java/sql/CallableStatement.html. 
+
+ 
+   The interface used to execute SQL stored procedures. 
+ 
+
+  CallableStatement callableStatement = conn.prepareCall(query);
+  
+
+ Also, your query needs to be 
+
+  String query = "{call test}"; 
+// exec is used to execute the procedure from the sql console as such
+// To execute a procedure using the java code, use call proc.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/30339964)
+ You need to use CallableStatement for executing your Stored procedure 
+
+  String procName= "{call PSTATISTIC}";
+CallableStatement cs = conn.prepareCall(procName);
+cs.executeQuery();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22404565)
+  
+
+  CallableStatement cs = null;
+cs = conn.prepareCall("{call vivek}");
+cs.executeQuery();
+  
+
+ http://docs.oracle.com/javase/tutorial/jdbc/basics/storedprocedures.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/26381638)
+ Check https://stackoverflow.com/questions/18507418/how-can-i-call-oracle-stored-procedure-which-has-one-out-parameter-as-sysrefcurs: 
+
+ 
+  First you define the stored procedure named native query: 
+
+  @javax.persistence.NamedNativeQuery(name = "call_proc_ab", query = "{ call PROC_AB(:cmpid,:status,?) }", resultClass = Long.class, hints = {
+@javax.persistence.QueryHint(name = "org.hibernate.callable", value = "true") })
+   
+  Then you execute it using: 
+
+  TypedQuery<Long> query = entityManager.createNamedQuery("call_proc_ab", Long.class); 
+query.setParameter("cmpid",cmpid); 
+query.setParameter("status",status); 
+Long empId = query.getSingleResult(); 
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44832034)
+  StoredProcedureQuery  indices start at  1   
+
+  query.registerStoredProcedureParameter(1, Integer.class, ParameterMode.IN);
+query.setParameter(1, id);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9743817)
+ To get back the values from a stored procedure, you need to create your own class that extends  StoredProcedure , declare your parameters, and then examine the out parameters that are returned from the  execute  call: 
+
+  public final class MyProc extends StoredProcedure {
+
+    public MyProc() {
+        super(myDataSource, "TESTONE");
+        declareParameter(new SqlParameter("param1", Types.CHAR));
+        declareParameter(new SqlOutParameter("param2", Types.CHAR));
+    }
+
+    public String execute(Map<?, ?> inParams) {
+        Map results = super.execute(inParams);
+        return (String) results.get("param2");
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11827624)
+ not sure, whether the sybase people are "crazy". . 
+
+ On the other hand, not synchronuously retrieving results when you don't actively check for the return code of a callable statement may make sense performance-wise. I have not yet tested it completely, but there is a simple workaround to your problem (ASE 15.5, jconn 7): 
+
+ the exception will be triggered when you fetch an out param from the stored proc (at least when calling stored procedures): 
+
+      // one may force the error check by retrieving the return code!
+    cs = conn.prepareCall("{ ? = call sp_nested_error @nNestLevels = 1 }");
+    cs.registerOutParameter(1, Types.INTEGER);
+    cs.execute();
+    try {
+        cs.getInt(1);
+        fail();
+    } catch(SQLException e) {
+        assertTrue(e.getMessage().indexOf("some error") > -1);
+    }
+  
+
+ Another curiosity is that this behavior only shows up when errors are triggered in nested stored procedure calls and the workaround is not necessary when the top-most procedure raises the error. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5895112)
+ To execute remote procedure use this construction: 
+
+  Mapping  
+
+  <sql-query name="RP">   
+    {call some_rp(:param1, :param2)}
+</sql-query>
+  
+
+  Java code  
+
+  session.getNamedQuery("RP").setInteger("param1", 1).setInteger("param2", 2).executeUpdate();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40458451)
+ Considering you have a  SYS_REFCURSOR  OUT parameter: 
+
+  CREATE OR REPLACE PROCEDURE post_comments ( 
+   postId IN NUMBER, 
+   postComments OUT SYS_REFCURSOR ) 
+AS 
+BEGIN
+    OPEN postComments FOR
+    SELECT *
+    FROM post_comment 
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call the stored procedure like this: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("post_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+         ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Class.class, 
+         ParameterMode.REF_CURSOR)
+    .setParameter(1, 1L);
+
+query.execute();
+
+List<Object[]> postComments = query.getResultList();
+  
+
+ For more details, check out https://vladmihalcea.com/how-to-call-oracle-stored-procedures-and-functions-from-hibernate/ which explains how you should call stored procedures with simple types and database functions as well. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43134767)
+ I think your Store stored Procedure return list, So you do some changes in your code. 
+
+  Old Code   
+
+   storedProcedure.registerStoredProcedureParameter("P_CURSOR", ResultSet.class, ParameterMode.REF_CURSOR );
+
+Object obj =storedProcedure.getOutputParameterValue("tax");
+  
+
+  New Code  
+
+      storedProcedure.registerStoredProcedureParameter("P_CURSOR",void.class,ParameterMode.REF_CURSOR);
+
+Object obj =storedProcedure.getResultList();
+  
+
+ .  
+
+
+

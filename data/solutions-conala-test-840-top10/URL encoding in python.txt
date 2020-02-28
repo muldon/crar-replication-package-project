@@ -1,0 +1,151 @@
+Query: URL encoding in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16424077)
+ The current de facto HTTP library for Python is http://python-requests.org/. 
+
+  import requests
+response = requests.get(
+  "http://abc.myshopify.com/admin/shop.json",
+  auth=("3b8138fedf8", "1d697a75c7e50")
+)
+response.raise_for_status()  # Raise an exception if HTTP error occurs
+print response.content  # Do something with the content.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47338241)
+ The first URL is broken. What happend is, that some software considered the correct UTF-8 URL being CP1252 even though there were some bytes invalid in CP1252. Thus it translated the bytes of the correct URL from the supposed CP1252 to UTF8, but if and only if the bytes were valid in CP1252. The invalid bytes were left as they were. This is the reason, why all the URL is not restorable by one encode-decode combination. 
+
+ To reverse the described process we need for example this code (in Python 2): 
+
+  #-*-coding:utf8-*-
+from six.moves.urllib import parse
+
+correct = 'https://ja-jp.facebook.com/名古屋ｊｒゲートタワーホテル-219123305237478'
+url = 'https://ja-jp.facebook.com/%C3%A5%C2%90%C2%8D%C3%A5%C2%8F%C2%A4%C3%A5%C2%B1%E2%80%B9%C3%AF%C2%BD%C5%A0%C3%AF%C2%BD%E2%80%99%C3%A3%E2%80%9A%C2%B2%C3%A3%C6%92%C2%BC%C3%A3%C6%92%CB%86%C3%A3%E2%80%9A%C2%BF%C3%A3%C6%92%C2%AF%C3%A3%C6%92%C2%BC%C3%A3%C6%92%E2%80%BA%C3%A3%C6%92%E2%80%A0%C3%A3%C6%92%C2%AB-219123305237478'
+unq_url = parse.unquote(url.encode('ascii'))
+
+res = ''
+for c in unq_url.decode('utf8'):
+    try:
+        res += c.encode('cp1252')
+    except:
+        res += chr(ord(c))
+
+print res == correct
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16424023)
+ You are using a PDB-based debugger instead of a interactive Python prompt.  h  is a command in PDB. Use  !  to prevent PDB from trying to interpret the line as a command: 
+
+  !h = Http()
+  
+
+  urllib  requires that you pass it a fully qualified URL; your URL is lacking a scheme: 
+
+  urllib.urlopen('http://' + url).read()
+  
+
+ Your URL does not appear to use any international characters in the domain name, so you do not need to use IDNA encoding. 
+
+ You may want to look into the 3rd-party http://python-requests.org/; it makes interacting with HTTP servers that much easier and straightforward: 
+
+  import requests
+r = requests.get('http://abc.myshopify.com/admin/shop.json', auth=("3b8138fedf8", "1d697a75c7e50"))
+data = r.json()  # interpret the response as JSON data.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28967251)
+ Add the GET parameters after the  {% url %}  tag: 
+
+  <a href="{% url 'users' info.user_id info.full_name %}?tab=tags">
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1808688)
+ Your html data is a string that comes from the internet  already encoded  with some encoding. Before encoding it to  utf-8 , you  must decode it first . 
+
+ Python is   implicity   trying to decode it (That's why you get a  UnicodeDecodeError  not  UnicodeEncodeError ). 
+
+ You can solve the problem by  explicity decoding your bytestring  (using the appropriate encoding)  before  trying to reencode it to  utf-8 . 
+
+ Example: 
+
+  utf8encoded = htmlSource.decode('some_encoding').encode('utf-8')
+  
+
+ Use the correct encoding the page was encoded in first place, instead of  'some_encoding' . 
+
+ You  have  to know which encoding a string is using before you can decode it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40654295)
+ It is more complex than the accepted @bobince's answer suggests: 
+
+ 
+ netloc should be encoded using IDNA; 
+ non-ascii URL path should be encoded to UTF-8 and then percent-escaped; 
+ non-ascii query parameters should be encoded to the encoding of a page URL was extracted from (or to the encoding server uses), then percent-escaped. 
+ 
+
+ This is how all browsers work; it is specified in https://url.spec.whatwg.org/ - see this https://url.spec.whatwg.org/#query-encoding-example. A Python implementation can be found in w3lib (this is the library Scrapy is using); see https://github.com/scrapy/w3lib/blob/5918d0e467279195ca41257ad0ba4037c98a34e2/w3lib/url.py#L71: 
+
+  from w3lib.url import safe_url_string
+url = safe_url_string(u'http://example.org/Ñöñ-ÅŞÇİİ/', encoding="<page encoding>")
+  
+
+ An easy way to check if a URL escaping implementation is incorrect/incomplete is to check if it provides 'page encoding' argument or not. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39229884)
+ If using a library is an option, I would suggest the awesome http://docs.python-requests.org/ 
+
+  # -*- coding: utf-8 -*-
+import requests
+r = requests.get('https://no.wikipedia.org/wiki/Jonas_Gahr_Støre')
+print(r.text)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46783596)
+ You can use  urllib.urlquote  to convert your text to url encoded format. 
+
+  >>> import urllib
+>>> urllib.quote('test+user@gmail.com')
+'test%2Buser%40gmail.com'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1808644)
+ Probably you want to  decode  Utf8, not  encode  it: 
+
+  htmlSource =  htmlSource.decode('utf8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23497903)
+ The solution, as designed, is to pass the URL directly.  
+
+
+

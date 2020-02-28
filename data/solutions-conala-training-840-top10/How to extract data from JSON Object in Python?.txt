@@ -1,0 +1,319 @@
+Query: How to extract data from JSON Object in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6407798)
+ Once you run it though  json.loads()  it becomes normal Python objects. Simply index it as you would any dict or list. 
+
+  >>> json.loads('{"foo": 42, "bar": "baz"}')[u'bar']
+u'baz'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/46653313)
+ If the data file consists of multiple lines, each of which is a single json object, you can use a generator to decode the lines one at a time. 
+
+  def extract_json(fileobj):
+    # Using "with" ensures that fileobj is closed when we finish reading it.
+    with fileobj:
+        for line in fileobj:
+            yield json.loads(line)
+  
+
+ The only changes to your code is that the  data_json  file is not read explicitly, and  data_python  is the result of calling  extract_json  rather than  json.loads .  Here's the amended code: 
+
+  import json
+import csv
+import io
+
+'''
+creates a .csv file using a Twitter .json file
+the fields have to be set manually
+'''
+
+def extract_json(fileobj):
+    """
+    Iterates over an open JSONL file and yields
+    decoded lines.  Closes the file once it has been
+    read completely.
+    """
+    with fileobj:
+        for line in fileobj:
+            yield json.loads(line)    
+
+
+data_json = io.open('stream_____.jsonl', mode='r', encoding='utf-8') # Opens in the JSONL file
+data_python = extract_json(data_json)
+
+csv_out = io.open('tweets_out_utf8.csv', mode='w', encoding='utf-8') #opens csv file
+
+
+fields = u'created_at,text,screen_name,followers,friends,rt,fav' #field names
+csv_out.write(fields)
+csv_out.write(u'\n')
+
+for line in data_python:
+
+    #writes a row and gets the fields from the json object
+    #screen_name and followers/friends are found on the second level hence two get methods
+    row = [line.get('created_at'),
+           '"' + line.get('text').replace('"','""') + '"', #creates double quotes
+           line.get('user').get('screen_name'),
+           unicode(line.get('user').get('followers_count')),
+           unicode(line.get('user').get('friends_count')),
+           unicode(line.get('retweet_count')),
+           unicode(line.get('favorite_count'))]
+
+    row_joined = u','.join(row)
+    csv_out.write(row_joined)
+    csv_out.write(u'\n')
+
+csv_out.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30388020)
+ https://stackoverflow.com/a/2835672/906658 is really helpful, but if you are using Python 3 reading JSON should be done like this: 
+
+  with open('data.json', encoding='utf-8') as data_file:
+    data = json.loads(data_file.read())
+  
+
+ Note: use  json.loads  instead of  json.load . In Python 3,  json.loads  takes a string parameter.  json.load  takes a file-like object parameter.  data_file.read()  returns a string object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13325474)
+ BeautifulSoup is an html parser; you also need a javascript parser here. btw, some javascript object literals are not valid json (though in your example the literal is also a valid json object). 
+
+ In simple cases you could: 
+
+ 
+ extract  <script> 's text using an html parser 
+ assume that  window.blog...  is a single line or there is no  ';'  inside the object and extract the javascript object literal using simple string manipulations or a regex 
+ assume that the string is a valid json and parse it using json module 
+ 
+
+ Example: 
+
+
+
+<pre class="lang-py prettyprint-override"> #!/usr/bin/env python
+html = """<!doctype html>
+<title>extract javascript object as json</title>
+<script>
+// ..
+window.blog.data = {"activity":{"type":"read"}};
+// ..
+</script>
+ some other html here
+"""
+import json
+import re
+from bs4 import BeautifulSoup  # $ pip install beautifulsoup4
+soup = BeautifulSoup(html)
+script = soup.find('script', text=re.compile('window\..data'))
+json_text = re.search(r'^\s*window\..data\s*=\s*({.\s*;\s*$',
+                      script.string, flags=re.DOTALL | re.MULTILINE).group(1)
+data = json.loads(json_text)
+assert data['activity']['type'] == 'read'
+  
+
+ If the assumptions are incorrect then the code fails. 
+
+ To relax the second assumption, a javascript parser could be used instead of a regex e.g., http://slimit.readthedocs.org/ (https://ru.stackoverflow.com/questions/501556/%d0%9a%d0%b0%d0%ba-%d0%bf%d0%be%d0%bb%d1%83%d1%87%d0%b8%d1%82%d1%8c-%d0%b8%d0%bd%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%86%d0%b8%d1%8e-%d0%b8%d0%b7-%d1%81%d1%82%d1%80%d0%be%d0%ba%d0%b8-json-%d0%ba%d0%be%d1%82%d0%be%d1%80%d0%b0%d1%8f-%d1%83%d0%ba%d0%b0%d0%b7%d0%b0%d0%bd%d0%b0-%d0%b2-javascript-%d0%ba%d0%be%d0%b4%d0%b5-%d0%b2%d0%bd%d1%83%d1%82%d1%80%d0%b8/501630#comment598944_501562): 
+
+<pre class="lang-py prettyprint-override"> from slimit import ast  # $ pip install slimit
+from slimit.parser import Parser as JavascriptParser
+from slimit.visitors import nodevisitor
+
+soup = BeautifulSoup(html, 'html.parser')
+tree = JavascriptParser().parse(soup.script.string)
+obj = next(node.right for node in nodevisitor.visit(tree)
+           if (isinstance(node, ast.Assign) and
+               node.left.to_ecma() == 'window.blog.data'))
+# HACK: easy way to parse the javascript object literal
+data = json.loads(obj.to_ecma())  # NOTE: json format may be slightly different
+assert data['activity']['type'] == 'read'
+  
+
+ There is no need to treat the object literal ( obj ) as a json object. To get the necessary info,  obj  can be visited recursively like other ast nodes. It would allow to support arbitrary javascript code (that can be parsed by http://slimit.readthedocs.org/). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28897222)
+ Using webapp2, you can extract POST request body data with a webapp2.RequestHandler instance like this 
+
+  data = self.request.body
+  
+
+ Because you are sending JSON, you probably want to parse that right away 
+
+  data = json.loads(self.request.body)
+  
+
+ Also see https://webapp-improved.appspot.com/guide/request.html#common-request-attributes for what other info you can get from the  request  object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30205662)
+ You need to parse again the json string of  json_data['message']  then just access the desired values, one way to do it: 
+
+  # since the string value of `message` itself isn't a valid json string
+# discard it, and parse it with json again
+brow_eventdetails = json.loads(json_data['message'].replace('brow_eventdetails:', ''))
+
+brow_eventdetails['ATime']
+Out[6]: 5
+
+brow_eventdetails['SBTime']
+Out[7]: 391
+
+brow_eventdetails['CTime']
+Out[8]: 425
+
+...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35509986)
+ Using Python to extract a value from the provided Json 
+
+  Working sample:-
+
+import json
+import sys
+
+//load the data into an element
+data={"test1" : "1", "test2" : "2", "test3" : "3"}
+
+//dumps the json object into an element
+json_str = json.dumps(data)
+
+//load the json to a string
+resp = json.loads(json_str)
+
+//print the resp
+print (resp)
+
+//extract an element in the response
+print (resp['test1'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35510074)
+ Extract single value from JSON response Python 
+
+ Try this 
+
+  import json
+import sys
+
+#load the data into an element
+data={"test1" : "1", "test2" : "2", "test3" : "3"}
+
+#dumps the json object into an element
+json_str = json.dumps(data)
+
+#load the json to a string
+resp = json.loads(json_str)
+
+#print the resp
+print (resp)
+
+#extract an element in the response
+print (resp['test1'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/29451645)
+ Locate the  script  by checking it's text to contain "window.BC.product". 
+
+ After you extract the script contents, use regular expressions to extract the desired javascript object, then, load it via  json.loads()  to get the Python dictionary: 
+
+  import json
+import re
+from bs4 import BeautifulSoup
+import requests
+
+pattern = re.compile(r"window\.BC\.product = (.*);", re.MULTILINE)
+
+response = requests.get("http://www.steepandcheap.com/gear-cache/shop-smartwool-on-sale/SWL00II-GRA")
+soup = BeautifulSoup(response.content)   
+
+script = soup.find("script", text=lambda x: x and "window.BC.product" in x).text
+data = json.loads(re.search(pattern, script).group(1))
+print data
+  
+
+  
+
+  {u'features': [{u'name': u'Material', u'description': u'[shell] 86% polyester, ... u'Zippered back pocket\r', u'Reflective details']}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40788511)
+ json.loads will take a string paramater. The 's' in the loads is for string. 
+
+  import json
+a="""{
+   "destination_addresses" : [ "Hoorn, Nederland" ],
+   "origin_addresses" : [ "Amsterdam, Nederland" ],
+   "rows" : [
+      {
+         "elements" : [
+            {
+               "distance" : {
+                  "text" : "45,0 km",
+                  "value" : 44952
+               },
+               "duration" : {
+                  "text" : "40 min.",
+                  "value" : 2423
+               },
+               "status" : "OK"
+            }
+         ]
+      }
+   ],
+   "status" : "OK"
+}"""
+
+b = json.loads(a)
+dist,dur = b['rows'][0]['elements'][0]['distance'], b['rows'][0]['elements'][0]['duration']
+print dist
+print dur
+  
+
+ Output: 
+
+  {u'text': u'40 min.', u'value': 2423}
+{u'text': u'45,0 km', u'value': 44952}
+  
+
+ Note that: 
+
+ 
+ str(json_object) wraps strings in single quotes, which is not valid JSON.  
+  So if you have a json object which you had earlier converted to string using str() and now you want to convert it back to JSON then you can work around like this: 
+
+  json.loads(json.dumps(str(json_object)))
+   
+ 
+
+
+

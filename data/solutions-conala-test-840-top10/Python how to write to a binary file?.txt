@@ -1,0 +1,203 @@
+Query: Python how to write to a binary file?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/18367077)
+ To convert from integers < 256 to binary, use the  chr  function.  So you're looking at doing the following. 
+
+  newFileBytes=[123,3,255,0,100]
+newfile=open(path,'wb')
+newfile.write((''.join(chr(i) for i in newFileBytes)).encode('charmap'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39586040)
+ Brief example: 
+
+  my_number = 1234
+with open('myfile', 'wb') as file_handle:
+    file_handle.write(struct.pack('i', my_number))
+...
+with open('myfile', 'rb') as file_handle:
+    my_number_back = struct.unpack('i', file_handle.read())[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16887670)
+ To write out a string you can use the file's  .write  method.  To write an integer, you will need to use the  struct  module 
+
+  import struct
+
+#...
+with open('file.dat', 'wb') as f:
+    if isinstance(value, int):
+        f.write(struct.pack('i', value)) # write an int
+    elif isinstance(value, str):
+        f.write(value) # write a string
+    else:
+        raise TypeError('Can only write str or int')
+  
+
+ However, the representation of int and string are different, you may with to use the  bin  function instead to turn it into a string of 0s and 1s 
+
+  >>> bin(7)
+'0b111'
+>>> bin(7)[2:] #cut off the 0b
+'111'
+  
+
+ but maybe the best way to handle all these  int s is to decide on a fixed width for the binary strings in the file and convert them like so: 
+
+  >>> x = 7
+>>> '{0:032b}'.format(x) #32 character wide binary number with '0' as filler
+'00000000000000000000000000000111'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16887829)
+ 
+   I want that pattern of ones and zeros to be written to a file. 
+ 
+
+ If you mean you want to write a bitstream from a string to a file, you'll need something like this... 
+
+  from cStringIO import StringIO
+
+s = "001011010110000010010"
+sio = StringIO(s)
+
+f = open('outfile', 'wb')
+
+while 1:
+    # Grab the next 8 bits
+    b = sio.read(8)
+
+    # Bail if we hit EOF
+    if not b:
+        break
+
+    # If we got fewer than 8 bits, pad with zeroes on the right
+    if len(b) < 8:
+        b = b + '0' * (8 - len(b))
+
+    # Convert to int
+    i = int(b, 2)
+
+    # Convert to char
+    c = chr(i)
+
+    # Write
+    f.write(c)
+
+f.close()
+  
+
+ ...for which  xxd -b outfile  shows... 
+
+  0000000: 00101101 01100000 10010000                             -`.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36790587)
+ You can use the following code example using Python 3 syntax: 
+
+  from struct import pack
+with open("foo.bin", "wb") as file:
+  file.write(pack("<IIIII", *bytearray([120, 3, 255, 0, 100])))
+  
+
+ Here is shell one-liner: 
+
+  python -c $'from struct import pack\nwith open("foo.bin", "wb") as file: file.write(pack("<IIIII", *bytearray([120, 3, 255, 0, 100])))'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7732676)
+ If you want a binary file, 
+
+
+
+  >>> import struct
+>>> myFile=open('binaryFoo','wb')
+>>> myStr='10010101110010101'
+>>> x=int(myStr,2)
+>>> x
+76693
+>>> struct.pack('i',x)
+'\x95+\x01\x00'
+>>> myFile.write(struct.pack('i',x))
+>>> myFile.close()
+>>> quit()
+  
+
+
+
+  $ cat binaryFoo
+�+$
+  
+
+ Is this what you are looking for? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8251407)
+ Read and write in the binary mode, 'rb' and 'wb': 
+
+  f = open(zipname , 'rb')
+content =  f.read() 
+f.close()
+
+alt = open('x.zip', 'wb')
+alt.write(content )
+alt.close()
+  
+
+ The reason the text mode didn't work on Windows is that the newline translation from '\r\n' to '\r' mangled the binary data in the zip file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27238888)
+ With Python 3 you can do the following: 
+
+  i = 6277101735386680763835789423176059013767194773182842284081
+with open('out.bin', 'wb') as file:
+    file.write((i).to_bytes(24, byteorder='big', signed=False))
+
+with open('out.bin', 'rb') as file:
+    j = int.from_bytes(file.read(), byteorder='big')
+
+print(j)
+  
+
+ Output: 
+
+  $ python3 tiny.py
+6277101735386680763835789423176059013767194773182842284081
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18367059)
+ Use https://docs.python.org/3.5/library/struct.html#struct.pack to convert the integer values into binary bytes, then write the bytes. E.g. 
+
+  newFile.write(struct.pack('5B', *newFileBytes))
+  
+
+ However I would never give a binary file a  .txt  extension. 
+
+ The benefit of this method is that it works for other types as well, for example if any of the values were greater than 255 you could use  '5i'  for the format instead to get full 32-bit integers. 
+
+
+

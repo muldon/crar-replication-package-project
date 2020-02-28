@@ -1,0 +1,229 @@
+Query: Python's argparse to show program's version with prog and version string formatting
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15406624)
+ Yes, that's the accepted way.  From http://docs.python.org/dev/library/argparse.html#action: 
+
+  >>> parser.add_argument('--version', action='version', version='%(prog)s 2.0')
+  
+
+ You should of course be embedding the version number in your package in a standard way: https://stackoverflow.com/questions/458550/standard-way-to-embed-version-into-python-package 
+
+ If you're following that method, you have a  __version__  variable: 
+
+  from _version import __version__
+parser.add_argument('--version', action='version',
+                    version='%(prog)s {version}'.format(version=__version__))
+  
+
+ For example, that's the method demonstrated at https://pypi.python.org/pypi/commando/0.3.2a: 
+
+ 
+  parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
+  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8521644)
+ According to documentation,  --version  with  action='version'  (and not with  action='store_true' ) prints automatically the version number: 
+
+  parser.add_argument('--version', action='version', version='%(prog)s 2.0')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52356712)
+ Do you really need the double dash ( -- ) before your command?
+If not, you could do: 
+
+<pre class="lang-py prettyprint-override"> import argparse
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest='command')
+
+show_subparser = subparsers.add_parser('show')
+show_subparser.add_argument('name', type=str)
+
+list_subparser = subparsers.add_parser('list')
+
+add_subparser = subparsers.add_parser('add')
+add_subparser.add_argument('phone', type=int)
+
+args = parser.parse_args()
+
+# Do something with your args
+print args
+  
+
+ This would limit you to the above defined arguments.
+Inasmuch you can do either  prog show xyz  or  prog add 123  but you can't do  prog show xzy add 123 . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29946587)
+ If you only need version to work, you can do this: 
+
+  import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    '-v', '--version',
+    action='version',
+    version='%(prog)s 1.0',
+)
+  
+
+ Subparsers won't bother any more; the special  version  action is processed and exits the script before the parser looks for subcommands. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8524009)
+ Yeah, I just checked  svn , which is used as an object example in the http://docs.python.org/library/argparse.html#sub-commands, and it only supports '--version' on the main command: 
+
+  python zacharyyoung$ svn log --version
+Subcommand 'log' doesn't accept option '--version'
+Type 'svn help log' for usage.
+  
+
+  
+
+  # create common parser
+parent_parser = argparse.ArgumentParser('parent', add_help=False)
+parent_parser.add_argument('--version', action='version', version='%(prog)s 2.0')
+
+# create the top-level parser
+parser = argparse.ArgumentParser(parents=[parent_parser])
+subparsers = parser.add_subparsers()
+
+# create the parser for the "foo" command
+parser_foo = subparsers.add_parser('foo', parents=[parent_parser])
+  
+
+  
+
+  python zacharyyoung$ ./arg-test.py --version
+arg-test.py 2.0
+python zacharyyoung$ ./arg-test.py foo --version
+arg-test.py foo 2.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/22054398)
+ FWIW, I ran into this also, and ended up "solving" it by not using subparsers (I already had my own system for printing help, so didn't lose anything there). 
+
+  
+
+  parser.add_argument("command", nargs="?",
+                    help="name of command to execute")
+
+args, subcommand_args = parser.parse_known_args()
+  
+
+ ...and then the subcommand creates its own parser (similar to a subparser) which operates only on  subcommand_args . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21271534)
+ You could make translit a http://docs.python.org/2/library/argparse.html#sub-commands which would work as  prog translit -h  or just  prog translit  which if there are needed options missing, would display the help text. 
+
+  
+
+  parser = argparse.ArgumentParser()
+parser.add_argument('-s', '--string', required=True)
+subparsers = parser.add_subparsers(dest='subcommand_name')
+translit_parser = subparsers.add_parser('translit')
+translit_parser.add_argument('x', required=True)
+parser.parse_args()
+  
+
+  python test.py translit  would output something like: 
+
+  usage: test.py translit [-h] -x X
+test.py translit: error: argument -x is required
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26757914)
+ There is no  public  API to get that information. The  parser.version  attribute is deprecated. You'd have to find the  argparse._VersionAction  object and get it from there: 
+
+  version_action = next((action for action in parser._get_optional_actions()
+                       if isinstance(action, argparse._VersionAction)), None)
+print version_action.version if version_action else 'unknown'
+  
+
+ This uses private methods that are subject to change, and all you get is the  exact same string you gave to  argparse  : 
+
+  >>> import argparse
+>>> parser = argparse.ArgumentParser()
+>>> parser.add_argument('--version', '-V', action='version', version="%(prog)s " + __version__)
+_VersionAction(option_strings=['--version', '-V'], dest='version', nargs=0, const=None, default='==SUPPRESS==', type=None, choices=None, help="show program's version number and exit", metavar=None)
+>>> version_action = next((action for action in parser._get_optional_actions() if isinstance(action, argparse._VersionAction)), None)
+>>> print version_action.version if version_action else 'unknown'
+%(prog)s 0.1
+  
+
+ Much easier just to store that value somewhere else too, then pass it to  argparse   and  use the value directly. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40420236)
+ You need to use the epilog and the formatter_class arguments to ArgumentParser if you want to have the help the example printed at the end (epilog) and to preserve the whitespace/formatting (formatter_class set to RawDescriptionHelpFormatter). 
+
+ Example by modifying your example above: 
+
+  import argparse
+
+example_text = '''example:
+
+ python test.py -t template/test.py
+ python test.py -t template/test -c conf/test.conf
+ python test.py -t test.py'''
+
+parser = argparse.ArgumentParser(prog='base_maker',
+                                 description='template maker',
+                                 epilog=example_text,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+
+parser.add_argument('-t', '--templates', help='template names to make, should be defined as section name in conf, and have related file in templates/ folder', type=str)
+parser.add_argument('-c', '--confpath', help='configuration path for template detail info', type=str, default=os.path.join(basepath, 'conf/maker.conf'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29441715)
+ This seems to implement the basic idea of an optional subparser.  We parse the standard arguments that apply to all subcommands.  Then, if anything is left, we invoke the parser on the rest.  The primary arguments are a parent of the subcommand so the -h appears correctly.  I plan to enter an interactive prompt if no subcommands are present. 
+
+  import argparse
+
+p1 = argparse.ArgumentParser( add_help = False )    
+p1.add_argument( ‘–flag1′ )
+
+p2 = argparse.ArgumentParser( parents = [ p1 ] )
+s = p2.add_subparsers()
+p = s.add_parser( ‘group’ )
+p.set_defaults( group=True )
+
+( init_ns, remaining ) = p1.parse_known_args( )
+
+if remaining:
+    p2.parse_args( args = remaining, namespace=init_ns )
+else:
+    print( ‘Enter interactive loop’ )
+
+print( init_ns )
+  
+
+
+

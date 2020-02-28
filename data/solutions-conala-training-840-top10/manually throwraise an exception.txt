@@ -1,0 +1,446 @@
+Query: manually throw/raise an exception
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30317038)
+ For the common case where you need to throw an exception in response to some unexpected conditions, and that you never intend to catch, but simply to fail fast to enable you to debug from there if it ever happens — the most logical one seems to be  AssertionError : 
+
+  if 0 < distance <= RADIUS:
+    #Do something.
+elif RADIUS < distance:
+    #Do something.
+else:
+    raise AssertionError("Unexpected value of 'distance'!", distance)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2322387)
+ The only time I know that you have to manually raise StopIteration is when you are implementing a next() method on a class to signal that the iterator is terminated.  For generators (functions with yield statements in them), the end of the function or a return statement will properly trigger the StopIteration for you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24065533)
+ 
+   How do I manually throw/raise an exception in Python? 
+ 
+
+ https://docs.python.org/3/library/exceptions.html#exception-hierarchy.   
+
+ Be specific in your message, e.g.: 
+
+  raise ValueError('A very specific bad thing happened.')
+  
+
+ Don't raise generic exceptions 
+
+ Avoid raising a generic Exception. To catch it, you'll have to catch all other more specific exceptions that subclass it. 
+
+ Problem 1: Hiding bugs</h3>
+
+  raise Exception('I know Python!') # Don't! If you catch, likely to hide bugs.
+  
+
+ For example: 
+
+  def demo_bad_catch():
+    try:
+        raise ValueError('Represents a hidden bug, do not catch this')
+        raise Exception('This is the exception you expect to handle')
+    except Exception as error:
+        print('Caught this error: ' + repr(error))
+
+>>> demo_bad_catch()
+Caught this error: ValueError('Represents a hidden bug, do not catch this',)
+  
+
+ Problem 2: Won't catch</h3>
+
+ and more specific catches won't catch the general exception: 
+
+  def demo_no_catch():
+    try:
+        raise Exception('general exceptions not caught by specific handling')
+    except ValueError as e:
+        print('we will not catch exception: Exception')
+
+
+>>> demo_no_catch()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 3, in demo_no_catch
+Exception: general exceptions not caught by specific handling
+  
+
+ Best Practices:  raise  statement 
+
+ https://docs.python.org/3/library/exceptions.html#exception-hierarchy. 
+
+  raise ValueError('A very specific bad thing happened')
+  
+
+ which also handily allows an arbitrary number of arguments to be passed to the constructor: 
+
+  raise ValueError('A very specific bad thing happened', 'foo', 'bar', 'baz') 
+  
+
+ These arguments are accessed by the  args  attribute on the Exception object. For example: 
+
+  try:
+    some_code_that_may_raise_our_value_error()
+except ValueError as err:
+    print(err.args)
+  
+
+   
+
+  ('message', 'foo', 'bar', 'baz')    
+  
+
+ In Python 2.5, an actual  message  attribute was added to BaseException in favor of encouraging users to subclass Exceptions and stop using  args , but http://www.python.org/dev/peps/pep-0352/#retracted-ideas. 
+
+ Best Practices:  except  clause 
+
+ When inside an except clause, you might want to, for example, log that a specific type of error happened, and then re-raise. The best way to do this while preserving the stack trace is to use a bare raise statement. For example: 
+
+  logger = logging.getLogger(__name__)
+
+try:
+    do_something_in_app_that_breaks_easily()
+except AppError as error:
+    logger.error(error)
+    raise                 # just this!
+    # raise AppError      # Don't do this, you'll lose the stack trace!
+  
+
+ Don't modify your errors... but if you insist.</h3>
+
+ You can preserve the stacktrace (and error value) with  sys.exc_info() , but  this is way more error prone  and  has compatibility problems between Python 2 and 3 , prefer to use a bare  raise  to re-raise.  
+
+ To explain - the  sys.exc_info()  returns the type, value, and traceback.  
+
+  type, value, traceback = sys.exc_info()
+  
+
+ This is the syntax in Python 2 - note this is not compatible with Python 3: 
+
+      raise AppError, error, sys.exc_info()[2] # avoid this.
+    # Equivalently, as error *is* the second object:
+    raise sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+  
+
+ If you want to, you can modify what happens with your new raise - e.g. setting new args for the instance: 
+
+  def error():
+    raise ValueError('oops!')
+
+def catch_error_modify_message():
+    try:
+        error()
+    except ValueError:
+        error_type, error_instance, traceback = sys.exc_info()
+        error_instance.args = (error_instance.args[0] + ' <modification>',)
+        raise error_type, error_instance, traceback
+  
+
+ And we have preserved the whole traceback while modifying the args. Note that this is  not a best practice  and it is  invalid syntax  in Python 3 (making keeping compatibility much harder to work around). 
+
+  >>> catch_error_modify_message()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 3, in catch_error_modify_message
+  File "<stdin>", line 2, in error
+ValueError: oops! <modification>
+  
+
+ In https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement: 
+
+      raise error.with_traceback(sys.exc_info()[2])
+  
+
+ Again: avoid manually manipulating tracebacks. It's https://docs.python.org/2/reference/simple_stmts.html#the-raise-statement and more error prone. And if you're using threading and  sys.exc_info  you may even get the wrong traceback (especially if you're using exception handling for control flow - which I'd personally tend to avoid.) 
+
+ Python 3, Exception chaining</h3>
+
+ In Python 3, you can chain Exceptions, which preserve tracebacks: 
+
+      raise RuntimeError('specific message') from error
+  
+
+ Be aware: 
+
+ 
+ this  does  allow changing the error type raised, and 
+ this is  not  compatible with Python 2. 
+ 
+
+ Deprecated Methods:</h3>
+
+ These can easily hide and even get into production code. You want to raise an exception, and doing them will raise an exception,  but not the one intended!  
+
+ http://www.python.org/dev/peps/pep-3109/ is the following: 
+
+  raise ValueError, 'message' # Don't do this, it's deprecated!
+  
+
+ Only https://docs.python.org/2/whatsnew/2.5.html#pep-352-exceptions-as-new-style-classes (2.4 and lower), you may still see people raising strings: 
+
+  raise 'message' # really really wrong. don't do this.
+  
+
+ In all modern versions, this will actually raise a TypeError, because you're not raising a BaseException type. If you're not checking for the right exception and don't have a reviewer that's aware of the issue, it could get into production. 
+
+ Example Usage 
+
+ I raise Exceptions to warn consumers of my API if they're using it incorrectly: 
+
+  def api_func(foo):
+    '''foo should be either 'baz' or 'bar'. returns something very useful.'''
+    if foo not in _ALLOWED_ARGS:
+        raise ValueError('{foo} wrong, use "baz" or "bar"'.format(foo=repr(foo)))
+  
+
+ Create your own error types when apropos 
+
+ 
+    "I want to make an error on purpose, so that it would go into the except"  
+ 
+
+ You can create your own error types, if you want to indicate something specific is wrong with your application, just subclass the appropriate point in the exception hierarchy: 
+
+  class MyAppLookupError(LookupError):
+    '''raise this when there's a lookup error for my app'''
+  
+
+  
+
+  if important_key not in resource_dict and not ok_to_be_missing:
+    raise MyAppLookupError('resource is missing, and that is not ok.')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17001494)
+ Capture the error in your  except  clause, then manually re-raise it later. Capture the traceback, and reprint it via the  traceback  module. 
+
+  import sys
+import traceback
+
+def f():
+    raise Exception("sparrow")
+
+def g():
+    raise Exception("coconut")
+
+def a():
+    f()
+
+try:
+    print "trying a"
+    a()
+except Exception as e:
+    print sys.exc_info()
+    (_,_,tb) = sys.exc_info()
+    print "trying g"
+    try:
+        g()
+    except:
+        print "\n".join(traceback.format_tb(tb))
+        raise e
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29455811)
+ Very unfortunately the accepted answer does not answer the question. You would rather pipe the exception details into a Queue. Please have a look at: https://stackoverflow.com/questions/2829329/catch-a-threads-exception-in-the-caller-thread-in-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1854263)
+ I wrote about http://nedbatchelder.com/blog/200711/rethrowing_exceptions_in_python.html, including something very much like this as an example. 
+
+ On your worker thread you do this (Python 2.x, see below for Python 3.x version): 
+
+  try:
+    self.result = self.do_something_dangerous()
+except Exception, e:
+    import sys
+    self.exc_info = sys.exc_info()
+  
+
+  
+
+  if self.exc_info:
+    raise self.exc_info[1], None, self.exc_info[2]
+return self.result
+  
+
+ The exception will appear in the main thread just as if it had been raised in the worker thread. 
+
+  Python 3.  
+
+  try:
+    self.result = self.do_something_dangerous()
+except Exception as e:
+    import sys
+    self.exc_info = sys.exc_info()
+  
+
+  
+
+  if self.exc_info:
+    raise self.exc_info[1].with_traceback(self.exc_info[2])
+return self.result
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3997538)
+ Your code does not do what you think it does. You cannot raise Exceptions in a coroutine like this. What you do instead is catching the http://docs.python.org/library/exceptions.html#exceptions.GeneratorExit exception. See what happens when you use a different Exception: 
+
+  class YieldOne:
+  def __iter__(self):
+    try:
+      yield 1
+    except RuntimeError:
+        print "you won't see this"
+    except GeneratorExit:
+      print 'this is what you saw before'
+      # raise
+
+for i in YieldOne():
+  raise RuntimeError
+  
+
+ As this still gets upvotes, here is how you raise an Exception in a generator: 
+
+  class YieldOne:
+  def __iter__(self):
+    try:
+      yield 1
+    except Exception as e:
+      print "Got a", repr(e)
+      yield 2
+      # raise
+
+gen = iter(YieldOne())
+
+for row in gen:
+    print row # we are at `yield 1`
+    print gen.throw(Exception) # throw there and go to `yield 2` 
+  
+
+ See docs for http://docs.python.org/reference/expressions.html#generator.throw. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16003867)
+ The arguments to  generator.throw(...)  exactly mirror the arguments to the  raise  statement.  So it doesn't  have  to be an exception class; it can be an exception object, just like with  raise . 
+
+ This works perfectly fine: 
+
+  x.throw(Exception("i'm an argument"))
+  
+
+ The documentation is, admittedly, extremely misleading on this.  http://www.python.org/dev/peps/pep-0342/ at least gives you a hint: 
+
+ 
+   The effect of raising the exception is exactly as if the statement: 
+
+  raise type, value, traceback
+  
+  
+   was executed at the suspension point. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3997585)
+ EDIT: What THC4k said. 
+
+ If you really want to raise an arbitrary exception inside a generator, use the  throw  method: 
+
+  >>> def Gen():
+...     try:
+...             yield 1
+...     except Exception:
+...             print "Excepted."
+...
+>>> foo = Gen()
+>>> next(foo)
+1
+>>> foo.throw(Exception())
+Excepted.
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+StopIteration
+  
+
+ You'll notice that you get a  StopIteration  at the top level. These are raised by generators which have run out of elements; they are usually swallowed by the  for  loop but in this case we made the generator raise an exception so the loop doesn't notice them. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26224384)
+ First of all, why is  StopIteration  raised. Your definition of  preorder_traversal  starts with: 
+
+  try:
+    yield obj
+except IgnoreSubtree:
+    return
+  
+
+ In a generator a plain  return  statement  is equivalent to  raise StopIteration  . In python3.3+ you can actually use  return value  and it is equivalent to  raise StopIteration(value) . 
+
+ So, you are  throw ing in a certain exception, it is being caught by the generator which executes the  return  and hence raises a  StopIteration . Whenever you call  send ,  next  or  throw  a  StopIteration  may be raised if the generator ends its execution without finding a  yield , so the code you are using in the test is doomed to raise a  StopIteration  whenever skipping a subtree will end the iteration. 
+
+ In other words your test is flawed because the  throw  call can raise an exception even if you have a correct implementation of your generator. So you should either wrap that call in a  try  statement: 
+
+  try:
+    iterator.throw(IgnoreSubtree)
+except StopIteration:
+    break
+  
+
+ Alternatively you can use the https://docs.python.org/3/library/contextlib.html#contextlib.suppress context manager to suppress the  StopIteration : 
+
+  with suppress(StopIteration):
+    for o in iterator:
+        ...
+        iterator.throw(IgnoreSubtree)
+  
+
+ If you aren't using python3.4 you can easily reimplement this context manager using the https://docs.python.org/3/library/contextlib.html#contextlib.contextmanager decorator (it's available since python 2.6): 
+
+  def suppress(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
+  
+
+ Your code is basically correct. If you were using python3.3+ you could simplify it to: 
+
+  def preorder_traversal(obj):
+    try:
+        yield obj
+    except IgnoreSubtree:
+        return
+    else:
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                yield from preorder_traversal(v)
+  
+
+ Your implementation doesn't raise any error for me, once the  StopIteration  is suppressed for the outer  throw . Also the result is what you expect.
+Unfortunately without the  yield from  I don't see any way to simplify the control flow. 
+
+
+

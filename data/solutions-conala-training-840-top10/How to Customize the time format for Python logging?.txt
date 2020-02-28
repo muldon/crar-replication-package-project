@@ -1,0 +1,253 @@
+Query: How to Customize the time format for Python logging?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23874319)
+ Using  logging.basicConfig , the following example works for me: 
+
+  logging.basicConfig(
+    filename='HISTORYlistener.log',
+    level=logging.DEBUG,
+    format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
+  
+
+ This allows you to format & config all in one line. A resulting log record looks as follows: 
+
+  2014-05-26 12:22:52.376 CRITICAL historylistener - main: History log failed to start
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3220312)
+ From the http://docs.python.org/2/library/logging.html#logging.Formatter regarding the Formatter class: 
+
+ 
+   The construcr takes two optional arguments: a message format string and a date format string. 
+ 
+
+  
+
+  # create formatter
+formatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s")
+  
+
+  
+
+  # create formatter
+formatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s",
+                              "%Y-%m-%d %H:%M:%S")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6127057)
+ if using logging.config.fileConfig with a configuration file use something like: 
+
+  [formatter_simpleFormatter]
+format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+datefmt=%Y-%m-%d %H:%M:%S
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44252198)
+ To add to the other answers, here are the https://docs.python.org/3/library/time.html#time.strftime from Python Documentation. 
+
+  Directive   Meaning Notes
+
+%a  Locale’s abbreviated weekday name.   
+%A  Locale’s full weekday name.  
+%b  Locale’s abbreviated month name.     
+%B  Locale’s full month name.    
+%c  Locale’s appropriate date and time representation.   
+%d  Day of the month as a decimal number [01,31].    
+%H  Hour (24-hour clock) as a decimal number [00,23].    
+%I  Hour (12-hour clock) as a decimal number [01,12].    
+%j  Day of the year as a decimal number [001,366].   
+%m  Month as a decimal number [01,12].   
+%M  Minute as a decimal number [00,59].  
+%p  Locale’s equivalent of either AM or PM. (1)
+%S  Second as a decimal number [00,61]. (2)
+%U  Week number of the year (Sunday as the first day of the week) as a decimal number [00,53]. All days in a new year preceding the first Sunday are considered to be in week 0.    (3)
+%w  Weekday as a decimal number [0(Sunday),6].   
+%W  Week number of the year (Monday as the first day of the week) as a decimal number [00,53]. All days in a new year preceding the first Monday are considered to be in week 0.    (3)
+%x  Locale’s appropriate date representation.    
+%X  Locale’s appropriate time representation.    
+%y  Year without century as a decimal number [00,99].    
+%Y  Year with century as a decimal number.   
+%z  Time zone offset indicating a positive or negative time difference from UTC/GMT of the form +HHMM or -HHMM, where H represents decimal hour digits and M represents decimal minute digits [-23:59, +23:59].  
+%Z  Time zone name (no characters if no time zone exists).   
+%%  A literal '%' character.     
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16759818)
+ The default format is located http://hg.python.org/cpython/file/5c4ca109af1c/Lib/logging/__init__.py#l1640 which is: 
+
+<pre class="lang-py prettyprint-override"> BASIC_FORMAT = "%(levelname)s:%(name)s:%(message)s"  
+  
+
+ The http://hg.python.org/cpython/file/5c4ca109af1c/Lib/logging/__init__.py#l399 code will tell you how you can customize it.  Here is one example on how you can customize it. 
+
+<pre class="lang-py prettyprint-override"> import sys
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
+    datefmt="%H:%M:%S",
+    stream=sys.stdout)
+
+logging.info("HEY")
+  
+
+ Which results in: 
+
+<pre class="lang-none prettyprint-override"> [26/May/2013 06:41:40] INFO [root.<module>:1] HEY
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16340392)
+ Below should give your expected output 
+
+  [formatter_mylog]
+format: %(asctime)s %(message)s
+datefmt=%b %d %H:%M:%S
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/24750635)
+ So you may start by dropping your basicConfig that already add a StreamHandler to your root syslogger, so you actually have two StreamHandlers: 
+
+  logging.getLogger().addHandler(fh)
+logging.getLogger().addHandler(ch)
+print logging.getLogger().handlers
+
+[<logging.StreamHandler object at 0x7f3f57c4d050>, <logging.FileHandler object at 0x7f3f57c091d0>, <logging.StreamHandler object at 0x7f3f57c09250>]
+  
+
+ Then you have to do what basicConfig was doing for you: 
+
+  logging.getLogger().setLevel(logging.INFO)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10682052)
+ Typically libraries should just create a http://docs.python.org/library/logging.handlers.html#logging.NullHandler handler, which is simply a do nothing handler. The end user or application developer who uses your library can then configure the logging system. See the section http://docs.python.org/howto/logging.html#configuring-logging-for-a-library in the  logging  documentation for more information. In particular, see the note which begins 
+
+ 
+   It is strongly advised that you do not add any handlers other than  NullHandler  to your library's loggers. 
+ 
+
+ In your case I would simply create a logging handler, as per the logging documentation,  
+
+  import logging
+logging.getLogger('pyftpdlib').addHandler(logging.NullHandler())
+  
+
+  Edit  The logging implementation sketched out in the question seems perfectly reasonable. In your documentation just mention  logger  and discuss or point users to the  logging.setLevel  and  logging.setFormatter  methods for customising the output from your library. Rather than using  logging.basicConfig(format=FORMAT)  you could consider using http://docs.python.org/dev/library/logging.config.html#logging.config.fileConfig to manage the settings for your output and document the configuration file somewhere in your documentation, again pointing the user to the logging module documentation for the format expected in this file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42291559)
+ You need to change the settings.py file in the airflow package to change the log format 
+
+ 
+  Update  settings.py  (after LOGGING_LEVEL add below line): 
+
+ LOG_FORMAT = os.path.expanduser(conf.get('core', 'LOG_FORMAT'))  
+  Update  airflow.cfg  configuration file:
+Add line under [core]:  
+
+ LOG_FORMAT = "%(asctime)s logLevel=%(levelname)s logger=%(name)s - %(message)s"  
+  Restart  webserver  and  scheduler  services 
+
+ Try the approach as mentioned in the answer https://stackoverflow.com/questions/42173554/apache-airflow-control-over-logging-disable-adjust-logging-level to change logging level  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49106363)
+ I usually have a class to customize logging but you can achieve what you want with a custom  logging.Formatter : 
+
+  import logging
+
+class NewLineFormatter(logging.Formatter):
+
+    def __init__(self, fmt, datefmt=None):
+        """
+        Init given the log line format and date format
+        """
+        logging.Formatter.__init__(self, fmt, datefmt)
+
+
+    def format(self, record):
+        """
+        Override format function
+        """
+        msg = logging.Formatter.format(self, record)
+
+        if record.message != "":
+            parts = msg.split(record.message)
+            msg = msg.replace('\n', '\n' + parts[0])
+
+        return msg
+  
+
+ The  format()  function above splits lines and replicates the timestamp/logging-preamble in each line (after every  \n ) 
+
+ Now you need to attach the formatter to the root logger. You can actually attach it to any  handler  if you build your own logging setup/structure: 
+
+  # Basic config as usual
+logging.basicConfig(level=logging.DEBUG)
+
+# Some globals/consts
+DATEFORMAT = '%d-%m-%Y %H:%M:%S'
+LOGFORMAT = '%(asctime)s %(process)s %(levelname)-8s %(filename)15s-%(lineno)-4s: %(message)s'
+
+# Create a new formatter
+formatter = NewLineFormatter(LOGFORMAT, datefmt=DATEFORMAT)
+
+# Attach the formatter on the root logger
+lg = logging.getLogger()
+
+# This is a bit of a hack... might be a better way to do this
+lg.handlers[0].setFormatter(formatter)
+
+
+# test root logger
+lg.debug("Hello\nWorld")
+
+# test module logger + JSON
+lg = logging.getLogger("mylogger")
+lg.debug('{\n    "a": "Hello",\n    "b": "World2"\n}')
+  
+
+ The above gives you: 
+
+  05-03-2018 08:37:34 13065 DEBUG     test_logger.py-47  : Hello
+05-03-2018 08:37:34 13065 DEBUG     test_logger.py-47  : World
+05-03-2018 08:37:34 13065 DEBUG     test_logger.py-51  : {
+05-03-2018 08:37:34 13065 DEBUG     test_logger.py-51  :     "a": "Hello",
+05-03-2018 08:37:34 13065 DEBUG     test_logger.py-51  :     "b": "World2"
+05-03-2018 08:37:34 13065 DEBUG     test_logger.py-51  : }
+  
+
+   .handlers[0]  of the root logger which is a bit of a hack but I couldn't find a way around this... Also, note the formatted JSON printing :) 
+
+
+

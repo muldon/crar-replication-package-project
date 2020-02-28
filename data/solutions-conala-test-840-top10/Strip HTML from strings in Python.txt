@@ -1,0 +1,257 @@
+Query: Strip HTML from strings in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/925630)
+ I always used this function to strip HTML tags, as it requires only the Python stdlib: 
+
+ On Python 2 
+
+  from HTMLParser import HTMLParser
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def strip_tags(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
+  
+
+ For Python 3 
+
+  from html.parser import HTMLParser
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.strict = False
+        self.convert_charrefs= True
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def strip_tags(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
+  
+
+  Note : this works only for 3.1. For 3.2 or above, you need to call the parent class's  init  function. See https://stackoverflow.com/q/11061058/3416774 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44225791)
+ The Beautiful Soup package does this immediately for you.  
+
+  from bs4 import BeautifulSoup
+
+soup = BeautifulSoup(html)
+text = soup.get_text()
+print(text)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48263431)
+ For one project, I needed so strip HTML, but also css and js. Thus, I made a variation of Eloffs answer: 
+
+  class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.strict = False
+        self.convert_charrefs= True
+        self.fed = []
+        self.css = False
+    def handle_starttag(self, tag, attrs):
+        if tag == "style" or tag=="script":
+            self.css = True
+    def handle_endtag(self, tag):
+        if tag=="style" or tag=="script":
+            self.css=False
+    def handle_data(self, d):
+        if not self.css:
+            self.fed.append(d)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def strip_tags(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34532382)
+ Why all of you do it the hard way?
+You can use BeautifulSoup  get_text()  feature. 
+
+  from bs4 import BeautifulSoup
+
+html_str = '''
+<td>http://www.fakewebsite.com
+ http://www.fakewebsite.com
+</td>
+'''
+soup = BeautifulSoup(html_str)
+
+print(soup.get_text()) 
+#or via attribute of Soup Object: print(soup.text)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54567690)
+ I used the https://www.crummy.com/software/BeautifulSoup/bs4/doc/#strings-and-stripped-strings to grab all strings in the html, and store in a list: 
+
+  from bs4 import BeautifulSoup
+
+html = """<h3 class="s-item__title s-item__title--has-tags" role="text"><div><div class="s-item__title-tag">Nov 14, 2018</div></div>Text I Want</h3>)"""
+
+bs = BeautifulSoup(html, 'html.parser')
+text = [s for s in bs.h3.strings]
+
+text
+
+['Nov 14, 2018', 'Text I Want']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13703994)
+ If you need to preserve HTML entities (i.e.  &amp; ), I added "handle_entityref" method to https://stackoverflow.com/a/925630/1094246. 
+
+  from HTMLParser import HTMLParser
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def handle_entityref(self, name):
+        self.fed.append('&%s;' % name)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def html_to_text(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17000677)
+ The html page may very well contains these whitespaces characters. 
+
+ What you retrieve a  list  of unicode strings, which is why you can't simply call  strip  on it. If you want to strip these whitespaces characters from  each  string in this list, you can run the following: 
+
+  >>> [s.strip() for s in [u'\n                    A mano libera\n                  ']]
+[u'A mano libera']
+  
+
+ If only the first element matters to you, than simply do: 
+
+  >>> [u'\n                    A mano libera\n                  '][0].strip()
+u'A mano libera'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14603269)
+ If you want to strip all HTML tags the easiest way I found is using BeautifulSoup: 
+
+  from bs4 import BeautifulSoup  # Or from BeautifulSoup import BeautifulSoup
+
+def stripHtmlTags(htmlTxt):
+    if htmlTxt is None:
+            return None
+        else:
+            return ''.join(BeautifulSoup(htmlTxt).findAll(text=True)) 
+  
+
+ I tried the code of the accepted answer but I was getting  "RuntimeError: maximum recursion depth exceeded", which didn't happen with the above block of code. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21333355)
+ The solutions with HTML-Parser are all breakable, if they run only once: 
+
+  html_to_text('<<b>script>alert("hacked")<</b>/script>
+  
+
+  
+
+  <script>alert("hacked")</script>
+  
+
+ . if you use a HTML-Parser, count the Tags until zero are replaced: 
+
+  from HTMLParser import HTMLParser
+
+class MLStripper(HTMLParser):
+    def __init__(self):
+        self.reset()
+        self.fed = []
+        self.containstags = False
+
+    def handle_starttag(self, tag, attrs):
+       self.containstags = True
+
+    def handle_data(self, d):
+        self.fed.append(d)
+
+    def has_tags(self):
+        return self.containstags
+
+    def get_data(self):
+        return ''.join(self.fed)
+
+def strip_tags(html):
+    must_filtered = True
+    while ( must_filtered ):
+        s = MLStripper()
+        s.feed(html)
+        html = s.get_data()
+        must_filtered = s.has_tags()
+    return html
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45011512)
+ Don't try to strip incrementally. Then you'll need to specify the exact order in which the characters appear, which is hardly likely to be the same for all strings, and the order has to be reflected for the leading and trailing parts. 
+
+ You can strip all at once: 
+
+  row.append(td.text.strip('\n\r\t": '))
+  
+
+ 
+
+  
+
+  >>> ':\r\n\t    \t \r\n            Walker\r\n\t    \n\n'.strip('\n\r\t": ')
+'Walker'
+  
+
+
+

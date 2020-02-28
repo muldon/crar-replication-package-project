@@ -1,0 +1,324 @@
+Query: How to make several plots on a single page using matplotlib?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2064911)
+ This works also: 
+
+  for i in range(19):
+    plt.subplot(5,4,i+1) 
+  
+
+ It plots 19 total graphs on one page. The format is 5 down and 4 across.. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45229426)
+ @doug & FS.'s answer are very good solutions. I want to share the solution for iteration on pandas.dataframe. 
+
+  import pandas as pd
+df=pd.DataFrame([[1, 2], [3, 4], [4, 3], [2, 3]])
+fig = plt.figure(figsize=(14,8))
+for i in df.columns:
+    ax=plt.subplot(2,1,i+1) 
+    df[[i]].plot(ax=ax)
+    print(i)
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18673184)
+ Since this question is from 4 years ago new things have been implemented and among them there is a http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.subplots: 
+
+  fig, axes = plot.subplots(nrows=2, ncols=3, sharex=True, sharey=True)
+  
+
+ where  axes  is a  numpy.ndarray  of AxesSubplot objects, making it very convenient to go through the different subplots just using array indices  [i,j] . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1358983)
+ To answer your main question, you want to use the http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.subplot command.  I think changing  plt.figure(i)  to  plt.subplot(4,4,i+1)  should work. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45159122)
+ Not sure if your indentation is wrong just in your question, but the key is you need to finish plotting all subplots before save your fig as pdf. Specifically, you need to move  fig = plt.figure(figsize=(12,12))  and  pdf.savefig(fig)  outside your  for  loop and keep them within your  with  statement. Here is one example modified from yours, which gives you 1 pdf page with 11 subplots: 
+
+  import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import numpy as np
+
+with PdfPages('test.pdf') as pdf:
+    t = np.arange(0.0, 2.0, 0.01)
+    s = 1 + np.sin(2*np.pi*t)
+    s = s * 50
+
+    fig = plt.figure(figsize=(12,12))
+    n=0
+    for i in range(11):
+        n += 1
+        ax = fig.add_subplot(4,3,n)
+        ax.plot(t, s, linewidth=3, label='a')
+        ax.plot(t, s / 2, linewidth=3, label='b')
+        ax.set_ylim(0, 100)
+        ax.legend()
+        ax.yaxis.set_label_text('Excess movement (%)')
+        plt.setp(ax.xaxis.get_ticklabels(), rotation='45')
+    pdf.savefig(fig)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2060170)
+ The answer from  las3rjock , which somehow is the answer accepted by the OP, is incorrect--the code doesn't run, nor is it valid matplotlib syntax; that answer provides no runnable code and lacks any information or suggestion that the OP might find useful in writing their own code to solve the problem in the OP. 
+
+ Given that it's the accepted answer and has already received several up-votes, I suppose a little deconstruction is in order.  
+
+ First, calling  subplot  does  not  give you multiple plots;   subplot   is called to create a single plot, as well as to create multiple plots. In addition, "changing plt.figure(i)" is not correct. 
+
+  plt.figure()  (in which plt or PLT is usually matplotlib's  pyplot library  imported and rebound as a global variable, plt or sometimes PLT, like so: 
+
+  from matplotlib import pyplot as PLT
+
+fig = PLT.figure()
+  
+
+ the line just above creates a matplotlib figure instance; this object's  add_subplot  method is then called for every plotting window (informally think of an x & y axis comprising a single subplot). You create (whether just one or for several on a page), like so 
+
+  fig.add_subplot(111)
+  
+
+ this syntax is equivalent to 
+
+  fig.add_subplot(1,1,1)
+  
+
+ choose the one that makes sense to you. 
+
+ Below I've listed the code to plot two plots on a page, one above the other. The formatting is done via the argument passed to  add_subplot . Notice the argument is (  211  ) for the first plot and (  212  ) for the second.  
+
+  from matplotlib import pyplot as PLT
+
+fig = PLT.figure()
+
+ax1 = fig.add_subplot(211)
+ax1.plot([(1, 2), (3, 4)], [(4, 3), (2, 3)])
+
+ax2 = fig.add_subplot(212)
+ax2.plot([(7, 2), (5, 3)], [(1, 6), (9, 5)])
+
+PLT.show()
+  
+
+ Each of these two arguments is a complete specification for correctly placing the respective plot windows on the page. 
+
+   211   (which again, could also be written in 3-tuple form as (2,1,1) means  two rows  and  one column  of plot windows; the third digit specifies the ordering of that particular subplot window relative to the other subplot windows--in this case, this is the first plot (which places it on row 1) hence plot number 1, row 1 col 1. 
+
+ The argument passed to the second call to  add_subplot , differs from the first only by the trailing digit (a 2 instead of a 1, because this plot is the second plot (row 2, col 1). 
+
+ An example with more plots: if instead you wanted  four  plots on a page, in a 2x2 matrix configuration, you would call the add_subplot method four times, passing in these four arguments (221), (222), (223), and (224), to create four plots on a page at 10, 2, 8, and 4 o'clock, respectively and in this order. 
+
+ Notice that each of the four arguments contains two leadings 2's--that encodes the 2 x 2 configuration, ie, two rows and two columns. 
+
+ The third (right-most) digit in each of the four arguments encodes the ordering of that particular plot window in the 2 x 2 matrix--ie, row 1 col 1 (1),  row 1 col 2 (2), row 2 col 1 (3), row 2 col 2 (4). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44695303)
+ As I needed something similar for my work, I put some effort into automating the process of grouping plots into figures depending on the display medium. At first I had the idea to do each plot only once and just add the subplots to the figures to be saved in the pdf, but sadly, according to a comment in  https://stackoverflow.com/a/6309636/2454357, this is not possible, so everything needs to be re-plotted. The code shows the general idea of how this can be automated using  PdfPages : 
+
+  from matplotlib import pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
+
+def niter(iterable, n):
+    """
+    Function that returns an n-element iterator, i.e.
+    sub-lists of a list that are max. n elements long.
+    """
+    pos = 0
+    while pos < len(iterable):
+        yield iterable[pos:pos+n]
+        pos += n
+
+
+def plot_funcs(x, functions, funcnames, max_col, max_row):
+    """
+    Function that plots all given functions over the given x-range,
+    max_col*max_row at a time, creating all needed figures while doing
+    so.
+    """
+
+    ##amount of functions  to put in one plot    
+    N = max_col*max_row
+
+    ##created figures go here
+    figs = []
+
+    ##plotted-on axes go here
+    used_axes = []
+
+    ##looping through functions N at a time:
+    for funcs, names in zip(niter(functions, N), niter(funcnames,N)):
+
+        ##figure and subplots
+        fig, axes = plt.subplots(max_col, max_row)
+
+        ##plotting functions
+        for name,func,ax in zip(names, funcs, axes.reshape(-1)):
+            ax.plot(x, func(x))
+            ax.set_title(name)
+            used_axes.append(ax)
+
+        ##removing empty axes:
+        for ax in axes.reshape(-1):
+            if ax not in used_axes:
+                ax.remove()
+
+        fig.tight_layout()
+        figs.append(fig)
+
+    return figs
+
+##some functions to display
+functions = [
+    lambda x: x, lambda x: 1-x, lambda x: x*x, lambda x: 1/x, #4
+    np.exp, np.sqrt, np.log, np.sin, np.cos,                  #5
+    ]
+funcnames = ['x','1-x', 'x$^2$', '1/x', 'exp', 'sqrt', 'log', 'sin','cos']
+
+##layout for display on the screen
+disp_max_col = 3
+disp_max_row = 2
+
+##layout for pdf
+pdf_max_col = 2
+pdf_max_row = 4
+
+##displaying on the screen:
+x = np.linspace(0,1,100)
+figs = plot_funcs(x, functions, funcnames, disp_max_row, disp_max_col)
+plt.show()
+
+
+##saving to pdf if user wants to:
+answer = input('Do you want to save the figures to pdf?')
+if answer in ('y', 'Y', 'yes', ''):
+
+    ##change number of subplots
+    N = disp_max_col*disp_max_row
+    figs = plot_funcs(x, functions, funcnames, pdf_max_row, pdf_max_col)
+
+    ##from https://matplotlib.org/examples/pylab_examples/multipage_pdf.html
+    with PdfPages('multipage_pdf.pdf') as pdf:
+        for fig in figs:
+            plt.figure(fig.number)
+            pdf.savefig()
+  
+
+ The core function,  plot_funcs  takes  max_col  and  max_row  keywords and then creates figures with the according amount of subplots. It then loops through a given list of functions to be plotted, each on its own subplot. Unused subplots are removed. Finally a list of all figures is returned. 
+
+ In my example, I have 9 different functions, which I first show on the screen in a 2x3 layout (making a total of two figures, one with 6 subplots and one with 3 subplots). If the user is happy, the plots are redone in a 2x4 layout (again two figures, but this time one with 8 subplots and 1 with 1 subplot) and then saved to a file called  multipage_pdf.pdf , following the https://matplotlib.org/examples/pylab_examples/multipage_pdf.html. 
+
+ Tested on python 3.5 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46872578)
+ The following works in matplotlib 2.1 or higher.  There is also https://matplotlib.org/gallery/pie_and_polar_charts/polar_scatter.html#scatter-plot-on-polar-axis-confined-to-a-sector on the matplotlib page. 
+You may use a usual polar plot,  ax = fig.add_subplot(111, polar=True)  and confine the theta range. For a  half polar plot  
+
+  ax.set_thetamin(0)
+ax.set_thetamax(180)
+  
+
+ or for a  quarter polar plot  
+
+  ax.set_thetamin(0)
+ax.set_thetamax(90)
+  
+
+ Complete example: 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+theta = np.linspace(0,np.pi)
+r = np.sin(theta)
+
+fig = plt.figure()
+ax = fig.add_subplot(111, polar=True)
+c = ax.scatter(theta, r, c=r, s=10, cmap='hsv', alpha=0.75)
+
+ax.set_thetamin(0)
+ax.set_thetamax(180)
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/BwBG7.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9837940)
+ figlegend may be what you're looking f http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.figlegend 
+
+ Example here: http://matplotlib.org/examples/pylab_examples/figlegend_demo.html 
+
+ Another example: 
+
+  plt.figlegend( lines, labels, loc = 'lower center', ncol=5, labelspacing=0. )
+  
+
+  
+
+  fig.legend( lines, labels, loc = (0.5, 0), ncol=5 )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47100072)
+ A figure is a figure. You cannot have a figure inside a figure. The usual approach is to create a figure, create one or several subplots, plot something in the subplots.  
+
+ In case it may happen that you want to plot something in different axes or figures, it might make sense to wrap the plotting in a function which takes the axes as argument. 
+
+ You could then use this function to plot to an axes of a new figure or to plot to an axes of a figure with many subplots. 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+def myplot(ax, data_x, data_y, color="C0"):
+    ax.plot(data_x, data_y, color=color)
+    ax.legend()
+
+x = np.linspace(0,10)
+y = np.cumsum(np.random.randn(len(x),4), axis=0)
+
+#create 4 figures
+for i in range(4):
+    fig, ax = plt.subplots()
+    myplot(ax, x, y[:,i], color="C{}".format(i))
+
+# create another figure with each plot as subplot
+fig, ax = plt.subplots(2,2)
+for i in range(4):
+    myplot(ax.flatten()[i], x, y[:,i], color="C{}".format(i))
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/TWQRq.png 
+
+
+

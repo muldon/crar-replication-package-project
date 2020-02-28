@@ -1,0 +1,162 @@
+Query: How do I compress or zip a directory recursively?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16646691)
+  public final class ZipFileUtil {
+    public static void zipDirectory(File dir, File zipFile) throws IOException {
+        FileOutputStream fout = new FileOutputStream(zipFile);
+        ZipOutputStream zout = new ZipOutputStream(fout);
+        zipSubDirectory("", dir, zout);
+        zout.close();
+    }
+
+    private static void zipSubDirectory(String basePath, File dir, ZipOutputStream zout) throws IOException {
+        byte[] buffer = new byte[4096];
+        File[] files = dir.listFiles();
+        for (File file : files) {
+            if (file.isDirectory()) {
+                String path = basePath + file.getName() + "/";
+                zout.putNextEntry(new ZipEntry(path));
+                zipSubDirectory(path, file, zout);
+                zout.closeEntry();
+            } else {
+                FileInputStream fin = new FileInputStream(file);
+                zout.putNextEntry(new ZipEntry(basePath + file.getName()));
+                int length;
+                while ((length = fin.read(buffer)) > 0) {
+                    zout.write(buffer, 0, length);
+                }
+                zout.closeEntry();
+                fin.close();
+            }
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23346890)
+ The following method(s) seem to successfully compress a directory recursively: 
+
+  public static void compressZipfile(String sourceDir, String outputFile) throws IOException, FileNotFoundException {
+    ZipOutputStream zipFile = new ZipOutputStream(new FileOutputStream(outputFile));
+    compressDirectoryToZipfile(sourceDir, sourceDir, zipFile);
+    IOUtils.closeQuietly(zipFile);
+}
+
+private static void compressDirectoryToZipfile(String rootDir, String sourceDir, ZipOutputStream out) throws IOException, FileNotFoundException {
+    for (File file : new File(sourceDir).listFiles()) {
+        if (file.isDirectory()) {
+            compressDirectoryToZipfile(rootDir, sourceDir + File.separator + file.getName(), out);
+        } else {
+            ZipEntry entry = new ZipEntry(sourceDir.replace(rootDir, "") + file.getName());
+            out.putNextEntry(entry);
+
+            FileInputStream in = new FileInputStream(sourceDir + file.getName());
+            IOUtils.copy(in, out);
+            IOUtils.closeQuietly(in);
+        }
+    }
+}
+  
+
+ As seen in my compression code snippet, I'm using  IOUtils.copy()  to handle stream data transfer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24642072)
+ Modified as i needed then mixed in a bit of the best answers. This version will: 
+
+ 
+  Recursively Extract a zip to given location  
+  Create empty directories  
+  Close zip properly  
+ 
+
+ 
+
+  public static void unZipAll(File source, File destination) throws IOException 
+{
+    System.out.println("Unzipping - " + source.getName());
+    int BUFFER = 2048;
+
+    ZipFile zip = new ZipFile(source);
+    try{
+        destination.getParentFile().mkdirs();
+        Enumeration zipFileEntries = zip.entries();
+
+        // Process each entry
+        while (zipFileEntries.hasMoreElements())
+        {
+            // grab a zip file entry
+            ZipEntry entry = (ZipEntry) zipFileEntries.nextElement();
+            String currentEntry = entry.getName();
+            File destFile = new File(destination, currentEntry);
+            //destFile = new File(newPath, destFile.getName());
+            File destinationParent = destFile.getParentFile();
+
+            // create the parent directory structure if needed
+            destinationParent.mkdirs();
+
+            if (!entry.isDirectory())
+            {
+                BufferedInputStream is = null;
+                FileOutputStream fos = null;
+                BufferedOutputStream dest = null;
+                try{
+                    is = new BufferedInputStream(zip.getInputStream(entry));
+                    int currentByte;
+                    // establish buffer for writing file
+                    byte data[] = new byte[BUFFER];
+
+                    // write the current file to disk
+                    fos = new FileOutputStream(destFile);
+                    dest = new BufferedOutputStream(fos, BUFFER);
+
+                    // read and write until last byte is encountered
+                    while ((currentByte = is.read(data, 0, BUFFER)) != -1) {
+                        dest.write(data, 0, currentByte);
+                    }
+                } catch (Exception e){
+                    System.out.println("unable to extract entry:" + entry.getName());
+                    throw e;
+                } finally{
+                    if (dest != null){
+                        dest.close();
+                    }
+                    if (fos != null){
+                        fos.close();
+                    }
+                    if (is != null){
+                        is.close();
+                    }
+                }
+            }else{
+                //Create directory
+                destFile.mkdirs();
+            }
+
+            if (currentEntry.endsWith(".zip"))
+            {
+                // found a zip file, try to extract
+                unZipAll(destFile, destinationParent);
+                if(!destFile.delete()){
+                    System.out.println("Could not delete zip");
+                }
+            }
+        }
+    } catch(Exception e){
+        e.printStackTrace();
+        System.out.println("Failed to successfully unzip:" + source.getName());
+    } finally {
+        zip.close();
+    }
+    System.out.println("Done Unzipping:" + source.getName());
+}
+  
+
+
+

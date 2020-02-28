@@ -1,0 +1,238 @@
+Query: create dictionary from list of variables
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25315158)
+ I'd define a function to do it and then call that whenever you need the list. 
+
+  a=[1,2,3]
+b=[4,5,6]
+
+def sum(a, b):
+    return a + b
+  
+
+  
+
+  >>> sum(a, b)
+[1, 2, 3, 4, 5, 6]
+>>> a.append(5)
+>>> sum(a, b)
+[1, 2, 3, 5, 4, 5, 6]
+  
+
+ If it's not necessary that it be a flat list, you can easily do what you'd want. 
+
+  >>> a = [1, 2, 3]
+>>> b = [4, 5, 6]
+>>> sum = [a, b]
+>>> print(sum)
+[[1, 2, 3], [4, 5, 6]]
+>>> a.append(8)
+>>> print(sum)
+[[1, 2, 3, 8], [4, 5, 6]]
+  
+
+ That said, I'd recommend against defining a variable named  sum  as it's a https://docs.python.org/2/library/functions.html#sum. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45573933)
+ You can use a  list comprehension  like so: 
+
+  lst = [k for d in dct['test_cases'] for k in d['variables'].keys()]
+# ['var1', 'var2', 'var4', 'var3']
+  
+
+ Note that the order of the keys for each inner dict is not guaranteed since dicts are not ordered in < Python 3.6 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45574021)
+ This list comprehension is more forgiving to malformed data (e.g. it would ignore data that did not contain  variables ). 
+
+  d = {
+    "test_cases": [{
+            "name": "first request",
+            "request": {
+                "url": "{{env_base_url}}/v2/597649d3110000be08b1be84/{{env_userName}}"
+            },
+            "variables": {
+                "var1": "some stuff",
+                "var2": "some other stuff"
+            }
+        },
+        {
+            "name": "second request",
+        },
+        {
+            "name": "third request",
+            "request": {
+                "url": "{{env_base_url}}/v2/597649d3110000be08b1be84/{{env_userName}}"
+            },
+            "variables": {
+                "var3": "some new stuff",
+                "var4": "some other new stuff"
+            }
+        }
+    ]
+}
+
+>>> [var 
+     for sublist in [case.get('variables', {}).keys() for case in d.get('test_cases', [])]
+     for var in sublist]
+['var1', 'var2', 'var4', 'var3']
+  
+
+ Although the code above is efficient, this is more readable: 
+
+  variables = []
+items = d.get('test_cases')
+for item in items:
+    variables.extend(item.get('variables', {}).keys())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33893640)
+ Instead of creating new variables, you can simply create a dictionary of lists, and then you can access the individual lists with the name, like this 
+
+  >>> myList = ['a', 'b', 'c']
+>>> myDict = {item: [] for item in myList}
+>>> myDict
+{'c': [], 'a': [], 'b': []}
+  
+
+ Now, you can use the lists, like this 
+
+  >>> myDict['a'].append(1)
+>>> myDict['b'].append(2)
+>>> myDict['c'].append(3)
+>>> myDict
+{'c': [3], 'a': [1], 'b': [2]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14241591)
+  Always  use https://stackoverflow.com/questions/14241133/how-can-i-create-lists-from-a-list-of-strings/14241195#14241195. 
+
+ 
+
+  globals()  returns the dictionary backing the global namespace, at which point you can treat it like any other dictionary.   .   It leads to pollution of the namespace, can override existing variables, and makes it more difficult to debug issues resulting from this. 
+
+  for name in names:
+    globals().setdefault(name, [])
+apple.append('red')
+print(apple)  # prints ['red']
+  
+
+ You would have to know beforehand that the list contained 'apple' in order to refer to the variable 'apple' later on, at which point you could have defined the variable normally.  So this is not useful in practice.  Given that Jon's answer also produces a dictionary, there's no upside to using  globals . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53107438)
+ Another solution would be to create an empty dictionary and update it: 
+
+  >>> my_list = [{'key':'value'}, {'key2':'value2'}, {'key3':'value3'}]
+>>> my_dict = {}
+>>> for d in my_list: my_dict.update(d)
+...
+>>> my_dict
+{'key': 'value', 'key2': 'value2', 'key3': 'value3'}
+  
+
+ In general, the https://www.w3schools.com/python/ref_dictionary_update.asp is mighty useful, typically when you want to create "environments" containing variables from successive dictionaries. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42771740)
+ Programmatically making variables is a very bad idea. Make a dictionary instead with those names as keys:  
+
+  my_lists = {key:[] for key in my_list}
+  
+
+   
+
+  my_lists['a'].append(some_data)
+  
+
+ This also gives you the advantage of easily being able to loop through them if you need to.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/230976)
+ Not efficient, but without invoking  eval : 
+
+  dict((k,v) f (k,v) in globals().iteritems() if k in list_of_variable_names)
+  
+
+  
+
+  dict((k,v) f (k,v) in vars().iteritems() if k in list_of_variable_names)
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50684970)
+ You should use a dictionary for a variable number of variables. Assuming you are looking to perform some sort of validation, you can create a dictionary of invalid items. One way to do this is via iterating the view  dict.items : 
+
+  d =  {'rating_2': 'noo', 'rating_1': 'no'}
+allowed_values = {'rating_2': ['no', 'yes'], 'rating_1': ['no', 'yes']}
+
+bad_items = {}
+
+for k, v in d.items():  
+    if v not in allowed_values[k]:
+        bad_items[k] = v
+
+print(bad_items)
+
+{'rating_2': 'noo'}
+  
+
+ Another Pythonic approach is to use a dictionary comprehension: 
+
+  bad_items = {k: v for k, v in d.items() if v not in allowed_values[k]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25315017)
+ You could do it the other way around, using  numpy  arrays. 
+
+  >>> import numpy as np
+>>> ab = np.array([1,2,3,4,5,6])
+>>> a = ab[:3]
+>>> b = ab[3:]
+>>> a, b
+(array([1, 2, 3]), array([4, 5, 6]))
+>>> a[1] = 9
+>>> ab
+array([1, 9, 3, 4, 5, 6])
+>>> ab[0] = 7
+>>> a
+array([7, 9, 3])
+  
+
+ Here,  a  and  b  are "views" on the array  ab , and modifying one will also modify the other. 
+
+ Starting with  a  and  b , just create a numpy array from  a+b  and redefine  a  and  b  accordingly: 
+
+  >>> a, b = [1,2,3], [4,5,6]
+>>> ab = np.array(a+b)
+>>> a, b = ab[:3], ab[3:]
+  
+
+
+

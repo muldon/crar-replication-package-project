@@ -1,0 +1,231 @@
+Query: The best way to filter a dictionary in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8425075)
+  d = dict((k, v) for k, v in d.iteritems() if v > 0)
+  
+
+ In Python 2.7 and up, there's nicer syntax for this: 
+
+  d = {k: v for k, v in d.items() if v > 0}
+  
+
+ Note that this is not strictly a filter because it does create a new dictionary. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36681796)
+ You should write a custom filter ... 
+
+  def format_dict(d, indent=0):
+    output = []
+    for k, v in d.iteritems():
+        if isinstance(v, dict):
+            output.append(indent*' ' + str(k))
+            output.append(indent*' ' + '{')
+            output.append(format_dict(v, indent+4))
+            output.append(indent*' ' + '}')
+        else:
+            output.append(indent*' ' + str(k).ljust(16) + str(v) + ';')
+    return '\n'.join(output)
+  
+
+ ... and set it up as described http://jinja.pocoo.org/docs/dev/api/#custom-filters or, with a full example, http://code.runnable.com/Upjobg9WQ5IHAAB-/how-to-create-custom-filters-in-jinja2-for-python-and-wsgi.  
+
+  {{ data|format_dict }}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/8425112)
+  
+
+  y = filter(lambda x:dict[x] > 0.0,dict.keys())
+  
+
+ the lambda is feed the keys from the dict, and compares the values in the dict for each key, against the criteria, returning back the acceptable keys. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46238361)
+ You can also use:  
+
+  dictionary = {k:v.loc[v.variable1!="a",:] for k, v  in dictionary.items()}
+  
+
+ It seems that @jezrael second suggestion is the fastest:  
+
+  In [94]: timeit {k:v.query('variable1!="a"') for k, v  in dictionary.items()}
+100 loops, best of 3: 1.83 ms per loop
+
+In [95]: timeit {k:v[v.variable1!="a"] for k, v  in dictionary.items()}
+1000 loops, best of 3: 533 µs per loop
+
+In [96]: timeit {k:v.loc[v.variable1!="a",:] for k, v  in dictionary.items()}
+1000 loops, best of 3: 593 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16879670)
+  def my_filter(data,attr,val):
+    ind = [i for i,x in enumerate(data[attr]) if x >= val]
+    reducedData  = {k: [v[i] for i in ind] for k,v in data.items()}
+    return reducedData 
+
+data = {'AttrA':[1,2,3,4],'AttrB':[12,43,23,25],'AttrC':['a','d','f','z']}
+
+print my_filter(data, 'AttrA',3)
+  
+
+  output:  
+
+  {'AttrB': [23, 25], 'AttrC': ['f', 'z'], 'AttrA': [3, 4]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19843514)
+ Use http://docs.python.org/2/library/functions.html#filter with  None , it filters out all falsy values from the iterable passed to it. 
+
+ In Python3  filter  returns an iterator so you should call  list(  on it.: 
+
+  >>> lis = ['field', 'field', '', '', '', '']
+>>> list(filter(None, lis
+['field', 'field']
+>>> len(list(filter(None, lis
+2
+  
+
+  Code:  
+
+  >>> my_dict = {
+    'John greased ': ['axle', 'wheel', 'wheels', 'wheel', 'engine', ''],
+    'Paul alleged ': ['truth', 'crime', 'facts', 'infidelity', 'incident', ''],
+    'Tracy freed ': ['animals', 'fish', 'slaves', 'slaves', 'slaves', 'pizza'],
+    'Lisa plowed ': ['field', 'field', '', '', '', ''],
+}
+for k,v in my_dict.items(:
+    print (k, len(list(filter(None, v
+...     
+Paul alleged  5
+Lisa plowed  2
+John greased  5
+Tracy freed  6
+  
+
+ Timing comparision between  filter(None,..  and list comprehension: 
+
+  >>> lis = ['field', 'field', '', '', '', '']*100
+>>> %timeit list(filter(None, lis
+10000 loops, best of 3: 22.2 us per loop
+>>> %timeit [item for item in lis if item]
+10000 loops, best of 3: 53.1 us per loop
+>>> lis = ['field', 'field', '', '', '', '']*10000
+>>> %timeit list(filter(None, lis
+100 loops, best of 3: 2.36 ms per loop
+>>> %timeit [item for item in lis if item]
+100 loops, best of 3: 5.22 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1235655)
+ Here's a way to do it with a list comprehension (assuming you name your list 'foo'): 
+
+  [x for x in foo if not (2 == x.get('id'))]
+  
+
+ Substitute  'john' == x.get('name')  or whatever as appropriate. 
+
+  filter  also works: 
+
+  foo.filter(lambda x: x.get('id')!=2, foo)  
+
+ And if you want a generator you can use itertools: 
+
+  itertools.ifilter(lambda x: x.get('id')!=2, foo)  
+
+ However, as of Python 3,  filter  will return an iterator anyway, so the list comprehension is really the best choice, as Alex suggested. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16879688)
+ I would change the structure first: 
+
+  table = [dict(zip(data.keys(), row)) for row in zip(*data.values())]
+  
+
+  
+
+  [{'AttrA': 1, 'AttrB': 12, 'AttrC': 'a'},
+ {'AttrA': 2, 'AttrB': 43, 'AttrC': 'd'},
+ {'AttrA': 3, 'AttrB': 23, 'AttrC': 'f'},
+ {'AttrA': 4, 'AttrB': 25, 'AttrC': 'z'}]
+  
+
+ Now, you can filter it exactly like you described: 
+
+  [row for row in table if row['AttrA'] >= 3]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53086035)
+ You can check with  isin   
+
+  df_x[df_x[['id','Rank']].astype(str).apply(tuple,1).isin(filter_dict.items())]
+Out[182]: 
+   id  B Rank  D
+0   1  1    1  1
+5   2  0    3  6
+7   3  0    2  8
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26264507)
+ Note that using  min  won't necessarily be faster than using a for loop, and actually will probably be slower.  
+
+ https://www.python.org/doc/essays/list2str by Guido has a similar optimization problem. The takeaway is that functions like  min  and  map  get to use loops in C rather than Python loops, but they have to do more function lookups. It turns out that Python's loop overhead is less than Python's function lookup overhead, so the loop versions will often be faster. In Guido's words: 
+
+ 
+   Try to use map(), filter() or reduce() to replace an explicit for loop, but only if you can use a built-in function: map with a built-in function beats for loop, but a for loop with in-line code beats map with a lambda function! 
+ 
+
+ Some timings: 
+
+  test = {'test': ['test', 444, 2, 51, 1, 1],
+        '222': ['222', 2222, 2, 9, 3, 4],
+        '333': ['333', 2222, 6, 6, 5, 9]}
+
+def using_for_loop():
+    curr_min = 999
+    for key, lst in test.items():
+        val = lst[3]
+        if val < curr_min:
+            curr_key = key
+            curr_min = val
+    return curr_key
+
+def using_min():  # From BrenBarn's answer
+    return min(test, key=lambda k: test[k][3])
+
+%timeit using_for_loop()
+# 1000000 loops, best of 3: 724 ns per loop
+
+%timeit using_min()
+# 1000000 loops, best of 3: 1.35 µs per loop
+  
+
+
+

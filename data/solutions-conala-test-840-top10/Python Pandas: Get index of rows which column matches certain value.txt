@@ -1,0 +1,386 @@
+Query: Python Pandas: Get index of rows which column matches certain value
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41403130)
+ Can be done using numpy where() function: 
+
+  import pandas as pd
+import numpy as np
+
+In [716]: df = pd.DataFrame({"gene_name": ['SLC45A1', 'NECAP2', 'CLIC4', 'ADC', 'AGBL4'] , "BoolCol": [False, True, False, True, True] },
+       index=list("abcde"))
+
+In [717]: df
+Out[717]: 
+  BoolCol gene_name
+a   False   SLC45A1
+b    True    NECAP2
+c   False     CLIC4
+d    True       ADC
+e    True     AGBL4
+
+In [718]: np.where(df["BoolCol"] == True)
+Out[718]: (array([1, 3, 4]),)
+
+In [719]: select_indices = list(np.where(df["BoolCol"] == True)[0])
+
+In [720]: df.iloc[select_indices]
+Out[720]: 
+  BoolCol gene_name
+b    True    NECAP2
+d    True       ADC
+e    True     AGBL4
+  
+
+ Though you don't always need index for a match, but incase if you need: 
+
+  In [796]: df.iloc[select_indices].index
+Out[796]: Index([u'b', u'd', u'e'], dtype='object')
+
+In [797]: df.iloc[select_indices].index.tolist()
+Out[797]: ['b', 'd', 'e']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/21800319)
+  df.iloc[i]  returns the  ith  row of  df .  i  does not refer to the index label,  i  is a 0-based index. 
+
+ In contrast,  the attribute  index  returns actual index labels , not numeric row-indices: 
+
+  df.index[df['BoolCol'] == True].tolist()
+  
+
+  
+
+  df.index[df['BoolCol']].tolist()
+  
+
+ You can see the difference quite clearly by playing with a DataFrame with
+an "unusual" index: 
+
+  df = pd.DataFrame({'BoolCol': [True, False, False, True, True]},
+       index=[10,20,30,40,50])
+
+In [53]: df
+Out[53]: 
+   BoolCol
+10    True
+20   False
+30   False
+40    True
+50    True
+
+[5 rows x 1 columns]
+
+In [54]: df.index[df['BoolCol']].tolist()
+Out[54]: [10, 40, 50]
+  
+
+ 
+
+  If you want to use the index ,  
+
+  In [56]: idx = df.index[df['BoolCol']]
+
+In [57]: idx
+Out[57]: Int64Index([10, 40, 50], dtype='int64')
+  
+
+  then you can select the rows using  loc  instead of  iloc  : 
+
+  In [58]: df.loc[idx]
+Out[58]: 
+   BoolCol
+10    True
+40    True
+50    True
+
+[3 rows x 1 columns]
+  
+
+ 
+
+ Note that   loc  can also accept boolean arrays : 
+
+  In [55]: df.loc[df['BoolCol']]
+Out[55]: 
+   BoolCol
+10    True
+40    True
+50    True
+
+[3 rows x 1 columns]
+  
+
+ 
+
+  If you have a boolean array,  mask , and need ordinal index values, you can compute them using  np.flatnonzero  : 
+
+  In [110]: np.flatnonzero(df['BoolCol'])
+Out[112]: array([0, 3, 4])
+  
+
+ Use  df.iloc  to select rows by ordinal index: 
+
+  In [113]: df.iloc[np.flatnonzero(df['BoolCol'])]
+Out[113]: 
+   BoolCol
+10    True
+40    True
+50    True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45851482)
+  
+
+  sum(df.index == 17)
+  
+
+  df.index == 17  returns an array with  boolean  with  True  when index value matches else  False . And while 
+using  sum  function  True  is equivalent to  1 .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45644895)
+  
+
+  compare[compare.index.get_level_values(0).month.isin([5, 6, 7])]
+  
+
+ PS https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.isin.html 
+
+ Demo: 
+
+  In [45]: import pandas_datareader.data as web
+
+In [46]: df = web.DataReader('AAPL', 'google', '2017-06-01')
+
+In [48]: df = df.assign(i2=np.arange(len(df))).set_index('i2', append=True)
+
+In [49]: df
+Out[49]:
+                 Open    High     Low   Close    Volume
+Date       i2
+2017-06-01 0   153.17  153.33  152.22  153.18  16404088
+2017-06-02 1   153.58  155.45  152.89  155.45  27770715
+2017-06-05 2   154.34  154.45  153.46  153.93  25331662
+2017-06-06 3   153.90  155.81  153.78  154.45  26624926
+2017-06-07 4   155.02  155.98  154.48  155.37  21069647
+2017-06-08 5   155.25  155.54  154.40  154.99  21250798
+2017-06-09 6   155.19  155.19  146.02  148.98  64882657
+2017-06-12 7   145.74  146.09  142.51  145.42  72307330
+2017-06-13 8   147.16  147.45  145.15  146.59  34165445
+2017-06-14 9   147.50  147.50  143.84  145.16  31531232
+...               ...     ...     ...     ...       ...
+2017-07-31 41  149.90  150.33  148.13  148.73  19845920
+2017-08-01 42  149.10  150.22  148.41  150.05  35368645
+2017-08-02 43  159.28  159.75  156.16  157.14  69936800
+2017-08-03 44  157.05  157.21  155.02  155.57  27097296
+2017-08-04 45  156.07  157.40  155.69  156.39  20559852
+2017-08-07 46  157.06  158.92  156.67  158.81  21870321
+2017-08-08 47  158.60  161.83  158.27  160.08  36205896
+2017-08-09 48  159.26  161.27  159.11  161.06  26131530
+2017-08-10 49  159.90  160.00  154.63  155.32  40804273
+2017-08-11 50  156.60  158.57  156.07  157.48  26180743
+
+[51 rows x 5 columns]
+
+In [50]: df[df.index.get_level_values(0).month.isin([5,8])]
+Out[50]:
+                 Open    High     Low   Close    Volume
+Date       i2
+2017-08-01 42  149.10  150.22  148.41  150.05  35368645
+2017-08-02 43  159.28  159.75  156.16  157.14  69936800
+2017-08-03 44  157.05  157.21  155.02  155.57  27097296
+2017-08-04 45  156.07  157.40  155.69  156.39  20559852
+2017-08-07 46  157.06  158.92  156.67  158.81  21870321
+2017-08-08 47  158.60  161.83  158.27  160.08  36205896
+2017-08-09 48  159.26  161.27  159.11  161.06  26131530
+2017-08-10 49  159.90  160.00  154.63  155.32  40804273
+2017-08-11 50  156.60  158.57  156.07  157.48  26180743
+  
+
+  UPDATE:   test with your index values: 
+
+  In [56]: i = pd.DatetimeIndex(['2016-01-04 01:40:00', '2016-01-04 02:00:00', '2016-01-04 02:10:00', '2016-01-04 02:30:00', '2016-01-04 02:4
+    ...: 0:00'], dtype='datetime64[ns]', name=u'TTimeStamp', freq=None)
+
+In [57]: i
+Out[57]: DatetimeIndex(['2016-01-04 01:40:00', '2016-01-04 02:00:00', '2016-01-04 02:10:00', '2016-01-04 02:30:00', '2016-01-04 02:40:00'],
+dtype='datetime64[ns]', name='TTimeStamp', freq=None)
+
+In [58]: i.month
+Out[58]: Int64Index([1, 1, 1, 1, 1], dtype='int64', name='TTimeStamp')
+
+In [59]: i.month.isin([2,3])
+Out[59]: array([False, False, False, False, False], dtype=bool)
+
+In [60]: i.month.isin([1,2,3])
+Out[60]: array([ True,  True,  True,  True,  True], dtype=bool)
+  
+
+  UPDATE2:  try the following workaround: 
+
+  compare[pd.Series(compare.index.get_level_values(0).month).isin([5, 6, 7]).values]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37502368)
+ With boolean indexing, you can slice the dataframe to get only the rows where the date equals "2016-04-13" and get the index of the slice: 
+
+  df[df.Date == "2016-04-13"].index
+Out[37]: Int64Index([2], dtype='int64')
+  
+
+ With the uniqueness assumption, there will be only one element in that array, so you can take the 0th element: 
+
+  df[df.Date == "2016-04-13"].index[0]
+Out[38]: 2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54119293)
+ First you may check  query  when the target column is type  bool   (PS: about how to use it please check https://stackoverflow.com/questions/53779986/dynamic-expression-evaluation-in-pandas-using-pd-eval/53779987#53779987 ) 
+
+  df.query('BoolCol')
+Out[123]: 
+    BoolCol
+10     True
+40     True
+50     True
+  
+
+ After we filter the original df by the Boolean column we can pick the index . 
+
+  df=df.query('BoolCol')
+df.index
+Out[125]: Int64Index([10, 40, 50], dtype='int64')
+  
+
+ 
+
+ Also pandas have  nonzero , we just select the   position   of  True  row and using it slice the  DataFrame  or  index   
+
+  df.index[df.BoolCol.nonzero()[0]]
+Out[128]: Int64Index([10, 40, 50], dtype='int64')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38722705)
+ I think you can check if all values are  True  in compared subset  ['xk', 'yk']  by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.all.html: 
+
+  b = df[(df[['xk', 'yk']] == 0).all(1)].index.tolist()
+  
+
+ Another solution is add second condition with  & : 
+
+  b = (df[(df['xk']  == 0) & (df['yk'] == 0)].index.tolist())
+  
+
+  
+
+  df = pd.DataFrame({'xk':[0,2,3],
+                   'yk':[0,5,0],
+                   'aa':[0,1,0]})
+
+print (df)
+   aa  xk  yk
+0   0   0   0
+1   1   2   5
+2   0   3   0
+
+b = df[(df[['xk', 'yk']] == 0).all(1)].index.tolist()
+print (b)
+[0]
+
+b1 = (df[(df['xk']  == 0) & (df['yk'] == 0)].index.tolist())
+print (b1)
+[0]
+  
+
+ Second solution is faster: 
+
+  #length of df = 3k
+df = pd.concat([df]*1000).reset_index(drop=True)
+
+In [294]: %timeit df[(df[['xk', 'yk']] == 0).all(1)].index.tolist()
+1000 loops, best of 3: 1.21 ms per loop
+
+In [295]: %timeit (df[(df['xk']  == 0) & (df['yk'] == 0)].index.tolist())
+1000 loops, best of 3: 828 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43193982)
+ To get all indices that matches 'Smith' 
+
+  >>> df.loc[df['LastName']=='Smith'].index
+Int64Index([1], dtype='int64')
+  
+
+  
+
+  >>> df.loc[df['LastName']=='Smith'].index.values
+array([1])
+  
+
+  if there is only one and you want the integer, just subset 
+
+  >>> df.loc[df['LastName']=='Smith'].index[0]
+1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54870359)
+ Assuming ID is currently the index, I would try: 
+
+<pre class="lang-py prettyprint-override"> df = df.reset_index()
+shifted = df.shift(-1)
+df['new_time'] = shifted.time
+df.loc[df.id != shifted.id, "new_time"] = None
+df = df.set_index("id")
+  
+
+ If it's not an index you can just skip the  reset_index  and  set_index  lines. 
+
+ It basically shifts the entire dataframe, matches them up together and wherever IDs are no longer the same it sets those values to None. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54108499)
+ 
+   I am interested to get 3 rows before the row where C = 2018-10-28 
+ 
+
+ First find the index via https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.idxmax.html, then slice using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iloc.html, which supports integer positional indexing: 
+
+  idx = df['C'].eq('2018-10-28').idxmax()
+res = df.iloc[idx-2: idx+1]
+
+print(res)
+
+#    A   B          C
+# 2  3  30 2018-10-30
+# 3  4  40 2018-10-29
+# 4  5  50 2018-10-28
+  
+
+
+

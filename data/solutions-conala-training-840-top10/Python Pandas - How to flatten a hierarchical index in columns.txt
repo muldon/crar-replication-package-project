@@ -1,0 +1,212 @@
+Query: Python Pandas - How to flatten a hierarchical index in columns
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51735628)
+ The most pythonic way to do this to use  map  function. 
+
+  df.columns = df.columns.map(' '.join).str.strip()
+  
+
+ Output  print(df.columns) : 
+
+  Index(['USAF', 'WBAN', 'day', 'month', 's_CD sum', 's_CL sum', 's_CNT sum',
+       's_PC sum', 'tempf amax', 'tempf amin', 'year'],
+      dtype='object')
+  
+
+ Update using Python 3.6+ with f string:</h3>
+
+  df.columns = [f'{f} {s}' if s != '' else f'{f}' 
+              for f, s in df.columns]
+
+print(df.columns)
+  
+
+ Output:     
+
+  Index(['USAF', 'WBAN', 'day', 'month', 's_CD sum', 's_CL sum', 's_CNT sum',
+       's_PC sum', 'tempf amax', 'tempf amin', 'year'],
+      dtype='object')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15990537)
+ This is a doc example: http://pandas.pydata.org/pandas-docs/stable/merging.html#more-concatenating-with-group-keys 
+
+  In [9]: df1 = pd.DataFrame(np.random.randn(3,2),columns=list('AB'),index=pd.date_range('20000101',periods=3))
+
+In [10]: df2 = pd.DataFrame(np.random.randn(3,2),columns=list('AB'),index=pd.date_range('20000101',periods=3))
+
+In [11]: df1
+Out[11]: 
+                   A         B
+2000-01-01  0.129994  1.189608
+2000-01-02 -1.126812  1.087617
+2000-01-03 -0.930070  0.253098
+
+In [12]: df2
+Out[12]: 
+                   A         B
+2000-01-01  0.535700 -0.769533
+2000-01-02 -1.698531 -0.456667
+2000-01-03  0.451622 -1.500175
+
+In [13]: pd.concat(dict(df1 = df1, df2 = df2),axis=1)
+Out[13]: 
+                 df1                 df2          
+                   A         B         A         B
+2000-01-01  0.129994  1.189608  0.535700 -0.769533
+2000-01-02 -1.126812  1.087617 -1.698531 -0.456667
+2000-01-03 -0.930070  0.253098  0.451622 -1.500175
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25750646)
+ Using user1827356's suggestion: 
+
+  df2 = pd.pivot_table(df, rows=['Company_code', 'Person'], cols=['Date'], aggfunc='sum')
+print(df2)
+#                      Earning1           Earning2         
+# Date                  2014-01  2014-02   2014-01  2014-02
+# Company_code Person                                      
+# 1            Jonh         100      500       200      600
+#              Peter        300      500       400      600
+# 2            Jonh         300      NaN       400      NaN
+  
+
+ You can flatten the hierarchical columns like this: 
+
+  columns = ['{}_E{}'.format(date, earning.replace('Earning', ''))
+           for earning, date in df2.columns.tolist()]
+df2.columns = columns
+print(df2)
+#                      2014-01_E1  2014-02_E1  2014-01_E2  2014-02_E2
+# Company_code Person                                                
+# 1            Jonh           100         500         200         600
+#              Peter          300         500         400         600
+# 2            Jonh           300         NaN         400         NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32501856)
+ . The idea is to split the original  DataFrame  in two by sex and to recombine them with a hierarchical column index. 
+
+  # Test data
+df =pd.DataFrame({'Sex': ['M','F','M','F'], 'Weight': [34,29,29,26], 'Height': [5.6,5.1,4.5,5.2]})
+
+def reshape(grouped, group):
+    df = grouped.get_group(group).loc[:,['Height','Weight']]
+    df.columns = [[group, group],df.columns]
+    return df.reset_index(drop=True)
+
+grouped = df.groupby('Sex')
+pd.concat([reshape(grouped,'M'), reshape(grouped,'F')], axis=1)
+
+       M             F       
+  Height Weight Height Weight
+0    5.6     34    5.1     29
+1    4.5     29    5.2     26
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41983625)
+  df.rolling(2).agg(["min", "max"]).T.apply(
+    lambda x:
+        x.append(pd.Series(dict(new='_'.join(x.name)))),
+    1).set_index('new').rename_axis(None).T
+  
+
+ https://i.stack.imgur.com/B7hhC.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41931379)
+  set_axis </h3>
+
+  df.set_axis([f"{x}{y}" for x, y in df.columns], axis=1, inplace=False)
+
+   Aa  Ab  Ba  Bb
+0   0   1   2   3
+1   4   5   6   7
+  
+
+ 
+
+  index.map </h3>
+
+  df.columns = df.columns.map(''.join)
+df
+
+   Aa  Ab  Ba  Bb
+0   0   1   2   3
+1   4   5   6   7
+  
+
+ 
+
+ For non-string column values</h3>
+
+  df.columns = df.columns.map(lambda x: ''.join([*map(str, x)]))
+df
+
+   Aa  Ab  Ba  Bb
+0   0   1   2   3
+1   4   5   6   7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41931359)
+ You can use  list comprehension  with  join : 
+
+  df.columns = [''.join(col) for col in df.columns]
+print (df)
+   Aa  Ab  Ba  Bb
+0   0   1   2   3
+1   4   5   6   7
+  
+
+  
+
+  df.columns = df.columns.to_series().str.join('')
+print (df)
+   Aa  Ab  Ba  Bb
+0   0   1   2   3
+1   4   5   6   7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14508633)
+ And if you want to retain any of the aggregation info from the second level of the multiindex you can try this: 
+
+  In [1]: new_cols = [''.join(t) for t in df.columns]
+Out[1]:
+['USAF',
+ 'WBAN',
+ 'day',
+ 'month',
+ 's_CDsum',
+ 's_CLsum',
+ 's_CNTsum',
+ 's_PCsum',
+ 'tempfamax',
+ 'tempfamin',
+ 'year']
+
+In [2]: df.columns = new_cols
+  
+
+
+

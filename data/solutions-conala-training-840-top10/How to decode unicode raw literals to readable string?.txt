@@ -1,0 +1,235 @@
+Query: How to decode unicode raw literals to readable string?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6504515)
+ Use the http://docs.python.org/library/codecs.html: 
+
+  s.decode('unicode_escape')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24242596)
+ Python 2 byte strings can be decoded with the  'string_escape'  codec: 
+
+  raw_string.decode('string_escape')
+  
+
+  
+
+  >>> '\\x89\\n'.decode('string_escape')
+'\x89\n'
+  
+
+ For  unicode  literals, use  'unicode_escape' . In Python 3, where strings are unicode strings by default, only byte strings have a  .decode()  method: 
+
+  raw_byte_string.decode('unicode_escape')
+  
+
+ If your input string is  already  a unicode string, use  codecs.decode()  to convert: 
+
+  import codecs
+
+codecs.decode(raw_unicode_string, 'unicode_escape')
+  
+
+  
+
+  >>> b'\\x89\\n'.decode('unicode_escape')
+'\x89\n'
+>>> import codecs
+>>> codecs.decode('\\x89\\n', 'unicode_escape')
+'\x89\n'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/20775680)
+ You can use the http://docs.python.org/2/library/stdtypes.html#str.encode function with the http://docs.python.org/2/library/codecs.html#python-specific-encodings encoding: 
+
+  >>> s = u'freø̯̯nt'
+>>> print(s.encode('unicode_escape'))
+b'fre\\xf8\\u032f\\u032fnt'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6284845)
+ While winterTTR's answer does work.. I've realized that this approach is convoluted.
+Rather, all you really need to do is encode the data you write to the file. The name you don't need to encode and both the name and the content will come out "readable". 
+
+  content = '\xunicode chars'.decode('utf-8')
+f = open(content[:5]+'.txt', 'wb')
+f.write(content.encode('utf-8'))
+f.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20973805)
+ Yes,  str.decode()  usually returns a  unicode  string, if the codec successfully can decode the bytes. But the values only represent the same text if the  correct  codec is used. 
+
+ Your sample text is not using the right codec; you have text that is GBK encoded, decoded as Latin1: 
+
+  >>> print u'\u4e2d\u6587'
+中文
+>>> u'\u4e2d\u6587'.encode('gbk')
+'\xd6\xd0\xce\xc4'
+>>> u'\u4e2d\u6587'.encode('gbk').decode('latin1')
+u'\xd6\xd0\xce\xc4'
+  
+
+ The values are indeed not equal, because they are  not the same text . 
+
+ Again, it is important that you use the  right codec ; a different codec will result in very different results: 
+
+  >>> print u'\u4e2d\u6587'.encode('gbk').decode('latin1')
+ÖÐÎÄ
+  
+
+ I encoded the sample text to Latin-1, not GBK or UTF-8. Decoding may have succeeded, but the resulting text is not readable. 
+
+ Note also that pasting non-ASCII characters  only  work because the Python interpreter has  detected  my terminal codec correctly. I can paste text from my browser into my terminal, which then passes the text to Python as UTF-8-encoded data. Because Python has asked the terminal what codec was used, it was able to decode back again from the  u'....'  Unicode literal value. When printing the  encoded.decode('utf8')   unicode  result, Python once more auto-encodes the data to fit my terminal encoding. 
+
+ To see what codec Python detected, print  sys.stdin.encoding : 
+
+  >>> import sys
+>>> sys.stdin.encoding
+'UTF-8'
+  
+
+ Similar decisions have to be made when dealing with different sources of text. Reading string literals from the source file, for example, requires that you either use ASCII only (and use escape codes for everything else), or provide Python with an explicit codec notation at the top of the file. 
+
+ I urge you to read: 
+
+ 
+  http://joelonsoftware.com/articles/Unicode.html by Joel Spolsky  
+  The http://docs.python.org/2/howto/unicode.html  
+  http://nedbatchelder.com/text/unipain.html by Ned Batchelder  
+ 
+
+ to gain a more complete understanding on how Unicode works, and how Python handles Unicode. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/477087)
+ I'm not really sure, which format you mean by "Unicode format", there are several. UTF-8? UTF-16? In any case you should be able to read a normal string with  raw_input  and then decode it using the strings  decode  method: 
+
+  raw = raw_input("Please input some funny characters: ")
+decoded = raw.decode("utf-8")
+  
+
+ If you have a different input encoding just use "utf-16" or whatever instead of "utf-8". Also see http://docs.python.org/library/codecs.html#encodings-and-unicode for different kinds of encodings. 
+
+ Comparing then should work just fine with  == . If you have string literals containing special characters you should prefix them with "u" to mark them as unicode: 
+
+  if decoded == u"äöü":
+  print "Do you speak German?"
+  
+
+ And if you want to output these strings again, you probably want to encode them again in the desired encoding: 
+
+  print decoded.encode("utf-8")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11596746)
+ Python 2.x has two types of strings: 
+
+ 
+  str  = "byte strings" = a sequence of octets.  These are used for both "legacy" character encodings (such as http://en.wikipedia.org/wiki/Windows-1252 or http://en.wikipedia.org/wiki/Code_page_437) and for raw binary data (such as  struct.pack  output). 
+  unicode  = "Unicode strings" = a sequence of http://en.wikipedia.org/wiki/UTF-16 or http://en.wikipedia.org/wiki/UTF-32 depending on how Python is built. 
+ 
+
+ This model was http://docs.python.org/release/3.0.1/whatsnew/3.0.html#text-vs-data-instead-of-unicode-vs-8-bit: 
+
+ 
+ 2.x  unicode  became 3.x  str  (and the  u  prefix was dropped from the literals). 
+ A  bytes  type was introduced for representing binary data. 
+ 
+
+ A http://www.joelonsoftware.com/articles/Unicode.html is a mapping between Unicode strings and byte strings.  To convert a Unicode string, to a byte string, use the  encode  method: 
+
+  >>> u'\u20AC'.encode('UTF-8')
+'\xe2\x82\xac'
+  
+
+ To convert the other way, use the  decode  method: 
+
+  >>> '\xE2\x82\xAC'.decode('UTF-8')
+u'\u20ac'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7396659)
+ This file is encoded in Windows-1252. The apostrophe  U+2019  encodes to  \x92  in this encoding. The proper thing is to decode the file to Unicode for processing: 
+
+  data = open('aa_meetings.csv').read()
+assert '\x92' in data
+chars = data.decode('cp1252')
+assert u'\u2019' in chars
+fixed = chars.replace(u'\u2019', '')
+assert u'\u2019' not in fixed
+  
+
+ The problem was you were searching for a UTF-8 encoded  U+2019 , i.e.  \xe2\x80\x99 , which was not in the file. Converting to Unicode solves this. 
+
+ Using unicode literals as I have here is an easy way to avoid this mistake. However, you can encode the character directly if you write it as  u'’' : 
+
+  Python 2.7.1
+>>> u'’'
+u'\u2019'
+>>> '’'
+'\xe2\x80\x99'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6275306)
+ The only problem for you seems to be just "unreadable" file name from your original source file. This can solve your problem: 
+
+  f = open(name.decode('utf-8').encode( sys.getfilesystemencoding() ) , 'wb')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/12447563)
+ Python is interpreting  \%o  as 'literal backslash followed by a string formatting code';  \%  doesn't mean anything in a python  literal so the backslash is included literally. 
+
+ You are looking for the http://docs.python.org/library/functions.html#chr: 
+
+  for i in xrange(1, 99):
+    print chr(i)
+  
+
+ The  \  character escapes only work in python literals. You can instruct python to interpret an arbitrary string containing a literal  \  backslash pus code to be interpreted as a python string literal using the  string_escape  codec: 
+
+  >>> print repr('\\n'.decode('string_escape')
+'\n'
+  
+
+ Note that the  proper  way to specify a unicode literal is to use the  \uxxxx  format, and to use a unicode string literal: 
+
+  >>> print u'\u2665'
+♥
+  
+
+ Raw bytes can also be generated using the  \x00  escape sequence: 
+
+  >>> print repr('\x12')
+'\n'
+  
+
+
+

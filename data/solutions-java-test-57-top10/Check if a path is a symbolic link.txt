@@ -1,0 +1,316 @@
+Query: Check if a path is a symbolic link
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39256292)
+ There are multiple ways to achieve this.  
+
+ 
+  . It could be file or a directory.   
+
+  new File("/path/to/file").exists();
+   
+  Check for file 
+
+  File f = new File("/path/to/file"); 
+  if(f.exists() && f.isFile()) {}
+   
+  Check for Directory. 
+
+  File f = new File("/path/to/file"); 
+  if(f.exists() && f.isDirectory()) {}
+   
+  Java 7 way.  
+
+  Path path = Paths.get("/path/to/file");
+Files.exists(path)  // Existence 
+Files.isDirectory(path)  // is Directory
+Files.isRegularFile(path)  // Regular file 
+Files.isSymbolicLink(path)  // Symbolic Link
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38329422)
+ Okay, so follow links. 
+
+  Stream<Path> stream = walk(startPath, maxDepth, FileVisitOption.FOLLOW_LINKS);
+  
+
+ However check every directory whether it is a symbolic link: 
+
+  Files.isSymbolicLink(path) && Fles.isDirectory(path)
+  
+
+ Use 
+
+  Path realPath = path.toRealPath();
+  
+
+ Then keeping a list of directories on is in, ancestors, one would prevent recursion. By doing for  every  directory a check in the ancestors, when a symbolic link is somewhere in the list/current path. 
+
+  a > b > START:c > d > e > SYMBOLIC:f=a > b > c
+  
+
+ (This still does not prevent visiting a directory twice, as the same or a subdirectory could be linked without recursion.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19964765)
+ I don't see any general approach that will work without relying on an  UnsupportedOperationException  or some other exception.  
+
+ You could use a heuristic that assumes that only subclasses of  BasicFileAttributesView  support symbolic linking. 
+
+ 
+
+ Note: The approach below will not work because  FileAttributeViews  and file attributes are not the same concept: 
+
+ I did not get  isSymbolicLink  as one of the supported attributes with the following code on OS X 10.8.4: 
+
+  package com.mlbam.internal;
+
+import java.nio.file.Files;
+import java.nio.file.FileStore;
+import java.nio.file.FileSystems;
+import java.nio.file.Paths;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class MainClass {
+    private static final Logger LOG = LoggerFactory.getLogger(MainClass.class);
+    public static void main(String[] args) {
+        try {
+            System.out.println("FileStore.supportsFileAttributeView('isSymbolicLink'): " 
+                + Files.getFileStore(Paths.get("/")).supportsFileAttributeView("isSymbolicLink"));
+            // Got: FileStore.supportsFileAttributeView('isSymbolicLink'): false
+            System.out.println(FileSystems.getDefault().supportedFileAttributeViews());
+            // Got: [basic, owner, unix, posix]
+        } catch (Exception e) {}
+    }
+}
+  
+
+ 
+
+ Original Answer: 
+
+ If you have an instance of  FileStore , you can use http://docs.oracle.com/javase/7/docs/api/java/nio/file/FileStore.html#supportsFileAttributeView%28java.lang.String%29 
+
+ Or, if you have an instance of  FileSystem , you can check that resulting  Set<String>  from http://docs.oracle.com/javase/7/docs/api/java/nio/file/FileSystem.html#supportedFileAttributeViews%28%29 contains the String  "isSymbolicLink" . 
+
+ 
+
+ You can get the  FileStore  associated with a  Path  using http://docs.oracle.com/javase/7/docs/api/java/nio/file/Files.html#getFileStore%28java.nio.file.Path%29 
+
+ One way of getting the  FileSystem  is via http://docs.oracle.com/javase/7/docs/api/java/nio/file/FileSystems.html#getDefault%28%29 
+
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28372122)
+ If you want to fully resolve a  Path  to point to the actual content, use  .toRealPath() : 
+
+  final Path realPath = path.toRealPath();
+  
+
+ This will resolve all symbolic links etc. 
+
+ However, since this can fail (for instance, a symlink cannot resolve), you'll have to deal with  IOException  here. 
+
+ Therefore, if you want to test whether a symlink points to an  existing  directory, you will have to do: 
+
+  Files.isDirectory(path.toRealPath());
+  
+
+ Note a subtlety about  Files.exists() : by default,  it follows symbolic links . 
+
+ Which means that if you have a symbolic link as a  path  whose target does not exist, then: 
+
+  Files.exists(path)
+  
+
+ will return FALSE; but this: 
+
+  Files.exists(path, LinkOption.NOFOLLOW_LINKS)
+  
+
+ . 
+
+ In "Unix parlance", this is the difference between  stat()  and  lstat() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44018562)
+ Files.delete(Path) is working perfectly on symbolic links. You should have a other issue in your code. 
+
+ This code sample works (JAVA 8): 
+
+  import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+...
+String symLinkName = "/some/path/to/symlink";
+try {               
+    if(Files.exists(Paths.get(symLinkName))) {              
+        Files.delete(Paths.get(symLinkName));
+    }
+} catch (IOException e) {
+    log.info("Cannot delete symbolic link " + symLinkName);
+    e.printStackTrace();
+}
+  
+
+ Remember that symbolic links are a UNIX concept and does not exist on Windows 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21006507)
+ . Check out method copy(Path source, Path target, CopyOption... options) from class Files. Specifying LinkOption.NOFOLLOW_LINKS as copy option will make the copy method do what you want. 
+
+ This behavior is universal when it comes to working with links as demostrated here: 
+
+  Path target = Paths.get("c://a.txt");
+Path symbolicLink = Paths.get("c://links//symbolicLink.txt");
+
+// creates test link
+Files.createSymbolicLink(symbolicLink, target);
+
+BasicFileAttributes targetAttributes = Files.readAttributes(symbolicLink, BasicFileAttributes.class);
+BasicFileAttributes linkAttributes = Files.readAttributes(symbolicLink, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+
+System.out.println("File attribute - isSymbolicLink\tTarget: " + targetAttributes.isSymbolicLink() + "\t\t\t\tLink: " + linkAttributes.isSymbolicLink());
+System.out.println("File attribute - size\t\tTarget: " + targetAttributes.size() + "\t\t\t\tLink: " + linkAttributes.size());
+System.out.println("File attribute - creationTime:\tTarget: " + targetAttributes.creationTime() + "\tLink: " + linkAttributes.creationTime());
+  
+
+ This code outpus: 
+
+  File attribute - isSymbolicLink: Target: false                        Link: true
+File attribute - size:           Target: 8556                         Link: 0
+File attribute - creationTime:   Target: 2013-12-08T16:43:19.55401Z   Link: 2013-12-14T16:09:17.547538Z
+  
+
+ You can visit my post for more information on http://jakubstas.com/links-nio-2  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12640504)
+ I got the way.. 
+First i need to identify Is it a symbolic link by 
+
+  Path file = ...;
+boolean isSymbolicLink =
+    Files.isSymbolicLink(file);
+  
+
+ Then i can create same symbolic link at destination by 
+
+      Path newLink = ...;
+Path existingFile = ...;
+try {
+    Files.createLink(newLink, existingFile);
+} catch (IOException x) {
+    System.err.println(x);
+} catch (UnsupportedOperationException x) {
+    // Some file systems do not
+    // support adding an existing
+    // file to a directory.
+    System.err.println(x);
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43720165)
+ <a href=https://docs.oracle.com/javase/8/docs/api/java/nio/file/Path.html#toRealPath-java.nio.file.LinkOption...- rel=noreferrer>https://docs.oracle.com/javase/8/docs/api/java/nio/file/Path.html#toRealPath-java.nio.file.LinkOption...-  
+
+ 
+   Path toRealPath(LinkOption... options)
+           throws IOException Returns the real path of an existing file. The precise definition of this method is implementation dependent but
+  in general it derives from this path, an absolute path that locates
+  the same file as this path, but with name elements that represent the
+  actual name of the directories and the file. For example, where
+  filename comparisons on a file system are case insensitive then the
+  name elements represent the names in their actual case. Additionally,
+  the resulting path has redundant name elements removed. 
+  
+   If this path is relative then its absolute path is first obtained, as
+  if by invoking the toAbsolutePath method. 
+  
+   The options array may be used to indicate how symbolic links are
+  handled. By default, symbolic links are resolved to their final
+  target. If the option NOFOLLOW_LINKS is present then this method does
+  not resolve symbolic links. Some implementations allow special names
+  such as .. to refer to the parent directory. When deriving the real
+  path, and a .. (or equivalent) is preceded by a non-.. name then
+  an implementation will typically cause both names to be removed. When
+  not resolving symbolic links and the preceding name is a symbolic link
+  then the names are only removed if it guaranteed that the resulting
+  path will locate the same file as this path. 
+  
+   Parameters: options - options indicating how symbolic links are
+  handled Returns: an absolute path represent the real path of the file
+  located by this object Throws: IOException - if the file does not
+  exist or an I/O error occurs SecurityException - In the case of the
+  default provider, and a security manager is installed, its checkRead
+  method is invoked to check read access to the file, and where this
+  path is not absolute, its checkPropertyAccess method is invoked to
+  check access to the system property user.dir 
+ 
+
+ Use the toRealPath() method from nio. The NO_FOLLOW_LINKS LinkOption does the opposite of what you are trying to do, so don't use it. 
+
+  Path realPath = aFile.toPath().toRealPath()
+
+Path realPath = aPath().toRealPath()
+  
+
+ One gotcha with this, is that, unlike  toAbsolutePath ,  toRealPath  throws an  IOException  since it actually has to interact with the file system to find the real path. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33847660)
+ As stated in my comment: 
+
+   path = Paths.get(opDir); 
+  
+
+ is a race condition. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/2175796)
+ <strike>The following should give you a start: 
+
+  if (file.exists() && !file.isDirectory() && !file.isFile()) {
+    // it is a symbolic link (or a named pipe/socket, or maybe some other things)
+}
+
+if (file.exists()) {
+    try {
+        file.getCanonicalFile();
+    } catch (FileNotFoundException ex) {
+        // it is a broken symbolic link
+    }
+}
+  
+
+ </strike> 
+
+  EDIT  : The above don't work as I thought because file.isDirectory() and file.isFile() resolve a symbolic link.   
+
+ If you want an accurate determination, you will need to use JNI to make the relevant native OS-specific library calls. 
+
+
+

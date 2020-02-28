@@ -1,0 +1,301 @@
+Query: How to avoid line color repetition in matplotlib.pyplot?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6030841)
+ Matplotlib has more than seven colors. You can specify your color in many ways (see http://matplotlib.sourceforge.net/api/colors_api.html). 
+
+ For example, you can specify the color using an html hex string: 
+
+  pyplot.plot(x, y, color='#112233')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35969653)
+ The best thing if you know how many plots you are going to plot is to define the colormap before: 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+fig1 = plt.figure()
+ax1 = fig1.add_subplot(111)
+number_of_plots=10
+colormap = plt.cm.nipy_spectral #I suggest to use nipy_spectral, Set1,Paired
+ax1.set_color_cycle([colormap(i) for i in np.linspace(0, 1,number_of_plots)])
+for i in range(1,number_of_plots+1):
+    ax1.plot(np.array([1,5])*i,label=i)
+
+ax1.legend(loc=2)  
+  
+
+ Using  nipy_spectral  
+
+ https://i.stack.imgur.com/Mn583.png 
+
+ Using  Set1 
+<a href="https://i.stack.imgur.com/YYs2H.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39118103)
+ I would also suggest the use of http://stanford.edu/~mwaskom/software/seaborn/. With this library it is very easy to generate  sequential or  qualitative colour palettes with the number of colours you need. There is also a tool to visualize the palettes. For example: 
+
+  import seaborn as sns
+
+colors = sns.color_palette("hls", 4)
+sns.palplot(colors)
+plt.savefig("pal1.png")
+colors = sns.color_palette("hls", 8)
+sns.palplot(colors)
+plt.savefig("pal2.png")
+colors = sns.color_palette("Set2", 8)
+sns.palplot(colors)
+plt.savefig("pal3.png")
+  
+
+ These are the resulting palettes: 
+
+ https://i.stack.imgur.com/vIVep.png 
+
+ <a href="https://i.stack.imgur.com/b9C5E.png"  
+
+ <a href="https://i.stack.imgur.com/0ZvML.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28465490)
+ The default  jet  color map goes from blue to red. Every builtin colormap also has a sister color map with the colors going in reverse order. The reversed color map has the same name with the suffix  _r . Thus,  jet_r  goes from red to blue. 
+
+ So you can give each line a unique color from the  jet_r  colormap by defining 
+
+  color = cmap(float(i)/N)
+  
+
+ where  cmap  is the  jet_r  colormap. 
+The colormap  cmap  is a callable. When passed a float, it returns a RGB tuple.
+Thus, if  float(i)/N  is a distinct float between 0 and 1 for each line, then each line will automatically get a distinct color.  
+
+ 
+
+ For example, 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 5, 100)
+cmap = plt.get_cmap('jet_r')
+N = 20
+for i, n in enumerate(np.linspace(2.0, 0, N)):
+    y = np.sin(x)*x**n
+    color = cmap(float(i)/N)
+    lw = 2.5 if i==0 else 1
+    # zorder controls the order in which the lines are drawn. 
+    # The line with the highest zorder lies on top.
+    plt.plot(x, y, c=color, lw=lw, zorder=-i)
+plt.show()
+  
+
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48773646)
+ One can avoid the  AttributeError  brought about by  set_axis_labels()  method by using the   matplotlib.pyplot.xlabel   and   matplotlib.pyplot.ylabel  . 
+
+   matplotlib.pyplot.xlabel   sets the x-axis label while the   matplotlib.pyplot.ylabel   sets the y-axis label of the current axis. 
+
+  Solution code:  
+
+  import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+fake = pd.DataFrame({'cat': ['red', 'green', 'blue'], 'val': [1, 2, 3]})
+fig = sns.barplot(x = 'val', y = 'cat', data = fake, color = 'black')
+plt.xlabel("Colors")
+plt.ylabel("Values")
+plt.title("Colors vs Values") # You can comment this line out if you don't need title
+plt.show(fig)
+  
+
+  Output figure:  
+
+ https://i.stack.imgur.com/BVDjC.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28465311)
+ There are lots of ways you could potentially do this. Probably the simplest and most obvious would be to specify separate line colors for all 20 lines: 
+
+  line_colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k', ...]
+
+for ii in range(20):
+    plt.plot(x, y, c=line_colors[ii])
+  
+
+ Of course it would a bit of a pain to have to type out 20 different color strings! 
+
+ You could also generate the colors by drawing an array of RGBA values from a colormap as in unutbu's answer, but most of the built-in colormaps contain red, so you'd have to either pick a colormap that doesn't contain red, http://matplotlib.org/examples/pylab_examples/custom_cmap.html, or pick a range of float values between 0 and 1 that did not map to the red region of the colormap. 
+
+ If you don't mind some colors being repeated, one potentially nicer option would be to use https://docs.python.org/2/library/itertools.html#itertools.cycle to create a generator object that yields colors in a repeating cycle: 
+
+  from itertools import cycle
+
+color_cycle = cycle(['g', 'b', 'c', 'm', 'y', 'k'])
+
+for ii in range(20):
+    if ii == 0:
+        plt.plot(x, y, c='r')
+    else:
+        plt.plot(x, y, c=cycle.next())
+  
+
+ In fact, this is exactly how the default matplotlib color cycle works. Each axis object contains an  itertools.cycle  which sequentially changes the default color for each line that is drawn on that axis: 
+
+  ax = plt.axes()
+
+ax_color_cycle = ax._get_lines.color_cycle
+
+print(ax_color_cycle)
+# <itertools.cycle object at 0x7fdb91efae60>
+
+print(ax_color_cycle.next())
+# b
+
+print(ax_color_cycle.next())
+# g
+
+print(ax_color_cycle.next())
+# r
+
+# etc.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29148387)
+ The http://matplotlib.org/basemap/api/basemap_api.html#mpl_toolkits.basemap.Basemap.scatter simply refers to the http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.scatter, where you can find the parameter  c  (emphasis mine): 
+
+ 
+    c  : color or sequence of color, optional, default 
+  
+    c  can be a single color format string, or a sequence of color specifications of length N,  or a sequence of N numbers to be mapped to colors  using the cmap and norm specified via kwargs (see below). Note that c should not be a single numeric RGB or RGBA sequence because that is indistinguishable from an array of values to be colormapped. c can be a 2-D array in which the rows are RGB or RGBA, however. 
+ 
+
+ So if you simply pass  vals  to c, matplotlib should convert the values to colors on the standard colormap or a http://matplotlib.org/examples/color/colormaps_reference.html. To show which color is mapped to what value you can use the http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.colorbar. 
+
+ Example code: 
+
+  import matplotlib.pyplot as plt
+
+lons = range(50)
+lats = range(25, 75)
+vals = range(50,100)
+
+plt.scatter(lons, lats, c=vals, cmap='afmhot')
+plt.colorbar()
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31544278)
+ . 
+
+  from matplotlib import pyplot as plt, gridspec, lines
+
+import numpy as np
+
+grid = gridspec.GridSpec(1,1)
+ax = plt.subplot(grid[0,0])
+
+x = np.arange(1,11)
+y = x * 2
+
+ax.plot(x, y, '-', color = 'black', linewidth = 5)
+ax.plot(x, y, '--', color = 'lawngreen', linewidth = 5)
+
+dotted_line1 = lines.Line2D([], [], linewidth=5, linestyle="--", dashes=(10, 1), color='lawngreen')
+dotted_line2 = lines.Line2D([], [], linewidth=5, linestyle="-", dashes=(5, 4), color='black')
+
+plt.legend([(dotted_line1, dotted_line2)], ["My Line"])
+plt.show()
+  
+
+ i increased the line width so it is clearly visible. As yellow was not that clear in a white background; changed it to green. . You can change colors any time any way :)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43282338)
+ You just made a little copy & paste error.
+Just a comment to your style : You could avoid so many ifs when using an list of colors , so :  
+
+  colors=[red,green,blue,black]
+  
+
+   
+
+  plt.annotate('', xy=(x, y), xytext=(0, 0), color=colors[max(3,label)] , textcoords='offset points')
+  
+
+ Your code has to be so, you always wrote  elif label=1 , what makes absolutely no sense:  
+
+  import matplotlib.pyplot as plt
+
+Y = [ 1 , 2 , 3 ]
+X = [ 1 , 2 , 4 ]
+vocabulary = [1 , 2 , 3]
+
+plt.scatter(X , Y)
+for label, x, y in zip(vocabulary, X, Y):
+    if(label == 1):
+        plt.annotate('', xy=(x, y), xytext=(0, 0), color='red' , textcoords='offset points')
+    elif(label == 2):
+        plt.annotate('', xy=(x, y), xytext=(0, 0), color='green' , textcoords='offset points')
+    elif(label == 3):
+        plt.annotate('', xy=(x, y), xytext=(0, 0), color='blue' , textcoords='offset points')
+    else :
+        plt.annotate('', xy=(x, y), xytext=(0, 0), color='black' , textcoords='offset points')
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/34160808)
+  
+
+ https://i.stack.imgur.com/e9r3i.png 
+
+ After the demonstrative image, I'd like to add that
+ matplotlib.pyplot.axvline  is a thin wrapper around  matplotlib.axes.Axes.axvline , documented https://matplotlib.org/api/_as_gen/matplotlib.axes.Axes.axvline.html. 
+
+ The  Axes.axvline  method supports a large number of keyword arguments, of all of them two, as you have seen, are relevant to your question: 
+
+ 
+  color=... , the  color  argument is documented <a href="https://matplotlib.org/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.set_color"  and 
+  linestyle=... , the  linestyle  argument is documented <a href="https://matplotlib.org/api/_as_gen/matplotlib.lines.Line2D.html#matplotlib.lines.Line2D.set_linestyle"  
+ 
+
+ To exemplify 
+
+  import matplotlib.pyplot as plt
+plt.plot((0,1,2,3))
+plt.axvline(2, color='k', linestyle='--')
+  
+
+ The keyword arguments here discussed of course apply also to the  axhline  method. 
+
+
+

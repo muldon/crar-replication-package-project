@@ -1,0 +1,224 @@
+Query: convert binary string to numpy array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42297877)
+ You can firstly interpret the bits into an array, using https://docs.scipy.org/doc/numpy/reference/generated/numpy.packbits.html, then convert it to an array of bytes by applying https://docs.python.org/3.6/library/functions.html#bytearray, then  decode()  it to be a normal string. 
+
+ The following code 
+
+  import numpy
+np_bin_array = [0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+print(bytearray(numpy.packbits(np_bin_array)).decode().strip("\x00"))
+  
+
+  
+
+  Hello
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41069967)
+ One way would be using https://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html with  2-powered  range array - 
+
+  b.dot(2**np.arange(b.size)[::-1])
+  
+
+  
+
+  In [95]: b = np.array([1,0,1,0,0,0,0,0,1,0,1])
+
+In [96]: b.dot(2**np.arange(b.size)[::-1])
+Out[96]: 1285
+  
+
+ Alternatively, we could use bitwise left-shift operator to create the range array and thus get the desired output, like so - 
+
+  b.dot(1 << np.arange(b.size)[::-1])
+  
+
+ If timings are of interest - 
+
+  In [148]: b = np.random.randint(0,2,(50))
+
+In [149]: %timeit b.dot(2**np.arange(b.size)[::-1])
+100000 loops, best of 3: 13.1 µs per loop
+
+In [150]: %timeit b.dot(1 << np.arange(b.size)[::-1])
+100000 loops, best of 3: 7.92 µs per loop
+  
+
+ 
+
+  Reverse process  
+
+ To retrieve back the binary array, use https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.binary_repr.html alongwith https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.fromstring.html - 
+
+  In [96]: b = np.array([1,0,1,0,0,0,0,0,1,0,1])
+
+In [97]: num = b.dot(2**np.arange(b.size)[::-1]) # integer
+
+In [98]: np.fromstring(np.binary_repr(num), dtype='S1').astype(int)
+Out[98]: array([1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11760170)
+  >>> np.fromstring(b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@', dtype='<f4') # or dtype=np.dtype('<f4'), or np.float32 on a little-endian system (which most computers are these days)
+array([ 1.,  2.,  3.,  4.], dtype=float32)
+  
+
+  
+
+  >>> np.fromstring(b'\x00\x00\x80?\x00\x00\x00@\x00\x00@@\x00\x00\x80@', dtype='>f4') # or dtype=np.dtype('>f4'), or np.float32  on a big-endian system
+array([  4.60060299e-41,   8.96831017e-44,   2.30485571e-41,
+         4.60074312e-41], dtype=float32)
+  
+
+ The  b  isn't necessary prior to Python 3, of course. 
+
+ In fact, if you actually are using a binary file to load the data from, you could even skip the using-a-string step and load the data directly from the file with  numpy.fromfile() . 
+
+ Also, dtype reference, just in case: http://docs.scipy.org/doc/numpy/reference/arrays.dtypes.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10536046)
+ I think the easiest way to do this is to first convert the array to int16, 
+
+  array.astype('int16').tofile(filename)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49236441)
+  
+
+  success, a_numpy = cv2.imencode('.jpg', b)
+a = a_numpy.tostring()
+  
+
+ Things you should know: 
+
+ First,  type(a)  is a binary string, and  type(b)  is a numpy array. It's easy to convert between those types, since you can make  np.array(binary_string)  to go from string to numpy, and  np_array.tostring()  to go from numpy to binary string. 
+
+ However,  a  and  b  represent different things. In the string  a , you're reading the JPEG encoded version of the image, and in  b  you have the decoded image. You can check that  len(b.tostring())  is  massively larger  than  len(a) . You need to know which one you want to use. Also, keep in mind that each time you encode a JPEG, you will loose some quality. 
+
+ How to save an image to disk: 
+
+ Your question looks like you want an encoded binary string. The only use I can imagine for that is dumping it to the disk (or sending it over http?). 
+
+ To save the image on your disk, you can use 
+
+  cv2.imwrite('my_file.jpg', b)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13018843)
+ Numpy has http://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.tostring.html and http://docs.scipy.org/doc/numpy/reference/generated/numpy.fromstring.html which convert between a  ndarray  data structure and a binary string. E.g. 
+
+  > a = numpy.array([162,122,135], dtype=numpy.uint8)
+> a.tostring()
+'\xa2z\x87'
+  
+
+ (That string is  ['\xa2', 'z', '\x87'] , the  \x..  represents a single byte.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12948519)
+ You can simply convert a string to list by  list() . 
+
+  list(bin(10)[2:])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26022587)
+ It is kind of convoluted, but you can get the same result as your original code in a single liner as: 
+
+  In [61]: a = np.random.randint(2, size=(5, 32))
+
+In [62]: for x in a:
+   ....:             x_t = ''.join(map(str, x))
+   ....:             print x_t, int(x_t, 2)
+   ....:
+11111111100000111010110110101100 4286819756
+01001000110000111001000100011110 1220776222
+10101111100100010000111010100111 2945519271
+01101111101100011111101001100110 1873934950
+11001000110101000111010100000011 3369366787
+
+In [63]: np.packbits(a.reshape(-1, 8)).reshape(-1, 4)[:, ::-1].copy().view(np.uint32)
+Out[63]:
+array([[4286819756],
+       [1220776222],
+       [2945519271],
+       [1873934950],
+       [3369366787]], dtype=uint32)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21919462)
+ One way is to use  numpy.binary_repr . It will result in a string, but you can easily convert that to an array of ints or floats (just change the  dtype  argument).  For example: 
+
+  import numpy as np
+
+k = 4
+print np.array([list(np.binary_repr(x, k)) for x in range(2**k)], dtype=int)
+  
+
+  
+
+  [[0 0 0 0]
+ [0 0 0 1]
+ [0 0 1 0]
+ [0 0 1 1]
+ [0 1 0 0]
+ [0 1 0 1]
+ [0 1 1 0]
+ [0 1 1 1]
+ [1 0 0 0]
+ [1 0 0 1]
+ [1 0 1 0]
+ [1 0 1 1]
+ [1 1 0 0]
+ [1 1 0 1]
+ [1 1 1 0]
+ [1 1 1 1]]
+  
+
+ Or, if you wanted a more readable version: 
+
+  def bitstrings(k):
+    binary = [np.binary_repr(item, width=k) for item in range(2**k)]
+    return np.array([list(item) for item in binary], dtype=int)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50592378)
+ I found a method using matrix operation to convert decimal to binary. 
+
+  import numpy as np
+E_mat = np.tile(E,[1,M])
+M_order = pow(2,(M-1-np.array(range(M)))).T
+bindata = np.remainder(np.floor(E_mat /M_order).astype(np.int),2)
+  
+
+  E is input decimal data, M  is the binary orders.  bindata  is output binary data, which is in a format of 1 by M binary matrix. 
+
+
+

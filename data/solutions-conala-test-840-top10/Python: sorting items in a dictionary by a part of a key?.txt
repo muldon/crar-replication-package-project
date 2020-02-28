@@ -1,0 +1,251 @@
+Query: Python: sorting items in a dictionary by a part of a key?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11139279)
+ The other answers which suggest  dict.items()  are partially right. But as you want to include the key in the sorting process (if I understand you correct), you want to reverse the items (which are essentially a tuple  (key, value) ). So use 
+
+  data={'Tea': 35, 'Coffee': 35, 'Chocolate': 10}
+for item in sorted(dic.items(), key=lambda it: (-it[1], it[0])):
+    print item
+  
+
+ The  key  parameter gives a function which is used for sorting the items. It converts the items into a key which is then really used for sorting. 
+
+ In your case, you want a mixed descending / ascending sort, so that the items given here are first turned into 
+
+  (-35, 'Coffee')
+(-35, 'Tea')
+(-10, 'Chocolate')
+  
+
+ and printed in that order. (The replacement process just happens for sorting purposes, the items actually returned are the original ones.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15720873)
+ You can't sort a standard dictionary, but you can sort and display the items. 
+
+  from datetime import datetime
+
+D = {'28.10.11/D/text1/' : {'key':'value1'},
+     '27.01.11/D/text2/' : {'key':'value2'},
+     '07.11.12/D/text3/' : {'key':'value3'}}
+
+for k in sorted(D,key=lambda k: datetime.strptime(k[:8],"%d.%m.%y")):
+    print(k,D[k])
+  
+
+ Output: 
+
+  27.01.11/D/text2/ {'key': 'value2'}
+28.10.11/D/text1/ {'key': 'value1'}
+07.11.12/D/text3/ {'key': 'value3'}
+  
+
+ If you want to use a list: 
+
+  from datetime import datetime
+from pprint import pprint
+
+L = [('28.10.11/D/text1/' , {'key':'value1'}),
+     ('27.01.11/D/text2/' , {'key':'value2'}),
+     ('07.11.12/D/text3/' , {'key':'value3'})]
+
+L.sort(key=lambda k: datetime.strptime(k[0][:8],"%d.%m.%y"))
+pprint(L)
+  
+
+ Output: 
+
+  [('27.01.11/D/text2/', {'key': 'value2'}),
+ ('28.10.11/D/text1/', {'key': 'value1'}),
+ ('07.11.12/D/text3/', {'key': 'value3'})]
+  
+
+ Finally if you still want dictionary behavior, an OrderedDict remembers the order keys are inserted, so: 
+
+  from collections import OrderedDict
+from datetime import datetime
+from pprint import pprint
+
+D = {'28.10.11/D/text1/' : {'key':'value1'},
+     '27.01.11/D/text2/' : {'key':'value2'},
+     '07.11.12/D/text3/' : {'key':'value3'}}
+
+OD = OrderedDict(sorted(D.items(),
+                 key=lambda k: datetime.strptime(k[0][:8],"%d.%m.%y"))
+pprint(OD)
+  
+
+ Output: 
+
+  {'27.01.11/D/text2/': {'key': 'value2'},
+ '28.10.11/D/text1/': {'key': 'value1'},
+ '07.11.12/D/text3/': {'key': 'value3'}}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24176204)
+ You can change your dict into https://docs.python.org/2/library/collections.html#ordereddict-examples-and-recipes: 
+
+  import collections, re
+
+d = {"key1" : 'object', "key11" : 'object', "key2" : 'object', "key22" : 'object', "jay1" : 'object', "jay2" : 'object'}
+
+
+my_fun = lambda k,v: [k, int(v)]
+
+d2 = collections.OrderedDict(sorted(d.items(), key=lambda t: my_fun(*re.match(r'([a-zA-Z]+)(\d+)',t[0]).groups())))
+
+print(d2)
+#reslt: OrderedDict([('jay1', 'object'), ('jay2', 'object'), ('key1', 'object'), ('key11', 'object'), ('key2', 'object'), ('key22', 'object')])
+  
+
+ Basically, what is happening here, that I split the strings into 'string' part and number part. Number part is changed to  int , and the sorting happens using these two values. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21608318)
+  dict.items()  returns a list of  (key, value)  pairs,  x[1]  is simply the  value  part of that pair: 
+
+  >>> d = {'ann': 9, 'tom': 21, 'eddie': 12, 'fred': 5}
+>>> d.items()
+[('ann', 9), ('fred', 5), ('eddie', 12), ('tom', 21)]
+>>> d.items()[0]
+('ann', 9)
+>>> d.items()[0][1]
+9
+>>> (lambda x: x[1])(d.items()[0])
+9
+  
+
+  sorted()  passes each element in the input sequence (so  ('ann', 9) , etc.) into the  key  function.  x  is then  ('ann', 9)  and  x[1]  is  9 . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18949174)
+ You almost had it, but the key is the first item of the tuple: 
+
+  sorted(dict.items(), key=lambda s: s[0])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15795568)
+  key  is just a function that receives an item and returns what you need to sort on. It can be anything. 
+
+ This sorts the items by the  (name_without_rightmost_word, number)  key: 
+
+  In [92]: sorted(d.items(), key=lambda (name, num): (name.rsplit(None, 1)[0], num))
+Out[92]:
+[('Mary XXIV', 24),
+ ('Robert III', 3),
+ ('Robert VIII', 8),
+ ('Robert XV', 15),
+ ('Usamec VII', 7),
+ ('Usamec XL', 40),
+ ('Usamec XLII', 42),
+ ('Usamec XLIX', 49),
+ ('Zemco III', 3)]
+  
+
+ If you use python 3, use this  key : 
+
+  lambda item: (item[0].rsplit(None, 1)[0], item[1])
+  
+
+ &nbsp; 
+
+  key.rsplit(None, 1)[0]  is better than  key.split()[0]  in case of multiword names. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12905004)
+ Since an ordered dictionary remembers its insertion order, so you can do this: 
+
+  OrderedDict(sorted(d.items(), key=lambda t: len(t[0])))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/15720995)
+ As another option, you can use http://docs.python.org/2/library/collections.html#collections.OrderedDict in combination with datetime (as mentioned by hughdbrown): 
+
+  >>> from collections import OrderedDict
+>>> from datetime import datetime
+>>> d = {
+   '28.10.11/D/text1/' : {'key1':'value1'},
+   '27.01.11/D/text2/' : {'key2':'value2'},
+   '07.11.12/D/text3/' : {'key3':'value3'}
+}
+>>> OrderedDict(sorted(d.items(), key=lambda t: datetime.strptime(t[0][:8], "%d.%m.%y")))
+  
+
+ The result: 
+
+  OrderedDict([('27.01.11/D/text2/', {'key2': 'value2'}), ('28.10.11/D/text1/', {'key1': 'value1'}), ('07.11.12/D/text3/', {'key3': 'value3'})])
+  
+
+ You'll get precisely the order you are looking for, and each part of the date will be compared to corresponding parts of other dates in a regular fashion. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22700510)
+ Use a sorting key: 
+
+  sorted(yourdict, key=lambda k: int(k.split()[0]))
+  
+
+ This returns a list of  keys , sorted numerically on the first part of the key (split on whitespace). 
+
+  
+
+  >>> yourdict = {'666 -> 999': 4388, '4000 -> 4332': 4383, '1333 -> 1665': 7998, '5666 -> 5999': 4495, '3666 -> 3999': 6267, '3000 -> 3332': 9753, '6333 -> 6665': 7966, '0 -> 332': 877}
+>>> sorted(yourdict, key=lambda k: int(k.split()[0]))
+['0 -> 332', '666 -> 999', '1333 -> 1665', '3000 -> 3332', '3666 -> 3999', '4000 -> 4332', '5666 -> 5999', '6333 -> 6665']
+  
+
+ Sorting both keys and values together: 
+
+  sorted(yourdict.items(), key=lambda item: int(item[0].split()[0]))
+  
+
+ This produces key-value pairs: 
+
+  >>> sorted(yourdict.items(), key=lambda item: int(item[0].split()[0]))
+[('0 -> 332', 877), ('666 -> 999', 4388), ('1333 -> 1665', 7998), ('3000 -> 3332', 9753), ('3666 -> 3999', 6267), ('4000 -> 4332', 4383), ('5666 -> 5999', 4495), ('6333 -> 6665', 7966)]
+  
+
+ You could produce an http://docs.python.org/2/library/collections.html#collections.OrderedDict with that: 
+
+  >>> from collections import OrderedDict
+>>> OrderedDict(sorted(yourdict.items(), key=lambda item: int(item[0].split()[0])))
+OrderedDict([('0 -> 332', 877), ('666 -> 999', 4388), ('1333 -> 1665', 7998), ('3000 -> 3332', 9753), ('3666 -> 3999', 6267), ('4000 -> 4332', 4383), ('5666 -> 5999', 4495), ('6333 -> 6665', 7966)])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36806901)
+ You should call  sorted  with  prob.items()  otherwise it returns just the keys after sorting takes place. 
+
+  sorted(prob.items(), key = lambda x: x[1], reverse = True)
+  
+
+ You can store it into  collection.OrderedDict  which remembers the order in which the items were added: 
+
+  >>> dct = sorted(prob.items(), key=lambda x: x[1], reverse=True)
+>>> result = collections.OrderedDict(dct)
+  
+
+
+

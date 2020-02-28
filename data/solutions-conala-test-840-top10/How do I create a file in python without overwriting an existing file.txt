@@ -1,0 +1,195 @@
+Query: How do I create a file in python without overwriting an existing file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1348057)
+ If you are concerned about a race condition, you can http://docs.python.org/library/tempfile.html and then rename it. 
+
+  >>> import os
+>>> import tempfile
+>>> f = tempfile.NamedTemporaryFile(delete=False)
+>>> f.name
+'c:\\users\\hughdb~1\\appdata\\local\\temp\\tmpsmdl53'
+>>> f.write("Hello world")
+>>> f.close()
+>>> os.rename(f.name, r'C:\foo.txt')
+>>> if os.path.exists(r'C:\foo.txt') :
+...     print 'File exists'
+...
+File exists
+  
+
+ Alternatively, you can create the files using a http://docs.python.org/library/uuid.html in the name. https://stackoverflow.com/questions/534839/how-to-create-a-guid-in-python item on this. 
+
+  >>> import uuid
+>>> str(uuid.uuid1())
+'64362370-93ef-11de-bf06-0023ae0b04b8'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1348073)
+ Use https://docs.python.org/2/library/os.html#os.open with  os.O_CREAT  and  os.O_EXCL  to create the file.  That will fail if the file already exists: 
+
+  >>> fd = os.open("x", os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+OSError: [Errno 17] File exists: 'x'
+  
+
+ Once you've created a new file, use https://docs.python.org/2/library/os.html#os.fdopen to turn the handle into a standard Python file object: 
+
+  >>> fd = os.open("y", os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+>>> f = os.fdopen(fd, "w")  # f is now a standard Python file object
+  
+
+  Edit:  From Python 3.3, the builtin http://docs.python.org/release/3.3.0/library/functions.html?highlight=open#open has an  x  mode that means "open for exclusive creation, failing if the file already exists". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15823846)
+ Just  open  the file in  w  mode, and it will be created it. 
+
+ If you want to open an existing file if possible, but create a new file otherwise (and don't want to truncate an existing file), read the paragraph in your link that lists the modes. Or, for complete details, see the http://docs.python.org/3/library/functions.html#open reference docs. For example, if you want to append to the end instead of overwriting from the start, use  a . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41382974)
+ when we using this line  open(filename, "a") , that  a  indicates the appending the file, that means allow to insert extra data to the existing file. 
+
+ You can just use this following lines to append the text in your file 
+
+  def FileSave(filename,content):
+    with open(filename, "a") as myfile:
+        myfile.write(content)
+
+FileSave("test.txt","test1 \n")
+FileSave("test.txt","test2 \n")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15976014)
+ Here's how you read a file, and then write to it (overwriting any existing data), without closing and reopening: 
+
+  with open(filename, "r+") as f:
+    data = f.read()
+    f.seek(0)
+    f.write(output)
+    f.truncate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35679565)
+ Truncate the file after seeking to the front. That will remove all of the existing data. 
+
+  >>> open('deleteme', 'w').write('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+>>> f = open('deleteme', 'r+')
+>>> f.read()
+'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+>>> f.seek(0)
+>>> f.truncate()
+>>> f.write('bbb')
+>>> f.close()
+>>> open('deleteme').read()
+'bbb'
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31828323)
+ This use to using file operator with  w  mode you are overwriting the content you can use  a  append method  
+
+ It can be done like this 
+
+  Modification:  
+
+  with open('test121.txt', 'w') as outfile:
+   while True:
+       posts = requests.get(posts['paging']['next']).json() 
+       json.dump(posts, outfile)
+  
+
+  w  overwrites on the existing file 
+
+  i.e)  
+
+  File1.txt:  
+
+  123
+  
+
+  code:  
+
+  with open("File1.txt","w") as oup1:
+    oup1.write("2")
+  
+
+  File1.txt after python run:  
+
+  2
+  
+
+ That is it's value is overwritten  
+
+  a  appends to the existing file  
+
+  i.e)  
+
+  File1.txt:  
+
+  123
+  
+
+  code:  
+
+  with open("File1.txt","a") as oup1:
+    oup1.write("2")
+  
+
+  File1.txt after python run:  
+
+  1232
+  
+
+ The written content is appended to the end  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12994473)
+ Using  a  instead of  w  should let you update the file instead of creating a new one/overwriting everything in the existing file. 
+
+ See https://stackoverflow.com/questions/1466000/python-open-built-in-function-difference-between-modes-a-a-w-w-and-r for a difference in the modes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/28682728)
+ Open the file in append mode instead of write mode. Use 'a' instead of 'w'. 
+
+  Example:  
+
+  config = configparser.RawConfigParser({'num threads': 1})
+config.read('path/to/config')
+try:
+    NUM_THREADS = config.getint('queue section', 'num threads')
+except configparser.NoSectionError:
+    NUM_THREADS = 1
+    config_update = configparser.RawConfigParser()
+    config_update.add_section('queue section')
+    config_update.set('queue section', 'num threads', NUM_THREADS)
+
+    with open('path/to/config', 'ab') as f:
+        config_update.write(f)
+  
+
+
+

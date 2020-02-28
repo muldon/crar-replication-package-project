@@ -1,0 +1,189 @@
+Query: Saving dictionary whose keys are tuples with json, python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12337657)
+ You'll need to convert your tuples to strings first: 
+
+  json.dumps({str(k): v for k, v in data.iteritems()})
+  
+
+ Of course, you'll end up with strings instead of tuples for keys: 
+
+  '{"(1, 2, 3)": ["a", "b", "c"], "(2, 6, 3)": [6, 3, 2]}'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12338024)
+ If you want to load your data later on you have to postprocess it anyway. Therefore I'd just dump  data.items() : 
+
+  >>> import json
+>>> a, b, c = "abc"
+>>> data = {(1,2,3):(a,b,c), (2,6,3):(6,3,2)}
+>>> on_disk = json.dumps(data.items())
+>>> on_disk
+'[[[2, 6, 3], [6, 3, 2]], [[1, 2, 3], ["a", "b", "c"]]]'
+>>> data_restored = dict(map(tuple, kv) for kv in json.loads(on_disk))
+>>> data_restored
+{(2, 6, 3): (6, 3, 2), (1, 2, 3): (u'a', u'b', u'c')}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42825735)
+ You can also dump json file directly using  json.dump  instead of  json.dumps .  
+
+  import json
+a = {'a':1,'b':2,'c':3}
+with open("your_json_file", "w") as fp:
+    json.dump(a , fp) 
+  
+
+  json.dumps  is mainly used to display dictionaries as a json format with the type of string. While dump is used for saving to file. Using this to save to file is obsolete. 
+
+ The previous example only save the file to json but does not make it very pretty.  
+
+  json.dump(a, fp, indent = 4) # you can also do sort_keys=True as well
+# this work the same for json.dumps
+  
+
+ This makes the json file more user friendly to read. https://docs.python.org/3/library/json.html#json.dump has some good description on how to use the json module.  
+
+ To retrieve your data back, you can use the  load  function. 
+
+  a = json.load(fp) # load back the original dictionary
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42676094)
+  from json import load, dump
+from ast import literal_eval
+
+x={ (0,1):'la-la la', (0,2):'extricate' }
+
+# save: convert each tuple key to a string before saving as json object
+with open('/tmp/test', 'w') as f: dump({str(k):v for k, v in x.items()}, f)
+
+# load in two stages:#
+# (i) load json object
+with open('/tmp/test', 'r') as f: obj = load(f)
+
+# (ii) convert loaded keys from string back to tuple
+d={literal_eval(k):v for k, v in obj.items()}
+  
+
+ See: https://stackoverflow.com/a/12337657/2455413 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34204513)
+ You can use ujson module. ujson.dumps() accepts tuples as keys in a dictionary.
+You can install ujson by pip. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41805087)
+ json can only accept strings as keys for dict, 
+what you can do, is to replace the tuple keys with string like so  
+
+  with open("file", "w") as f:
+    k = dic.keys() 
+    v = dic.values() 
+    k1 = [str(i) for i in k]
+    json.dump(json.dumps(dict(zip(*[k1,v]))),f) 
+  
+
+ And than when you want to read it, you can change the keys back to tuples using  
+
+  with open("file", r) as f:
+    data = json.load(f)
+    dic = json.loads(data)
+    k = dic.keys() 
+    v = dic.values() 
+    k1 = [eval(i) for i in k] 
+    return dict(zip(*[k1,v])) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53919946)
+ JSON standard  requires  keys being strings.
+If your purpose is saving this dictionary into a file - consider using  pickle  module: 
+
+  import pickle
+with open('save.json', 'w') as outfile:
+    pickle.dump({
+        (0, 0): 0,
+        (0, 1): 1,
+        (1, 0): 0,
+        (1, 1): 1,
+    }, outfile)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32045861)
+ I think there are two workarounds that you can use. 
+
+ 
+  Store the data as a list of tuples, instead of a dictionary. Note that you will have to turn the unhashable lists back into tuples when recreating the dictionary. 
+
+  >>> json.dumps(obj.items())
+'[[["a", "1", "", "b"], "1"]]'
+>>> {tuple(x): y for x, y in json.loads(_)}
+{(u'a', u'1', u'', u'b'): u'1'}
+   
+  Convert the tuples into strings, and then parse those strings back to tuples when retrieving the values. 
+
+  >>> import ast
+>>> json.dumps({repr(x): y for x, y in obj.items()})
+'{"(\'a\', \'1\', \'\', \'b\')": "1"}'
+>>> {ast.literal_eval(x): y for x, y in json.loads(_).items()}
+{('a', '1', '', 'b'): u'1'}
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30152809)
+ Like the other answers correctly state, before Python 3.6, dictionaries are  unordered . 
+
+ That said, https://stackoverflow.com/a/4920304/42973, so in principle it does not make much sense to store ordered dictionaries in JSON. Concretely, this means that upon reading a JSON object, the order of the returned keys can be arbitrary. 
+
+ A good way of preserving the order of a mapping (like a Python OrderedDict) in JSON is therefore to output an array of (key, value) pairs that you convert back to an ordered mapping upon reading: 
+
+  >>> from collections import OrderedDict
+>>> import json
+>>> d = OrderedDict([(1, 10), (2, 20)])                                         
+>>> print d[2]
+20
+>>> json_format = json.dumps(d.items())                   
+>>> print json_format  # Order maintained
+[[1, 10], [2, 20]]
+>>> OrderedDict(json.loads(json_format))  # Reading from JSON: works!
+OrderedDict([(1, 10), (2, 20)])
+>>> _[2]  # This works!
+20
+  
+
+ (Note the way the ordered dictionary is constructed from a  list  of (key, value) pairs:  OrderedDict({1: 10, 2: 20})  would not work: its keys are not necessarily ordered as in the dictionary literal, since the literal creates a Python dictionary whose keys are unordered.) 
+
+  PS : Starting with Python 3.1, the json modules https://docs.python.org/3/library/json.html#json.load for automatically converting a list of pairs (like above) to something else like an OrderedDict. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/7001635)
+ JSON only supports strings as keys.  You'll need to choose a way to represent those tuples as strings. 
+
+
+

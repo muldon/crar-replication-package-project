@@ -1,0 +1,237 @@
+Query: How to work with surrogate pairs in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38147966)
+ You've mixed a literal string  \ud83d  in a json file on disk (six characters:  \ u d 8 3 d ) and a  single  character  u'\ud83d'  (specified using a string literal in Python source code) in memory. It is the difference between  len(r'\ud83d') == 6  and  len('\ud83d') == 1  on Python 3. 
+
+ If you see  '\ud83d\ude4f'  Python string ( 2  characters) then there is a bug upstream. Normally, you shouldn't get such string. If you get one and you can't fix upstream that generates it; you could fix it using  surrogatepass  error handler: 
+
+  >>> "\ud83d\ude4f".encode('utf-16', 'surrogatepass').decode('utf-16')
+''
+  
+
+ http://bugs.python.org/issue26260. 
+
+ Note: even if your json file contains literal \ud83d\ude4f ( 12  characters); you shouldn't get the surrogate pair: 
+
+  >>> print(ascii(json.loads(r'"\ud83d\ude4f"')))
+'\U0001f64f'
+  
+
+ Notice: the result is  1  character (  '\U0001f64f' ), not the surrogate pair ( '\ud83d\ude4f' ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29634006)
+ I make a function to do this on Python 2: 
+
+  SURROGATE_PAIR = re.compile(u'[\ud800-\udbff][\udc00-\udfff]', re.UNICODE)
+def unicodeLen(s):
+  return len(SURROGATE_PAIR.sub('.', s))
+  
+
+ By replacing surrogate pairs with a single character, we 'fix' the  len  function. On normal strings, this should be pretty efficient: since the pattern won't match, the original string will be returned without modification. It should work on wide (32-bit) Python builds, too, as the surrogate pair encoding will not be used. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31674075)
+ There is no satisfactory solution for this problem in Python 2: the UCS2 and UCS4 builds have incompatible ABIs, and require libraries to be built from source (as most binary eggs are built against the default UCS2 ABI). http://bugs.python.org/issue8654 details the problem, and the resolution that made it into Python 3.3 (https://www.python.org/dev/peps/pep-0393/). 
+
+ Your rationale for using a UCS4 build is a little suspect, though. A UCS2 build of Python is perfectly capable of "work[ing] with some unicode characters with high values", using surrogate pairs to represent supplementary code points. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32862490)
+ It is not clear why do you need it but here's how you could represent non-BMP Unicode characters as surrogate pairs: 
+
+  #!/usr/bin/env python3
+import re
+
+def as_surrogates(astral):
+    b = astral.group().encode('utf-16be')
+    return ''.join([b[i:i+2].decode('utf-16be', 'surrogatepass')
+                    for i in range(0, len(b), 2)])
+
+s = '\U0001f62c \U0001f60e hello'
+u = re.sub(r'[^\u0000-\uFFFF]+', as_surrogates, s)
+print(ascii(u))
+assert u.encode('utf-16', 'surrogatepass').decode('utf-16') == s
+  
+
+ Output</h3>
+
+  '\ud83d\ude2c \ud83d\ude0e hello'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7291240)
+ Usually, you just do  ord(character)  to find the code point of a character. For completeness though, wide characters in the Unicode Supplementary Multilingual Plane are represented as surrogate pairs (i.e. two code units) in narrow Python builds, so in that case I often needed to do this small work-around: 
+
+  def get_wide_ordinal(char):
+    if len(char) != 2:
+        return ord(char)
+    return 0x10000 + (ord(char[0]) - 0xD800) * 0x400 + (ord(char[1]) - 0xDC00)
+  
+
+ This is rare in most applications though, so normally just use  ord() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3220327)
+ Encode as UTF-16, then reencode as UTF-8. 
+
+  >>> t = u''
+>>> e = t.encode('utf-16le')
+>>> ''.join(unichr(x).encode('utf-8') for x in struct.unpack('<' + 'H' * (len(e) // 2), e))
+'\xed\xa0\xb5\xed\xb0\x9f\xed\xa0\xb5\xed\xb0\xa8\xed\xa0\xb5\xed\xb0\xa8'
+  
+
+ Note that you can't encode after joining, since the surrogate pairs may be decoded before reencoding. 
+
+  EDIT:  
+
+ MySQL (at least 5.1.47) has no problem dealing with surrogate pairs: 
+
+  mysql> create table utf8test (t character(128)) collate utf8_general_ci;
+Query OK, 0 rows affected (0.12 sec)
+
+  ...
+
+>>> cxn = MySQLdb.connect(..., charset='utf8')
+>>> csr = cxn.cursor()
+>>> t = u''
+>>> e = t.encode('utf-16le')
+>>> v = ''.join(unichr(x).encode('utf-8') for x in struct.unpack('<' + 'H' * (len(e) // 2), e))
+>>> v
+'\xed\xa0\xb5\xed\xb0\x9f\xed\xa0\xb5\xed\xb0\xa8\xed\xa0\xb5\xed\xb0\xa8'
+>>> csr.execute('insert into utf8test (t) values (%s)', (v,))
+1L
+>>> csr.execute('select * from utf8test')
+1L
+>>> r = csr.fetchone()
+>>> r
+(u'\ud835\udc1f\ud835\udc28\ud835\udc28',)
+>>> print r[0]
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28783870)
+ Depending on the compilation option, Python 2 may store Unicode strings as UTF-16 code units, and thus  \U00010000  is actually a two-code-unit string: 
+
+  >>> list(u'[\U00010000-\U00010001]')
+[u'[', u'\ud800', u'\udc00', u'-', u'\ud800', u'\udc01', u']']
+  
+
+ The regex parser thus sees the character class containing  \udc00-\ud800  which is a "bad character range". In this setting I can't think of a solution other than to match the surrogate pairs explicitly (after ensuring  sys.maxunicode == 0xffff ): 
+
+  >>> r = re.compile(u'\ud800[\udc00-\udc01]')
+>>> r.match(u'\U00010000')
+<_sre.SRE_Match object at 0x10cf6f440>
+>>> r.match(u'\U00010001')
+<_sre.SRE_Match object at 0x10cf4ed98>
+>>> r.match(u'\U00010002')
+>>> r.match(u'\U00020000')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54549164)
+ Because this is a recurring question and the error message is slightly obscure, here is a more detailed explanation. 
+
+ Surrogates are a way to express Unicode code points bigger than U+FFFF. 
+
+ Recall that Unicode was originally specified to contain 65,536 characters, but that it was soon found that this was not enough to accommodate all the glyphs of the world. 
+
+ As an extension mechanism for the (otherwise fixed-width) https://en.wikipedia.org/wiki/UTF-16 encoding, a reserved area was set up to contain a mechanism for expressing code points outside the https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane: Any code point in this special area would have to be followed by another character code from the same area, and together, they would express a code point with a number larger than the old limit. 
+
+ (Strictly speaking, the surrogates area is divided into two halves; the first surrogate in a pair needs to come from the High Surrogates half, and the second, from the Low Surrogates.) 
+
+ This is a legacy mechanism to support the UTF-16 encoding specifically, and should not be used in other encodings. 
+
+ In other words, while http://www.fileformat.info/info/unicode/char/12345/index.htm can be expressed with the surrogate pair U+D808 U+DF45, you should simply express it directly instead. 
+
+ In some more detail, here is how this would be expressed in UTF-8 as a single character: 
+
+  0xF0 0x92 0x8D 0x85
+  
+
+ And here is the corresponding surrogate sequence: 
+
+  0xED 0xA0 0x88
+0xED 0xBD 0x85
+  
+
+ As already suggested in the accepted answer, you can round-trip with something like 
+
+  >>> "\ud808\udf45".encode('utf-16', 'surrogatepass').decode('utf-16').encode('utf-8')
+b'\xf0\x92\x8d\x85'
+  
+
+ Perhaps see also http://www.russellcottrell.com/greek/utilities/surrogatepaircalculator.htm 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40223212)
+ You'll have to manually replace each non-BMP point with the surrogate pair. You could do this with a regular expression: 
+
+  import re
+
+_nonbmp = re.compile(r'[\U00010000-\U0010FFFF]')
+
+def _surrogatepair(match):
+    char = match.group()
+    assert ord(char) > 0xffff
+    encoded = char.encode('utf-16-le')
+    return (
+        chr(int.from_bytes(encoded[:2], 'little')) + 
+        chr(int.from_bytes(encoded[2:], 'little')))
+
+def with_surrogates(text):
+    return _nonbmp.sub(_surrogatepair, text)
+  
+
+  
+
+  >>> with_surrogates('\U0001f64f')
+'\ud83d\ude4f'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39108371)
+ I believe you're using Python 2.7 in Windows or Mac, which has the narrow 16-bit Unicode build - Linux/Glibc usually have 32-bit full unicode, also Python 3.5 has wide Unicode on all platforms.  
+
+ What you see is the one code being split into a surrogate pair. Unfortunately it also means that you cannot use a single character class easily for this task. . The UTF-16 representation of http://www.fileformat.info/info/unicode/char/1f1e6/index.htm is  \uD83C\uDDE6 , and that of http://www.fileformat.info/info/unicode/char/1f1ff/index.htm is  \uD83C\uDDFF . 
+
+ I do not even have an access to such Python build at all, but you could try 
+
+  \uD83C[\uDDE6-\uDDFF]
+  
+
+ as a replacement for single  [\U0001F1E6-\U0001F1FF] , thus your whole regex would be 
+
+  (\uD83C[\uDDE6-\uDDFF]\uD83C[\uDDE6-\uDDFF])
+  
+
+ The reason why the character class doesn't work is that it tries to make a range from the second half of the first surrogate pair to the first half of the second surrogate pair - this fails, because the start of the range is lexicographically greater than the end. 
+
+ However, this regular expression still wouldn't work on Linux, you need to use the original there as Linux builds use wide unicode by default. 
+
+ 
+
+ Alternatively, upgrade your Windows Python to 3.5 or better. 
+
+
+

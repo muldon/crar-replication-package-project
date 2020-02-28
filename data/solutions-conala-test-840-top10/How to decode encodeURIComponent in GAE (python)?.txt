@@ -1,0 +1,193 @@
+Query: How to decode encodeURIComponent in GAE (python)?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9880400)
+ My guess is that  h.path  is a unicode object. Then  urllib.unquote  would return a unicode object. When  decode  is called on a unicode object at first it is converted to  str  using default encoding (which is ascii) and here you get the  'ascii' codec can't encode  exception. 
+
+ Here is a proof: 
+
+  >>> urllib.unquote(u"Foo%E2%84%A2%20Bar").decode("utf-8")
+...
+UnicodeEncodeError: 'ascii' codec can't encode characters in position 3-5: ordinal not in range(128)
+  
+
+ This should work: 
+
+  urllib.unquote(h.path.encode('utf-8')).decode("utf-8")
+  
+
+ There is a stackoverflow thread which explains why unicode doesn't work with  urllib.unquote : https://stackoverflow.com/questions/300445/how-to-unquote-a-urlencoded-unicode-string-in-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14176260)
+  >>> u"ü".decode("utf-8")
+  
+
+ UnicodeEncodeError 
+
+  >>> u"ü".encode("utf-8") 
+  
+
+ '\xc3\xbc' 
+
+  >>> u"ü".encode("utf-8").decode("utf-8")
+  
+
+  
+
+  >>> str(u"ü".encode("utf-8").decode("utf-8"))
+  
+
+ UnicodeEncodeError 
+
+  >>> str(u"ü".encode("utf-8"))
+  
+
+ '\xc3\xbc' 
+
+ Which encoding do you need? 
+
+ You could also use: 
+
+  string2 = cgi.escape(string).encode("latin-1", "xmlcharrefreplace") 
+  
+
+ This replaces all non latin-1 chars to xml entities. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31004351)
+ This code contains accents. 
+Accents are not in ascii but in UTF-8 
+
+ My thoughts are that your DB is in utf8, but your python encoding is set on ascii.
+You should either set your python idle (if used), your shell (if your trying to print), and your python script to UTF8. 
+
+ Or convert your code using https://docs.python.org/2/library/unicodedata.html  
+
+  def remove_accents(input_str):
+    nkfd_form = unicodedata.normalize('NFKD', input_str)
+    only_ascii = nkfd_form.encode('ASCII', 'ignore')
+    return only_ascii
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3103055)
+ GAE stores strings in unicode. Perhaps encode your string in unicode before saving it. 
+
+  value = "peña"
+
+value.encode("utf8")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6431284)
+ You want to make sure you're using unicode. 
+
+ Example: 
+
+  import urllib
+
+s = u"ó"
+print urllib.quote(s.encode("utf-8"))
+  
+
+ Outputs: 
+
+  %C3%B3  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13394956)
+ Run your string through  encodeURIComponent() . Then components that truncate would be encoded. Afterwards when retrieving the data you need to decode. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19109369)
+ I suppose the problem is that gcs_file.write() method expects data of type "str". Since type of your buf is "unicode" and apparently contains some Unicode chars (maybe in ID3 tags), you get UnicodeDecodeError. So you just need to encode buf to UTF-8: 
+
+  gcs_file = gcs.open(filename,'w',content_type='audio/mp3')
+gcs_file.write(buf.encode('utf-8'))
+gcs_file.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/23106583)
+ Using  encodeURIComponent()  in javascript code instead of  escape()  fixed the issue.  
+
+ Thanks 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46472755)
+ Finally I found the solution. 
+
+ The point is that NDB is storing the value as blob while the library is storing as string.  
+
+ The solution is just do not encode/decode the string value, the library will do it and will store the value as blob, that is what NDB expects. 
+
+  
+
+  value_to_store = json.dumps(value, separators=[',',':'])
+  
+
+  
+
+  read_value = json.loads(read_value)
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44722517)
+ Your json string is being encoded with the https://en.wikipedia.org/wiki/Quoted-printable for transport because it contains non-ascii characters.  The https://docs.python.org/2/library/quopri.html module in Python's standard library provides the tools to handle this: 
+
+  >>> import quopri
+>>> foo = '{"subject": "日文", "tag_key": "ahNifnN1aXF1aS1kZXYtMTcwMDAycjkLEgRUZWFtIgtzdWlxdWlfdGVzdAwLEgdUYWdUeXBlGICAgICAgIAKDAsSA1RhZxiAgICAgK6ZCQw"}'
+>>> encoded = quopri.encodestring(foo)
+>>> print encoded
+{"subject": "=E6=97=A5=E6=96=87", "tag_key": "ahNifnN1aXF1aS1kZXYtMTcwMDAyc=
+jkLEgRUZWFtIgtzdWlxdWlfdGVzdAwLEgdUYWdUeXBlGICAgICAgIAKDAsSA1RhZxiAgICAgK6Z=
+CQw"}
+  
+
+ You can decode with  quopri.decodestring  to get the original string: 
+
+  >>> print quopri.decodestring(encoded)
+{"subject": "日文", "tag_key": "ahNifnN1aXF1aS1kZXYtMTcwMDAycjkLEgRUZWFtIgtzdWlxdWlfdGVzdAwLEgdUYWdUeXBlGICAgICAgIAKDAsSA1RhZxiAgICAgK6ZCQw"}
+  
+
+ The encoding is triggered by the presence of non-ascii characters in the json string; the newlines are being inserted because quoted-printable encoding enforces a line length of 76 characters. 
+
+ You may be able to avoid this problem completely by escaping the the non-ascii characters in your json string - for example Python's json module does this https://docs.python.org/2/library/json.html#basic-usage: 
+
+ 
+   If  ensure_ascii  is true (the default), all non-ASCII characters in the
+  output are escaped with  \uXXXX  sequences, and the result is a https://docs.python.org/2/library/functions.html#str
+  instance consisting of ASCII characters only. 
+ 
+
+  >>> json.dumps({"subject": "日文", "tag_key": "ahNifnN1aXF1aS1kZXYtMTcwMDAycjkLEgRUZWFtIgtzdWlxdWlfdGVzdAwLEgdUYWdUeXBlGICAgICAgIAKDAsSA1RhZxiAgICAgK6ZCQw"})    
+
+{
+    "tag_key": "ahNifnN1aXF1aS1kZXYtMTcwMDAycjkLEgRUZWFtIgtzdWlxdWlfdGVzdAwLEgdUYWdUeXBlGICAgICAgIAKDAsSA1RhZxiAgICAgK6ZCQw",
+    "subject": "\u65e5\u6587"
+}
+  
+
+
+

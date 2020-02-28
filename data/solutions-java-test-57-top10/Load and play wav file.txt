@@ -1,0 +1,375 @@
+Query: Load and play wav file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/29976623)
+ Your usage of  Thread  is very strange. In case you wanted to load clip in background thread, and then start playing you would need to change : 
+
+  public class BackroundSound extends Thread {
+    private String songUrl;
+
+    public BackroundSound(String url) {
+        songUrl = url;
+    }
+
+    //load in background and then start playing
+    @Override
+    public void run() {
+        if (songUrl == null) {
+            // log error, url wasn't set
+        }
+        URL songFile = SoundRessources.class.getResource(songUrl);
+        AudioClip song = Applet.newAudioClip(songFile);
+        song.play();
+        // log - playback is finished
+    }
+}
+  
+
+ To load and play sound : 
+
+  new BackroundSound("xxxxx/xxxx.wav").start();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31307342)
+  
+
+  void PlaySound(String filename) {
+        try (InputStream in = getClass().getResourceAsStream(filename)) {
+            InputStream bufferedIn = new BufferedInputStream(in);
+            try (AudioInputStream audioIn = AudioSystem.getAudioInputStream(bufferedIn)) {
+                Clip clip = AudioSystem.getClip();
+                clip.open(audioIn);
+                clip.start();
+            }
+        } catch (Exception e) {
+           e.printStackTrace();
+       }
+    }
+  
+
+ But I actually got this solution from here:
+https://stackoverflow.com/questions/5529754/java-io-ioexception-mark-reset-not-supported 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24482015)
+ I've had some trouble in the past getting sound to work in Java. Here is a good way to load .wav soundclips. 
+
+  private Clip clip;
+
+public Sound(String fileName)
+{
+    try
+    {
+        File file = new File(fileName);
+        if (file.exists())
+        {
+            AudioInputStream sound = AudioSystem.getAudioInputStream(file);
+            clip = AudioSystem.getClip();
+            clip.open(sound);
+        }
+        else
+        {
+            throw new RuntimeException("Sound: file not found: " + fileName);
+        }
+    }
+    catch (UnsupportedAudioFileException e)
+    {
+        e.printStackTrace();
+        throw new RuntimeException("Sound: Unsupported Audio File: " + e);
+    }
+    catch (IOException e)
+    {
+        e.printStackTrace();
+        throw new RuntimeException("Sound: Input/Output Error: " + e);
+    }
+}
+
+public void play()
+{
+    clip.setFramePosition(0);
+    clip.start();
+}
+public void loop()
+{
+    clip.loop(Clip.LOOP_CONTINUOUSLY);
+}
+public void stop()
+{
+    clip.stop();
+}
+  
+
+ I find that this works great! You can add more exceptions if you'd like as well, like LineUnavailableException, and MalformedURLException. To create a sound clip you make something as such: 
+
+  private Sound sound = new Sound("/sounds/sound.wav");
+  
+
+ then doing 
+
+  sound.play();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4420312)
+ Personally, I don't see WAV files as 'resources' and I'd suggest you put them in the 'assets' folder and use AssetManager as you mentioned. 
+
+ This works for me... 
+
+ Create a folder structure in your project... 
+
+      /assets/instruments/data/bongo/audio
+  
+
+ ...then copy your bong1.wav file there. 
+
+ Use the following to load it. NOTE: DO NOT put '/' in front of 'instruments' when supplying the path to soundPool.load()... 
+
+      // Declare globally if needed
+    int mySoundId;
+    SoundPool soundPool = new SoundPool(5, AudioManager.STREAM_MUSIC, 0 );
+    AssetManager am = this.getAssets();
+
+    //Use in whatever method is used to load the sounds
+    try {
+        mySoundId = soundPool.load(am.openFd("instruments/data/bongo/audio/bong1.wav"), 1);
+    } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+    }
+  
+
+ Use this to play it... 
+
+      soundPool.play(mySoundId, 1, 1, 0, 0, 1);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12059638)
+ you can play .wav only with java API: 
+
+  import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+  
+
+ code: 
+
+  AudioInputStream audioIn = AudioSystem.getAudioInputStream(MyClazz.class.getResource("music.wav"));
+Clip clip = AudioSystem.getClip();
+clip.open(audioIn);
+clip.start();
+  
+
+ And play .mp3 with jLayer 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40303880)
+ A class that will play a WAV file, blocking until the sound has finished playing: 
+
+  class Sound implements Playable {
+
+    private final Path wavPath;
+    private final CyclicBarrier barrier = new CyclicBarrier(2);
+
+    Sound(final Path wavPath) {
+
+        this.wavPath = wavPath;
+    }
+
+    @Override
+    public void play() throws LineUnavailableException, IOException, UnsupportedAudioFileException {
+
+        try (final AudioInputStream audioIn = AudioSystem.getAudioInputStream(wavPath.toFile());
+             final Clip clip = AudioSystem.getClip()) {
+
+            listenForEndOf(clip);
+            clip.open(audioIn);
+            clip.start();
+            waitForSoundEnd();
+        }
+    }
+
+    private void listenForEndOf(final Clip clip) {
+
+        clip.addLineListener(event -> {
+            if (event.getType() == LineEvent.Type.STOP) waitOnBarrier();
+        });
+    }
+
+    private void waitOnBarrier() {
+
+        try {
+
+            barrier.await();
+        } catch (final InterruptedException ignored) {
+        } catch (final BrokenBarrierException e) {
+
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void waitForSoundEnd() {
+
+        waitOnBarrier();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4525864)
+ you can use this to play an .mp3 or .wav file  
+
+  Player p;
+InputStream is = getClass().getResourceAsStream(SoundName[sound]);
+        try {
+            p = Manager.createPlayer(is, "audio/X-wav");
+            p.start();
+            is.close();
+            is = null;
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } catch (MediaException ex) {
+            ex.printStackTrace();
+        }
+
+p.setLoopCount(100);//using this you can play the sound in loop 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1144392)
+ What's wrong with Javas built in WAV playback support? You can play it back using AudioClip: 
+
+  private void playBackClip(String fileName) {
+    try {
+        AudioInputStream soundStream = null;
+        if (fileName.startsWith("res:")) {
+            soundStream = AudioSystem.getAudioInputStream(
+                Object.class.getResourceAsStream(fileName.substring(4)));
+        } else {
+            File audioFile = resMap.get(fileName);
+            soundStream = AudioSystem.getAudioInputStream(audioFile);
+        }
+        AudioFormat streamFormat = soundStream.getFormat();
+        DataLine.Info clipInfo = new DataLine.Info(Clip.class,
+                streamFormat);
+
+        Clip clip = (Clip) AudioSystem.getLine(clipInfo);
+        soundClip = clip;
+        clip.open(soundStream);
+        clip.setLoopPoints(0, -1);
+        clip.start();
+    } catch (UnsupportedAudioFileException e) {
+        e.printStackTrace();
+    } catch (IOException e) {
+        e.printStackTrace();
+    } catch (LineUnavailableException e) {
+        e.printStackTrace();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17277981)
+ You can use an event listener to close the clip after it is played 
+
+  import java.io.File;
+import javax.sound.sampled.*;
+
+public void play(File file) 
+{
+    try
+    {
+        final Clip clip = (Clip)AudioSystem.getLine(new Line.Info(Clip.class));
+
+        clip.addLineListener(new LineListener()
+        {
+            @Override
+            public void update(LineEvent event)
+            {
+                if (event.getType() == LineEvent.Type.STOP)
+                    clip.close();
+            }
+        });
+
+        clip.open(AudioSystem.getAudioInputStream(file));
+        clip.start();
+    }
+    catch (Exception exc)
+    {
+        exc.printStackTrace(System.out);
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/45966133)
+ A solution without java reflection  DataLine.Info info = new DataLine.Info(SourceDataLine.class, audioFormat)  
+
+ Java reflection decrease performance.
+to run:  java playsound absoluteFilePathTo/file.wav  
+
+  import javax.sound.sampled.*;
+import java.io.*;
+public class playsound {
+
+    public static void main (String args[]) throws Exception {
+        playSound (args[0]);
+    }
+
+    public static void playSound () throws Exception {
+        AudioInputStream 
+        audioStream = AudioSystem.getAudioInputStream(new File (filename));
+
+        int BUFFER_SIZE = 128000;
+        AudioFormat audioFormat = null;
+        SourceDataLine sourceLine = null;
+
+        audioFormat = audioStream.getFormat();
+
+        sourceLine = AudioSystem.getSourceDataLine(audioFormat);
+        sourceLine.open(audioFormat);
+        sourceLine.start();
+
+        int nBytesRead = 0;
+        byte[] abData = new byte[BUFFER_SIZE];
+        while (nBytesRead != -1) {
+            try {
+                nBytesRead = 
+                audioStream.read(abData, 0, abData.length);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if (nBytesRead >= 0) {
+                int nBytesWritten = sourceLine.write(abData, 0, nBytesRead);
+            }
+        }
+
+        sourceLine.drain();
+        sourceLine.close();
+    }
+
+}
+  
+
+
+

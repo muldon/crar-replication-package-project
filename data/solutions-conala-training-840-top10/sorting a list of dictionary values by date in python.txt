@@ -1,0 +1,203 @@
+Query: sorting a list of dictionary values by date in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/652347)
+ You can do it this way: 
+
+  list.sort(key=lambda item:item['date'], reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3977387)
+ If you're using Python 2.7+ or 3.1+ you could create an http://docs.python.org/library/collections.html#collections.OrderedDict from a sort of your dictionary and then iterate through that. 
+
+  ordered = OrderedDict(sorted(mydict.items(), key=lambda t: t[0]))
+  
+
+ However, depending on what you want to do it's probably easier to iterate over a sorted list of keys from your dict.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11775854)
+ Convert the keys to  datetime.date  values; using  .items()  would give you tuples of both key and value that you can then sort: 
+
+  data = [(datetime.datetime.strptime(k, '%d.%m.%Y').date(), v) 
+        for k, v in yourdict.items()]
+data.sort()
+  
+
+ Then index these; data[5][0] is the date, data[5][1] is the dictionary value. 
+
+ If you need to retain the original date formatting, use the date format parsing only for sorting; here's a one-liner variant of the above that uses a sort key: 
+
+  data = sorted(yourdict.items(), 
+              key=lambda i: datetime.datetime.strptime(i[0], '%d.%m.%Y'))
+  
+
+ Here I use the http://docs.python.org/py3k/library/functions.html#sorted to do the hard work, and the  key  lambda takes each date string, converting it to a  datetime.datetime  instance for sorting purposes only. I don't limit this to a  datetime.date  instance as in the first example. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3977330)
+ Dictionaries are unsortable. Iterate over  sorted(mydict.keys())  instead. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34129758)
+ <s>The idea here is to use  OrderedDict  as  dictionary  has no scope for ordering while OrderedDict preserves the entry order.</s> 
+
+ The idea here is to use  list of tuples of (key, value) pairs  as  dictionary  has no scope for ordering while OrderedDict preserves the entry order.
+Also we must  convert the keys to actual  datetime  object  for the sort to work perfectly otherwise sorting on string based fields happen alphabetically. 
+
+  Code :  
+
+  from datetime import datetime
+#from collections import OrderedDict
+
+
+data = {
+    "01-01-2015" : "some data",
+    "05-05-2015" : "some data",
+    "03-04-2015" : "some data"
+}
+
+#ordered_data = OrderedDict(
+#    sorted(data.items(), key = lambda x:datetime.strptime(x[0], '%d-%m-%Y'), reverse=True))
+
+#Since OP is using python 2.6 where OrderedDict is not present, I changed the solution and the original solution is commented out
+ordered_data = sorted(data.items(), key = lambda x:datetime.strptime(x[0], '%d-%m-%Y'), reverse=True)
+
+print(ordered_data)
+  
+
+  Output :  
+
+  [('05-05-2015', 'some data'), ('03-04-2015', 'some data'), 
+('01-01-2015', 'some data')]
+  
+
+  Explanation :  (For converting keys to datetime for sorting) 
+
+ If you keep the date field as string then the lexicographical order is considered and  3  comes after  0  hence  a>b  is  True  but same is not true for their date counterparts.  Feb  definitely comes after  Jan . 
+
+  a = "30-01-2015"
+b = "01-02-2015"
+
+print(a>b)    #True
+
+a_datetime = datetime.strptime(a, '%d-%m-%Y')
+b_datetime = datetime.strptime(b, '%d-%m-%Y')
+
+print(a_datetime>b_datetime) #False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/652478)
+ If you're into the whole brevity thing: 
+
+  data = "data from database"
+sorted_data = sorted(
+    [{'title': x.title, 'date': x.created_on} for x in data], 
+    key=operator.itemgetter('date'),
+    reverse=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52662302)
+ You can try of sorting date values in descending and aggregating the 'id' group values 
+
+ @praveen's logic is very simpler, by extending of logic, you can use astype of category to convert the values to categories and can retrive the codes (keys') of that categories, but it will be little bit different to your expected output 
+
+  df1 = df.sort_values(['id', 'date'], ascending=[True, False])
+df1['date_rank'] =df1.groupby(['id']).apply(lambda x: x['date'].astype('category',ordered=False).cat.codes+1).values
+  
+
+  
+
+                   date   id  value   date_rank
+0   10/01/2017 15:45:00 1   0.01    2
+1   10/01/2017 15:45:00 1   0.40    2
+2   05/01/2017 15:56:00 1   0.50    1
+3   11/01/2017 15:22:00 2   0.70    1
+4   11/01/2017 15:22:00 2   0.77    1
+5   06/01/2017 11:02:00 3   0.10    2
+6   05/01/2017 09:37:00 3   0.20    1
+7   05/01/2017 09:37:00 3   0.30    1
+8   05/01/2017 09:55:00 4   0.11    1
+9   05/01/2017 09:55:00 4   0.21    1
+11  05/01/2017 10:09:00 5   0.01    2
+10  05/01/2017 10:08:00 5   0.40    1
+14  03/02/2017 09:31:00 6   0.80    3
+13  03/02/2017 09:15:00 6   0.50    2
+12  03/02/2017 08:55:00 6   3.00    1
+16  19/01/2017 16:34:00 7   0.10    2
+15  09/01/2017 15:42:00 7   0.90    1
+  
+
+ but to get your exact output, here i have used dictionary and reversing dictionary keys with extracting values 
+
+  df1 = df.sort_values(['id', 'date'], ascending=[True, False])
+df1['date_rank'] = df1.groupby(['id'])['date'].transform(lambda x: list(map(lambda y: dict(map(reversed, dict(enumerate(x.unique())).items()))[y]+1,x)) )
+  
+
+  
+
+                  date    id  value   date_rank
+0   10/01/2017 15:45:00 1   0.01    1
+1   10/01/2017 15:45:00 1   0.40    1
+2   05/01/2017 15:56:00 1   0.50    2
+3   11/01/2017 15:22:00 2   0.70    1
+4   11/01/2017 15:22:00 2   0.77    1
+5   06/01/2017 11:02:00 3   0.10    1
+6   05/01/2017 09:37:00 3   0.20    2
+7   05/01/2017 09:37:00 3   0.30    2
+8   05/01/2017 09:55:00 4   0.11    1
+9   05/01/2017 09:55:00 4   0.21    1
+11  05/01/2017 10:09:00 5   0.01    1
+10  05/01/2017 10:08:00 5   0.40    2
+14  03/02/2017 09:31:00 6   0.80    1
+13  03/02/2017 09:15:00 6   0.50    2
+12  03/02/2017 08:55:00 6   3.00    3
+16  19/01/2017 16:34:00 7   0.10    1
+15  09/01/2017 15:42:00 7   0.90    2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5307497)
+ Dictionaries are unsortable. If you want a sorted list of 2-tuples: 
+
+  sorted(D.iteritems(), key=lambda x: x[1][1][0])
+  
+
+ Pass the expression to  datetime.strptime()  if you want it in date order instead of string order (not that there is a huge difference given the existing date format...). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3977370)
+ Dictionaries never store anything in some order. But you can get a list of keys using  d.keys()  which could be sorted. Iterate over a generator like below. 
+
+  def sortdict(d):
+    for key in sorted(d): yield d[key]
+  
+
+ Using this you will be able to iterate over values in chronological order. 
+
+  for value in sortdict(mydict):
+    # your code
+    pass
+  
+
+
+

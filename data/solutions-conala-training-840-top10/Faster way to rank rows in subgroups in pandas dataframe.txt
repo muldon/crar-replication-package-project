@@ -1,0 +1,250 @@
+Query: Faster way to rank rows in subgroups in pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26721325)
+ rank is cythonized so should be very fast. And you can pass the same options as  df.rank() 
+http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rank.html?highlight=rank#pandas.DataFrame.rank are the docs for  rank . As you can see, tie-breaks can be done in one of five different ways via the  method  argument. 
+
+ Its also possible you simply want the  .cumcount()  of the group. 
+
+  In [12]: df.groupby('group')['value'].rank(ascending=False)
+Out[12]: 
+0    4
+1    1
+2    3
+3    2
+4    3
+5    2
+6    1
+7    4
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36939705)
+ Working with a big DataFrame (13 million lines), the method rank with groupby maxed out my 8GB of RAM an it took a really long time. I found a workaround less greedy in memory , that I put here just in case: 
+
+  df.sort_values('value')
+tmp = df.groupby('group').size()
+rank = tmp.map(range)
+rank =[item for sublist in rank for item in sublist]
+df['rank'] = rank
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19580777)
+  my_df.groupby(['A', 'B']).count()
+len(my_df.groupby(['A', 'B']).groups)
+  
+
+ to add column with counts you can use http://pandas.pydata.org/pandas-docs/dev/groupby.html#transformation: 
+
+  df["size"] = df.groupby(['A', 'B']).transform(len)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50378202)
+ Use: 
+
+  df['order'] = df.groupby('user1')['quantity'].rank(ascending=False).astype(int)
+  
+
+ Output: 
+
+     user1  user2  quantity  order
+0  Alice  Carol        10      1
+1  Alice    Bob         5      2
+2    Bob    Dan         2      1
+3  Carol    Eve         7      2
+4  Carol    Dan       100      1
+  
+
+ . 
+
+  df.groupby('user1')['quantity'].rank(ascending=False)
+  
+
+ Output: 
+
+  0    1.0
+1    2.0
+2    1.0
+3    2.0
+4    1.0
+Name: quantity, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46810757)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.cumcount.html: 
+
+  df = df.sort_values(['Name','Time'])
+df['Order'] = df.groupby('Name').cumcount()
+print (df)
+
+   Distance   Name  Time  Order
+1        16   John     5      0
+4        31   John     9      1
+0        23   Kate     3      0
+3        15   Kate     7      1
+2        32  Peter     2      0
+5        26  Peter     4      1
+  
+
+ If need first column use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.insert.html: 
+
+  df = df.sort_values(['Name','Time'])
+df.insert(0, 'Order', df.groupby('Name').cumcount())
+print (df)
+   Order  Distance   Name  Time
+1      0        16   John     5
+4      1        31   John     9
+0      0        23   Kate     3
+3      1        15   Kate     7
+2      0        32  Peter     2
+5      1        26  Peter     4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/46810745)
+  In [67]: df = df.sort_values(['Name','Time']) \
+                .assign(Order=df.groupby('Name').cumcount())
+
+In [68]: df
+Out[68]:
+   Distance   Name  Time  Order
+1        16   John     5      0
+4        31   John     9      1
+0        23   Kate     3      0
+3        15   Kate     7      1
+2        32  Peter     2      0
+5        26  Peter     4      1
+  
+
+ PS I'm not sure this is the most elegant way to do this... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43099773)
+ You can specify  pct=True  while computing numerical data ranks between the subgroups grouped by  "school_id"  as an additional arg to http://pandas.pydata.org/pandas-docs/version/0.17.0/generated/pandas.core.groupby.DataFrameGroupBy.rank.html method: 
+
+  df.assign(percentile=df.groupby("school_id")['points'].rank(pct=True).mul(100))
+  
+
+ https://i.stack.imgur.com/MDkDg.png 
+
+   To check   (for one instance): 
+
+  from scipy.stats import percentileofscore
+df.groupby("school_id")['points'].apply(percentileofscore, 160)
+
+school_id
+123    70.000000
+124    66.666667
+Name: points, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34347127)
+ You can use  groupby  and then use  rank  (with  ascending=False  to get the largest values first).  You don't need to sort in the  groupby , as the result is indexed to the dataframe (slightly faster performance). 
+
+  df['yearly_rank'] = df.groupby('year', sort=False)['value'].rank(ascending=False)
+
+>>> df.sort_values(['year', 'yearly_rank'])
+   value  year  yearly_rank
+1     10  2006            1
+0      5  2006            2
+2      4  2007            1
+3      1  2007            2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43395780)
+ You should be able to rank every column by using http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rank.html: 
+
+  df.rank()
+  
+
+ From http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rank.html 
+
+ 
+   Compute numerical data ranks (1 through n) along axis. 
+  
+   axis: {0 or ‘index’, 1 or ‘columns’}, default 0 
+  
+   index to direct ranking 
+ 
+
+ consider the dataframe  df  
+
+  np.random.seed([3,1415])
+df = pd.DataFrame(dict(
+        A=np.random.choice(np.arange(10), 5, False),
+        B=np.random.choice(np.arange(10), 5, False),
+        C=np.random.choice(np.arange(10), 5, False),
+        D=np.random.choice(np.arange(10), 5, False),
+    ))
+
+df
+
+   A  B  C  D
+0  9  1  6  0
+1  4  3  8  2
+2  5  5  9  6
+3  1  9  7  1
+4  7  4  3  9
+  
+
+ Then ranking produces 
+
+  df.rank()
+
+     A    B    C    D
+0  5.0  1.0  2.0  1.0
+1  2.0  2.0  4.0  3.0
+2  3.0  4.0  5.0  4.0
+3  1.0  5.0  3.0  2.0
+4  4.0  3.0  1.0  5.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31819579)
+ One way would be to introduce a column ranking the subgroups and then pivot. 
+First sort by the score and do a group by transform: 
+
+  df.sort('score', inplace=True)
+ranks = ['lowest', 'second lowest', 'third lowest']
+df['rank'] = df.groupby('group').subgroup.transform(lambda s: ranks[:len(s)])
+  
+
+   
+
+  In [44]:    df.pivot(index='group', columns='rank', values='subgroup')
+
+Out[44]:
+rank    lowest  second lowest   third lowest
+group           
+A   B   C   A
+B   C   A   F
+C   C   D   NaN
+  
+
+
+

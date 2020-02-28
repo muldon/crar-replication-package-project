@@ -1,0 +1,197 @@
+Query: Generate all possible strings from a list of token
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4059597)
+ . 
+
+ Here is the token permutation example: 
+
+  import itertools
+
+tokens = ["hel", "lo", "bye"]
+
+for i in range(1, len(tokens) + 1):
+    for p in itertools.permutations(tokens, i):
+        print "".join(p)
+  
+
+ Alternatively, this treats each character as a token: 
+
+  import itertools
+
+tokens = ["hel", "lo", "bye"]
+
+chars = "".join(tokens)
+for i in range(1, len(chars) + 1):
+    for p in itertools.permutations(chars, i):
+        print "".join(p)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4059585)
+ http://docs.python.org/library/itertools.html#itertools.permutations can do that for you. 
+
+  >>> l = ['hel', 'lo', 'bye']
+>>> list(itertools.permutations(l, 2))
+[('hel', 'lo'), ('hel', 'bye'), ('lo', 'hel'), ('lo', 'bye'), ('bye', 'hel'), ('bye', 'lo')]
+  
+
+ Or if you want combinations, you can use http://docs.python.org/library/itertools.html#itertools.combinations. 
+
+  >>> l = ['hel', 'lo', 'bye']
+>>> list(itertools.combinations(l, 2))
+[('hel', 'lo'), ('hel', 'bye'), ('lo', 'bye')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4059992)
+ Looks like you want  permutations : 
+
+  from itertools import permutations
+
+# easy way to make a list for words
+words = 'hel lo bye'.split()
+
+# fetch two-word permutations, joined into a string
+for word in [''.join(s) for s in permutations(words,2)]:
+    print word
+  
+
+ Output:</h3>
+
+  hello
+helbye
+lohel
+lobye
+byehel
+byelo
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4059600)
+ Python has a http://docs.python.org/library/itertools.html#itertools.permutations too.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4059588)
+ Your example can be written in Python as 
+
+  from itertools import combinations
+print list(combinations(["hel", "lo", "bye"], 2))
+  
+
+ To combine the output to strings again: 
+
+  print ["".join(a) for a in combinations(["hel", "lo", "bye"], 2)]
+  
+
+ If you interested in the actual implementation of this function, have a look at the http://docs.python.org/library/itertools.html#itertools.combinations. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31618249)
+ A possible method of limiting sessions to a single tab involves creating a random token on page load and embedding this token into the page. This most recently generated token gets stored in the user's session as well. This will be similar to how various frameworks add validation tokens to prevent https://en.wikipedia.org/wiki/Cross-site_request_forgery attacks. 
+
+ Brief example: 
+
+ 
+ User loads page in tab 1 in Firefox.  Token1  is generated, embedded and stored in session 
+ User loads page in tab 2 in Firefox.  Token2  is generated, embedded and stored in session. This overwrites previous value. 
+ User loads page in tab 1 in Chrome.  Token3  is generated, embedded and stored in session. this overwrites previous value. 
+ 
+
+ At this point, the user has the page open in 3 tabs. The user's session, though, only has  Token3  stored. This method prevents the user from being locked out (different IP addresses, different user agent strings, incogneto mode, etc) because each new session simply generates a new token. The newest load becomes the active window, immediately invalidating all previous sessions. 
+
+ Next, any time the page interacts with the server (clicks a link, submits data, etc.), the token embedded in the page is sent as well. The server validates that the passed token matches the token in the session. If they match, the action succeeds. If they do not match, the server returns a failure message.  
+
+ 
+
+ You can generate random numbers in multiple ways, but you probably want something secure. We'll use the https://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python from another question: 
+
+  import string
+import random
+...
+N = 20  # Length of the string we want, adjust as appropriate
+''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N))
+  
+
+ This uses https://docs.python.org/2/library/random.html#random.SystemRandom, which is more secure than simply using https://docs.python.org/2/library/random.html#random.choice 
+
+ 
+
+ On page load, you need to check if the existing token is valid, generate the random token and store this in the user's session. Since we want this everywhere, let's make a decorator first, to reduce duplicate code later. The decorator checks if the session is valid and if not you get to select what to do (insert your own logic). It also sets a session token. This is needed (or you need logic to exclude your main page) otherwise you'll hit an infinite loop where the user attempts to load the main page, doesn't have a token, fails and the process repeats. I have the token regenerating on each page load via the  else  clause. If you do not implement the  if  section, this decorator is pointless as both paths perform the same action and simply reset the token on page load. The logic in the  if  is what will prevent the user from having multiple sessions. 
+
+  from flask import session
+from functools import wraps
+
+def random_string(length):
+    return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(length))
+
+def validate_token(f):
+    @wraps(f)
+    def wrapper(existing_token, *args, **kwargs):
+        if session['token'] != existing_token:
+            # Logic on failure. Do you present a 404, do you bounce them back to your main page, do you do something else?
+            # It is IMPORTANT that you determine and implement this logic
+            # otherwise the decorator simply changes the token (and behaves the same way as the else block).
+            session['token'] = random_string(20)
+        else:
+            session['token'] = random_string(20)
+        return f(*args, **kwargs)
+    return wrapper
+  
+
+ Now in our routes, we can apply this decorator to each, so that the user session gets updated on each page load: 
+
+  from flask import render_template
+
+@app.route('/path')
+@validate_token
+def path(token=None):
+    return render_template('path.html', token=session['token'])
+  
+
+ In your template, you want to utilize this  token  value anywhere you need to prevent the session from continuing. For example, put it on links, in forms (though http://flask.pocoo.org/snippets/3/ already), etc. The server itself can check if the passed token is valid. The template could look as simple as this: 
+
+  {{ url_for('path', token=token) }} 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46284627)
+ . Technically you cannot actually extend a token, you can only replace it with a new JWT that has a new expires time. There are a few ways you could simulate this though. 
+
+ First, instead of having the client request a new token, you could have the server itself just implicitly send back a new token on every request. You could send the new JWTs back in a header instead of in the JSON payload, so that you wouldn't have to modify you JSON data to account for the possibility of a new JWT. Your clients would need to be aware of this though, they would need to check for that new header on every request and replace their current JWT with the new one if it is present. You could probably use a flask after_request method to do this, so you didn't have to add that functionality to all your endpoints. A similar effect could be achieved when storing the JWTs in cookies, with the differences being that cookies are automatically stored in your browser (so your client wouldn't have to manually look for them on every request), and with the added complexity of CSRF protection if you go this route (http://flask-jwt-extended.readthedocs.io/en/latest/tokens_in_cookies.html). 
+
+ The above should work fine, but you will be creating a lot of access tokens that are thrown away right after being created, which probably isn't ideal. A variation of the above is to check if the token is near expiring (maybe if it is more then half way to being expired) and only create and return a new token if that is the case. Another variation of this would be to have the client check if the token is about to expire (via javascript) and if it is, use the refresh token to request a new access token. To do that, you would need to split the JWT on dots ('.'), base64 decode the second set of strings from that split (index 1), and grab the 'exp' data from there. 
+
+ A second way you could do this is actually wait for a token to expire, and then use the refresh token to generate a new access token and remake the request (reactive instead of proactive). That might look like making a request, checking if the http code is 401, if so use the refresh token to generate a new access token, then making the request again. 
+
+ Hope this helps :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50720168)
+ spaCy exposes the token's whitespace as the  whitespace_  attribute. So if you only need a list of strings, you could do: 
+
+  token_texts = []
+for token in doc:
+   token_texts.append(token.text)
+   if token.whitespace_:  # filter out empty strings
+       token_texts.append(token.whitespace_)
+  
+
+ If you want to create an actual  Doc  object out of those tokens, that's possible, too.  Doc  objects can be https://spacy.io/api/doc#init with a  words  keyword argument (a list of strings to add as tokens). However, I'm not sure how useful that would be. 
+
+
+

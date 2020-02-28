@@ -1,0 +1,228 @@
+Query: python: dots in the name of variable in a format string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7934891)
+ One way to work around this is to use the old  %  formatting (which has not been deprecated yet): 
+
+  >>> print 'Name: %(person.name)s' % {'person.name': 'Joe'}
+Name: Joe
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23909682)
+ . The https://docs.python.org/2/library/string.html#format-string-syntax supports  only  integers or  valid Python identifiers  as keys.  
+
+ 
+  arg_name          ::=  [identifier | integer]
+  
+ 
+
+ where  identifier  is https://docs.python.org/2/reference/lexical_analysis.html#grammar-token-identifier: 
+
+ 
+   Identifiers (also referred to as names) are described by the following lexical definitions: 
+
+  identifier ::=  (letter|"_") (letter | digit | "_")*
+  
+ 
+
+ No dots (or semicolons) allowed. 
+
+ You could use your dictionary as a  second level  object: 
+
+  "{v[hello.world]}".format(v={ 'hello.world' : '2' })
+  
+
+ Here we assigned the dictionary to the name  v , then index into it using a key name. These can be any string, not just identifiers. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19544701)
+ You are looking for a thousands-separator. Format your number with the http://docs.python.org/2/library/functions.html#format to using  commas  as the thousands separator, then replace the commas with dots: 
+
+  >>> format(1234, ',').replace(',', '.') 
+'1.234'
+>>> format(12345678, ',').replace(',', '.') 
+'12.345.678'
+  
+
+ Here the  ','  format signals that the decimal number should be formatted with a thousands-separator (see the http://docs.python.org/2/library/string.html#formatspec). 
+
+ The same can be achieved in a wider string format with the  str.format()  method, where placeholders in the template are replaced with values: 
+
+  >>> 'Some label for the value: {:,}'.format(1234).replace(',', '.')
+'Some label for the value: 1,234'
+  
+
+ but then you run the risk of accidentally replacing other full stops in the output string too! 
+
+ Your other option would be to use the locale-dependent  'n'  format, but that requires your machine to be configured for a locale that sets the right http://docs.python.org/2/library/locale.html#locale.localeconv options. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25841515)
+  a = '1111.222.333'
+b = a.split('.')
+if len(b) != 3:
+    print('Houston we have a problem.')
+else:
+    try:
+        int(b[0]), int(b[1])
+    except ValueError:
+        print('First two really should be digits!')
+    first = b[0]
+    second = b[1]
+    third = b[2]
+  
+
+ Note that this catches the cases both of too few and too many dots. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15429781)
+ You'll need to use a separate function for that; the Python format mini language does not support truncating: 
+
+  def truncate(string, width):
+    if len(string) > width:
+        string = string[:width-3] + '...'
+    return string
+
+"{0:<10s}".format(truncate("Foo Bar Baz", 10))
+  
+
+ which outputs: 
+
+  >>> "{0:<10s}".format(truncate("Foo", 10))
+'Foo       '
+>>> "{0:<10s}".format(truncate("Foo Bar Baz", 10))
+'Foo Bar...'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11089212)
+ Python objects actually can have attributes with names containing dots. You can see them printing the  __dict__  attribute of your  args  variable which would seem like: 
+
+  >>> print args.__dict__
+{'query2target.bam': 'your-argument-value'}
+  
+
+ You can easily extract this attribute's value using  getattr()  built-in function: 
+
+  q2t = getattr(args, 'query2target.bam')
+  
+
+ But still it's probably better to stick with the convention. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34201512)
+ You can remove all digits, dots, dashes and spaces from the start using https://docs.python.org/2/library/stdtypes.html#str.lstrip: 
+
+  string1.lstrip('0123456789.- ')
+  
+
+ The argument to  str.strip()  is treated as a  set , e.g. any character at the start of the string that is a member of that set is removed until the string no longer starts with such characters. 
+
+  
+
+  >>> samples = """\
+... 123.123.This is a string some other numbers
+... 1. This is a string some numbers
+... 12-3-12.This is a string 123
+... 123-12This is a string 1234
+... """.splitlines()
+>>> for sample in samples:
+...     print 'From: {!r}\nTo:   {!r}\n'.format(
+...         sample, sample.lstrip('0123456789.- '))
+...
+From: '123.123.This is a string some other numbers'
+To:   'This is a string some other numbers'
+
+From: '1. This is a string some numbers'
+To:   'This is a string some numbers'
+
+From: '12-3-12.This is a string 123'
+To:   'This is a string 123'
+
+From: '123-12This is a string 1234'
+To:   'This is a string 1234'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37443934)
+ Answer of @user136036 is quite good, but unfortunately it does not take into account reality of Python bugs. Full answer could be following: 
+
+ Variant A 
+
+ If locale of your platform is working right, then just use locale: 
+
+  import locale
+locale.setlocale(locale.LC_ALL, '')
+print("{:,d}".format(7123001))
+  
+
+ Result is dependent on your locale and Python implementation working right. 
+
+ But what if Python formatting according to locale is broken, e.g. Python 3.5 on Linux? 
+
+ Variant B 
+
+ If Python does not respect  grouping=True  parameter, you can use locale and a workaround (use monetary format): 
+
+  locale.setlocale(locale.LC_ALL, '')
+locale._override_localeconv = {'mon_thousands_sep': '.'}
+print(locale.format('%.2f', 12345.678, grouping=True, monetary=True))
+  
+
+ Above gives 12.345,68 on my platform. Setting monetary to False or omitting it - Python does not group thousands.
+Specifying  locale._override_localeconv = {'thousands_sep': '.'}  do nothing. 
+
+ Variant C 
+
+ If you don't have time to check what is working OK and what is broken with Python on your platform, you can just use regular string replace function (if you want to swap commas and dot to dots and comma): 
+
+  print("{:,.2f}".format(7123001.345).replace(",", "X").replace(".", ",").replace("X", "."))  
+
+ Replacing comma for space is trivial (point is assumed decimal separator):  
+
+  print("{:,.2f}".format(7123001.345).replace(",", " ")  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52155253)
+ You could use a custom float to string conversion function which checks if the number will be accepted by Ada using a regular expression (which tests if there are only non-dots before the exponent character, and in which case only convert with  format ): 
+
+  import re
+
+def ada_compliant_float_as_string(f):
+    return "{:.1e}".format(f) if re.match("^-?[^\.]e",str(f)) else str(f)
+
+for f in [-1e-5,1e-5,1.4e-5,-12e4,1,1.0]:
+    print(ada_compliant_float_as_string(f))
+  
+
+ prints: 
+
+  -1.0e-05
+1.0e-05
+1.4e-05
+-120000.0
+1
+1.0
+  
+
+ only the first value is corrected, other values are just the string representation of a float, unchanged. 
+
+
+

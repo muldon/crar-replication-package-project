@@ -1,0 +1,223 @@
+Query: How do I use a regular expression to match a name?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19528327)
+ You may use  (\w+)  match grouping. 
+
+ But if "my name is" is expected to be in your strings, why not to use something alike
+ r.split('my name is ', 1)[1].split(' ', 1)[0]  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/18638433)
+ Instead of using variable you can use  (?P<name>...)  inside regex to get symbolic group names: 
+
+ 
+   Similar to regular parentheses, but the substring matched by the group
+  is accessible within the rest of the regular expression via the
+  symbolic group name  name . 
+ 
+
+  Example:  
+
+  >>> import re
+>>> strs = "foo = bar"
+>>> m = re.search(r'(?P<name>^\w+\s*)\=(?P<value>\s*(.*?)$)', strs)
+>>> m.groupdict()
+{'name': 'foo ', 'value': ' bar'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19528362)
+ Use  groups  to retrieve the part of your regex match. Here is an improved variant of your codelet: 
+
+  import re
+str = "Hello my name is Dan"
+r = re.search("(Hello|Hey|Hi) my name is (.+)", str)
+name = r.group(2)
+  
+
+ I added parenthesis around (.+) so that they can be referred by the search object. group(0) is the complete matched string. group(1) is the first group - either of Hello, Hey or Hi. group(2) is the name. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54310990)
+ In Python 3.6+ you can https://docs.python.org/3/library/re.html#re.Match.__getitem__ into a match object instead of using  group() , e.g.: 
+
+  >>> import re
+>>> s = 'name my_user_name is valid'
+>>> match = re.search('name (.*) is valid', s)
+>>> match[0]  # the entire match 
+'name my_user_name is valid'
+>>> match[1]  # the first parenthesized subgroup
+'my_user_name'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28856292)
+ You can get this information from the  compiled expression : 
+
+  >>> pattern = re.compile(r'(?P<name>\w+)|(?P<number>\d+)')
+>>> pattern.groupindex
+{'name': 1, 'number': 2}
+  
+
+ This uses the https://docs.python.org/2/library/re.html#re.RegexObject.groupindex: 
+
+ 
+   A dictionary mapping any symbolic group names defined by  (?P<id>)  to group numbers. The dictionary is empty if no symbolic groups were used in the pattern. 
+ 
+
+ If you only have access to the match object, you can get to the pattern with the https://docs.python.org/2/library/re.html#re.MatchObject.re: 
+
+  >>> a = list(re.finditer(r'(?P<name>\w+)|(?P<number>\d+)', 'Ala ma kota'))
+>>> a[0]
+<_sre.SRE_Match object at 0x100264ad0>
+>>> a[0].re.groupindex
+{'name': 1, 'number': 2}
+  
+
+ If all you wanted to know what group matched look at the value;  None  means a group never was used in a match: 
+
+  >>> a[0].groupdict()
+{'name': 'Ala', 'number': None}
+  
+
+ The  number  group never used to match anything because its value is  None . 
+
+ You can then find the names used in the regular expression with: 
+
+  names_used = [name for name, value in matchobj.groupdict().iteritems() if value is not None]
+  
+
+ or if there is only ever  one  group that can match, you can use https://docs.python.org/2/library/re.html#re.MatchObject.lastgroup: 
+
+  name_used = matchobj.lastgroup
+  
+
+ As a side note, your regular expression has a fatal flaw; everything that  \d  matches, is also matched by  \w . You'll never see  number  used where  name  can match first. Reverse the pattern to avoid this: 
+
+  >>> for match in re.finditer(r'(?P<name>\w+)|(?P<number>\d+)', 'word 42'):
+...     print match.lastgroup
+... 
+name
+name
+>>> for match in re.finditer(r'(?P<number>\d+)|(?P<name>\w+)', 'word 42'):
+...     print match.lastgroup
+... 
+name
+number
+  
+
+ but take into account that words starting with digits will still confuse things for your simple case: 
+
+  >>> for match in re.finditer(r'(?P<number>\d+)|(?P<name>\w+)', 'word42 42word'):
+...     print match.lastgroup, repr(match.group(0))
+... 
+name 'word42'
+number '42'
+name 'word'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1619583)
+ You need to wrap the group name in parentheses. The syntax for named groups is  (?P<name>regex) , not  ?P<name>regex .  Also, if you don't want to require a trailing slash, you should make it optional. 
+
+ It's easy to test regular expression matching with the Python interpreter, for example: 
+
+  >>> import re
+>>> re.match(r'^org/?P<company_name>\w+/$', 'org/companyA')
+>>> re.match(r'^org/(?P<company_name>\w+)/?$', 'org/companyA')
+<_sre.SRE_Match object at 0x10049c378>
+>>> re.match(r'^org/(?P<company_name>\w+)/?$', 'org/companyA').groupdict()
+{'company_name': 'companyA'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43521241)
+ Replace  \S{2}  with  \S{1,2}  if you expect 1 or 2 non-whitespace chars before  $u  and do not use a variable with  str  name: 
+
+  import re
+a='=856  \\$uhttp://sfx-852cuh.hosted$'
+result=re.search(r'=\w{3}\s{2}\S{1,2}\$u(.*)\$', a)
+expected_value = ''
+if result:
+    expected_value = result.group(1)
+print(expected_value)   
+  
+
+ See the https://ideone.com/yNmbzK 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19528294)
+ . You're missing the supplied text to the regex, but I'm guessing you actually want to compile one to use  
+
+  import re
+r = re.compile("(Hello|Hey|Hi) my name is (.+)")
+  
+
+ ...  
+
+  match = r.search(text)
+if match:
+    name = match.groups()[1]
+  
+
+ What's going on here is that everything surrounded by parens is treated as a captured group. You can refer to it  if there's a match. You can also have named matches by using  (?P<name>PATTERN)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2317153)
+  >>> import re
+
+>>> re.match("[a-zA-Z][\w-]*$","A")
+<_sre.SRE_Match object at 0x00932E20>
+
+>>> re.match("[a-zA-Z][\w-]*$","A_B")
+<_sre.SRE_Match object at 0x008CA950>
+
+>>> re.match("[a-zA-Z][\w-]*$","0A")
+>>> 
+>>> re.match("[a-zA-Z][\w-]*$","!A_B")
+>>>
+  
+
+  Note : OP mentioned  string cannot start from ( 0-9 and "_"). , apparently _ can be in the text. Thats why I am using  \w  
+
+  Note2 : If you don't want match string ends with  \n , you could use  \Z  instead of  $  as John Machin mentioned. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33091034)
+ You can use logical OR between  FROM  and anchor  $  : 
+
+  NAME(.*)(?:FROM|$)
+  
+
+ See demo https://regex101.com/r/rR3gA0/1 
+
+ In this case after the name it will match  FROM  or the end of the string.But in your regex since you make the  FROM  optional in firs case it will match the rest of string after the name. 
+
+ If you want to use a more general regex you better to create your regex based on your name possibility shapes for example if you are sure that your names are create from 2 word you can use following regex : 
+
+  NAME\s(\w+\s\w+)
+  
+
+ Demo https://regex101.com/r/kV2eB9/2 
+
+
+

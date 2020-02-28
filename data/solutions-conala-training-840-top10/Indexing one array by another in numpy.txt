@@ -1,0 +1,265 @@
+Query: Indexing one array by another in numpy
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/37879017)
+ You can use http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html#advanced-indexing - 
+
+  A[np.arange(A.shape[0])[:,None],B]
+  
+
+ One can also use  linear indexing  - 
+
+  m,n = A.shape
+out = np.take(A,B + n*np.arange(m)[:,None])
+  
+
+  
+
+  In [40]: A
+Out[40]: 
+array([[2, 4, 5, 3],
+       [1, 6, 8, 9],
+       [8, 7, 0, 2]])
+
+In [41]: B
+Out[41]: 
+array([[0, 0, 1, 2],
+       [0, 3, 2, 1],
+       [3, 2, 1, 0]])
+
+In [42]: A[np.arange(A.shape[0])[:,None],B]
+Out[42]: 
+array([[2, 2, 4, 5],
+       [1, 9, 8, 6],
+       [2, 0, 7, 8]])
+
+In [43]: m,n = A.shape
+
+In [44]: np.take(A,B + n*np.arange(m)[:,None])
+Out[44]: 
+array([[2, 2, 4, 5],
+       [1, 9, 8, 6],
+       [2, 0, 7, 8]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42945823)
+ One approach with  boolean-indexing  would be - 
+
+  mask = np.in1d(np.arange(A.size),B)
+out = np.r_[A[mask], A[~mask]]
+  
+
+  
+
+  In [26]: A = np.array([ 1, 2, 5, 9.8, 55, 3])
+
+In [27]: B = np.array([ 3, 4])
+
+In [28]: mask = np.in1d(np.arange(A.size),B)
+
+In [29]: np.r_[A[mask], A[~mask]]
+Out[29]: array([  9.8,  55. ,   1. ,   2. ,   5. ,   3. ])
+  
+
+ Another with integer-indexing - 
+
+  idx = np.setdiff1d(np.arange(A.size),B)
+out = np.r_[A[B], A[idx]]
+  
+
+  
+
+  In [36]: idx = np.setdiff1d(np.arange(A.size),B)
+
+In [37]: np.r_[A[B], A[idx]]
+Out[37]: array([  9.8,  55. ,   1. ,   2. ,   5. ,   3. ])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42442435)
+ You can use  numpy.in1d  to find out the elements of  b  also in  a , logical indexing and  numpy.where  can get the elements and index correspondingly: 
+
+  logic = np.in1d(b, a)    
+list(zip(b[logic], np.where(logic)[0]))
+# [(4.0, 0), (5.0, 2), (6.0, 4), (7.0, 6)]
+
+b[logic], np.where(logic)[0]
+# (array([ 4.,  5.,  6.,  7.]), array([0, 2, 4, 6]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45483577)
+ Since the title is referring to indexing a  2D  array with another  2D  array, a general numpy solution can be found https://stackoverflow.com/a/45483236/4055338. 
+
+ In short:
+A 2D array of indices of shape (n,m)  with arbitrary large dimension m , named  inds , is used to access elements of another 2D array of shape (n,k), named  B : 
+
+  # array of index offsets to be added to each row of inds
+offset = np.arange(0, inds.size, inds.shape[1])
+
+# numpy.take(B, C) "flattens" arrays B and C and selects elements from B based on indices in C
+Result = np.take(B, offset[:,np.newaxis]+inds)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53260414)
+ Using values from one array as index from another is called 'fancy indexing', however that indexing operation will be repeated for all rows: 
+
+  y = numpy.arange(15).reshape(3,5)
+y[:, [0, 2, 3]]
+# array([[ 0,  2,  3],
+#        [ 5,  7,  8],
+#        [10, 12, 13]])
+  
+
+ If you want to individually "use one index value per row", you need to give that row-to-index relation as another index: 
+
+  y[[0, 1, 2], [0, 2, 3]]
+# array([ 0,  7, 13])
+  
+
+ Since your index array  m  is 2D, you need to tell NumPy which of these two dimension in  m  corresponds to your row index. You do this by adding another empty axis to the ascending index, (keyword: broadcasting), and you get 
+
+  y = numpy.arange(15).reshape(3,5)
+m = numpy.array([[0, 1], [1, 2], [2, 3]])
+
+y[numpy.arange(len(m))[:, None], m]
+# array([[ 0,  1],
+#        [ 6,  7],
+#        [12, 13]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19647926)
+ This is what fancy indexing is there for: 
+
+  targetdata = originaldata[mapping[..., 0], mapping[..., 1]]
+  
+
+ As a simple example: 
+
+  >>> original_data = np.arange(6).reshape(2, 3)
+>>> original_data
+array([[0, 1, 2],
+       [3, 4, 5]])
+>>> mapping = np.array([[[1,0], [1, 1], [1, 2]],   # swap rows and reverse
+...                     [[0, 2], [0, 1], [0, 0]]]) # the second one
+>>> original_data[mapping[..., 0], mapping[..., 1]]
+array([[3, 4, 5],
+       [2, 1, 0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46502232)
+ The easiest way if you want a new array would be  np.where  with 3 arguments: 
+
+  >>> import numpy as np
+>>> np.where(b, a, 0)
+array([[ 0,  0,  2,  0,  0],
+       [ 0,  0,  7,  0,  0],
+       [ 0,  0, 12,  0,  0],
+       [ 0,  0, 17,  0,  0],
+       [ 0,  0, 22,  0,  0]])
+  
+
+ If you want to change  a  in-place you could instead use boolean indexing based on  b : 
+
+  >>> a[b == 0] = 0
+>>> a
+array([[ 0,  0,  2,  0,  0],
+       [ 0,  0,  7,  0,  0],
+       [ 0,  0, 12,  0,  0],
+       [ 0,  0, 17,  0,  0],
+       [ 0,  0, 22,  0,  0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24394518)
+ With NumPy arrays you can do it directly through fancy indexing: 
+
+  C = A[B]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46118902)
+ The reason is the interpretation of lists as index for numpy arrays: Lists are interpreted like tuples and indexing with a tuple is interpreted by NumPy as multidimensional indexing. 
+
+ Just like  arr[1, 2]  returns the element  arr[1][2]  the  arr[[[4, 3], [2, 1]]]  is identical to  arr[[4, 3], [2, 1]]  and will, according to the rules of multidimensional indexing return the elements  arr[4, 2]  and  arr[3, 1] .   
+
+ By adding one more list you do tell NumPy that you want slicing along the first dimension, because the outermost list is effectively interpreted as if you only passed in one "list of indices for the first dimension":  arr[[[[4, 3], [2, 1]]]] . 
+
+ From the https://docs.scipy.org/doc/numpy/reference/arrays.indexing.html#purely-integer-array-indexing: 
+
+ 
+   Example</h3>
+  
+   From each row, a specific element should be selected. The row index is just [0, 1, 2] and the column index specifies the element to choose for the corresponding row, here [0, 1, 0]. Using both together the task can be solved using advanced indexing: 
+
+  >>> x = np.array([[1, 2], [3, 4], [5, 6]])
+>>> x[[0, 1, 2], [0, 1, 0]]
+array([1, 4, 5])
+  
+ 
+
+ https://docs.scipy.org/doc/numpy/reference/arrays.indexing.html#advanced-indexing: 
+
+ 
+   Warning</h3>
+  
+   The definition of advanced indexing means that  x[(1,2,3),]  is fundamentally different than  x[(1,2,3)] . The latter is equivalent to  x[1,2,3]  which will trigger basic selection while the former will trigger advanced indexing. Be sure to understand why this occurs. 
+ 
+
+ In such cases it's probably better to use https://docs.scipy.org/doc/numpy/reference/generated/numpy.take.html: 
+
+  >>> y.take([[4, 3], [2, 1]])  # 2D array
+array([[4, 3],
+       [2, 1]])
+  
+
+ 
+   This function [ np.take ] does the same thing as “fancy” indexing (indexing arrays using arrays); however, it can be easier to use if you need elements along a given axis. 
+ 
+
+ Or convert the indices to an array. That way NumPy interprets it ( array  is special cased!) as fancy indexing instead of as "multidimensional indexing": 
+
+  >>> y[np.asarray([[4, 3], [2, 1]])]
+array([[4, 3],
+       [2, 1]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6914184)
+ When you use an integer array for indexing another array, NumPy cannot create an adequate view, since the resulting array may not be representable with strides.  Therefore, it will return a copy: 
+
+  >>> a = np.zeros(5)
+>>> b = np.array([1, 1])
+>>> c = a[b]
+>>> c
+array([ 0.,  0.])
+>>> c.base is a
+False
+  
+
+ When using this index with in-place operations like  += , NumPy will interpret it differently than you expect.  Instead of "Walk the index array and perform the operation on each element in turn", it will first select all values that are indexed by  b  (in this case, just one element with index  1 ), then perform the operation on these elements  once . 
+
+
+

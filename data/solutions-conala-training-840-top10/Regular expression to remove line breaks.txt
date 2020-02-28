@@ -1,0 +1,150 @@
+Query: Regular expression to remove line breaks
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24860848)
+ Use regular expression to replace digit characters, e.g. 
+
+  import re
+re.sub(r'\d+', '', input_str)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5075283)
+   
+
+  re.sub(r"<=[a-z])\r?\n"," ", textblock)
+  
+
+  \Z  only matches at the end of the string, after the last linebreak, so it's definitely not what you need here.  \z  is not recognized by the Python regex engine. 
+
+  <=[a-z])  is a http://www.regular-expressions.info/lookaround.html that checks if the character before the current position is a lowercase ASCII character. Only then the regex engine will try to match a line break. 
+
+ Also, always use raw strings with regexes. Makes backslashes easier to handle. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5075413)
+ Just as an alternative answer, although it takes more lines, I think the following may be clearer since the regular expression is simpler: 
+
+  import re
+import sys
+
+with open(sys.argv[1]) as ifp:
+    with open("output.txt", "w") as ofp:
+        for line in ifp:
+            if re.search('[a-z]$',line):
+                ofp.write(line.rstrip("\n\r")+" ")
+            else:
+                ofp.write(line)
+  
+
+ ... and that avoids loading the whole file into a string.  If you want to use fewer lines, but still avoid postive lookbehind, you could do: 
+
+  import re
+import sys
+
+with open(sys.argv[1]) as ifp:
+    with open("output.txt", "w") as ofp:
+        for line in ifp:
+            ofp.write(re.sub('(?m)([a-z])[\r\n]+$','\\1 ',line))
+  
+
+ The parts of that regular expression are: 
+
+ 
+  (?m)  [turn on multiline matching] 
+  ([a-z])  [match a single lower case character as the first group] 
+  [\r\n]+  [match one or more of carriage returns or newlines, to cover  \n ,  \r\n  and  \r ] 
+  $  [match the end of the string] 
+ 
+
+ ... and if that matches line, the lowercase letter and line ending are replaced by  \\1 , which will the lower case letter followed by a space. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7518194)
+ You could use http://docs.python.org/library/stdtypes.html#str.strip to remove leading and trailing whitespaces: 
+
+  In [1]: ' 56.00  '.strip()
+Out[1]: '56.00'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49449348)
+ The problem with your code is that you  read  the entire HTML file and  lstrip  the whole thing, i.e. you are only stripping the very first line (which probably does not have any indent anyway). 
+
+ Instead, you have to read the lines individually or split the lines after reading, and then apply  lstrip  to each line. 
+
+  for line in web_page: # read file one line at a time
+    print(line.lstrip())
+
+# read file en block, but split lines afterwards
+print("\n".join(map(str.lstrip, web.splitlines())))
+  
+
+ Or use regular expression  ^\s+  for "whitespaces at beginning of line": 
+
+  import re
+print(re.sub(r"^\s+", "", web, flags=re.M))
+  
+
+ But alternatively to removing the leading whitespaces, you can also use regular expressions for the actual replacement, using  \s*  for any number of spaces, and  \1  to re-insert the exact text that was matched, including the original whitespace. 
+
+  print(re.sub(r"(</script>\s*</body>)", r"alert(1);\1", web, flags=re.M))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14550348)
+ Regular expressions are a bad match for HTML.  .  See https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags. 
+
+ Instead, use an HTML parser.  Python ships with http://docs.python.org/3/library/html.parser.html, or you can use http://www.crummy.com/software/BeautifulSoup/ or http://code.google.com/p/html5lib/.  All you have to do then is walk the tree and remove line breaks. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41440739)
+ Using regex with HTML is fraught with various issues, that is why you should be aware of all possible consequences.    .   regex will only work in case the     and     tags are on one line and if there are no nested     tags inside them. 
+
+ Assuming there are  no nested  code  tags  you might extend your current approach: 
+
+  import re
+inputString = "I want to remove  tag with space  not sole  word "
+outputString = re.sub(" (.) ", lambda m: " " if " " in m.group(1) else m.group(), inputString, flags=re.S)
+print(outputString)
+  
+
+ The  re.S  flag will enable  .  to match line breaks and a lambda will help to perform a check against each match: any code tag that contains a whitespace in its node value will be turned into a regular space, else it will be kept. 
+
+ See https://ideone.com/cSYbFN 
+
+ A more common way to parse HTML in Python is to use BeautifulSoup. First, parse the HTML, then get all the  code  tags and then replace the  code  tag if the nodes contains a space: 
+
+  >>> from bs4 import BeautifulSoup
+soup = BeautifulSoup('I want to remove  tag with space  not sole  word ', "html.parser")
+>>> for p in soup.find_all('code'):
+    if p.string and " " in p.string:
+        p.replace_with(" ")
+
+>>> print(soup)
+I want to remove   not sole  word 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/37584709)
+ . You need to use lazy quantifier '?'  .. In default it will try to capture biggest group it possibly can. With lazy quantifier it'll actually try to match smallest possible groups. 
+
+  line = re.sub(r'\(+as .?\) ','',line)
+  
+
+
+

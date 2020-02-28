@@ -1,0 +1,155 @@
+Query: django models selecting single field
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51462836)
+ We can select required fields over values. 
+
+  Employee.objects.all().values('eng_name','rank')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42115041)
+ In addition to  values_list  as https://stackoverflow.com/users/104349/daniel-roseman https://stackoverflow.com/a/7503368/1523238 you can also use https://docs.djangoproject.com/en/1.10/ref/models/querysets/#only (or https://docs.djangoproject.com/en/1.10/ref/models/querysets/#django.db.models.query.QuerySet.defer for the opposite effect) to get a queryset of objects only having their id and specified fields: 
+
+  Employees.objects.only('eng_name')
+  
+
+ This will run a single query: 
+
+  SELECT id, eng_name FROM employees
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7503368)
+  Employees.objects.values_list('eng_name', flat=True)
+  
+
+ That creates a flat list of all  eng_name s. If you want more than one field per row, you can't do a flat list: this will create a list of tuples: 
+
+  Employees.objects.values_list('eng_name', 'rank')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44740933)
+  select_related   
+
+ select_related can be used when you want to select the objects connected by ForeignKey or OneToOne field, more precisely you can use this only when you want to select a single connected object. select_related takes a param can use it to lookup for related_field. The param  related_name='rooms'  specified in your model attributes is responsible for setting related names. select_related method searches for these related names and if it finds a match then it returns you the related objects.   
+
+  Venue.objects.all().select_related('Room')  
+  
+
+ would result in a lookup error as you don't have any related names 'Room' but you have  room  so you also need to watch out for case sensitivity. Below one would work. 
+
+  Venue.objects.all().select_related('room')
+  
+
+ As mentioned above select_related can only be used for selecting single related objects. If you wish to fetch multiple related objects like for ManyToManyField then use https://docs.djangoproject.com/en/1.11/ref/models/querysets/#prefetch-related 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1541390)
+  
+
+  Content.objects.filter(...).order_by('score__counter')
+  
+
+ More generally, when models have a relationship, you can select, order, and filter by fields on the "other" model using the  relationshipName__fieldName  pseudo attribute of the model which you are selecting on. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35527474)
+  select_related  should be use on the whole model, and then you can filter it more. This will work:  
+
+  Articles.objects.select_related('blog').only('blog__name', 'title', 'create_time')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38893989)
+ You can use https://docs.djangoproject.com/en/1.8/ref/models/querysets/#annotate for this. 
+
+  >>> a = Articles.objects.annotate(blog_name=F('blog__name')).first()
+>>> a.title
+>>> a.blog_name
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35077938)
+ If you are okay with changing ForeignKey to OneToOneField on Profile model then you can do it like,  
+
+  Comment.objects.all().select_related('user__profile')
+  
+
+ The above one selecting additional related-object data when it executes its query. This is a performance booster which results in a single more complex query but means later use of foreign-key relationships won’t require database queries. 
+
+ Otherwise you can get it this way 
+
+  for comment in Comment.objects.all():
+   print comment.user.profile_set.all()[0].image
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54757863)
+  article  field on your ArticleStat model is not optional. You can't save your ArticleStat object without the ForeignKey to Article 
+
+ Here is a similar code,  item  is a ForeignKey to the Item model, and it is required. 
+
+  class Interaction(TimeStampedModel, models.Model):
+    ...
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='interactions')
+    type = models.IntegerField('Type', choices=TYPE_CHOICES)
+    ...
+  
+
+ If I try to save an object of Interaction from the shell without selecting a ForeignKey to the item, I receive an IntegrityError. 
+
+  ~ interaction = Interaction()
+~ interaction.save()
+~ IntegrityError: null value in column "item_id" violates not-null constraint
+  
+
+ You don't need a check  self.article.exists() . Django and Database will require that field and will not let you save the object without it. 
+
+ You should read about ForeignKey field in https://docs.djangoproject.com/en/2.1/ref/models/fields/#django.db.models.ForeignKey  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39766960)
+ If what you want is a set of courses with each course instance having a set of related users you do this: 
+
+  Course.objects.select_related('user').filter(course_name='science')
+  
+
+ Please see: https://docs.djangoproject.com/en/1.10/ref/models/querysets/#select-related 
+
+ 
+   select_related(*fields)   Returns a QuerySet that will “follow”
+  foreign-key relationships, selecting additional related-object data
+  when it executes its query. This is a performance booster which
+  results in a single more complex query but means later use of
+  foreign-key relationships won’t require database queries. 
+ 
+
+ If on the other hand you want a list of users and the courses they are following you do 
+
+  user.objects.filter(course__name='science')
+  
+
+ This is the reverse traversal of a foreign key relationship. Please note that by convention django model names begin with an upper case latter. Your model is 'user' but really ought to be 'User' 
+
+
+

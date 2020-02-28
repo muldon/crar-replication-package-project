@@ -1,0 +1,209 @@
+Query: Python: Uniqueness for list of lists
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22057493)
+ This will do what you want. 
+
+  x = [[[1,2],3],[[3,4],5], [[1,2],3]]
+p = {hash(str(item)): item for item in x}
+uniques = [ val for val in p.values()]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22057283)
+  x = [[[1,2],3],[[3,4],5], [[1,2],3]]
+print [item for idx, item in enumerate(x) if x.index(item) == idx]
+# [[[1, 2], 3], [[3, 4], 5]]
+  
+
+ We can do this in O(N) like this 
+
+  x = [[[1,2],3],[[3,4],5], [[1,2],3]]
+x = tuple(tuple(tuple(j) if isinstance(j, list) else j for j in i) for i in x)
+from collections import OrderedDict
+print [[list(j) if isinstance(j, tuple) else j for j in i] for i in OrderedDict.fromkeys(x).keys()]
+# [[[1, 2], 3], [[3, 4], 5]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15750806)
+ How about this, using a defaultdict to track the head+tail IDs, and sets to tally unique entries: 
+
+  from collections import defaultdict
+
+a = [[2, 5, 7, 12], [2, 5, 10, 12], [2, 3, 12], [3, 34, 4, 6], [3, 4, 6]]
+dic = defaultdict(lambda: set())
+for item in a:
+    dic[(item[0], item[-1])].add(tuple(item[1:-1]))
+
+for id, variants in dic.items():
+     print "ID %s: %i unique entries" % (str(id), len(variants))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15750643)
+ The most direct way is to index all lists by their first and last values, then filter these. 
+
+ You could do that by adding all those lists to a dictionary with all the keys being  (first, last)  tuples. Then you would go over each one of these and remove duplicates. 
+
+ A quick example: 
+
+  mapping = defaultdict(list)
+for item in target_lists:
+   mapping[item[0], item[-1]].append(item)
+
+for k, items in mapping.iteritems():
+   mapping[k] = [some_filter_function(v) for v in items]
+  
+
+ You have to modify this a bit to set your condition to decide if it's a duplicate or not (I'm not sure I understood your criteria). 
+
+  
+
+  Update : 
+
+ I think I understood your criteria. What you have to do, is keep track of which elements in the lists appear more than once. And then you go through the lists, checking against that record you made (which are recorded only once) if there are elements which should not be there. If there are, you discard that element. One way to do this is similar to this: 
+
+  for k, items in mapping.iteritems():
+    count_item = defaultdict(int)
+    for item in items:
+        for i in item[1:-1]:
+            count_item[i] += 1
+    mapping[k] = [item for item in items if all(count_item[i] == 1 for i in item[1:-1])]
+  
+
+ That's one of the ways to do it. But I'm almost sure that you will have to make 2 loops: one to check which are the elements to reject, and one to do the actual filtering. The implementation might differ. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34335022)
+ If I got it correctly, the solution might be like this: 
+
+  mylist = [[1, 2, 3], [1, 3, 4], [1, 4, 5], [7, 3, 6], [7, 1, 8]]
+
+ordering = []
+newdata = {}
+
+for a, b, c in mylist:
+    if a in newdata:
+        if b < newdata[a][1]:
+            newdata[a] = [a, b, c]
+    else:
+        newdata[a] = [a, b, c]
+        ordering.append(a)
+
+newlist = [newdata[v] for v in ordering]
+  
+
+ So in  newlist  we will receive reduced list of  [[1, 2, 3], [7, 1, 8]] . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48210646)
+ You can use  itertools.groupby  in Python3: 
+
+  import itertools
+s = [['phone', '500', 450.0, 1], ['phone', '500', 2250.0, 5], ['camera', '200', 1080.0, 6], ['laptop', '600', 540.0, 1], ['laptop', '600', 540.0, 1],['laptop', '600', 540.0, 1]]
+new_s = [(a, list(b)) for a, b in itertools.groupby(sorted(s, key=lambda x:x[0]), key=lambda x:x[0])]
+final_s = [[a, b[0][1], *list(map(sum, list(zip(*[i[2:] for i in b]))))] for a, b in new_s]
+  
+
+ Output: 
+
+  [['camera', '200', 1080.0, 6], ['laptop', '600', 1620.0, 3], ['phone', '500', 2700.0, 6]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43074305)
+ Judging by this line: 
+
+  if inLine not in inList:
+    inList.append(inLine)
+  
+
+ It looks like you are enforcing uniqueness in the  inList  container.  You should consider to use a more efficient data structure, such as an  inSet  set.  Then the  not in  check can be discarded as redundant, because duplicates will be prevented by the container anyway.   
+
+ If insertion ordering must be preserved, then you can achieve a similar result by using an  OrderedDict  with null values.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20593404)
+ If you wanted to compare  identity  then ste the result of the http://docs.python.g/2/library/functions.html#id f each dictionary: 
+
+  seen = set()
+unique = [d f d in dictlist if id(d) not in seen and not seen.add(id(d))]
+  
+
+  
+
+  unique = {id(d): d f d in dictlist}.values()
+  
+
+ This eliminates duplicates based on object identity, not on equality of the contents. The first fm maintains der, the second does not (like a  set()  would). 
+
+ F  equality , the sequence of key-value pairs  is  hashable (if all values are hashable); a http://docs.python.g/2/library/stdtypes.html#frozenset of those would do as a key to test content uniqueness: 
+
+  seen = set()
+hashable = lambda d: frozenset(d.items())
+unique = [d f d in dictlist if hashable(d) not in seen and not seen.add(hashable(d))]
+  
+
+ f an der-preserving list : 
+
+  unique = {frozenset(d.items()): d f d in dictlist}.values()
+  
+
+ if der is not imptant. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54890517)
+ With the help of a function to keep track of duplicates, you can use some list comprehension: 
+
+  def remove_duplicates(old_list, cols=('a', 'b', 'c')):
+    duplicates = set()
+
+    def is_duplicate(item):
+        duplicate = item in duplicates
+        duplicates.add(item)
+        return duplicate
+
+    return [x for x in old_list if not is_duplicate(tuple([x[col] for col in cols]))]
+  
+
+ To use: 
+
+  >>> remove_duplicates(some_list_of_dicts)
+[
+    {'a': 1, 'c': 1, 'b': 1, 'e': 4, 'd': 2}, 
+    {'a': 1, 'c': 2, 'b': 1, 'e': 3, 'd': 2}, 
+    {'a': 1, 'c': 3, 'b': 1, 'e': 3, 'd': 2}, 
+    {'a': 1, 'c': 4, 'b': 1, 'e': 3, 'd': 2}
+]
+  
+
+ You can also provide different columns to key on: 
+
+  >>> remove_duplicates(some_list_of_dicts, cols=('a', 'd'))
+[
+    {'a': 1, 'c': 1, 'b': 1, 'e': 4, 'd': 2}, 
+    {'a': 1, 'c': 1, 'b': 1, 'e': 1, 'd': 5}, 
+    {'a': 1, 'c': 1, 'b': 1, 'e': 8, 'd': 7}, 
+    {'a': 1, 'c': 1, 'b': 1, 'e': 6, 'd': 9}
+]
+  
+
+
+

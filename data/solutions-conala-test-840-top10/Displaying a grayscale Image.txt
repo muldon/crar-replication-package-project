@@ -1,0 +1,171 @@
+Query: Displaying a grayscale Image
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14112195)
+ This produces a B&W image: 
+
+  pilImage=Image.open(inputImage)
+pilImage = pilImage.convert('1')   #this convert to black&white
+pilImage.draft('L',(500,500))
+
+pilImage.save('outfile.png')
+  
+
+ From the  convert  method http://www.pythonware.com/library/pil/handbook/image.htm: 
+
+  convert
+
+im.convert(mode) => image
+
+Returns a converted copy of an image.
+When translating from a palette image, this translates pixels through the palette.
+If mode is omitted, a mode is chosen so that all information in the image and the palette can be represented without a palette.
+
+When from a colour image to black and white, the library uses the ITU-R 601-2 luma transform:
+
+    L = R * 299/1000 + G * 587/1000 + B * 114/1000
+When converting to a bilevel image (mode "1"), the source image is first converted to black and white.
+Resulting values larger than 127 are then set to white, and the image is dithered.
+To use other thresholds, use the point method.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41857032)
+ If you want to display an RGB image, you have to supply  all three channels . Based on your code, you are instead displaying just the first channel so  matplotlib  has no information to display it as RGB. Instead it will map the values to the  gray  colormap since you've called  plt.gray()  
+
+ Instead, you'll want to pass all channels of the RGB image to  imshow  and then the true color display is used and the colormap of the figure is disregarded 
+
+  sub.imshow(imgs, interpolation='nearest')
+  
+
+  Update   
+
+ Since  imgs  is actually  2 x 3 x 224 x 224 , you'll want to index into  imgs  and permute the dimensions to be  224 x 224 x 3  prior to displaying the image 
+
+  im2display = imgs[1].transpose((1,2,0))
+sub.imshow(im2display, interpolation='nearest')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52060701)
+ The grayscale conversion was done correctly. The problem is in how you are displaying the image.  
+
+  plt.imshow(gray, cmap='gray')
+  
+
+ By default  imshow  adds it's own colour key to single channel images, to make it easier to view. A typical example is thermal images which usually show blue and red, but all the colours are only dependend on  one  channel. 
+
+ Hope this helps! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14111762)
+ You want to over-ride the default color map: 
+
+  imshow(imageArray, cmap="Greys_r")
+  
+
+ http://matplotlib.org/users/image_tutorial.html . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3823822)
+ The following code will load an image from a file  image.png  and will display it as grayscale. 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+
+fname = 'image.png'
+image = Image.open(fname).convert("L")
+arr = np.asarray(image)
+plt.imshow(arr, cmap='gray')
+plt.show()
+  
+
+ If you want to display the inverse grayscale, switch the cmap to  cmap='gray_r' . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51291092)
+ Your code works as intended, but both the images are probably not displaying due to the size of image. I would suggest a resize on the image. 
+
+  edged = cv2.resize(edged, dsize=(500, 600), interpolation=cv2.INTER_CUBIC)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45214473)
+   
+
+   img = cv2.imread('gray.jpg',0)
+  
+
+  0  for gray and  1  for color 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/53351261)
+ Hopefully this will help you see how to extract the Red, Green and Blue channels from the 32-bit values. I started off with the first row of your array. 
+
+  im=np.array([-12763847,-12763847,-12763847,-5590160,-12039396,-12434915],dtype=np.int32)
+
+R = ((im & 0xff).astype(np.uint8)
+# array([ 57,  57,  57, 112,  28,  29], dtype=uint8)
+
+G = ((im>>8) & 0xff).astype(np.uint8)
+# array([ 61,  61,  61, 179,  75,  66], dtype=uint8)
+
+B = ((im>>16) & 0xff).astype(np.uint8)
+# array([ 61,  61,  61, 170,  72,  66], dtype=uint8)
+  
+
+ If those values look correct, you should be able to merge them into a colour image with: 
+
+  img = cv2.merge((B,G,R))
+  
+
+ bearing in mind that OpenCV uses  BGR  channel ordering rather than the more conventional  RGB . 
+
+ 
+
+ The ordering of the bytes in your 32-bit number may be different from what I am guessing above. The easiest way to test is to put a red card in front of your camera, and see what comes through, then a green card, then a blue one. The four channels (R,G,B,A) should be given by the following but which is which may be a matter for experiment: 
+
+  (im    ) & 0xff
+(im>>8 ) & 0xff
+(im>>16) & 0xff
+(im>>24) & 0xff
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51717755)
+ The image is indeed flattened to grayscale if you use  cv2.IMREAD_GRAYSCALE  (you can test this using  cv2.imread('im.jpg', cv2.IMREAD_GRAYSCALE).shape  and  cv2.imread('im.jpg').shape , and see that the former is a 3-d array and the latter is a 2-d array) 
+
+ The issue is with the way  matplotlib  chooses to map your pixel values. When using  plt.imshow() , it is using the default colormap (https://matplotlib.org/users/dflt_style_changes.html#colormap, for some reason). This means pixel intensities / values will be mapped to the following: 
+
+ https://i.stack.imgur.com/GWezP.png 
+
+ You can change  cmap  to  gray , in order to map them to the following: 
+
+ <a href="https://i.stack.imgur.com/STyqS.png"  
+
+  plt.imshow(cv2.imread('badger.jpeg', cv2.IMREAD_GRAYSCALE), cmap='gray')
+
+plt.show()
+  
+
+ <a href="https://i.stack.imgur.com/9UgJL.png"  
+
+
+

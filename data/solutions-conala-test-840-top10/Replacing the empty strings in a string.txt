@@ -1,0 +1,334 @@
+Query: Replacing the empty strings in a string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/54390823)
+ Another Alternatives. 
+
+  sub_df.replace(r'^\s+$', np.nan, regex=True)
+  
+
+ OR, to replace an empty string and records with only spaces 
+
+  sub.df.replace(r'^\s*$', np.nan, regex=True)
+  
+
+ Alternative: 
+
+ using  apply()  with function lambda. 
+
+  sub_df.apply(lambda x: x.str.strip()).replace('', np.nan)
+  
+
+ Just Example illustration: 
+
+  >>> import numpy as np
+>>> import pandas as pd
+  
+
+ Example DataFrame having empty strings and whitespaces.. 
+
+  >>> sub_df
+        col_A
+0
+1
+2   somevalue
+3  othervalue
+4
+  
+
+ Solutions applied For the different conditions: 
+
+ Best Solution: 
+
+ 1) 
+
+  >>> sub_df.replace(r'\s+',np.nan,regex=True).replace('',np.nan)
+        col_A
+0         NaN
+1         NaN
+2   somevalue
+3  othervalue
+4         NaN
+  
+
+ 2) This works but partially not for both cases: 
+
+  >>> sub_df.replace(r'^\s+$', np.nan, regex=True)
+        col_A
+0
+1         NaN
+2   somevalue
+3  othervalue
+4         NaN
+  
+
+ 3) This also works for both conditions. 
+
+  >>> sub_df.replace(r'^\s*$', np.nan, regex=True)
+
+            col_A
+    0         NaN
+    1         NaN
+    2   somevalue
+    3  othervalue
+    4         NaN
+  
+
+ 4)  This also works for both conditions. 
+
+  >>> sub_df.apply(lambda x: x.str.strip()).replace('', np.nan)
+        col_A
+0         NaN
+1         NaN
+2   somevalue
+3  othervalue
+4         NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40712041)
+ Indicate it has to start with blank and end with blanks with ^ and $ : 
+
+  df.replace(r'^\s*$', np.nan, regex=True, inplace = True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42050035)
+ With regex:</h3>
+
+ You can do it with https://docs.python.org/2/library/re.html#re.sub. Match the desired substring in a string and replace the substring with empty string: 
+
+  import re
+
+text = ['hanks_NNS sir_VBP', 'Oh_UH thanks_NNS to_TO remember_VB']
+curated_text = [re.sub(r'_\S*', r'', a) for a in text]
+print curated_text
+  
+
+ Output: 
+
+  ['hanks sir', 'Oh thanks to remember']
+  
+
+  
+
+  _\S* - Underscore followed by 0 or more non space characters
+  
+
+ 
+
+ Without regex:</h3>
+
+  text = ['hanks_NNS sir_VBP', 'Oh_UH thanks_NNS to_TO remember_VB']
+curated_text = [] # Outer container for holding strings in text.
+
+for i in text:
+    d = [] # Inner container for holding different parts of same string.
+    for b in i.split():
+        c = b.split('_')[0] # Discard second element after split
+        d.append(c)         # Append first element to inner container.
+    curated_text.append(' '.join(d)) # Join the elements of inner container.
+    #Append the curated string to the outer container.
+
+print curated_text
+  
+
+ Output: 
+
+  ['hanks sir', 'Oh thanks to remember']
+  
+
+ 
+
+ Problem with your code:</h3>
+
+ You are just replacing  '_'  with empty string when infact you want to replace  '_'  and characters after it with empty string. 
+
+  for i in text:
+    k= i.split(" ")
+    print (k)
+    for z in k:
+        if "_" in z:
+            j=z.replace("_",'') # <--- 'hanks_NNS' becomes 'hanksNNS'
+            print (j)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14431954)
+ So first of all, let's break down why this works. 
+
+  >>> string1 = "foo"
+>>> string2 = "bar"
+>>> string1.join(string2)
+'bfooafoor'
+  
+
+ This is the operation of putting  string1  between every item (character) of  string2 . 
+
+ So replacing the empty string does something kind of interesting, it counts the gap between empty characters as the empty string and therefore does essentially the same task, except with an extra separator at the start and end: 
+
+  >>> string2.replace('', string1)
+'foobfooafoorfoo'
+  
+
+ So slicing out these produces the same result as  str.join() : 
+
+  >>> string2.replace('', string1)[len(string1):-len(string1)]
+'bfooafoor'
+  
+
+ Obviously, this solution is much, much less readable than  str.join() , and so I'd always recommend against it.  str.join()  has also been developed to be efficient on all platforms. Replacing the empty string might be far less efficient on some versions of Python (I don't know if that's the case, but it's a possibility - just as repeated concatenation is reasonably fast in CPython, but that's not necessarily the case elsewhere.) 
+
+ I can't even find anything in the documentation that suggests that this behaviour of replacing the empty string should function this way, http://docs.python.org/3/library/stdtypes.html#str.replace simply say: 
+
+ 
+   Return a copy of the string with all occurrences of substring old replaced by new. If the optional argument count is given, only the first count occurrences are replaced. 
+ 
+
+ I see no reason why we should presume that the gaps in between letters should count as an occurrence of the empty string (arguably, you could fit infinite empty strings anywhere in the string), and as such, relying on this behaviour might be a bad idea. 
+
+ This operation is also pretty rare - it's more common to have a sequence of strings to join together - joining individual characters of a string isn't something I have personally had to do often. 
+
+ Interestingly, this  x.replace("", y)  appears to be special cased in http://hg.python.org/cpython/file/96721e364870/Objects/stringobject.c#l2347: 
+
+  2347 /* Algorithms for different cases of string replacement */
+2348
+2349 /* len(self)>=1, from="", len(to)>=1, maxcount>=1 */
+2350 Py_LOCAL(PyStringObject *)
+2351 replace_interleave(PyStringObject *self,
+2352 const char *to_s, Py_ssize_t to_len,
+2353 Py_ssize_t maxcount)
+2354 {
+...
+  
+
+ It may well be this special casing causes it to perform well. Again, as it's not mentioned in the documentation, this is an  implementation detail , and assuming it will work as quickly (or at all) in other Python versions would be a mistake. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/22131941)
+ Python strings are immutable, but they do have methods that return new strings 
+
+  'for example'.replace('for', 'an')
+  
+
+ returns  
+
+  'an example'
+  
+
+ You can remove a substring by replacing it with an empty string: 
+
+  'for example'.replace('for ', '')
+  
+
+ returns 
+
+  'example'
+  
+
+ To emphasize how methods work, they are functions that are builtin to string objects. They are also available as classmethods: 
+
+  str.replace('for example', 'for ', '')
+  
+
+ returns 
+
+  'example'
+  
+
+ So if you have a list of strings: 
+
+  list_of_strings = ['for example', 'another example']
+  
+
+ you can replace substrings in them with a  for  loop: 
+
+  for my_string in list_of_strings:
+    print(my_string.replace('example', 'instance'))
+  
+
+ prints out: 
+
+  for instance
+another instance
+  
+
+ Since strings are immutable, your list actually doesn't change (print it and see) but you can create a new list with a list comprehension: 
+
+  new_list = [my_s.replace('example', 'instance') for my_s in list_of_strings]
+print(new_list)
+  
+
+ prints: 
+
+  ['for instance', 'another instance']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54390635)
+ https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.replace.html does  not  work in-place by default. You need to specify  inplace=True  explicitly: 
+
+  sub_df.replace(r'\s+', np.nan, regex=True, inplace=True)
+  
+
+ Or, alternatively, assign back to  sub_df : 
+
+  sub_df = sub_df.replace(r'\s+', np.nan, regex=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38770661)
+  string.replace()  is not in-place. Strings are immutable in python. 
+
+ From https://docs.python.org/2/library/string.html: 
+
+ 
+   string.replace(s, old, new[, maxreplace]) Return a copy of string s
+  with all occurrences of substring old replaced by new. If the optional
+  argument maxreplace is given, the first maxreplace occurrences are
+  replaced. 
+ 
+
+  
+
+  >>> sentence_noSlots = "Albania compared to other CountriesThe Internet users of Albania is similar to that of Poland , Portugal , Russia , Macedonia , Saudi Arabia , Argentina , Greece , Dominica , Azerbaijan , Italy with a respective Internet users of 62.8 , 62.1 , 61.4 , 61.2 , 60.5 , 59.9 , 59.9 , 59.0 , 58.7 , 58.5 -LRB- per 100 people -RRB- and a global rank of 62 , 63 , 64 , 65 , 66 , 68 , 69 , 70 , 71 , 72.10 years growthAlbania 's Internet users had a positive growth of 5,910 -LRB- % -RRB- in the last 10 years from -LRB- 2003 to 2013 -RRB- ."
+>>> 
+>>> extracted_country = "Saudi Arabia"
+>>> extracted_value = 58.5
+>>> s = sentence_noSlots.replace(str(extracted_country),"<location>empty</location>").replace(str(extracted_value),"<number>empty</number>")
+>>> s
+"Albania compared to other CountriesThe Internet users of Albania is similar to that of Poland , Portugal , Russia , Macedonia , <location>empty</location> , Argentina , Greece , Dominica , Azerbaijan , Italy with a respective Internet users of 62.8 , 62.1 , 61.4 , 61.2 , 60.5 , 59.9 , 59.9 , 59.0 , 58.7 , <number>empty</number> -LRB- per 100 people -RRB- and a global rank of 62 , 63 , 64 , 65 , 66 , 68 , 69 , 70 , 71 , 72.10 years growthAlbania 's Internet users had a positive growth of 5,910 -LRB- % -RRB- in the last 10 years from -LRB- 2003 to 2013 -RRB- ."
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20151486)
+ Strings in Python are immutable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48335040)
+ You may try the following code:- 
+
+  df['Col1'] = df['Col1'].replace('.','').replace(' ','').fillna('')
+df['Col2'] = df['Col2'].replace('.','').replace(' ','').fillna('')
+  
+
+ i am replacing first  '.'   and empty spaces with the  default value , then filling all  nan  values also to the  default value . I hope this helps. 
+
+
+

@@ -1,0 +1,206 @@
+Query: How do I use a dictionary to update fields in Django models?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5506790)
+ Here's an example of create using your dictionary d: 
+
+  Book.objects.create(**d)
+  
+
+ To update an existing model, you will need to use the QuerySet  filter  method.  Assuming you know the  pk  of the Book you want to update: 
+
+  Book.objects.filter(pk=pk).update(**d)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5503999)
+ Use  **  for creating a new model. Loop through the dictionary and use  setattr()  in order to update an existing model. 
+
+ From Tom Christie's Django Rest Framework 
+
+ https://github.com/tomchristie/django-rest-framework/blob/master/rest_framework/serializers.py 
+
+  for attr, value in validated_data.items():
+    setattr(instance, attr, value)
+instance.save()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16557173)
+ You can use the https://docs.djangoproject.com/en/dev/topics/db/queries/#updating-multiple-objects-at-once on the queryset object. It's a bit hacky since you are really only wanting to update a single object though. 
+
+  def save_employer_info_ajax(request):
+    emp_info_query = EmployerInfo.objects.filter(employer__user=request.user)
+    update_dict = {request.GET['param1'] : request.GET['param2'] }
+    emp_info_query.update(**update_dict)
+  
+
+ Notice that I'm using reverse lookup relations to access  EmployerInfo  based on the  user  field of the  Employer  model. Then you construct a dictionary to hold the keys and values you wish to update, and pass that to the update method of the  queryset , not the  model instance . 
+
+ You  should  be using forms for data entry though. There should be validation on all fields that you're entering into your database. You can use https://stackoverflow.com/questions/10223891/django-modelform-dynamic-field-update/10230117#10230117 to specify the fields you want included based on the values that you submit via ajax. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7535133)
+  
+
+  Book.objects.create(**d)
+  
+
+ Assuming you need to check for an existing instance, you can find it with get or create: 
+
+  instance, created = Book.objects.get_or_create(slug=slug, defaults=d)
+if not created:
+    for attr, value in d.iteritems(): 
+        setattr(instance, attr, value)
+    instance.save()
+  
+
+ As mentioned in another answer, you can also use the  update  function on the queryset manager, but i believe that will not send any signals out (which may not matter to you if you aren't using them). However, you probably shouldn't use it to alter a single object: 
+
+  Book.objects.filter(id=id).update()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5878920)
+ I haven't tested this myself, but you can probably pass a dict to the .update() function from the Queryset API: https://docs.djangoproject.com/en/2.0/ref/models/querysets/#update 
+
+  Foo.objects.get(pk=1).update(**data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38776776)
+ Django does not provide this functionality "out of the box". You could override the  save  method of your class to set all fields other than your partition field as the value for  update_fields  
+
+  def save(self, **kwargs):
+    kwargs.setdefault('update_fields', ['field1', 'field2'])
+    return super(Class, self).save(**kwargs)
+  
+
+ A more dynamic option, if you do not want to update this method everytime you change the fields of your class, would be to use the https://docs.djangoproject.com/en/1.9/ref/models/meta/#django.db.models.options.Options.get_fields API to get all fields of the class and exclude your partition field 
+
+  def save(self, **kwargs):
+    kwargs.setdefault(
+        'update_fields',
+        [f.name for f in self.__class__._meta.get_fields() if f.name != 'partition_field']
+    )
+    return super(Class, self).save(**kwargs)
+  
+
+ There are several other methods by which Django will attempt to update your models. Maybe a base class that all your models inherit from that implement these methods would work 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33297085)
+ A simple way to write directly a dictionary into a Model's table is using python's expansion with django ORM 
+
+  
+
+  myitems = {'key1': 'value1', 'key2': 'value2', 'key3': 'value3'}
+mymodel = MyModel(**myitems)
+mymodel.save()
+  
+
+ For multiple models/tables you can easily filter dictionary and then use it in specific model/table. 
+
+  
+
+  myitems1 = dict((k,myitems[k]) for k in ('key1',) if k in myitems)
+mymodel1 = MyModel1(**myitems1)
+mymodel1.save()
+myitems2 = dict((k,myitems[k]) for k in ('key2', 'key3') if k in myitems)
+mymodel2 = MyModel2(**myitems2)
+mymodel2.save()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52787554)
+ You could use  model_to_dict(..  and use this dictionary in the construction of a  B  object, like: 
+
+  from django.forms.models import model_to_dict
+
+my_b = B(**model_to_dict(
+    my_a,
+    fields=[f.name for f in CommonInfo._meta.fields],
+
+#  some processing
+my_b.save(  
+
+ Note that if the  CommonInfo  contains foreign keys to objects, then these  references  will be copied, but no new referred objects will be constructed. Furthermore this will  not  work for many-to-many fields, so you need to exclude these (and add the related objects later. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8228026)
+ Got this figured. What I do is update the request.POST dictionary with values from the instance - so that all unchanged fields are automatically present. This will do it: 
+
+  from django.forms.models import model_to_dict
+from copy import copy
+
+def UPOST(post, obj):
+    '''Updates request's POST dictionary with values from object, for update purposes'''
+    post = copy(post)
+    for k,v in model_to_dict(obj).iteritems():
+        if k not in post: post[k] = v
+    return post
+  
+
+  
+
+  form = CModelForm(UPOST(request.POST,c_instance),instance=c_instance)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/2229319)
+ . It seems that accessing the extra fields with cleaned_data['field_name'] raises a KeyError but using cleaned_data.get('field_name') works. That's weird because normal fields for the model can be accessed via cleaned_data['field_name']. 
+
+  Update:  No, it doesn't work. With get() it doesn't raise a KeyError but it sets a value of None because the extra fields are not in the cleaned_data dictionary. 
+
+ Here is the code. In the templates there is an autocomplete, so in the form there is an "artist" field rendered as a CharField and an hidden IntegerField that will be autopopulated with the given artist id. In the clean_artist method I want to select the artist object and store it in the artist field of the form. 
+
+ models.py 
+
+  class Music(models.Model):
+    artist = models.ForeignKey(Artist, related_name='music', blank=True, null=True)
+    # other fields...
+  
+
+ forms.py 
+
+  class MusicForm(forms.ModelForm):
+    artist_id = forms.IntegerField(label="", widget=forms.HiddenInput(), required=False)
+    artist = forms.CharField(required=False)
+    # other fields ...
+
+    class Meta:
+        model = Music
+
+    def clean_artist(self):
+        if self.cleaned_data.get('artist') == '':
+            artist = None
+        else:
+            artist_id = self.cleaned_data.get('artist_id') # this returns always None because artist_id is not in cleaned_fields (this seemed to work with previous django versions but not with current SVN version)
+            if artist_id != None:
+                artist = Artist.objects.get(id=artist_id)
+            else:
+                artist = None
+
+    return artist
+  
+
+
+

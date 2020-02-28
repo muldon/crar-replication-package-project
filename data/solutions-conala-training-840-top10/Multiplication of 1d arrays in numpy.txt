@@ -1,0 +1,467 @@
+Query: Multiplication of 1d arrays in numpy
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15680781)
+ Notice you are not only working with 1D arrays: 
+
+  In [6]: a.ndim
+Out[6]: 1
+
+In [7]: b.ndim
+Out[7]: 2
+  
+
+ So,  b  is a 2D array.
+You also see this in the output of  b.shape : (1,3) indicates two dimensions as (3,) is one dimension. 
+
+ The behaviour of  np.dot  is different for 1D and 2D arrays (from the http://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html): 
+
+ 
+   For 2-D arrays it is equivalent to matrix multiplication, and for 1-D
+  arrays to inner product of vectors 
+ 
+
+ That is the reason you get different results, because you are mixing 1D and 2D arrays. Since  b  is a 2D array,  np.dot(b, b)  tries a matrix multiplication on two 1x3 matrices, which fails. 
+
+ 
+
+ With 1D arrays, np.dot does a inner product of the vectors: 
+
+  In [44]: a = np.array([1,2,3])
+
+In [45]: b = np.array([1,2,3])
+
+In [46]: np.dot(a, b)
+Out[46]: 14
+
+In [47]: np.inner(a, b)
+Out[47]: 14
+  
+
+ With 2D arrays, it is a matrix multiplication (so 1x3 x 3x1 = 1x1, or 3x1 x 1x3 = 3x3): 
+
+  In [49]: a = a.reshape(1,3)
+
+In [50]: b = b.reshape(3,1)
+
+In [51]: a
+Out[51]: array([[1, 2, 3]])
+
+In [52]: b
+Out[52]:
+array([[1],
+       [2],
+       [3]])
+
+In [53]: np.dot(a,b)
+Out[53]: array([[14]])
+
+In [54]: np.dot(b,a)
+Out[54]:
+array([[1, 2, 3],
+       [2, 4, 6],
+       [3, 6, 9]])
+
+In [55]: np.dot(a,a)
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+<ipython-input-55-32e36f9db916> in <module>()
+----> 1 np.dot(a,a)
+
+ValueError: objects are not aligned
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19608660)
+ There's one more option that @hpaulj left out in his extensive and comprehensive list of options: 
+
+  >>> a = np.array(a)
+>>> b = np.array(b)
+>>> from numpy.core.umath_tests import matrix_multiply
+>>> matrix_multiply.signature
+'(m,n),(n,p)->(m,p)'
+>>> matrix_multiply(a, b[..., np.newaxis])
+array([[[ 7],
+        [15]],
+
+       [[14],
+        [32]]])
+>>> matrix_multiply(a, b[..., np.newaxis]).shape
+(2L, 2L, 1L)
+>>> np.squeeze(matrix_multiply(a, b[..., np.newaxis]), axis=-1)
+array([[ 7, 15],
+       [14, 32]])
+  
+
+ The nice thing about  matrix_multiply  is that, it being a gufunc, it will work not only with 1D arrays of matrices, but also with broadcastable arrays. As an example, if instead of multiplying the first matrix with the first vector, and the second matrix with the second vector, you wanted to compute all possible multiplications, you could simply do: 
+
+  >>> a = np.arange(8).reshape(2, 2, 2) # to have different matrices
+>>> np.squeeze(matrix_multiply(a[...,np.newaxis, :, :],
+...                            b[..., np.newaxis]), axis=-1)
+array([[[ 3, 11],
+        [ 5, 23]],
+
+       [[19, 27],
+        [41, 59]]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5674528)
+ http://docs.scipy.org/doc/numpy-1.5.x/reference/generated/numpy.outer.html
+is a builtin to do that: 
+
+  A = array([1,2,3])
+print "outer:", np.outer( A, A )
+  
+
+ ( transpose  doesn't work because  A.T  is exactly the same as A for 1d arrays: 
+
+  print A.shape, A.T.shape, A[:,np.newaxis].shape
+>>> ( (3,), (3,), (3, 1) )
+  
+
+ ) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21563036)
+ Simplest solution 
+
+ Use  numpy.dot  or  a.dot(b) . See the documentation http://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html. 
+
+  >>> a = np.array([[ 5, 1 ,3], 
+                  [ 1, 1 ,1], 
+                  [ 1, 2 ,1]])
+>>> b = np.array([1, 2, 3])
+>>> print a.dot(b)
+array([16, 6, 8])
+  
+
+ This occurs because numpy arrays are not matrices, and the standard operations  *, +, -, /  work element-wise on arrays.  Instead, you could try using http://docs.scipy.org/doc/numpy/reference/generated/numpy.matrix.html, and  *  will be treated like matrix multiplication.  
+
+ 
+
+ Other Solutions 
+
+ Also know there are other options: 
+
+ 
+  As noted below, if using python3.5+ the  @  operator works as you'd expect: 
+
+  >>> print(a @ b)
+array([16, 6, 8])
+   
+  If you want overkill, you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum.  The documentation will give you a flavor for how it works, but honestly, I didn't fully understand how to use it until reading https://stackoverflow.com/a/33641428/1634191 and just playing around with it on my own. 
+
+  >>> np.einsum('ji,i->j', a, b)
+array([16, 6, 8])
+   
+  As of mid 2016 (numpy 1.10.1), you can try the experimental https://docs.scipy.org/doc/numpy/reference/generated/numpy.matmul.html#numpy-matmul, which works like  numpy.dot  with two major exceptions: no scalar multiplication but it works with stacks of matrices.  
+
+  >>> np.matmul(a, b)
+array([16, 6, 8])
+   
+  https://docs.scipy.org/doc/numpy/reference/generated/numpy.inner.html functions the same way as  numpy.dot   for matrix-vector multiplication but behaves differently  for matrix-matrix and tensor multiplication (see Wikipedia regarding the differences between https://en.wikipedia.org/wiki/Inner_product_space in general or https://stackoverflow.com/questions/11033573/difference-between-numpy-dot-and-inner regarding numpy's implementations). 
+
+  >>> np.inner(a, b)
+array([16, 6, 8])
+
+# Beware using for matrix-matrix multiplication though!
+>>> b = a.T
+>>> np.dot(a, b)
+array([[35,  9, 10],
+       [ 9,  3,  4],
+       [10,  4,  6]])
+>>> np.inner(a, b) 
+array([[29, 12, 19],
+       [ 7,  4,  5],
+       [ 8,  5,  6]])
+   
+ 
+
+ 
+
+ Rarer options for edge cases 
+
+ 
+  If you have tensors (arrays of dimension greater than or equal to one), you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.tensordot.html#numpy.tensordot with the optional argument  axes=1 : 
+
+  >>> np.tensordot(a, b, axes=1)
+array([16,  6,  8])
+   
+   Don't use https://docs.scipy.org/doc/numpy/reference/generated/numpy.vdot.html#numpy.vdot  if you have a matrix of complex numbers, as the matrix will be flattened to a 1D array, then it will try to find the complex conjugate dot product between your flattened matrix and vector (which will fail due to a size mismatch  n*m  vs  n ).  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10268134)
+ If you can assume that  x  and  y  are both essentially 1D arrays then using numpy's  .flatten()  array method: 
+
+  >>> result=x.flatten()*y.flatten()
+  
+
+ Should return a 1D array: 
+
+  >>> result.shape
+(4,)
+  
+
+ To preserve the shape of  x  you could do the following: 
+
+  >>> result = x*y.reshape(x.shape)
+>>> result.shape
+(4,1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35256816)
+ I'll try annotating your code 
+
+  a = numpy.array([1,2,3,4])
+print(a)
+>>> [1 2 3 4]
+
+print(a.T)          # Transpose
+>>> [1 2 3 4]       # No apparent affect
+  
+
+  a.shape  will show  (4,) .   a.T.shape  is the same.  It kept the same number of dimensions, and performed the only meaningful transpose - no change. Making it  (4,1)  would have added a dimension, and destroyed the  A.T.T  roundtrip. 
+
+  b = numpy.array( [ [1], [2], [3], [4] ] )
+print(b)
+>>> [[1]
+     [2]
+     [3]
+     [4]]           # Column (Expected)
+
+print(b.T)
+>>> [[1 2 3 4]]     # Row (Expected, transpose seems to work here)
+  
+
+  b.shape  is  (4,1) ,  b.T.shape  is  (1,4) .  Note the extra set of [].  If you'd created  a  as  a = numpy.array([[1,2,3,4]])  its shape too would have been  (1,4) . 
+
+ The easy way to make  b  would be  b=np.array([[1,2,3,4]]).T  (or  b=np.array([1,2,3,4])[:,None]  or  b=np.array([1,2,3,4]).reshape(-1,1) ) 
+
+ Compare this to MATLAB 
+
+  octave:3> a=[1,2,3,4]
+a =
+   1   2   3   4
+octave:4> size(a)
+ans =
+   1   4
+octave:5> size(a.')
+ans =
+   4   1
+  
+
+ Even without the extra [] it has initialed the matrix as 2d. 
+
+  numpy  has a  matrix  class that imitates MATLAB - back in the time when MATLAB allowed only 2d. 
+
+  In [75]: m=np.matrix('1 2 3 4')
+  
+
+ In [76]: m
+    Out[76]: matrix([[1, 2, 3, 4]]) 
+
+  In [77]: m.shape
+Out[77]: (1, 4)
+
+In [78]: m=np.matrix('1 2; 3 4')
+
+In [79]: m
+Out[79]: 
+matrix([[1, 2],
+        [3, 4]])
+  
+
+ I don't recommend using  np.matrix  unless it really adds something useful to your code.   
+
+ Note the MATLAB talks of  vectors , but they are really just their  matrix  with only one non-unitary dimension. 
+
+  # The following are element wise multiplications of a
+print(aa)
+>>> [ 1  4  9 16]
+
+print(a  a.T)      # RowColumn
+>>> [ 1  4  9 16]   # Inner product scalar result expected
+  
+
+ This behavior follows from  a.T == A .  As you noted,    produces element by element multiplication.  This is equivalent to the MATLAB  . .   np.dot(a,a)  gives the dot or matrix product of 2 arrays. 
+
+  print(a.T  a)      # ColumnRow
+>>> [ 1  4  9 16]   # Outer product matrix result expected
+  
+
+ No, it is still doing elementwise multiplication. 
+
+ I'd use  broadcasting ,  a[:,None]a[None,:]  to get the outer product.  Octave added this in imitation of numpy; I don't know if MATLAB has it yet. 
+
+ In the following    is always element by element multiplication.  It's broadcasting that produces matrix/outer product results. 
+
+  print(bb)
+>>> [[1]
+     [4]
+     [9]
+     [16]]          # Expected result, element wise multiplication in a column
+  
+
+ A  (4,1)  (4,1)=>(4,1) .  Same shapes all around. 
+
+  print(b  b.T)      # Column  Row (Outer product)
+>>> [[ 1  2  3  4]
+     [ 2  4  6  8]
+     [ 3  6  9 12]
+     [ 4  8 12 16]] # Expected matrix result
+  
+
+ Here  (4,1)(1,4)=>(4,4)  product.  The 2 size  1  dimensions have been replicated so it becomes, effectively a  (4,4)(4,4) .  How would you do replicate this in MATLAB - with  . ? 
+
+  print(b.T  (b.T))  # Column  Column (Doesn't make much sense so I expected elementwise multiplication
+>>> [[ 1  4  9 16]]
+  
+
+    is elementwise regardless of expectations.  Think  b' . b'  in MATLAB. 
+
+  print(b.T  (b.T).T) # Row  Column, inner product expected
+>>> [[ 1  2  3  4]
+    [ 2  4  6  8]
+    [ 3  6  9 12]
+    [ 4  8 12 16]]  # Outer product result
+  
+
+ Again    is elementwise;  inner  requires a summation in addition to multiplication.  Here broadcasting again applies  (1,4)(4,1)=>(4,4) . 
+
+  np.dot(b,b)  or  np.trace(b.Tb)  or  np.sum(bb)  give  30 . 
+
+ When I worked in MATLAB I frequently checked the  size , and created test matrices that would catch dimension mismatches (e.g. a 2x3 instead of a 2x2 matrix).  I continue to do that in numpy. 
+
+ The key things are: 
+
+ 
+   numpy  arrays may be 1d (or even 0d)  
+  A (4,) array is not exactly the same as a  (4,1)  or (1,4)`.  
+     is elementwise - always.  
+  broadcasting usually accounts for  outer  like behavior  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7409169)
+  np.dot(weights.T,np.dot(covar,weights))
+# array([[ 0.00064654]])
+  
+
+ For 2D numpy arrays,  np.dot  is equivalent to matrix multiplication. 
+
+ For a 2D array np.dotted with a 1D array,  np.dot  is equivalent to matrix-vector multiplication. 
+
+ For 1D arrays,  np.dot  is equivalent to the inner product. 
+
+ For numpy arrays, the  *  performs element-wise multiplication (with http://www.scipy.org/EricsBroadcastingDoc if necessary). 
+
+ 
+
+  weights.T*np.matrix(covar)*weights
+#matrix([[ 0.00064654]])
+  
+
+ Alternatively, if you convert  covar  to a  np.matrix , then  *  is equivalent to matrix multiplication. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35252436)
+ "Transposing" is, from a numpy perspective, really only a meaningful concept for two-dimensional structures: 
+
+  >>> import numpy
+>>> arr = numpy.array([1,2,3,4])
+>>> arr.shape
+(4,)
+>>> arr.transpose().shape
+(4,)
+  
+
+ So, if you want to transpose something, you'll have to make it two-dimensional: 
+
+  >>> arr_2d = arr.reshape((4,1)) ## four rows, one column -> two-dimensional
+>>> arr_2d.shape
+(4, 1)
+>>> arr_2d.transpose().shape
+(1, 4)
+  
+
+ Also,  numpy.array(iterable, **kwargs)  has a key word argument  ndmin , which will, set to  ndmin=2  prepend your desired shape with as many  1  as necessary: 
+
+  >>> arr_ndmin = numpy.array([1,2,3,4],ndmin=2)
+>>> arr_ndmin.shape
+(1, 4)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22950012)
+ You are essentially computing an http://en.wikipedia.org/wiki/Outer_product. 
+
+ You can use  np.outer . 
+
+  In [15]: a=[1,2,3]
+
+In [16]: np.outer(a,a)
+Out[16]:
+array([[1, 2, 3],
+       [2, 4, 6],
+       [3, 6, 9]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22058265)
+ For its base array class, 2d arrays are no more special than 1d or 3d ones.  There are some operations the preserve the dimensions, some that reduce them, other combine or even expand them. 
+
+  M=np.arange(9).reshape(3,3)
+M[:,0].shape # (3,) selects one column, returns a 1d array
+M[0,:].shape # same, one row, 1d array
+M[:,[0]].shape # (3,1), index with a list (or array), returns 2d
+M[:,[0,1]].shape # (3,2)
+
+In [20]: np.dot(M[:,0].reshape(3,1),np.ones((1,3)))
+
+Out[20]: 
+array([[ 0.,  0.,  0.],
+       [ 3.,  3.,  3.],
+       [ 6.,  6.,  6.]])
+
+In [21]: np.dot(M[:,[0]],np.ones((1,3)))
+Out[21]: 
+array([[ 0.,  0.,  0.],
+       [ 3.,  3.,  3.],
+       [ 6.,  6.,  6.]])
+  
+
+ Other expressions that give the same array 
+
+  np.dot(M[:,0][:,np.newaxis],np.ones((1,3)))
+np.dot(np.atleast_2d(M[:,0]).T,np.ones((1,3)))
+np.einsum('i,j',M[:,0],np.ones((3)))
+M1=M[:,0]; R=np.ones((3)); np.dot(M1[:,None], R[None,:])
+  
+
+ MATLAB started out with just 2D arrays.  Newer versions allow more dimensions, but retain the lower bound of 2.  But you still have to pay attention to the difference between a row matrix and column one, one with shape  (1,3)  v  (3,1) .  How often have you written  [1,2,3].'   I was going to write  row vector  and  column vector , but with that 2d constraint, there aren't any vectors in MATLAB - at least not in the mathematical sense of vector as being 1d. 
+
+ Have you looked at  np.atleast_2d  (also _1d and _3d versions) 
+
+
+

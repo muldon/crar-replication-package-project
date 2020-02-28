@@ -1,0 +1,355 @@
+Query: How to get a list of variables in specific Python module?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17243155)
+ Use http://docs.python.org/2/library/operator.html#operator.itemgetter: 
+
+  from operator import itemgetter
+
+multiple_index = map(itemgetter(0, 3, 4), L)
+  
+
+ or in a list comprehension: 
+
+  multiple_index = [itemgetter(0, 3, 4)(i) for i in L]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36801599)
+ You can use inspect. 
+
+ First, get the list of local variables: 
+
+  local_vars = locals().values()
+  
+
+  
+
+  import inspect
+local_vars = [i for i in local_vars if inspect.isclass(i)]
+  
+
+ To get only classes locally defined, check if  cls.__module__ == __name__  as follows: 
+
+  def get_classes():
+    global_vars = list(globals().values())
+    classes = [i for i in global_vars if inspect.isclass(i)]
+    return [i for i in classes if i.__module__ == __name__]
+  
+
+ The overall idea is this: https://docs.python.org/2/library/inspect.html allows you to inspect live objects, and iterating over all local variables allows you to inspect everything within your current namespace. The final part, which classes are defined locally, can be done by checking if the module name is the same as the current namespace, or  cls.__module__ == __name__ . 
+
+ Finally, for Python3 compatibility, I've added  list(globals().values() , since the dictionary size will change during list comprehension. For Python2, since  dict.values()  returns a list, this can be omitted. 
+
+ EDIT: 
+
+ For further filtering, you can also use specific class attributes or other, as was mentioned in the comments. This is great if you are worried about restructuring your module into a package later. 
+
+  def get_classes(name='target'):
+    global_vars = list(globals().values())
+    classes = [i for i in global_vars if inspect.isclass(i)]
+    return [i for i in classes if hasattr(i, name)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9759842)
+  print [item for item in dir(adfix) if not item.startswith("__")]
+  
+
+ Is usually the recipe for doing this, but it begs the question.  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28150307)
+  #!/usr/local/bin/python
+# coding: utf-8
+__author__ = 'spouk'
+
+def get_book_variable_module_name(module_name):
+    module = globals().get(module_name, None)
+    book = {}
+    if module:
+        book = {key: value for key, value in module.__dict__.iteritems() if not (key.startswith('__') or key.startswith('_'))}
+    return book
+
+import config
+
+book = get_book_variable_module_name('config')
+for key, value in book.iteritems():
+    print "{:<30}{:<100}".format(key, value)
+  
+
+ example config  
+
+  #!/usr/local/bin/python
+# coding: utf-8
+__author__ = 'spouk'
+
+import os
+
+_basedir = os.path.abspath(os.path.dirname(__file__))
+
+# database section MYSQL section
+DBHOST = 'localhost'
+DBNAME = 'simple_domain'
+DBPORT = 3306
+DBUSER = 'root'
+DBPASS = 'root'
+
+# global section
+DEBUG = True
+HOSTNAME = 'simpledomain.com'
+HOST = '0.0.0.0'
+PORT = 3000
+ADMINS = frozenset(['admin@localhost'])
+SECRET_KEY = 'dfg45DFcx4rty'
+CSRF_ENABLED = True
+CSRF_SESSION_KEY = "simplekey"
+  
+
+  
+
+  /usr/local/bin/python2 /home/spouk/develop/python/2015/utils_2015/parse_config_py.py
+DBPORT                        3306                                                                                                
+os                            <module 'os' from '/usr/local/lib/python2.7/os.pyc'>                                                
+DBHOST                        localhost                                                                                           
+HOSTNAME                      simpledomain.com                                                                                    
+HOST                          0.0.0.0                                                                                             
+DBPASS                        root                                                                                                
+PORT                          3000                                                                                                
+ADMINS                        frozenset(['admin@localhost'])                                                                      
+CSRF_SESSION_KEY              simplekey                                                                                           
+DEBUG                         1                                                                                                   
+DBUSER                        root                                                                                                
+SECRET_KEY                    dfg45DFcx4rty                                                                                       
+CSRF_ENABLED                  1                                                                                                   
+DBNAME                        simple_domain                                                                                       
+
+Process finished with exit code 0
+  
+
+ .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28651936)
+ I think you should alter your recursive function to not need any global variables. If you only expect to find a single result, I think it's not too complicated. 
+
+  def getValueForSpecificKey(self, capturedLog, key):
+    '''
+    Get value from log for any specific key.
+    capturedLog will be searched if it is a list or dictionary.
+    Returns None if the key is not found, or capturedLog is another type.
+    '''
+
+    if isinstance(capturedLog, dict):
+        if key in capturedLog:                # base case #1 (found the key)
+            return capturedLog[key]
+
+        values = capturedLog.values()
+
+    elif isinstance(capturedLog, list):
+        values = capturedLog
+
+    else:
+        return None                           # base case #2 (not a list or dict)
+
+    for value in values:
+        result = self.getValueForSpecificKey(value, key)      # recursive case
+        if result is not None:
+            return result
+
+    return None                               # nothing found in the recursive search
+  
+
+ If you might have multiple values in different dictionaries with the desired key, you'll probably need to pass a list around: 
+
+  def getValueForSpecificKey(self, capturedLog, key, results=None):
+    '''
+    Get value from log for any specific key.
+    capturedLog will be searched if it is a list or dictionary.
+    Returns an empty list if the key is not found, or capturedLog is another type.
+    '''
+    if results is None:
+        results = []               # start a new list if this is a non-recursive call
+
+    if isinstance(capturedLog, dict):
+        if key in capturedLog:
+            results.append(capturedLog[key])     # found a result, add it to the list
+            return results
+
+        values = capturedLog.values()
+
+    elif isinstance(capturedLog, list):
+        values = capturedLog
+
+    else:
+        return results
+
+    for value in values:  # recursive calls will add to the results list as necessary
+        self.getValueForSpecificKey(value, key, results)
+
+    return results
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41777513)
+ python memory cleanup is managed by the garbage collector. on CPython it is based on reference counting. 
+you can call the garbage collector explicitly like this: 
+
+  import gc
+gc.collect()
+  
+
+ this can be done after calling a function that uses large variables in terms of ram.
+Note that you do not have to call this function explicitly as the garbage collector will be called eventually to free up ram automatically. 
+
+ if you still want to explicitly remove a variable you can use the https://docs.python.org/2/tutorial/datastructures.html#the-del-statement statement (as written before) like this: 
+
+  x = [1, 2, 3]
+i = 42
+s = 'abc'
+
+del s  # delete string
+del x[1]  # delete single item in a list
+del x, i  # delete multiple variables in one statement
+  
+
+ del statement 
+
+ to better understand what  del  does and its limitations lets take a look at how python stores variables on ram. 
+
+  x = [1, 2, 3]
+  
+
+ the above code creates a reference between the name  x  to the list  [1, 2, 3]  which is stored on the heap.  x  is just a pointer to that list. 
+
+  x = [1, 2, 3]
+y = x
+x is y  # True
+  
+
+ in this example we have the reference  x  and the list on the heap  [1, 2, 3] , but what is this new  y  variable? its just another pointer, meaning now we have two pointers to the same  [1, 2, 3]  list. 
+
+ returning to the  del  statement, if we delete one variable it wont affect the list or the other variable 
+
+  x = [1, 2, 3]
+y = x
+del x
+print(y)  # prints [1, 2, 3]
+  
+
+ so here we will not free up the list, only decrease the reference counting to the list but we still have  y  pointing to it. 
+
+ to overcome this we can use the https://docs.python.org/3/library/weakref.html module to point  y  to the list and when  x  is deleted the list is also deleted. 
+
+ Bottom line 
+
+ 
+ use  gc.collect()  after heavy memory functions 
+ use  del x, y  to delete all pointers to a specific object to free it up 
+ use  weakref  module to avoid holding objects on the ram after all other references to them are deleted 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37998043)
+ What I notice is 3 things that could go wrong:  
+
+ 1) In method getVariableLevelDictionary you are trying to return self.variableLevelDictionary when in fact your class "foo" does not have have an attribute of the same name, this means that when you call this function you will get this error:  
+
+ AttributeError: 'foo' object has no attribute 'variableLevelDictionary'  
+
+ In order to fix this, you could try, inside your second function to do something like:  
+
+  self.variableLevelDictionary= {"aaa":levels,
+                               "bbb":levels,
+                               "ccc":levels,
+                               "ddd":levels,
+                               "eee":specificLevels
+                               }
+  
+
+ 2) You are calling foo.getVariableLevelDictionary when in fact you have the fooInstance, so perhaps you would like to call fooInstance.getVariableDictionary, which will fail unless you sort out  1)  
+
+ 3) You are assigning something to a variable named  list , which is a Python bound word for the list data-structure and this is not recommended. 
+
+ You could solve this by specifying another name , maybe  my_list  .  
+
+     
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50696671)
+ If you are allowed to use http://www.numpy.org/, you can do: 
+
+  >>> import numpy as np
+>>> a = [[5, -4, 6], [9, 0, 6], [20, -1, 9], [6, 5, -7]]
+>>> b = [0, 1, 2, 0]
+>>> arr = np.array(a)
+>>> arr[np.arange(len(a)), b]
+array([5, 0, 9, 6])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48848685)
+ I can't see any way to do this without getting pretty deep; what follows is the simplest solution I've come up with. 
+
+ how it works 
+
+ Using the https://docs.python.org/3/library/ast.html module, we go through the code of the given function and find all the assignments. These are evaluated in a given namespace and this namespace is returned. 
+
+ the code 
+
+  import ast
+import functools
+import inspect
+
+def returnAssignments(f):
+    @functools.wraps(f)
+    def returner():
+        assignments = dict()
+        for node in ast.walk(ast.parse(inspect.getsource(f))):
+            if isinstance(node, ast.Assign):
+                exec(compile(ast.Module([node]), '<ast>', 'exec'),
+                     globals(),
+                     assignments)
+        return assignments
+    return returner
+  
+
+  
+
+  from ra import returnAssignments
+
+@returnAssignments
+def foo():
+    this = 'something'
+    that = 37
+    the_other = object()
+
+print(foo())
+  
+
+ output 
+
+<pre class="lang-none prettyprint-override"> rat@pandion:~/tmp$ python test.py
+{'this': 'something', 'that': 37, 'the_other': <object object at 0x10205b130>}
+  
+
+
+

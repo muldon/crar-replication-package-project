@@ -1,0 +1,247 @@
+Query: How do I vectorize this loop in numpy?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35414792)
+ Here's how I'd do it: 
+
+  # has shape (x.shape[1],) + flag.shape
+masked = np.where(flag > 0, X.T[...,np.newaxis], 0)
+
+# sum over the i index
+dW = masked.sum(axis=1)
+
+# sum over the j index
+np.subtract.at(dW, np.s_[:,y], masked.sum(axis=2))
+
+# dW[:,y] -= masked.sum(axis=2) does not work here
+  
+
+ See the documentation of https://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.ufunc.at.html for an explanation of that last comment 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33802466)
+ It is possible with http://pandas.pydata.org/: 
+
+  import pandas as pd
+# generating data set (N: number, S: resulting string)
+df = pd.DataFrame({'N': np.arange(1,N+1), 'S': np.arange(1,N+1) },columns=['N','S'])
+# convert col. S to string
+df['S']=df['S'].apply(str)
+# set empty string if x mod 3 == 0 or x mod 5 == 0
+df['S'][(df['N'].mod(3)==0) | (df['N'].mod(5)==0)] = ""
+# set mod 3 == 0 condition
+df['S'][(df['N'].mod(3)==0)] = "inf"
+# mod 5 == 0
+df['S'][(df['N'].mod(5)==0)] = df['S']+"luans"
+  
+
+ The result is in  df['S'] . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33803691)
+ Assign to slices: 
+
+  S = numpy.arange(1, N+1).astype('S8')
+S[2::3] = 'inf'
+S[4::5] = 'luans'
+S[14::15] = 'influans'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46555448)
+ You can vectorize it as: 
+
+  b = np.asarray(b)                      # in case you have a matrix, convert it to an array
+np.linalg.norm(b - b[:,None], axis=2)
+  
+
+  b - b[:,None]  does a row wise outer subtraction of  b , and  np.sqrt(np.dot(...,...))  can be calculated with  np.linalg.norm . 
+
+ 
+
+  Example : 
+
+  a = np.arange(9).reshape(3,3)
+b = np.matrix(a)
+
+Z = np.zeros_like(b, dtype=np.float32)
+
+
+for i in range(b.shape[0]):  
+    for j in range(b.shape[0]):
+        Z[i,j] = np.sqrt(np.dot((b[i,:].T - b[j,:].T).T  ,  b[i,:].T - b[j,:].T))
+
+Z
+#array([[  0.        ,   5.19615221,  10.39230442],
+#       [  5.19615221,   0.        ,   5.19615221],
+#       [ 10.39230442,   5.19615221,   0.        ]], dtype=float32)
+
+b = np.asarray(b) 
+np.linalg.norm(b - b[:,None], axis=2)
+#array([[  0.        ,   5.19615242,  10.39230485],
+#       [  5.19615242,   0.        ,   5.19615242],
+#       [ 10.39230485,   5.19615242,   0.        ]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19479042)
+ You seem to be updating your  result  array one column at a time, using data from the previously updated column. That makes it hard to vectorize the outer loop, I don't think you can do it unless there is some structure to your data that can be exploited. The inner loop is very straightforward to vectorize: 
+
+  for i in xrange(1, d):
+    j = np.arange(k-i-1, k+1)
+    result[j, i] = ((x - y[j]) / (y[j+i] - y[j]) * result[j, i-1] +
+                    (y[j+i+1] - x) / (y[j+i+1] - y[j+1]) * result[j+1, i-1])
+  
+
+ There is some marginal improvement you could get by defining a  base_j = np.arange(k-d-2, k+1)  array outside the loop, and then slicing it inside the loop with something like  j = base_j[d-i+1:] . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13941097)
+ I think you want something like this: 
+
+  import numpy as np
+
+def foo(a, b):
+    # cond is a boolean array marking where the condition is met
+    cond = a[1:] < a[:-1]
+    cond = np.insert(cond, 0, False)
+    # values is an array of the items in from a that will be used to fill b
+    values = a[cond]
+    values = np.insert(values, 0, b[0])
+    # labels is an array of increasing indices into values
+    label = cond.cumsum()
+    b[:] = values[label]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45003107)
+ You can vectorize it as this; since  d  is one dimension less than  r , when they are multiplied,  d  will be broadcasted along  axis=0  of  r  and so avoid the loop; And also since  r  is a boolean array,  d[r].sum()  will be the same as  (d*r).sum : 
+
+  (d * r).sum(axis=(1,2,3))
+# array([ 775.17049697,  728.61537246,  735.05686655,  765.19469927,
+#         759.44834287])
+  
+
+ The result is the same as  x : 
+
+  ((d*r).sum(axis=(1,2,3)) == x).all()
+# True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33045714)
+ You could vectorize like so - 
+
+  xc = x-c
+b_out = ((xc.dot(A))*xc).sum(1) <= 1
+  
+
+ You can also use http://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html - 
+
+  xc = x-c
+b_out = np.einsum('ij,jk,ik->i',xc,A,xc) <= 1
+  
+
+ Runtime tests - 
+
+ Define functions: 
+
+  def org_app(x, A, c):
+    x = np.atleast_2d(x)
+    b = np.zeros(x.shape[0], dtype=np.bool)
+    for row in range(x.shape[0]):
+        xmc = x[row, :] - c
+        b[row] = xmc.dot(A).dot(xmc) <= 1
+    return b
+
+def vectorized_app1(x,A,c):    
+    xc = x-c
+    return ((xc.dot(A))*xc).sum(1) <= 1
+
+def vectorized_app2(x,A,c):    
+    xc = x-c
+    return np.einsum('ij,jk,ik->i',xc,A,xc) <= 1
+  
+
+  
+
+  In [266]: N = 20
+     ...: d = 20
+     ...: A = np.random.rand(d,d)
+     ...: c = np.random.rand(d)
+     ...: x = np.random.rand(N,d)
+     ...: 
+
+In [267]: %timeit org_app(x,A,c)
+1000 loops, best of 3: 274 µs per loop
+
+In [268]: %timeit vectorized_app1(x,A,c)
+10000 loops, best of 3: 46 µs per loop
+
+In [269]: %timeit vectorized_app2(x,A,c)
+10000 loops, best of 3: 63.7 µs per loop
+
+In [270]: N = 100
+     ...: d = 100
+     ...: A = np.random.rand(d,d)
+     ...: c = np.random.rand(d)
+     ...: x = np.random.rand(N,d)
+     ...: 
+
+In [271]: %timeit org_app(x,A,c)
+100 loops, best of 3: 2.74 ms per loop
+
+In [272]: %timeit vectorized_app1(x,A,c)
+1000 loops, best of 3: 1.46 ms per loop
+
+In [273]: %timeit vectorized_app2(x,A,c)
+100 loops, best of 3: 4.72 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16239809)
+ You can use http://docs.scipy.org/doc/numpy/reference/generated/numpy.vectorize.html to 'vectorize' your function  f  if you don't have control over its definition: 
+
+  g = np.vectorize(f)
+  
+
+ But this is not as good as vectorizing the function yourself manually to support arrays, as it doesn't really do much more than internalize the loop, and it might not work well with certain functions.  In fact, from the documentation: 
+
+ 
+    Notes      The  vectorize  function is provided primarily for convenience, not for performance. The implementation is essentially a for loop. 
+ 
+
+ You should instead focus on making  f  accept a vector instead of  i : 
+
+  def f(i, a, b, x):
+    return a*x[i] + b
+
+def g(a, b, x):
+    x = np.asarray(x)
+    return a*x + b
+  
+
+ Then, instead of calling  f(i, a, b, x) , call  g(a,b,x)[i]  if you only want the  i th, but for operations on the entire function, use  g(a, b, x)  and it will be much faster. 
+
+  model_vec = g(a, b, x)
+return numpy.sum(((array-model_vec)/sigma)**2.0)
+  
+
+
+

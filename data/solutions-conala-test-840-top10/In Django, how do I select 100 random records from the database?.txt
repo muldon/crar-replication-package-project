@@ -1,0 +1,144 @@
+Query: In Django, how do I select 100 random records from the database?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10897176)
+  
+
+  import random    
+object_list = list(Content.objects.filter(foo=bar).values()[:100])
+random.shuffle(object_list)
+  
+
+ Runs only single-simple MySQL query and is good on performance. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7907923)
+ The following selects the values related to particular record id. You can then follow the foreign keys to get the related record and key. Using https://docs.djangoproject.com/en/dev/ref/models/querysets/#select-related minimises database lookups.  
+
+  # Select all values related to a record in your view
+record = Record.objects.get(pk=record_id)
+values = Value.objects.filter(record=record).select_related()
+
+# In your template
+{% for value in values %}
+{{ value.record.name }} - {{ value.key.name }} - {{ value.value }}
+{% endfor %}
+  
+
+ Selecting more that one record 
+
+ In your sql, you had  WHERE record_id = 1 , so I showed how to get all the values for a particular record. You could also select the values for more that one record in one query. 
+
+  # filter all records which belong to the project with `project_id=1`
+records = Record.objects.filter(project_id=1)
+# select all values that belong to these records
+values = Value.objects.filter(record__in=records).select_related().order_by('record')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51161154)
+ For example when you want to get 10 random items from a model. You can use random module 
+
+  import random
+random_items = random.sample(list(model.objects.all()), k=10)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5871855)
+ If you have a manageable number of entries in the database (ie not thousands), this will work, and even though it hits the db twice it will probably be much more efficient than  order_by('?') . 
+
+  import random
+content_pks = Content.objects.values_list('pk', flat=True)
+selected_pks = random.sample(content_pks, 30)
+content_objects = Content.objects.filter(pk__in=selected_pks)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3506692)
+  Content.objects.all().order_by('?')[:100]
+  
+
+ See the http://docs.djangoproject.com/en/dev/ref/models/querysets/#order-by-fields. Also be aware this approach does not scale well (in fact, it scales really, really badly). See https://stackoverflow.com/questions/1731346/how-to-get-two-random-records-with-django/6405601#6405601 for a better way to handle random selection when you have large amounts of data. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40332426)
+ One much easier approach to this involves simply filtering down to the recordset of interest and using  random.sample  to select as many as you want: 
+
+  from myapp.models import MyModel
+import random
+
+my_queryset = MyModel.objects.filter(criteria=True)  # Returns a QuerySet
+my_object = random.sample(my_queryset, 1)  # get a single random element from my_queryset
+my_objects = random.sample(my_queryset, 5)  # get five random elements from my_queryset
+  
+
+ Note that you should have some code in place to verify that  my_queryset  is not empty;  random.sample  returns  ValueError: sample larger than population  if the first argument contains too few elements. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43756299)
+ Here's a simple solution: 
+
+  from random import randint
+
+count = Model.objects.count()
+random_object = Model.objects.all()[randint(0, count - 1)] #single random object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30741675)
+ Just a simple idea how I do it: 
+
+  def _get_random_service(self, professional):
+    services = Service.objects.filter(professional=professional)
+    i = randint(0, services.count()-1)
+    return services[i]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/60815)
+ This is very much a database-specific issue. 
+
+ I know that PostgreSQL, SQLite, MySQL, and Oracle have the ability to order by a random function, so you can use this in SQLAlchemy: 
+
+  from  sqlalchemy.sql.expression import func, select
+
+select.order_by(func.random()) # for PostgreSQL, SQLite
+
+select.order_by(func.rand()) # for MySQL
+
+select.order_by('dbms_random.value') # For Oracle
+  
+
+ Next, you need to limit the query by the number of records you need (for example using  .limit() ). 
+
+ Bear in mind that at least in PostgreSQL, selecting random record has severe perfomance issues; http://www.depesz.com/index.php/2007/09/16/my-thoughts-on-getting-random-row/ is good article about it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/962672)
+ Simply use: 
+
+  MyModel.objects.order_by('?').first()
+  
+
+ It is documented in https://docs.djangoproject.com/en/dev/ref/models/querysets/#django.db.models.query.QuerySet.order_by. 
+
+
+

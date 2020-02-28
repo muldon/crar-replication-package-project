@@ -1,0 +1,170 @@
+Query: How to check if something exists in a postgresql database using django?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9562494)
+ You can use 
+
+  Entry.objects.filter(name='name', title='title').exists()
+  
+
+ This will return to you true/false values. When you use count the orm generates query which will be executed much longer than in exists method. The get method will raise an exception when object does not exists. 
+
+ request.POST is a dictionary so to check db with it you use, i.e.: 
+
+  Entry.objects.filter(name=request.POST['name'], title=request.POST['title']).exists()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25965394)
+ If you're trying to see if a  database  exists: 
+
+  curs.execute("SELECT exists(SELECT 1 from pg_catalog.pg_database where datname = %s)", ('mydb',))
+  
+
+ It sounds like you may be confused by the difference between a database and a table. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25965428)
+ Your question confuses me a little, because you say you want to look to see if a database exists, but you look in the information_schema.tables view.  That view would tell you if a table existed in the currently open database.  If you want to check if a database exists,  assuming you have access to the 'postgres' database, you could: 
+
+  import sys
+import psycopg2, psycopg2.extras
+cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+dbname = 'db_to_check_for_existance'
+con = None
+
+try:
+    con = psycopg2.connect(database="postgres", user="postgres")
+    cur = con.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("select * from pg_database where datname = %(dname)s", {'dname': dbname })
+    answer = cur.fetchall()
+    if len(answer) > 0:
+        print "Database {} exists".format(dbname)
+    else:
+        print "Database {} does NOT exist".format(dbname)
+except Exception, e:
+    print "Error %s" %e
+    sys.exit(1)
+finally:
+    if con:
+        con.close()
+  
+
+ What is happening here is you are looking in the database tables called pg_database.  The column 'datname' contains each of the database names.  Your code would supply db_to_check_for_existance as the name of the database you want to check for existence. For example, you could replace that value with 'postgres' and you would get the 'exists' answer.  If you replace the value with aardvark you would probably get the does NOT exist report.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44512503)
+ Postgres does not support the condition  IF NOT EXISTS  in the CREATE DATABASE clause,  however ,  IF EXISTS  is supported on  DROP DATABASE  
+
+ There are two options: 
+
+ 
+  drop & recreate 
+
+  cursor.execute('DROP DATABASE IF EXISTS python_db')
+cursor.execute('CREATE DATABASE python_db')
+# rest of the script
+   
+  check the catalog first & branch the logic in python 
+
+  cursor.execute("SELECT COUNT(*) = 0 FROM pg_catalog.pg_database WHERE datname = 'python_db'")
+not_exists_row = cursor.fetchone()
+not_exists = not_exists_row[0]
+if not_exists:
+    cursor.execute('CREATE DATABASE python_db')
+# rest of the script
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44512489)
+ You could query from https://www.postgresql.org/docs/current/static/catalog-pg-database.html to check if the database is exist like this: 
+
+  SELECT datname FROM pg_catalog.pg_database WHERE datname = 'python_db'
+  
+
+ Then from here you can add the logic to create your db. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18718081)
+ @javax's answer is almost correct; the following is a little clarification: 
+
+  q = exists(select([("schema_name")]).select_from("information_schema.schemata")
+    .where("schema_name = 'foo'"))
+if not session.query(q).scalar():
+    session.execute('CREATE SCHEMA foo;')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9561356)
+ The answer to your question is "Yes". However, I think you should also investigate an alternative to querying the database; create a unique key on the set of fields you don't want duplicates to exist for. 
+
+ Now, to answer your question. Check out the Django docs for making a query: 
+
+ https://docs.djangoproject.com/en/dev/topics/db/queries/ 
+
+ In short, if you have a data model for a Thing, Thing.objects is the interface for accessing queries. from the docs (using Blog Entry, which has a string field "headline" as an example): 
+
+  Entry.objects.get(headline__exact="Man bites dog")
+  
+
+ The full capabilities of the interface are what you would expect from a database (there is a rich set of comparisons to data other than exact matches). I'd suggest looking further into the documentation for your specific problem. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5982864)
+ Things to check: 
+
+ 
+  Are you using the GeoDjango database classes? If your database engine is set to something like  django.contrib.gis.db.backends.postgis  or  django.contrib.gis.db.backends.mysql , those are the geo backends. What you want is something like  django.db.backends.postgresql_psycopg2  or  django.db.backends.mysql . Not the lack of the "contrib.gis" part.  
+  The other most likely possibility is that  task.employeeDetails.views  is importing or running something that requires GEOS.  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18347034)
+ If you want to integrate it with SQLAlchemy you could use http://docs.sqlalchemy.org/en/rel_0_8/core/schema.html#metadata-reflection but for an easier and quicker solution: 
+
+  from sqlalchemy.sql import exists, select
+exists(select([("schema_name")]).select_from("information_schema.schemata").
+       where("schema_name == 'foo'"))
+  
+
+ This will return  True  or  False . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/19008646)
+ You can check  settings.DATABASE_ENGINE  value as follow: 
+
+  from django.conf import settings
+
+def get_objects(text):
+    if settings.DATABASE_ENGINE == 'postgresql_psycopg2':
+        qs = MyModel.objects.extra(
+            where=[u'UPPER(unaccent("name")) LIKE UPPER(unaccent(%s))'],
+            params = [u"%{0}%".format(text)]
+        )
+        return list(qs)
+    else:
+        qs = MyModel.objects.filter(name__icontains=text)
+        return list(qs)
+  
+
+
+

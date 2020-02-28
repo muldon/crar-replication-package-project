@@ -1,0 +1,373 @@
+Query: sorting a graph by its edge weight. python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11584801)
+ Use a "key function".  Since you want large weights to sort first, the key function should return the negative of the weight, so that larger weights will sort lower.  
+
+  A='A'
+B='B'
+C='C'
+lst = [(A, B, 2), (A, C, 5), (C, A, 2)]
+
+def weight_key(tup):
+    return tup[0], -tup[2], tup[1]
+
+lst.sort(key=weight_key)
+print(lst)  # prints: [('A', 'C', 5), ('A', 'B', 2), ('C', 'A', 2)]
+  
+
+ EDIT: I just re-read the question.  I'm not exactly sure what this means: "SO, the first node is sorted alphabettically. Second node as per the decreasing weight ranks." 
+
+ But I think you want the key to be first, sort on the  node1  value; then, sort by weight, biggest sorting first; then sort by  node2  value.  I have edited the key function to return a tuple that would sort this way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4098021)
+ You can access the edge weight as G[u][v]['weight'] or by iterating over the edge data.  So you can e.g. 
+
+  In [1]: import networkx as nx
+
+In [2]: G=nx.DiGraph()
+
+In [3]: G.add_edge(1,2,weight=10)
+
+In [4]: G.add_edge(2,3,weight=20)
+
+In [5]: G[2][3]['weight']
+Out[5]: 20
+
+In [6]: G[2][3]['weight']=200
+
+In [7]: G[2][3]['weight']
+Out[7]: 200
+
+In [8]: G.edges(data=True)
+Out[8]: [(1, 2, {'weight': 10}), (2, 3, {'weight': 200})]
+
+In [9]: for u,v,d in G.edges(data=True):
+   ...:     d['weight']+=7
+   ...:     
+   ...:     
+
+In [10]: G.edges(data=True)
+Out[10]: [(1, 2, {'weight': 17}), (2, 3, {'weight': 207})]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14011764)
+ The built-in  sort  function has a  key  parameter that takes a function. If it is specified, sort will sort the collection according to the order of the result of application of the key function to the original elements. 
+
+  >>> sorted([1,2,3], key=lambda x:-x)
+[3, 2, 1]
+  
+
+ You can find more information http://wiki.python.org/moin/HowTo/Sorting#Key_Functions 
+
+ In your particular case, if you need to sort by edge weight and you have a list of edges, you need to provide the function that maps an edge to its weight: 
+
+  sorted( list_of_edges, key= lambda edge: edge['weight'] ) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41255081)
+ Assuming that there can be multiple edges in the same direction between the same two vertices, and you want to add up their weights if so, you can start with 
+
+  g.simplify(combine_edges='sum')
+  
+
+ Then for each pair of vertices  a  and  b , at most one edge goes from  a  to  b . 
+
+ To combine these opposing edges into one edge, you can use the instance method  to_undirected , which transforms  g  to an undirected graph. After the first step, there should be at most two edges between each pair of vertices, always opposed. So if you want to subtract the weight in one direction from the other, you could do this: 
+
+  def subwt(attrs):
+     if len(attrs) == 1:
+         return attrs[0]
+     assert len(attrs) == 2
+     return attrs[0] - attrs[1]
+
+g.to_undirected(combine_edges=subwt)
+  
+
+ But this gives you an undirected graph, and whether the weight of an edge should be taken as going from  a  to  b , or from  b  to  a , is impossible to tell. 
+
+ If instead you want a directed graph, how do you choose whether to make an edge from  a  to  b  with weight 2, or from  b  to  a  with weight -2? 
+
+ Here is a function which will produce such a directed graph; the direction of each edge in the output graph is determined by the first edge encountered between the vertices in the input graph.  Also, any edge attributes besides 'weight' are copied from that first edge, ignoring any other edges. 
+
+  def combine_edges(graph):
+    combe = graph.copy() # copies graph attributes, vertex attributes
+    combe.delete_edges(None) # removes all edges
+    for e in graph.es:
+        src, targ = e.tuple
+        if combe.are_connected(src, targ):
+            ced = combe.es(_source=src, _target=targ)[0]
+            ced['weight'] += e['weight']
+        elif combe.are_connected(targ, src):
+            ced = combe.es(_source=targ, _target=src)[0]
+            ced['weight'] -= e['weight']
+        else:
+            combe.add_edge(src, targ, **e.attributes())
+    return combe
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17947337)
+ Neither  graph.size  nor  graph.add_edge  uses a function to evaluate the weight, they just store values with a given key. To make it easier to work with, just define a function to add an edge with the appropriate weight: 
+
+  def add_euc2d_edge(graph, u, v):
+    graph.add_edge(u, v, weight=euc_2d(graph, u, v))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33530354)
+ One idea is to use https://docs.python.org/2/library/stdtypes.html#str.isdigit to test if a node is numeric. (For example, see https://stackoverflow.com/a/16488383/2831353.) Then you could create a list of edges, sorting each edge so that the numeric nodes come first: 
+
+  edges = []
+for u, v, d in G.edges(data=True): # note that d contains each edge's data
+    if u.isdigit(): # if u is numeric put it first
+        edges.append( (u, v, d) )
+    else:
+        edges.append( (v, u, d) )
+  
+
+  
+
+  edges = [ (u, v, d) if u.isdigit() else (v, u, d)  for u, v, d in G.edges(data=True) ]
+print edges
+  
+
+ This outputs: 
+
+  [('117923818995099650007', ' air.com.agg.popcornmakermarket', {'weight': -1.0}),
+('104000841215686444437', ' air.com.zahdoo.cadie', {'weight': 1.0}),
+('115564928125997351000', ' ah.creativecodeapps.tiempo', {'weight': 1.0})]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50160457)
+ Lets assume that you want to filter 'c' node neighbors according to the weight.Creating the following graph: 
+
+      G = nx.Graph()
+    G.add_edge('a', 'b', weight=0.6)
+    G.add_edge('a', 'c', weight=0.2)
+    G.add_edge('c', 'd', weight=0.1)
+    G.add_edge('c', 'e', weight=0.7)
+    G.add_edge('c', 'f', weight=0.9)
+    G.add_edge('a', 'd', weight=0.3)
+
+    list_neighbors=G.neighbors('c')
+    for i in list_neighbors:
+        if G.edges[('c',i)]['weight']>0.5:
+            print (G.edges[('c',i)])
+  
+
+ Gives:
+{'weight': 0.7}
+{'weight': 0.9}
+Hope this answers your question.
+Refer to the link if you need more info on how to work with weights.
+https://networkx.github.io/documentation/stable/auto_examples/drawing/plot_weighted_graph.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30851239)
+ First you should do some tests and make certain that sorting a node's neighbors by score is a bottleneck in your code. In many graphs arising from typical sources of data, a node is not likely to have many neighbors. In this case, sorting the neighbors by score is very cheap, and isn't worth precomputing. 
+
+ If you've decided for one reason or another that this is not sufficient, and that you must presort the nodes, I think your best bet is to subclass  networkx.Graph  and supply your own mapping type for its internal representation of a graph. Note that this is only documented in the  development  version of  networkx , so this functionality isn't guaranteed to be available or stable quite yet. 
+
+ There are two approaches, the second being more general but more complicated. In the first case, I'll assume that you have control over the order in which you add edges to the graph, and that you can add edges all at once. In the second case I'll make no such assumption, but the code will be more complicated. 
+
+ Case 1: Edges are inserted in sorted order 
+
+ In this case, I assume that you can insert edges in order of increasing score. All that needs to be done is to supply your subclass with a factory for the adjacency mapping which preserves the order of edges.  collections.OrderedDict  will do: 
+
+  import networkx as nx
+import collections
+
+class OrderedGraph(nx.Graph):
+    adjlist_dict_factory = collections.OrderedDict
+
+g = OrderedGraph()
+g.add_edge(1, 3, score=17)
+g.add_edge(1, 2, score=42)
+g.add_edge(1, 4, score=55)
+  
+
+ Notice that the edges were added in increasing order, according to their score!  
+
+  >>> g.neighbors(1)
+[3, 2, 4]
+  
+
+ . Note, though, that if we add an edge at a later time, it must have a larger score than any of its neighboring edges for the sorted score invariant to remain unbroken. That is, you can't run the above code and afterwards do this: 
+
+  >>> g.add_edge(1, 5, score=1)
+  
+
+ .  
+
+  >>> g.neighbors(1)
+[3, 2, 4, 5]
+  
+
+ where  [5, 3, 2, 4]  w. If you cannot add edges all at one time, then, and cannot guarantee that they are only inserted in sorted order, you'll need a more general implementation, such as that in the next case. 
+
+ Case 2: Edges are inserted in arbitrary order 
+
+ In this case we need a class that acts like a mapping, but that keeps track of the inserted nodes in increasing order of their score. To do this, we'll use a heap together with a dictionary in a class that inherits from  collections.abc.MutableMapping . The heap will keep the nodes in order of their score at the cost of extra memory. 
+
+ The below implementation is very rough, so use it with caution: 
+
+  import heapq
+
+class SortedScoreMap(collections.abc.MutableMapping):
+
+    def __init__(self):
+        self._data = {}
+        self._heap = []
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        if key in self._data:
+            self._heap_remove_key(key)
+        self._data[key] = value
+        heapq.heappush(self._heap, (value['score'], key))
+
+    def __delitem__(self, key):
+        del self._data[key]
+        self._heap_remove_key(key)
+
+    def __iter__(self):
+        yield from (key for (score, key) in self._heap)
+
+    def __len__(self):
+        return len(self._data)
+
+    def _heap_remove_key(self, key_to_remove):
+        entries = []
+        for score, key in self._heap:
+            if key == key_to_remove:
+                entries.append((score, key))
+
+        for entry in entries:
+            self._heap.remove(entry)
+  
+
+  SortedScoreMap  expects its values to be dictionaries with a  score  key. This isn't enforced by the above code in the interest of space. Here's a demo: 
+
+  >>> sm = SortedScoreMap()
+>>> sm[5] = {'score': 17}
+>>> sm[7] = {'score': 2}
+>>> sm[1] = {'score': 42}
+>>> list(sm.keys())
+[7, 5, 1]
+>>> sm[7] = 99
+[5, 1, 7]
+  
+
+ As you can see, this keeps the keys in order of score. Now we use this as the adjacency mapping factory: 
+
+  import networkx as nx
+import collections
+
+class OrderedGraph(nx.Graph):
+    adjlist_dict_factory = SortedScoreMap
+
+g = OrderedGraph()
+g.add_edge(1, 3, score=17)
+g.add_edge(1, 2, score=42)
+g.add_edge(1, 4, score=55)
+  
+
+  
+
+  >>> g.neighbors(1)
+[3, 2, 4]
+  
+
+  
+
+  >>> g.add_edge(1, 5, score=1)
+>>> g.neighbors(1)
+[5, 3, 4, 2]
+  
+
+  
+
+ Now, this comes at the cost of extra memory (each key is effectively duplicated) and computation, as an extra layer of indirection is needed. Depending on the size of your problem, you might find that sorting the neighbors every time you need them is actually  faster  than this approach. So as I said at the beginning: profile your code, find out what the actual bottleneck is, and only  then  implement an improvement. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/25779282)
+ G.to_undirected() can not be used to control what data the undirected edges get, see http://networkx.github.io/documentation/networkx-1.9/reference/generated/networkx.DiGraph.to_undirected.html?highlight=to_undirected#networkx.DiGraph.to_undirected 
+
+ You may instead do the following: 
+
+  import networkx as nx
+
+G = nx.DiGraph()
+G.add_edges_from([('a', 'c', {'weight': 1}),
+                  ('a', 'b', {'weight': 3}),
+                  ('c', 'a', {'weight': 1}),
+                  ('c', 'd', {'weight': 2}),
+                  ('b', 'a', {'weight': 1}),
+                  ('d', 'c', {'weight': 1})])
+
+print G.edges(data=True)
+
+g = nx.Graph()
+g.add_edges_from(G.edges_iter(), weight=0)
+
+print g.edges(data=True)
+
+for u, v, d in G.edges_iter(data=True):
+    g[u][v]['weight'] += d['weight']
+
+print g.edges(data=True)
+  
+
+ Basically, you create a new undirected Graph g and populate it with all edges in the directed Graph G. At this point you also initialize the edges' weights to 0. Lastly, you just add the weights to each edge in the undirected graph. Note that in the undirected graph edge (u, v) is the same as (v, u). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/18223043)
+ Here are some ideas: 
+
+  import networkx as nx
+
+G = nx.DiGraph()
+G.add_edge('A','B', weight=1.0)
+G.add_edge('A','C', weight=1.0)
+G.add_edge('A','D', weight=0.5)
+G.add_edge('B','C', weight=0.9)
+G.add_edge('B','D', weight=0.8)
+G.add_edge('C','D', weight=0.9)
+
+print "all edges"
+print G.edges(data=True)
+
+print "edges >= 0.9"
+print [(u,v,d) for (u,v,d) in G.edges(data=True) if d['weight'] >= 0.9]
+
+print "sorted by weight"
+print sorted(G.edges(data=True), key=lambda (source,target,data): data['weight'])
+  
+
+
+

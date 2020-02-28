@@ -1,0 +1,281 @@
+Query: Writing Log Records to a Log File
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/47871758)
+ The FileHandler can be extended to listen for a rotation by overriding the  setLevel  method.  Then force the FileHandler to always rotate by setting the limit to one byte and then prevent the rotation from happening if your conditions are not met. 
+
+ Here is a sample solution: 
+
+  import java.io.File;
+import java.io.IOException;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.SimpleFormatter;
+
+
+public class CountingFileHandler extends FileHandler {
+
+    private static final RuntimeException PREVENT_ROTATE = new RuntimeException();
+    private final long maxRecords;
+    private long count;
+
+    public CountingFileHandler(String pattern, long maxRecords, int files) throws IOException {
+        super(pattern, 1, files, false);
+        this.maxRecords = maxRecords;
+    }
+
+    @Override
+    public synchronized void setLevel(Level lvl) {
+        if (Level.OFF.equals(lvl)) { //Rotation sets the level to OFF.
+            if (++count < maxRecords) {
+                throw PREVENT_ROTATE;
+            }
+            count = 0L;
+        }
+        super.setLevel(lvl);
+    }
+
+    @Override
+    public synchronized void publish(LogRecord record) {
+        try {
+            super.publish(record);
+        } catch (RuntimeException re) {
+            if (re != PREVENT_ROTATE) {
+                throw re;
+            }
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        System.out.println(new File(".").getCanonicalPath());
+        CountingFileHandler cfh = new CountingFileHandler("test%g.log", 2, 5);
+        cfh.setFormatter(new SimpleFormatter());
+        for (int i = 0; i < 10; i++) {
+            cfh.publish(new LogRecord(Level.SEVERE, Integer.toString(i)));
+        }
+        cfh.close();
+    }
+}
+  
+
+ Otherwise, if you just want some max limit for a single log file you can just install https://javaee.github.io/javamail/docs/api/com/sun/mail/util/logging/DurationFilter.html#DurationFilter-long-long- with a duration of  Long.MAX_VALUE . That filter is included in the https://javaee.github.io/javamail/.  This solution won't provide the rotations you want. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10883286)
+ It's probably the log handler that is swallowing the log records. You need to set the log level on your handlers too. For example: 
+
+  for (Handler handler : Logger.getLogger("").getHandlers()) {
+  handler.setLevel(Level.ALL);
+}
+  
+
+ Or you can read your configuration from a  logging.properties  file (just put it in your CLASSPATH root), or you can read a  logging.properties -style configuration from a stream using  LogManager.getLogManager(). . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28223194)
+ Say you have configured DailyRollingFileAppender with daily rotation (It can be configured for rotation every hour, minute etc). Say, it is 31-Dec-2014 today and log file name is  sample.log . Log rotation will happen in the following way: 
+
+ 
+ First log message that is received after midnight (say at 1am on 1-Jan-2015) will trigger log file rotation. 
+ Log file rotation will first delete any existing file with previous day suffix. (i.e. It will delete any file with name  sample-2014-12-31.log . Ideally no such file should exist.). 
+ It will then rename current file with suffix of previous day. i.e. it renames  sample.log  to  sample-2014-12-31.log . 
+ It will create new log file without suffix. i.e. new  sample.log  
+ It will start writing into the new file  sample.log . 
+ 
+
+ If two instances of Log Manager points to same log file then each instance will independently repeats above steps on the same file. This can happen in any of the following scenarios: 
+
+ 
+ If two or more WAR file deployed in same container points to same log file. 
+ If two or more processes points to same log file. 
+ etc 
+ 
+
+ Such scenario leads to the issue mentioned in the question.  
+
+ 
+ On a windows machine, once first process has rotated the log file and acquired handle on the new file, second log appender will fail to write logs.  
+ On a linux machine, Second process will delete the archive file created by first process and rename the new file (currently being used by first process) to previous day file. Thus first process will start writing logs in previous day file, second process will write logs in new file. After midnight, log file used by first process will get deleted. So, logs from first process will keep getting lost. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53864093)
+  
+
+  DeleteRecordsResult result = adminClient.deleteRecords(recordsToDelete);
+Map<TopicPartition, KafkaFuture<DeletedRecords>> lowWatermarks = result.lowWatermarks();
+try {
+    for (Map.Entry<TopicPartition, KafkaFuture<DeletedRecords>> entry : lowWatermarks.entrySet()) {
+        System.out.println(entry.getKey().topic() + " " + entry.getKey().partition() + " " + entry.getValue()..lowWatermark());
+    }
+} catch (InterruptedException | ExecutionException e) {
+    e.printStackTrace();
+}
+adminClient.close();
+  
+
+ In this code, you need to call  entry.getValue()..lowWatermark() , because adminClient.deleteRecords(recordsToDelete) returns a map of Futures, you need to wait for the Future to run by calling  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1056160)
+ Checkout this link: http://www.codeodor.com/index.cfm/2007/5/10/Sorting-really-BIG-files/1194 
+
+ 
+  Use a heap (based on an array). The number of elements in this heap/array will be equal to the number of log files you have.  
+  Read the first records from all the files and insert them into your heap.  
+  Loop until (no more records in any of the files)  
+ 
+
+ 
+      > remove the max element from the heap
+      > write it to the output
+      > read the next record from the file to which the (previous) max element belonged
+          if there are no more records in that file
+              remove it from file list
+              continue
+      > if it's not the same as the (previous) max element, add it to the heap
+  
+
+ Now you have all your events in one log file, they are sorted, and there are no duplicates. The time complexity of the algorithm is (n log k) where n is the total number of records and k is the number of log files.  
+
+ You should use buffered reader and buffered writer objects when reading to and from files to minimize the number of disk reads and writes, in order to optimize for time. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7545653)
+ You can use http://logging.apache.org/chainsaw/index.html. Although it doesn't appear to be actively developed, you can: 
+
+ 
+ toggle the option of automatically scrolling to the bottom. You can also order the log records in the reverse chronological order, to display the most recent records first, so the previous option is no longer required. 
+ pause log record collection. This will discard any log records and will not update the display until you resume collection. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54165507)
+ You need a JSON parser so that you can locate the "Records" array inside the file and place the new data there. I used the "json simple" library (jar can be found here: https://code.google.com/archive/p/json-simple/downloads). 
+
+ First you parse the file: 
+
+  JSONParser parser = new JSONParser();
+JSONObject records = null;
+try {
+    records = (JSONObject) parser.parse(new FileReader("records.json"));
+} catch (ParseException ex) {
+    ex.printStackTrace();
+} catch (IOException ex) {
+    ex.printStackTrace();
+}
+  
+
+ Then you locate the Records JSONArray. In there you want to append the new record: 
+
+   JSONArray r = (JSONArray) records.get("Records");
+  
+
+  
+
+  JSONObject NewObj = new JSONObject();
+NewObj.put("travelTime", travelTime);
+NewObj.put("totalDistance", totalDistance);
+NewObj.put("pace", pace);
+NewObj.put("kCalBurned", kCalBurned);
+NewObj.put("latlng", latlng);
+  
+
+ Add the new record to the "Records" JSONArray: 
+
+  r.add(NewObj);
+  
+
+ Write to file: 
+
+  try (FileWriter file = new FileWriter("records.json")) {
+     file.write(records.toJSONString());
+} catch (IOException ex) {
+     ex.printStackTrace();
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22188764)
+ change fileName attribute from  
+
+ fileName="/local/deploy/logs/info.log" 
+
+ to something like this(whatever the path in ur case) 
+
+ fileName="${sys:catalina.home}/logs/info.log" 
+
+ if it writes in both catalina as well as in log file then refer this link 
+
+<p 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6315736)
+ Loggers only log the message, i.e. they create the log records (or logging requests). They do not publish the messages to the destinations, which is taken care of by the Handlers. Setting the level of a logger, only causes it to  create  log records matching that level or higher. 
+
+ You might be using a http://docs.oracle.com/javase/6/docs/api/java/util/logging/ConsoleHandler.html (I couldn't infer where your output is System.err or a file, but I would assume that it is the former), which defaults to publishing log records of the level  Level.INFO . You will have to configure this handler, to publish log records of level  Level.FINER  and higher, for the desired outcome. 
+
+ I would recommend reading the http://docs.oracle.com/javase/6/docs/technotes/guides/logging/overview.html guide, in order to understand the underlying design. The guide covers the difference between the concept of a Logger and a Handler. 
+
+  Editing the handler level  
+
+   1. Using the Configuration file   
+
+ The java.util.logging properties file (by default, this is the  logging.properties  file in  JRE_HOME/lib ) can be modified to change the default level of the ConsoleHandler: 
+
+  java.util.logging.ConsoleHandler.level = FINER
+  
+
+   2. Creating handlers at runtime   
+
+ This is not recommended, for it would result in overriding the global configuration. Using this throughout your code base will result in a possibly unmanageable logger configuration. 
+
+  Handler consoleHandler = new ConsoleHandler();
+consoleHandler.setLevel(Level.FINER);
+Logger.getAnonymousLogger().addHandler(consoleHandler);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/11205811)
+ I believe having  private BufferedWriter bw;  as member variable is causing the trouble. Since you are only using it in your  writeToLog()  function there is no reason for it to be a member variable and get instantiated every time by multiple threads. Creating  BufferedWriter  within the function will GC the object as soon as it goes out of scope. 
+
+  private void writeToLog(){ 
+    try{ 
+        Writing = true; 
+
+        BufferedWriter bw = new BufferedWriter(new FileWriter(file, true)); 
+    while(!pq.isEmpty()){ 
+
+            bw.write(Calendar.getInstance().getTime().toString() +" " +pq.poll()); 
+            bw.newLine(); 
+
+    } 
+
+    bw.flush(); 
+    bw.close(); 
+    Writing = false; 
+    }catch(Exception e){Writing = false; e.printStackTrace();} 
+} 
+  
+
+
+

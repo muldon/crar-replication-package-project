@@ -1,0 +1,449 @@
+Query: How to count the Nan values in the column in Panda Data frame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41554866)
+ if its just counting nan values in a pandas column here is a quick way 
+
+  import pandas as pd
+## df1 as an example data frame 
+## col1 name of column for which you want to calculate the nan values
+sum(pd.isnull(df1['col1']))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44140608)
+ based to the answer that was given and some improvements this is my approach  
+
+  def PercentageMissin(Dataset):
+    """this function will return the percentage of missing values in a dataset """
+    if isinstance(Dataset,pd.DataFrame):
+        adict={} #a dictionary conatin keys columns names and values percentage of missin value in the columns
+        for col in Dataset.columns:
+            adict[col]=(np.count_nonzero(Dataset[col].isnull())*100)/len(Dataset[col])
+        return pd.DataFrame(adict,index=['% of missing'],columns=adict.keys())
+    else:
+        raise TypeError("can only be used with panda dataframe")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47542133)
+ Consider  df  - 
+
+  df
+
+     A  B    C
+0  1.0  4  NaN
+1  2.0  5  1.0
+2  NaN  6  6.0
+3  NaN  7  3.0
+  
+
+ 
+
+ 
+  Column-wise NaN count - 
+
+  df.isnull().sum(0)
+
+A    2
+B    0
+C    1
+dtype: int64
+   
+  Row-wise NaN count -  
+
+  df.isnull().sum(1)
+
+0    1
+1    0
+2    1
+3    1
+dtype: int64
+   
+   df -wide NaN count -  
+
+  df.isnull().values.sum()
+3
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46866897)
+  groupby  , transform ,and  count  
+
+  entry.loc[entry.groupby('id')['day'].transform('count').nonzero()]
+Out[154]: 
+   id  day
+4   2  3.0
+5   2  NaN
+6   2  4.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37221990)
+  pvt = pd.pivot_table(df, index = "Site", values = ["x", "y"], aggfunc = "count").stack().reset_index(level = 1)
+pvt.columns = ["Item", "count"]
+
+pvt
+Out[38]: 
+     Item  count
+Site            
+a       x      3
+a       y      2
+b       x      2
+b       y      3
+  
+
+ You can add  pvt.sort_values("Item", ascending = False)  if you want y's to appear first. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40454119)
+ I think you need add  reset_index , then parameter  ascending=False  to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_values.html because  sort  return: 
+
+ 
+   FutureWarning: sort(columns=....) is deprecated, use sort_values(by=.....)
+    .sort_values(['count'], ascending=False) 
+ 
+
+  df = df[['STNAME','CTYNAME']].groupby(['STNAME'])['CTYNAME'] \
+                             .count() \
+                             .reset_index(name='count') \
+                             .sort_values(['count'], ascending=False) \
+                             .head(5)
+  
+
+  
+
+  df = pd.DataFrame({'STNAME':list('abscscbcdbcsscae'),
+                   'CTYNAME':[4,5,6,5,6,2,3,4,5,6,4,5,4,3,6,5]})
+
+print (df)
+    CTYNAME STNAME
+0         4      a
+1         5      b
+2         6      s
+3         5      c
+4         6      s
+5         2      c
+6         3      b
+7         4      c
+8         5      d
+9         6      b
+10        4      c
+11        5      s
+12        4      s
+13        3      c
+14        6      a
+15        5      e
+
+df = df[['STNAME','CTYNAME']].groupby(['STNAME'])['CTYNAME'] \
+                             .count() \
+                             .reset_index(name='count') \
+                             .sort_values(['count'], ascending=False) \
+                             .head(5)
+
+print (df)
+  STNAME  count
+2      c      5
+5      s      4
+1      b      3
+0      a      2
+3      d      1
+  
+
+ 
+
+ But it seems you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.nlargest.html: 
+
+  df = df[['STNAME','CTYNAME']].groupby(['STNAME'])['CTYNAME'].count().nlargest(5)
+  
+
+  
+
+  df = df[['STNAME','CTYNAME']].groupby(['STNAME'])['CTYNAME'].size().nlargest(5)
+  
+
+ 
+   The difference between  size  and  count  is: 
+  
+   http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html#pandas.core.groupby.GroupBy.size counts  NaN  values, http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.count.html#pandas.core.groupby.GroupBy.count does not. 
+ 
+
+  
+
+  df = pd.DataFrame({'STNAME':list('abscscbcdbcsscae'),
+                   'CTYNAME':[4,5,6,5,6,2,3,4,5,6,4,5,4,3,6,5]})
+
+print (df)
+    CTYNAME STNAME
+0         4      a
+1         5      b
+2         6      s
+3         5      c
+4         6      s
+5         2      c
+6         3      b
+7         4      c
+8         5      d
+9         6      b
+10        4      c
+11        5      s
+12        4      s
+13        3      c
+14        6      a
+15        5      e
+
+df = df[['STNAME','CTYNAME']].groupby(['STNAME'])['CTYNAME']
+                             .size()
+                             .nlargest(5)
+                             .reset_index(name='top5')
+print (df)
+  STNAME  top5
+0      c     5
+1      s     4
+2      b     3
+3      a     2
+4      d     1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/42056822)
+  pandas  
+
+ using  pd.concat  with a list comprehension and  np.unique  
+
+  s = pd.Series(df.Value.values, df.Key.values)
+u = np.unique(s.index.values).tolist()
+pd.concat([s.loc[k].reset_index(drop=True) for k in u], axis=1, keys=u)
+
+   A    B
+0  2  7.0
+1  6  3.0
+2  1  4.0
+3  2  NaN
+  
+
+    
+
+  # np.unique can return value counts and an inverse array
+# the inverse array will be very helpful in slicing the final
+# array we are trying to fill
+u, inv, c = np.unique(df.Key.values, return_inverse=True, return_counts=True)
+
+# construct empty array to fill with values
+# number of rows equal to the maximum value count
+# number of columns equal to the number of unique values
+new = np.empty((c.max(), len(u)), dtype=np.float)
+new.fill(np.nan)
+
+# construct handy cumulative count per unique value
+rows = np.arange(len(inv)) - np.append(0, c[:-1]).repeat(c)
+
+# use slicing arrays to fill empty array
+new[rows, inv] = df.Value.values
+
+pd.DataFrame(new, np.arange(c.max()), u)
+
+   A    B
+0  2  7.0
+1  6  3.0
+2  1  4.0
+3  2  NaN
+  
+
+ 
+
+   time test     
+
+ https://i.stack.imgur.com/f8fCY.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42055965)
+ You can use   groupby  with  apply  for creating new  index  values: 
+
+  df = df.groupby('Key').Value.apply(lambda x: pd.Series(x.values)).unstack(0)
+print (df)
+Key  A  B
+0    2  7
+1    6  3
+2    1  4
+3    2  0
+  
+
+ Another solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.pivot.html and creating new  index  values by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.cumcount.html: 
+
+  df = pd.pivot(index = df.groupby('Key').cumcount(), columns=df['Key'], values=df['Value'])
+print (df)
+Key  A  B
+0    2  7
+1    6  3
+2    1  4
+3    2  0
+  
+
+ 
+
+  df1 = df.groupby('Key').Value.apply(lambda x: pd.Series(x.values)).unstack(0)
+print (df1)
+Key    A    B
+0    2.0  7.0
+1    6.0  3.0
+2    1.0  4.0
+3    2.0  NaN
+
+df2 = pd.pivot(index = df.groupby('Key').cumcount(), columns=df['Key'], values=df['Value'])
+print (df2)
+Key    A    B
+0    2.0  7.0
+1    6.0  3.0
+2    1.0  4.0
+3    2.0  NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48317809)
+ I believe you need aggregation by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.DataFrameGroupBy.agg.html with functions - http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html for count all values, http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.count.html for count non  NaN s values, http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.SeriesGroupBy.nunique.html for count  unique  and custom function for count  NaN s: 
+
+  df = pd.DataFrame({'y':[4,np.nan,4,5,5,4],
+                   'z':[np.nan,8,9,4,2,3],
+                   'x':list('aaaabb')})
+
+print (df)
+   x    y    z
+0  a  4.0  NaN
+1  a  NaN  8.0
+2  a  4.0  9.0
+3  a  5.0  4.0
+4  b  5.0  2.0
+5  b  4.0  3.0
+
+
+
+f = lambda x: x.isnull().sum()
+f.__name__ = 'non nulls'
+df = df.groupby('x').agg(['nunique', f, 'count', 'size'])
+df.columns = df.columns.map('_'.join)
+print (df)
+   y_nunique  y_non nulls  y_count  y_size  z_nunique  z_non nulls  z_count  \
+x                                                                             
+a          2          1.0        3       4          3          1.0        3   
+b          2          0.0        2       2          2          0.0        2   
+
+   z_size  
+x          
+a       4  
+b       2  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/51377771)
+ Use: 
+
+  #convert datetimes to quarter period
+df['year'] = pd.to_datetime(df['year']).dt.to_period('Q')
+#resample by start of months with asfreq
+df1 = (df.set_index('year')
+         .groupby('Id')['Id']
+         .resample('Q')
+         .asfreq()
+         .rename('val')
+         .reset_index())
+print (df1)
+   Id   year  val
+0   A 2019Q1    A
+1   A 2019Q2    A
+2   A 2019Q3    A
+3   A 2019Q4    A
+4   B 2018Q1    B
+5   B 2018Q2  NaN
+6   B 2018Q3  NaN
+7   B 2018Q4    B
+8   C 2017Q1    C
+9   C 2017Q2    C
+10  C 2017Q3  NaN
+11  C 2017Q4    C
+  
+
+ 
+
+  m = df1['val'].notnull().rename('g')
+#create index by cumulative sum for unique groups for consecutive NaNs
+df1.index = m.cumsum()
+
+#filter only NaNs row and aggregate first, last and count.
+df2 = (df1[~m.values].groupby(['Id', 'g'])['year']
+                     .agg(['first','last','size'])
+                     .reset_index(level=1, drop=True)
+                     .reset_index())
+print (df2)
+  Id  first   last  size
+0  B 2018Q2 2018Q3     2
+1  C 2017Q3 2017Q3     1
+  
+
+ EDIT: 
+
+ For new columns with same values add it to  groupby : 
+
+  #convert datetimes to quarter period
+df['year'] = pd.to_datetime(df['year']).dt.to_period('Q')
+#resample by start of months with asfreq
+df1 = (df.set_index('year')
+         .groupby(['Id','number'])['Id'] <- added number columns
+         .resample('Q')
+         .asfreq()
+         .rename('val')
+         .reset_index())
+print (df1)
+   Id  number   year  val
+0   A       1 2019Q1    A
+1   A       1 2019Q2    A
+2   A       1 2019Q3    A
+3   A       1 2019Q4    A
+4   B       5 2018Q1    B
+5   B       5 2018Q2  NaN
+6   B       5 2018Q3  NaN
+7   B       5 2018Q4    B
+8   C       7 2017Q1    C
+9   C       7 2017Q2    C
+10  C       7 2017Q3  NaN
+11  C       7 2017Q4    C
+  
+
+ 
+
+  m = df1['val'].notnull().rename('g')
+#create index by cumulative sum for unique groups for consecutive NaNs
+df1.index = m.cumsum()
+
+#filter only NaNs row and aggregate first, last and count.
+df2 = (df1[~m.values].groupby(['Id', 'number', 'g'])['year']
+                     .agg(['first','last','size'])  <- added number columns
+                     .reset_index(level=1, drop=True)
+                     .reset_index())
+print (df2)
+  Id  g  first   last  size
+0  B  5 2018Q2 2018Q3     2
+1  C  8 2017Q3 2017Q3     1
+  
+
+
+

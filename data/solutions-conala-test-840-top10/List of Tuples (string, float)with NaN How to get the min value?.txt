@@ -1,0 +1,227 @@
+Query: List of Tuples (string, float)with NaN How to get the min value?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15148718)
+ You can use a custom key, that will return a very high value for  NaN : 
+
+  min(list, key=lambda x: float('inf') if math.isnan(x[1]) else x[1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15148766)
+  
+
+  min(filter(lambda t: not math.isnan(t[1]), l), key=itemgetter(1))
+  
+
+ where  itemgetter  refers to http://docs.python.org/2/library/operator.html#operator.itemgetter. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39304658)
+ First, you shouldn't use the Python built-in  max  or  min  when dealing with  pandas  or  numpy , especially when you are working with  nan . 
+
+ Since 'nan' is the first item of  mydata['Has NaN'] , it is never replaced in either  max  or  min  because (as stated in the https://docs.python.org/3/reference/expressions.html#value-comparisons): 
+
+ 
+   The not-a-number values float('NaN') and Decimal('NaN') are special.
+  They are identical to themselves (x is x is true) but are not equal to
+  themselves (x == x is false). Additionally, comparing any number to a
+  not-a-number value will return False. For example, both 3 <
+  float('NaN') and float('NaN') < 3 will return False. 
+ 
+
+ Instead, use the  pandas   max  and  min  methods: 
+
+  In [4]: mydata['Has NaN'].min()
+Out[4]: -176.9844930355774
+
+In [5]: mydata['Has NaN'].max()
+Out[5]: 12.684033138603787
+  
+
+ With regards to the histogram, it seems this is a known issue with  plt.hist , see https://github.com/matplotlib/matplotlib/issues/6483 and <a href="https://github.com/matplotlib/matplotlib/issues/6992" . 
+
+  
+
+  n, bins, patches = plt.hist(mydata['Has NaN'][~mydata['Has NaN'].isnull()], 10)
+  
+
+ https://i.stack.imgur.com/ytxEV.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17600198)
+  nan  should not be used as an index for a  dict  because it does not successfully compare with itself. 
+
+  >>> float('nan') == float('nan')
+False
+>>> numpy.nan == numpy.nan
+False
+  
+
+ However,  nan  can be detected using http://docs.python.org/2/library/math.html#math.isnan: 
+
+  >>> math.isnan(numpy.nan)
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51202875)
+ Take advantage of the fact that NaN != NaN, mathematically, so you can pass a generator to  next  to get the first index of NaN, or -1 if it doesn't exist. 
+
+  nan_idx = next((i for i, v in enumerate(li) if v != v), -1)
+  
+
+  
+
+  print(nan_idx) 
+0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45449534)
+ Your values are 2-tuples. You'll need one further level of indexing to get them to work: 
+
+  if value >= max_min["max"][1]:
+  
+
+  
+
+  if value <= max_min["min"][1]:
+  
+
+ If you want to preset your max/min values, you can use  float('inf')  and  -float('inf') : 
+
+  max_min["max"] = (-1, -float('inf')) # Smallest value possible.
+max_min["min"] = (-1,  float('inf')) #  Largest value possible.
+  
+
+ 
+
+ You can do this efficiently using  max ,  min , and  operator.itemgetter  to avoid a  lambda : 
+
+  from operator import itemgetter
+max(cdc_year_births.items(), key=itemgetter(1))
+# (2003, 4089950)
+
+min(cdc_year_births.items(), key=itemgetter(1))
+# (1997, 3880894)
+  
+
+ 
+
+ Here's a slick way to compute the max-min with  reduce   
+
+  from fuctools import reduce
+
+reduce(lambda x, y: x if x[1] > y[1] else y, cdc_year_births.items())
+# (2003, 4089950)
+
+reduce(lambda x, y: x if x[1] < y[1] else y, cdc_year_births.items())
+# (1997, 3880894)
+  
+
+  items()  generates a list of tuples out of your dictionary, and the  key  tells the functions what to compare against when picking the max/min.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37487220)
+ You could use list comprehension which checks if any of the items in a tuple is NaN. Check is done by first checking the type and then with https://docs.python.org/2/library/math.html#math.isnan since it doesn't work for other types: 
+
+  import math
+
+x = [('Recording start', 0), (float('nan'), 4), (float('nan'), 7), ('Event marker 1', 150)]
+res = [t for t in x if not any(isinstance(n, float) and math.isnan(n) for n in t)]
+print(res)
+  
+
+ Output: 
+
+  [('Recording start', 0), ('Event marker 1', 150)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17600528)
+ If you use 
+
+  _bool3key.__logic_sort__ = {0:-1, nan:0 , 1:1}
+  
+
+ then one problem you might run into is that  float('nan')  is not recognized as the same key as  np.nan : 
+
+  In [17]: _bool3key(float('nan'))
+KeyError: nan
+  
+
+ Here is a workaround: 
+
+  def _bool3key(x, logic_sort={0: -1, 1: 1}):
+    """
+    Defines the keys used to order the list.
+    The only allowed values are True, False, 1,0 and nan.
+    """
+    return 0 if np.isnan(x) else logic_sort[x]
+  
+
+ Also, attribute lookups are slower than local variable lookups, so 
+you'll get slightly better performance defining  logic_sort  as a default parameter than by making it a function attribute. You don't have to define it outside of the function, and it is a little easier to read too. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16756067)
+  dropna(how='all')  is what you are looking for (generally), but you need to load in your dataframe in such a way that empty cells are treated as  NaN  instead of empty string.  That said, you have a few options here. 
+
+ If you are sure that everything you want to drop is either the literal empty string ( '' ,  None ,  np.NaN , or  0 )  and  that you don't want to keep  0 , then you can just fill the  NaN  and convert to boolean and check whether the sum is 0. . 
+
+  indexer = df.fillna(False).astype(bool)
+drop_columns = indexer.sum(0) == 0
+keep_rows = indexer.sum(1) != 0
+
+new_df = df.drop(df.columns[drop_columns], axis=1)[keep_rows]
+  
+
+ However, if you need to check for whitespace, or want to exclude the literal zero, then you should use  applymap  with a function (mostly based on https://stackoverflow.com/questions/14838945/how-to-drop-columns-by-criteria) and then do the same thing as above. 
+
+  def is_blank(x):
+    return x is None or pd.isnull(x) or bool(str(x).strip())
+
+indexer = df.applymap(is_blank)
+  
+
+ Personally though, I suggest you add  ''  to  na_values  when you load your dataset. 
+
+ 
+
+ Brief explanation of   fillna()  and  astype() </h3>
+
+ http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.fillna.html lets you "fill"  NA  values with some other value. Here, we fill with False (because  bool(float('nan'))  evaluates to True), but you can fill with any value or with a variety of different methods.   astype  converts the array from one type to another. So putting  astype(bool)  means that it converts the entire array to either  True  or  False  (which are equivalent to  1  and  0  respectively) and then you can just sum to find the number of  True  values in a row or column. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/39615610)
+ You can first cast columns to  int  (if necessary), http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.unstack.html and use list comprehension, where is necessary convert first and second value in  tuples  to  int  (default is  float ): 
+
+  df.columns = df.columns.astype(int)
+
+s = df.unstack()
+tuples = [tuple((int(x[0]),int(x[1]),x[2])) for x in s[s>0].reset_index().values]
+print (tuples)
+[(2, 2, 0.027273000000000002), (3, 3, 0.101449), (3, 14, 5.0), (4, 4, 0.194245)]
+  
+
+
+

@@ -1,0 +1,173 @@
+Query: Compare the contents of two Streams to determine if they are equal or not
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33229305)
+ Seems that you want to find the position of the first mismatch or the list size. You can do this using the stream of indices like this (assuming lists have equal length): 
+
+  int nMatches = IntStream
+         .range(0, inputNameList.size())
+         .filter(idx -> !inputNameList.get(idx).equals(outputNameList.get(idx)))
+         .findFirst()
+         .orElse(inputNameList.size());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37840961)
+ I think sorting the list and comparing adjacent elements is a reasonable approach. Here's the streams-based code that does that: 
+
+      timeslots.sort(null);  // sort the list using natural order
+    if (IntStream.range(1, timeslots.size())
+                 .map(i -> timeslots.get(i-1).compareTo(timeslots.get(i)))
+                 .anyMatch(i -> i == 0)) {
+        throw new IllegalArgumentException("...");
+    }
+  
+
+ It's no shorter than what you have, but the streams-based approach might offer more flexibility: it can be run in parallel, you can count the number of duplicate timestamps, etc. 
+
+ You could also inline the  compareTo()  call into the  anyMatch()  call, like so: 
+
+      if (IntStream.range(1, timeslots.size())
+                 .anyMatch(i -> timeslots.get(i-1).compareTo(timeslots.get(i)) == 0) {
+  
+
+ Whether this is preferable is, I think, a matter of style. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40008291)
+ A stream works on the  inside  of data, whereas an iterator works on the  outside . With two walks (stream or iterator) one should at least have one on the outside. 
+
+ As you have to repeat creating the second stream for every lambda of the first. 
+
+ A full Stream solution is possible if the both streams maintain the same order.  
+
+  EqualTester tester = new EqualTester(
+    () -> list1.stream().allMatch(x -> tester.queueAndWait(x)),
+    () -> list2.stream().allMatch(x -> tester.queueAndWait(x))
+);
+boolean eq = tester.getFuture();
+  
+
+ where you create threads of two Runnables, that place their next value in a "comparison input", and with both inputs true/false is yielded. 
+
+ Feasible but a simple algorithm turned inside out. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/760340)
+  java.io.SequenceInputStream  might be what you need. It accepts an enumeration of  streams, and will output the contents of the first stream, then the second, and so on until all streams are empty. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27379566)
+ If the files are small, you can read both into the memory and compare the byte arrays. 
+
+ If the files are not small, you can either compute the hashes of their content (e.g. MD5 or SHA-1) one after the other and compare the hashes (but this still leaves a very small chance of error), or you can compare their content but for this you still have to read the streams alternating. 
+
+ Here is an example: 
+
+  boolean sameContent(Path file1, Path file2) throws IOException {
+    final long size = Files.size(file1);
+    if (size != Files.size(file2))
+        return false;
+
+    if (size < 4096)
+        return Arrays.equals(Files.readAllBytes(file1), Files.readAllBytes(file2));
+
+    try (InputStream is1 = Files.newInputStream(file1);
+         InputStream is2 = Files.newInputStream(file2)) {
+        // Compare byte-by-byte.
+        // Note that this can be sped up drastically by reading large chunks
+        // (e.g. 16 KBs) but care must be taken as InputStream.read(byte[])
+        // does not neccessarily read a whole array!
+        int data;
+        while ((data = is1.read()) != -1)
+            if (data != is2.read())
+                return false;
+    }
+
+    return true;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10544860)
+ When comparing two strings to check if they are equal in java you should use equals(). 
+
+ In your case you should change your comparison line to  
+
+   if(path.equals("car")) 
+  
+
+ In java the equals() compares the actual contents of your strings while == will only compare to see if the two references are equal 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34425659)
+ Here's a solution using Java 8 streams: 
+
+  localNotifications.stream()
+  .distinct()
+  .collect(Collectors.toList());
+  
+
+ The distinct method uses Object.equals(Object) methods to compare.  
+
+ Edit: Streams aren't included in Android's JDK. There's some libraries out there that enable streams, but are pretty hacky. Check out https://github.com/orfjackal/retrolambda if you're interested. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29245491)
+ You need to iterate over both iterators simultaneously, i.e. with one loop. Here is a general comparison function (0 when equal, < 0 when A < B, > 0 when A > B): 
+
+  static <T extends Comparable<S>, S> int compare(Iterator<T> a, Iterator<S> b) {
+    while (a.hasNext() && b.hasNext()) {
+        int comparison = a.next().compareTo(b.next());
+        if (comparison != 0) {
+            return comparison;
+        }
+    }
+    if (a.hasNext())
+        return 1;
+    if (b.hasNext())
+        return -1;
+    return 0;
+}
+  
+
+ To just check if they are equal, this can be simplified:  
+
+  static <T, S> boolean equals(Iterator<T> a, Iterator<S> b) {
+    while (a.hasNext() && b.hasNext()) {
+        if (!a.next().equals(b.next())) {
+            return false;
+        }
+    }
+    if (a.hasNext() || b.hasNext()) {
+        // one of the iterators has more elements than the other
+        return false;
+    }
+    return true;
+}
+  
+
+ Guava implements this as http://guava-libraries.googlecode.com/svn-history/r22/trunk/javadoc/com/google/common/collect/Iterators.html#elementsEqual%28java.util.Iterator,%20java.util.Iterator%29. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30266158)
+ That doesn't really look feasible with streams other than converting them to iterators and doing it by hand that way.  There's not really a way to combine two streams like that. 
+
+
+

@@ -1,0 +1,215 @@
+Query: best way to extract subset of key-value pairs from python dictionary object
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36280797)
+ A bit of speed comparison for all mentioned methods: 
+
+  Python 2.7.11 |Anaconda 2.4.1 (64-bit)| (default, Jan 29 2016, 14:26:21) [MSC v.1500 64 bit (AMD64)] on win32
+In[2]: import numpy.random as nprnd
+keys = nprnd.randint(1000, size=10000)
+bigdict = dict([(_, nprnd.rand()) for _ in range(1000)])
+
+%timeit {key:bigdict[key] for key in keys}
+%timeit dict((key, bigdict[key]) for key in keys)
+%timeit dict(map(lambda k: (k, bigdict[k]), keys))
+%timeit dict(filter(lambda i:i[0] in keys, bigdict.items()))
+%timeit {key:value for key, value in bigdict.items() if key in keys}
+100 loops, best of 3: 3.09 ms per loop
+100 loops, best of 3: 3.72 ms per loop
+100 loops, best of 3: 6.63 ms per loop
+10 loops, best of 3: 20.3 ms per loop
+100 loops, best of 3: 20.6 ms per loop
+  
+
+ As it was expected: dictionary comprehensions are the best option. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31370883)
+ This answer uses a dictionary comprehension similar to the selected answer, but will not except on a missing item. 
+
+ python 2 version: 
+
+  {k:v for k, v in bigDict.iteritems() if k in ('l', 'm', 'n')}
+  
+
+ python 3 version: 
+
+  {k:v for k, v in bigDict.items() if k in ('l', 'm', 'n')}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15828959)
+ Yet another one (I prefer Mark Longair's answer) 
+
+  di = {'a':1,'b':2,'c':3}
+req = ['a','c','w']
+dict([i for i in di.iteritems() if i[0] in di and i[0] in req])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5352652)
+  
+
+  subdict=dict([(x,bigdict[x]) for x in ['l', 'm', 'n']])
+  
+
+ Python 3 even supports the following: 
+
+  subdict={a:bigdict[a] for a in ['l','m','n']}
+  
+
+ Note that you can check for existence in dictionary as follows: 
+
+  subdict=dict([(x,bigdict[x]) for x in ['l', 'm', 'n'] if x in bigdict])
+  
+
+ . for python 3 
+
+  subdict={a:bigdict[a] for a in ['l','m','n'] if a in bigdict}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5352630)
+  
+
+  dict((k, bigdict[k]) for k in ('l', 'm', 'n'))
+  
+
+ ... or in <del>Python 3</del> Python versions 2.7 or later  (thanks to https://stackoverflow.com/users/541842/fabio-diniz for pointing that out that it works in 2.7 too) : 
+
+  {k: bigdict[k] for k in ('l', 'm', 'n')}
+  
+
+  Update: As https://stackoverflow.com/users/94237/havard-s points out, I'm assuming that you know the keys are going to be in the dictionary - see https://stackoverflow.com/questions/5352546/best-way-to-extract-subset-of-key-value-pairs-from-python-dictionary-object/5352649#5352649 if you aren't able to make that assumption. Alternatively, as https://stackoverflow.com/users/127660/timbo points out in the comments, if you want a key that's missing in  bigdict  to map to  None ,  you can do:  
+
+  {k: bigdict.get(k, None) for k in ('l', 'm', 'n')}
+  
+
+ If you're using Python 3, and you  only  want want keys in the new dict that actually exist in the original one, you can use the fact the view objects implement some set operations: 
+
+  {k: bigdict[k] for k in bigdict.keys() & {'l', 'm', 'n'}}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35749242)
+ Your tuple contains only  one  element, a dictionary, with one key-value pair. If you wanted to extract that pair, you'd need to address it: 
+
+  (x1, x2), = q[0].items()
+  
+
+ The above expression extracts the first element from the tuple (the dictionary), and calls the  dict.items()  method on that. The resulting sequence of  (key, value)  pairs is then assigned to the  (key, value),  left-hand target, which can only take  one  such pair. 
+
+  
+
+  >>> q = ({'sum(total)': Decimal('89')},)
+>>> (x1, x2), = q[0].items()
+>>> x1
+'sum(total)'
+>>> x2
+Decimal('89')
+  
+
+ You could also just iterate over all key-value pairs in the tuple, or you could use the key name. The latter, for example, would look like this: 
+
+  decimal_value = q[0]['sum(total)']
+  
+
+ You can still use unpacking in the assignment of course: 
+
+  contained_dictionary, = q
+decimal_value = contained_dictionary['sum(total)']
+  
+
+ It all depends on what you are trying to achieve, and if the dictionary has different keys or should only ever contain  one  key-value pair. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30818799)
+ You can use a https://docs.python.org/2/library/stdtypes.html#dictionary-view-objects: 
+
+  # Python 2
+if first.viewitems() <= second.viewitems():
+    # true only if `first` is a subset of `second`
+
+# Python 3
+if first.items() <= second.items():
+    # true only if `first` is a subset of `second`
+  
+
+ Dictionary views are the https://docs.python.org/3/library/stdtypes.html#dictionary-view-objects, in Python 2 you need to prefix the standard methods with  view . They act like sets, and  <=  tests if one of those is a subset of (or is equal to) another. 
+
+ Demo in Python 3: 
+
+  >>> first  = {"one":"un", "two":"deux", "three":"trois"}
+>>> second = {"one":"un", "two":"deux", "three":"trois", "foo":"bar"}
+>>> first.items() <= second.items()
+True
+>>> first['four'] =  'quatre'
+>>> first.items() <= second.items()
+False
+  
+
+ This works for  non-hashable values too , as the keys make the key-value pairs unique already. The documentation is a little confusing on this point, but even with mutable values (say, lists) this works: 
+
+  >>> first_mutable = {'one': ['un', 'een', 'einz'], 'two': ['deux', 'twee', 'zwei']}
+>>> second_mutable = {'one': ['un', 'een', 'einz'], 'two': ['deux', 'twee', 'zwei'], 'three': ['trois', 'drie', 'drei']}
+>>> first_mutable.items() <= second_mutable.items()
+True
+>>> first_mutable['one'].append('ichi')
+>>> first_mutable.items() <= second_mutable.items()
+False
+  
+
+ You could also use the https://docs.python.org/2/library/functions.html#all with a generator expression; use  object()  as a sentinel to detect missing values concisely: 
+
+  sentinel = object()
+if all(first[key] == second.get(key, sentinel) for key in first):
+    # true only if `first` is a subset of `second`
+  
+
+ but this isn't as readable and expressive as using dictionary views. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20593404)
+ If you wanted to compare  identity  then ste the result of the http://docs.python.g/2/library/functions.html#id f each dictionary: 
+
+  seen = set()
+unique = [d f d in dictlist if id(d) not in seen and not seen.add(id(d))]
+  
+
+  
+
+  unique = {id(d): d f d in dictlist}.values()
+  
+
+ This eliminates duplicates based on object identity, not on equality of the contents. The first fm maintains der, the second does not (like a  set()  would). 
+
+ F  equality , the sequence of key-value pairs  is  hashable (if all values are hashable); a http://docs.python.g/2/library/stdtypes.html#frozenset of those would do as a key to test content uniqueness: 
+
+  seen = set()
+hashable = lambda d: frozenset(d.items())
+unique = [d f d in dictlist if hashable(d) not in seen and not seen.add(hashable(d))]
+  
+
+ f an der-preserving list : 
+
+  unique = {frozenset(d.items()): d f d in dictlist}.values()
+  
+
+ if der is not imptant. 
+
+
+

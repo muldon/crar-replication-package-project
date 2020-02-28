@@ -1,0 +1,273 @@
+Query: How to convert a string data to a JSON object in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13531266)
+ You can easily convert python objects into JSON objects and viceversa using the module json.
+Foundamentally there are only 2 classes:  JSONEncoder  and  JSONDecoder : the first turns python collections into JSON strings, the second a JSON string into a Python object. 
+
+ Examples: 
+
+  from json import JSONEncoder
+
+jsonString = JSONEncoder().encode({
+  "count": 222, 
+  "year": 2012
+})
+  
+
+ the code above will generate a JSON string from a Python dictionary 
+
+  from json import JSONDecoder
+
+pyDictionary = JSONDecoder().decode('{"count": 222, "year": 2012}')
+  
+
+ the code above will generate a python dictionary from a JSON string 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16577648)
+  json.load  loads from a file-like object. You either want to use  json.loads : 
+
+  json.loads(data)
+  
+
+ Or just use  json.load  on the request, which is a file-like object: 
+
+  json.load(request)
+  
+
+ Also, if you use the http://docs.python-requests.org/en/latest/ library, you can just do: 
+
+  import requests
+
+json = requests.get(url).json()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/26751980)
+ No need to convert it in a string by using  json.dumps()  
+
+  r = {'is_claimed': 'True', 'rating': 3.5}
+file.write(r['is_claimed'])
+file.write(str(r['rating']))
+  
+
+ You can get the values directly from the dict object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49085020)
+ You could create your own class for that. Use  __getitem__ , and  __setitem__  to get and update values from the object's  __dict__  using dot notation: 
+
+  import json
+
+class PyJSON(object):
+    def __init__(self, d):
+        if type(d) is str:
+            d = json.loads(d)
+        self.convert_json(d)
+
+    def convert_json(self, d):
+        self.__dict__ = {}
+        for key, value in d.items():
+            if type(value) is dict:
+                value = PyJSON(value)
+            self.__dict__[key] = value
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+rawData = """... raw data ..."""
+
+quake = PyJSON(rawData)
+  
+
+  
+
+  >>> quake.data.properties.flynn_region
+'OAXACA, MEXICO'
+  
+
+ 
+
+  EDIT : Added  to_dict  and overridden  __repr__  so it's easier to peek at values in console. Renamed  convert_json  to  from_dict . 
+
+  import json
+
+class PyJSON(object):
+    def __init__(self, d):
+        if type(d) is str:
+            d = json.loads(d)
+
+        self.from_dict(d)
+
+    def from_dict(self, d):
+        self.__dict__ = {}
+        for key, value in d.items():
+            if type(value) is dict:
+                value = PyJSON(value)
+            self.__dict__[key] = value
+
+    def to_dict(self):
+        d = {}
+        for key, value in self.__dict__.items():
+            if type(value) is PyJSON:
+                value = value.to_dict()
+            d[key] = value
+        return d
+
+    def __repr__(self):
+        return str(self.to_dict())
+
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
+rawData = """... raw data ..."""
+
+quake = PyJSON(rawData)
+  
+
+  
+
+  >>> quake.data.geometry
+<__main__.PyJSON object at 0xADDRESS>
+  
+
+  
+
+  >>> quake.data.geometry
+{'coordinates': [-95.12, 16.52, -52.0], 'type': 'Point'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53882513)
+ JSON is a string representation of data, such as lists and dictionaries. You don't append to the JSON, you append to the original data and then dump it. 
+
+ Also, you don't use  append()  with dictionaries, it's used with lists. 
+
+  data = {} # This is a dictionary
+data["a"] = "1"; # Add an item to the dictionary
+json_data = json.dumps(data) # Convert the dictionary to a JSON string
+print(json_data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42658558)
+ If it were me, I'd convert the Python data structure to the required format and  then  call  json.dumps() : 
+
+  import json
+import sys
+
+def convert(obj):
+    if isinstance(obj, bool):
+        return str(obj).lower()
+    if isinstance(obj, (list, tuple)):
+        return [convert(item) for item in obj]
+    if isinstance(obj, dict):
+        return {convert(key):convert(value) for key, value in obj.items()}
+    return obj
+
+dct = {
+  "is_open": True
+}
+print (json.dumps(dct))
+print (json.dumps(convert(dct)))
+  
+
+ Output: 
+
+  {"is_open": true}
+{"is_open": "true"}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54020112)
+ In JavaScript,  [object Object]  means you've tried to convert an object which does not define how to convert itself to a string to a string. 
+
+ So you need to first convert your JSON object to a JSON string using  JSON.stringify() : 
+
+  var socket = new WebSocket('ws://localhost:8765');
+socket.send(JSON.stringify(temp1);
+  
+
+ Now  python path.py  should print the JSON string you sent. 
+
+ To convert that JSON string in Python side of things to a dict (so you can use it natively), you can use  json.loads(string)  (loads meaning  load  from  s tring). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4162513)
+ If what you want to accomplish is to send structured data from the browser and then unpack it in your Python backend and keep the same structure, I suggest the following: 
+
+ 
+  Create JavaScript objects in the browser to hold your data: 
+
+  var d = {} 
+d['login_user'] = { 'username': 'foo', 'password': 'bar' }
+   
+ Serialize to JSON, with https://github.com/douglascrockford/JSON-js 
+  POST to your backend doing something like this: 
+
+ $.post(url, {'data': encoded_json_data}, ...)  
+  In your Python code, parse the JSON, POST in my example is where you get your POST data in your CGI script: 
+
+  data = json.loads(POST['data'])
+data['login_user']
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/41100406)
+  read_json  function http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_json.html a string. You are providing a JSON object (parsed using  requests  library's  json  method). What you need to do is to convert the object back to a string using  json.dumps  method: 
+
+  import json 
+
+r = requests.get('http://api.football-data.org/v1/competitions/398/teams')
+x = r.json()
+df = pd.read_json(json.dumps(x))
+  
+
+ Or even better, just get the buffer from request object directly and do not convert it to an object. 
+
+  r = requests.get('http://api.football-data.org/v1/competitions/398/teams')
+df = pd.read_json(x.text)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50384929)
+ I believe need create dict and then convert to  json : 
+
+  import json
+d = df1.to_dict(orient='records')
+j = json.dumps(d)
+  
+
+  
+
+  j = df1.to_json(orient='records')
+  
+
+
+

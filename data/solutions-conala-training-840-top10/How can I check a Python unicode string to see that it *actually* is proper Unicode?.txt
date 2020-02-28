@@ -1,0 +1,315 @@
+Query: How can I check a Python unicode string to see that it *actually* is proper Unicode?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3487443)
+ A Python  unicode  object is a sequence of Unicode codepoints and by definition proper unicode. A python  str  string is a sequence of bytes that might be Unicode characters encoded with a certain encoding (UTF-8, Latin-1, Big5,...). 
+
+ The first question there is if  source  is a  unicode  object or a  str  string.
+That  source.encode("utf-8")  works just means that you  can  convert  source  to a UTF-8 encoded string, but are you doing it before you pass it to the database function? The database seems to expect it's inputs to be encoded with UTF-8, and complains that the equivalent of  source.decode("utf-8")  fails. 
+
+ If  source  is a  unicode  object, it should be encoded to UTF-8 before you pass it to the database: 
+
+  source = u'abc'
+call_db(source.encode('utf-8'))
+  
+
+ If  source  is a  str  encoded as something else than Utf-8, you should decode that encoding and then encode the resulting Unicode object to UTF-8: 
+
+  source = 'abc'
+call_db(source.decode('Big5').encode('utf-8'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1303266)
+ To check if an object  o  is a string type of a subclass of a string type: 
+
+  isinstance(o, basestring)
+  
+
+ because both  str  and  unicode  are subclasses of  basestring . 
+
+ To check if the type of  o  is exactly  str : 
+
+  type(o) is str
+  
+
+ To check if  o  is an instance of  str  or any subclass of  str : 
+
+  isinstance(o, str)
+  
+
+ The above also work for Unicode strings if you replace  str  with  unicode . 
+
+ However, you may not need to do explicit type checking at all.  "Duck typing" may fit your needs.  See http://docs.python.org/glossary.html#term-duck-typing. 
+
+ See also https://stackoverflow.com/questions/152580/whats-the-canonical-way-to-check-for-type-in-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3510831)
+ There is a  bug  in python 2.x that is only fixed python 3.x.  In fact, this bug is even in OS X's iconv (but not the glibc one). 
+
+ Here's what's happening: 
+
+ Python 2.x does not recognize UTF8 surrogate pairs [1] as being invalid (which is what your character sequence is) 
+
+ This  should  be all that's needed: 
+
+  foo.decode('utf8').encode('utf8')
+  
+
+ But thanks to that bug they're not fixing, it doesn't catch surrogate pairs. 
+
+ Try this in python 2.x and then in 3. 
+
+  b'\xed\xbd\xbf'.decode('utf8')
+  
+
+ It will throw an error (correctly) in the latter.  They aren't fixing it in the 2.x branch either.  See [2] and [3] for more info 
+
+ [1] http://tools.ietf.org/html/rfc3629#section-4 
+
+ [2] http://bugs.python.org/issue9133 
+
+ [3] http://bugs.python.org/issue8271#msg102209 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/491967)
+  
+
+  u'Capit\xe1n\n'
+  
+
+ the "\xe1" represents just one byte. "\x" tells you that "e1" is in hexadecimal.
+ 
+
+  Capit\xc3\xa1n
+  
+
+ into your file you have "\xc3" in it. Those are 4 bytes and in your code you read them all. You can see this when you display them: 
+
+  >>> open('f2').read()
+'Capit\\xc3\\xa1n\n'
+  
+
+ You can see that the backslash is escaped by a backslash. So you have four bytes in your string: "\", "x", "c" and "3". 
+
+ Edit: 
+
+ As others pointed out in their answers you should just enter the characters in the editor and your editor should then handle the conversion to UTF-8 and save it. 
+
+ If you actually have a string in this format you can use the  string_escape  codec to decode it into a normal string: 
+
+  In [15]: print 'Capit\\xc3\\xa1n\n'.decode('string_escape')
+Capitán
+  
+
+ The result is a string that is encoded in UTF-8 where the accented character is represented by the two bytes that were written  \\xc3\\xa1  in the original string. If you want to have a unicode string you have to decode again with UTF-8. 
+
+ To your edit: you don't have UTF-8 in your file. To actually see how it would look like: 
+
+  s = u'Capit\xe1n\n'
+sutf8 = s.encode('UTF-8')
+open('utf-8.out', 'w').write(sutf8)
+  
+
+ Compare the content of the file  utf-8.out  to the content of the file you saved with your editor. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21898465)
+  unicode  in Python (http://docs.python.org/2/library/functions.html#unicode) is a function that converts a string to the unicode representation of the string in Python. However, the behaviour is different if you pass in the encoding or error parameters. 
+
+ 
+   If encoding and/or errors are given, unicode() will decode the object
+  which can either be an 8-bit string or a character buffer using the
+  codec for encoding. The encoding parameter is a string giving the name
+  of an encoding; if the encoding is not known, LookupError is raised.
+  Error handling is done according to errors; this specifies the
+  treatment of characters which are invalid in the input encoding. If
+  errors is 'strict' (the default), a ValueError is raised on errors,
+  while a value of 'ignore' causes errors to be silently ignored, and a
+  value of 'replace' causes the official Unicode replacement character,
+  U+FFFD, to be used to replace input characters which cannot be
+  decoded. See also the codecs module. 
+  
+   If no optional parameters are given, unicode() will mimic the
+  behaviour of str() except that it returns Unicode strings instead of
+  8-bit strings. More precisely, if object is a Unicode string or
+  subclass it will return that Unicode string without any additional
+  decoding applied. 
+ 
+
+ The reason that you cannot convert  u''  to unicode is because it is already a unicode representation. When Python tries to decode it with the ascii codec (the default codec, since you didn't specify one), it realises that the string is already in Unicode, and throws an error ("Python: Oi why are you trying to convert unicode strings into unicode?") 
+
+ When you do not specify the error param, as you can see in the docs, Python is ok with converting unicode strings to unicode. If it is already unicode, it will return the unicode string without any additional decoding. 
+
+ The http://www.joelonsoftware.com/articles/Unicode.html for people to help them understand what unicode is. 
+
+ If you actually want to be able to perform this operation (for example, if you wanted to write code that accepts both regular strings and unicode strings), you would encode your string before you convert it back into Unicode. 
+
+ Example: 
+
+  >>> unicode(u''.encode('ascii', errors='replace'))
+  
+
+ If you wanted to use a different encoding (ascii is the default): 
+
+  >>> unicode(u''.encode('utf-8', errors='replace'), 'utf-8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3742195)
+  print ing of Unicode strings relies on  sys.stdout  (the process's standard output) having a correct  .encoding  attribute that Python can use to encode the unicode string into a byte string to perform the required printing -- and that setting depends on the way the OS is set up, where standard output is directed to, and so forth. 
+
+ If there's no such attribute, the default coded  ascii  is used, and, as you've seen, it often does not provide the desired results;-). 
+
+ You can check  getattr(sys.stdout, 'encoding', None)  to see if the encoding is there (if it is, you can just keep your fingers crossed that it's correct... or, maybe, try some heavily platform-specific trick to guess at the correct system encoding to check;-).  If it isn't, in general, there's no reliable or cross-platform way to guess what it could be.  You  could  try  'utf8' , the universal encoding that works in a lot of cases (surely more than  ascii  does;-), but it's really a spin of the roulette wheel. 
+
+ For more reliability, your program should have its own configuration file to tell it what output encoding to use (maybe with  'utf8'  just as the default if not otherwise specified). 
+
+ It's also better, for portability, to perform your own encoding, that is,  not  
+
+  print someunicode
+  
+
+  
+
+  print someunicode.encode(thecodec)
+  
+
+ and actually, if you'd rather have incomplete output than a crash, 
+
+  print someunicode.encode(thecodec, 'ignore')
+  
+
+ (which simply skips non-encodable characters), or, usually better, 
+
+  print someunicode.encode(thecodec, 'replace')
+  
+
+ (which uses question-mark placeholders for non-encodable characters). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32080765)
+ The special characters are not actually multiple characters long, that is just how they are represented so your regex isn't going to work. If you  print  you will see the actual unicode (utf-8) characters 
+
+  >>> s = 'WHAT\xe2\x80\x99S UP DOC?'
+>>> print(s)
+WHATâS UP DOC?
+>>> repr(s)
+"'WHATâ\\x80\\x99S UP DOC?'"
+  
+
+ If you want to print only the ascii characters you can check if the character is in  string.printable  
+
+  >>> import string
+>>> ''.join(i for i in s if i in string.printable)
+'WHATS UP DOC?'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4078841)
+ Here goes a minimalist sample that allows you to use Ignacio's solution with Python's built-in coding/decoding engine. Check http://docs.python.org/library/codecs.html if you need something more consistent (with proper error handling, etc... 
+
+  import codecs
+
+
+def  encode(text, error="strict":
+    return ("".join("<U%04x>" % ord(char for char in text, len(text
+
+def search(name:
+    if name == "unicode_ltgt":
+        info = codecs.CodecInfo(encode, None, None, None
+        info.name = "unicode_ltgt"
+        info.encode = encode
+        return info
+    return None
+
+codecs.register(search
+
+if __name__ == "__main__":
+    a = u"maçã"
+    print a.encode("unicode_ltgt"
+  
+
+ (just by importing this as a module, the codec "unicode_ltgt" will be installed and be available to any ".encode" call, like in the given example  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53616056)
+ I think you have literal slashes in your string, not unicode characters. 
+
+ That is,  \u00ea  is the unicode escape encoding for  ê , but  \\u00ea  is actually a slash (escaped), two zeros and two letters. 
+
+ Similar for the quotation marks, your first and last characters are literal double quotes  " . 
+
+ You can convert those  slash plus codepoint  into their equivalent characters with: 
+
+  x = '"temp\\u00eate de poussi\\u00e8res"'
+d = x.decode("unicode_escape")
+print d
+  
+
+ The output is: 
+
+  "tempête de poussières"
+  
+
+ Note that to see the proper international characters you have to use print. If instead you just write  d  in the interactive Python shell you get: 
+
+   u'"temp\xeate de poussi\xe8res"'
+  
+
+ where  \xea  is equivalent as  \u00ea , that is the escape sequence for  ê . 
+
+ Removing the quotes, if required, is left as an exercise to the reader ;-). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/152596)
+ To check if  o  is an instance of  str  or any subclass of  str , use https://docs.python.org/3/library/functions.html#isinstance (this would be the "canonical" way): 
+
+  if isinstance(o, str):
+  
+
+ To check if the type of  o  is exactly  str  (exclude subclasses): 
+
+  if type(o) is str:
+  
+
+ The following also works, and can be useful in some cases: 
+
+  if issubclass(type(o), str):
+  
+
+ See http://docs.python.org/2/library/functions.html in the Python Library Reference for relevant information. 
+
+ One more note: in this case, if you're using python 2, you may actually want to use: 
+
+  if isinstance(o, basestring):
+  
+
+ because this will also catch Unicode strings (https://docs.python.org/2/library/functions.html#unicode is not a subclass of  str ; both  str  and  unicode  are subclasses of https://docs.python.org/2/library/functions.html#basestring). Note that  basestring  no longer exists in python 3, where there's https://docs.python.org/3.0/whatsnew/3.0.html#text-vs-data-instead-of-unicode-vs-8-bit of strings (https://docs.python.org/3/library/functions.html#func-str) and binary data (https://docs.python.org/3/library/functions.html#func-bytes). 
+
+ Alternatively,  isinstance  accepts a tuple of classes. This will return True if x is an instance of any subclass of any of (str, unicode): 
+
+  if isinstance(o, (str, unicode)):
+  
+
+
+

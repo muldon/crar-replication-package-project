@@ -1,0 +1,219 @@
+Query: How to get text for a root element using lxml?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/54049737)
+ The "Rathaus" string is the value of the  tail  property of the  itdMapItemList  element. Examples:  
+
+  root.xpath("itdMapItemList")[0].tail
+root.find("itdMapItemList").tail
+  
+
+ See https://lxml.de/tutorial.html#elements-contain-text.  
+
+ 
+
+  root.xpath("string()")  returns the concatenation of the string values of the root node and its descendants, which indeed is "Rathaus" in this case. 
+
+ See https://www.w3.org/TR/xpath-10/#function-string. 
+
+ 
+
+  root.xpath("//test")  does not make sense (there is no  test  element). Did you mean  root.xpath("//text()") ? 
+
+  root.xpath("//text()")  returns a list of all text nodes, which in this case is  ['Rathaus'] . 
+
+ If the input XML is changed to  
+
+  <odvNameElem stopID="9001002">ABC<itdMapItemList/>Rathaus</odvNameElem>
+  
+
+ then the result is  ['ABC', 'Rathaus']  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10258841)
+ You'll find the missing text here 
+
+  >>> some_tag.find("strong").tail
+' World'
+  
+
+ Look at http://lxml.de/tutorial.html and search for "tail". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10261540)
+  from lxml import etree
+
+XML = '<some_tag class="abc"> Hello  World</some_tag>'
+
+some_tag = etree.fromstring(XML)
+
+for element in some_tag:
+    print element.tag, element.text, element.tail
+  
+
+ Output: 
+
+   <pre class="lang-none prettyprint-override"> strong Hello  World
+  
+
+ For information on the  .text  and  .tail  properties, see: 
+
+ 
+ http://lxml.de/tutorial.html#elements-contain-text 
+ http://infohost.nmt.edu/tcc/help/pubs/pylxml/web/etree-view.html 
+ 
+
+ To get exactly the result that you expected, use 
+
+  print etree.tostring(some_tag.find("strong"))
+  
+
+ Output: 
+
+   Hello  World
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/22799005)
+ I don't think you can write data into the root element. You may need to create a child element like this: 
+
+  xml_obj = lxml.objectify.Element('root_name')
+xml_obj.child_name = str('text')
+lxml.etree.tostring(xml_obj)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31957666)
+ You could make your input string a well-formed XML document (with  text  as the root element) and parse that into an Element object using  fromstring() . Then append it to the parent. 
+
+  from lxml import etree as et
+
+s1 = """foo bar <pb n="42"/> parrots like <pb n="43"/> eggs and spam"""
+s2 = "<text>{0}</text>".format(s1)
+
+text = et.fromstring(s2)
+root = et.Element('root')
+root.append(text)
+
+et.dump(root)
+  
+
+ Output: 
+
+  <root>
+ <text>foo bar <pb n="42"/> parrots like <pb n="43"/> eggs and spam</text>
+</root>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23347005)
+ Removing  etree.HTMLParser  gives you texts: 
+
+  >>> import urllib2
+>>> from lxml import etree
+>>>
+>>> rss = urllib2.urlopen("http://dizzy-v.co.kr/test/test.xml").read()
+>>> root = etree.fromstring(rss) # <----
+>>> for product in root.iter('product'):
+...     for element in product.iter():
+...         print element.text
+...
+
+
+google
+http://www.google.com
+sushi
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37367870)
+ The expression you are currently using would actually match the top-level text child nodes only. You can just wrap it into https://developer.mozilla.org/en-US/docs/Web/XPath/Functions/normalize-space to clean up the text from extra newlines and spaces: 
+
+  >>> from lxml.html import fromstring
+>>> data = """
+... <div class="description">
+...    here's the page description
+...    <span> some other text</span>
+...    <span> another tag </span>
+... </div>
+... """
+>>> root = fromstring(data)
+>>> root.xpath('normalize-space(//div[@class="description"]/text())')
+"here's the page description"
+  
+
+ To get the complete text of a node including the child nodes, use the http://lxml.de/lxmlhtml.html#html-element-methods method: 
+
+  node = tree.xpath('//div[@class="description"]')[0]
+print(node.text_content())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1577495)
+ Use http://codespeak.net/lxml/api/lxml.etree._ElementTree-class.html#getpath from ElementTree objects. 
+
+  from lxml import etree
+
+root = etree.fromstring('<foo><bar>Data</bar><bar><baz>data</baz>'
+                        '<baz>data</baz></bar></foo>')
+
+tree = etree.ElementTree(root)
+for e in root.iter():
+    print tree.getpath(e)
+  
+
+  
+
+  /foo
+/foo/bar[1]
+/foo/bar[2]
+/foo/bar[2]/baz[1]
+/foo/bar[2]/baz[2]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3003061)
+ This is a bit odd in lxml (or ElementTree).   
+
+  def inner_html(el):
+    return (el.text or '') + ''.join(tostring(child) for child in el)
+  
+
+ Note that lxml (and ElementTree) have no special way to represent a document except rooted with a single element, but  .drop_tag()  would work like you want if that  <div>  wasn't the root element. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/25690745)
+ If you have already parsed the object using  lxml , you can serialize it with   lxml.etree.tostring() : 
+
+  from lxml import etree
+xml='''<body>
+  <div>
+    <a id="123">text_url 
+  </div>    
+</body>'''
+
+root = etree.fromstring(xml)
+for a in root.xpath('//div/a'):
+  print etree.tostring(a, method='html', with_tail=False)
+  
+
+
+

@@ -1,0 +1,158 @@
+Query: How to use subprocess when multiple arguments contain spaces?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11894910)
+ Or using  subprocess  from within python itself: 
+
+  subprocess.call(['python','testProgram.py','argument 1','argument 2'])
+  
+
+ But the other answers are more likely to be what you want. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41909312)
+ . You have to compose your command line yourself, for instance using  format : 
+
+  os.system('sox -t mp3 "{0}" -t wav - | sudo pifmrds -freq "{1}" -audio "{0}"'.format(SongName,Frequency))
+  
+
+ note the  0  and  1  notation which allows to use a parameter more than once. 
+
+ and protect your arguments with quotes when you don't know if they contain spaces. 
+
+ BTW this is really an obsolete way to perform system calls. That's quick & dirty but 2  subprocess.Popen  calls chained together and controlled argument passing would be much cleaner, like this: 
+
+  proc1 = subprocess.Popen(["sox","-t","mp3",SongName,"-t","wav","-"],stdout=subprocess.PIPE)
+proc2 = subprocess.Popen(["sudo","pifmrds","-freq",str(Frequency),"-audio",SongName],stdin=proc1.stdout)
+proc2.wait()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/806971)
+ If you have spaces in the path, the easiest way I've found to get them interpreted properly is this. 
+
+  subprocess.call('""' + path + '""')
+  
+
+ I don't know why exactly it needs double double quotes, but that is what works. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52841780)
+ of course it concatenates because you're not inserting a space between them. Quickfix would be (with  format , and can fail if some arguments contain spaces) 
+
+   subprocess.check_call('./test_bash.sh {} {}'.format(arg1,arg2), shell=True)
+  
+
+ can you try (more robust, no need to quote spaces, automatic command line generation): 
+
+  check_call(['./test_bash.sh',arg1,arg2],shell=True)`
+  
+
+ (not sure it works on all systems because of  shell=True  and argument list used together) 
+
+ or drop  shell=True  and call the shell explicitly (may fail because  shebang  is not considered, unlike with  shell=True , but it's worth giving up  shell=True , liable to code injection among other issues): 
+
+  check_call(['sh','-c','./test_bash.sh',arg1,arg2])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/805052)
+  'c:\Program' is not recognized as an internal or external command,
+operable program or batch file.
+  
+
+ To get this message, you are either: 
+
+ 
+  Using  shell=True : 
+
+  vmrun_cmd = r"c:\Program Files\VMware\VMware Server\vmware-cmd.bat"
+subprocess.Popen(vmrun_cmd, shell=True)
+   
+  Changing vmrun_cmd on other part of your code  
+ Getting this error from something inside vmware-cmd.bat 
+ 
+
+ Things to try: 
+
+ 
+  Open a python prompt, run the following command: 
+
+  subprocess.Popen([r"c:\Program Files\VMware\VMware Server\vmware-cmd.bat"])
+   
+ 
+
+ If that works, then quoting issues are out of the question. If not, you've isolated the problem. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19284031)
+ Use 
+
+  os.system('python another/location/test2.py %s' % ' '.join(argList))
+  
+
+ if the arguments will contain no spaces themselves. 
+
+ The second  program will output 
+
+  ['-a', '-b', '-c']
+  
+
+ If your arguments can contain spaces, it might be best to quote them. Use  ' '.join("'%s'" % arg.replace("'", "\\'") for arg in ArgList)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8601392)
+  
+
+  command = ['/usr/bin/python', '/tmp/script.py', 'mcl=NULL', 'mtp=data', 'mnm=DS4INST', 'mno=NULL' 'mse=NULL', 'mce=cll01'] 
+  
+
+ In your code, the second element of  command  is considered as one single argument and interpreted as: 
+
+  /usr/bin/python "/tmp/script.py mcl=NULL mtp=data mnm=DS4INST mno=NULL mse=NULL mce=cll01"
+  
+
+ so just like a long filename with spaces. 
+
+ You have to split the arguments into separate elements of the  command  list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/805309)
+ In Python on MS Windows, the subprocess.Popen class uses the CreateProcess API to started the process. CreateProcess takes a string rather than something like an array of arguments. Python uses subprocess.list2cmdline to convert the list of args to a string for CreateProcess. 
+
+ If I were you, I'd see what subprocess.list2cmdline(args) returns (where args is the first argument of Popen). It would be interesting to see if it is putting quotes around the first argument. 
+
+ Of course, this explanation might not apply in a Cygwin environment. 
+
+ Having said all this, I don't have MS Windows. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39192204)
+ Simple solution #1: You do it the exact same way you'd do it if you were typing the input on the commandline; put it in quotes: 
+
+  subprocess.Popen(["bash", "-c", ". mainGui_functions.sh {} '{}'".format(commandNum.get(), entryVal)])
+  
+
+ Simple solution #2: If  mainGui_functions.sh  is already executable, then you can just omit the  bash  part and pas args to it directly. In this case,  subprocess  takes care of making sure an entry with whitespace winds up as a single arg for you: 
+
+  subprocess.Popen(["mainGui_functions.sh", str(commandNum.get()), entryVal])
+  
+
+
+

@@ -1,0 +1,228 @@
+Query: recursively go through all subdirectories and read files
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40914405)
+ For each iteration of your for loop,  dir  is a tuple of format  (filepath, subdirectories, files) . As such  dir[0]  will give you the filepath. 
+
+ It sounds like you just want to  os.chdir  for each folder recursively in  exDir  in which case the following will work: 
+
+  for dir in os.walk(exDir):
+    os.chdir(dir[0])
+    ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3883201)
+ To count files and directories non-recursively you can use http://docs.python.org/library/os.html#os.listdir and take its length. 
+
+ To count files and directories recursively you can use http://docs.python.org/library/os.html#os.walk to iterate over the files and subdirectories in the directory. 
+
+ If you only want to count files not directories you can use  os.listdir  and http://docs.python.org/library/os.path.html#os.path.isfile to check if each entry is a file: 
+
+  import os.path
+path = '.'
+num_files = len([f for f in os.listdir(path)
+                if os.path.isfile(os.path.join(path, f))])
+  
+
+ Or alternatively using a generator: 
+
+  num_files = sum(os.path.isfile(os.path.join(path, f)) for f in os.listdir(path))
+  
+
+ Or you can use  os.walk  as follows: 
+
+  len(os.walk(path).next()[2])
+  
+
+ I found some of these ideas from http://bytes.com/topic/python/answers/45188-count-files-directory. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13571166)
+ You need to use absolute paths, your  file  variable is just a local filename without a directory path. The  root  variable is that path: 
+
+  with open('output.txt','w') as fout:
+    for root, subFolders, files in os.walk(rootdir):
+        if 'data.txt' in files:
+            with open(os.path.join(root, 'data.txt'), 'r') as fin:
+                for lines in fin:
+                    dosomething()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21540407)
+ You can try to use the glob module to remove the files under a given subdirectory: 
+
+  import glob, os
+init_files = glob.glob('./directory/__init__.*')
+for f in init_files: os.remove(f)
+  
+
+ To go through subdirectories recursively you could use the  os.walk  function: 
+
+  import os, fnmatch
+for root, dirs, files in os.walk('./directory'):
+    for f in fnmatch.filter(files, '__init__.*'):
+        os.remove(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10685304)
+  os.listdir()  lists all files and directories in the provided directory. As you've experienced, it does not perform a recursion. It stays on the level of the initially provided directory. 
+
+ In order to recursively go through a directory tree and iterate through  all  files and directories below a certain directory level, you should use Python's  os.walk() : 
+
+  import os
+
+def listdirs(suffix):
+    for dirname, dirnames, filenames in os.walk('.'):
+        for subdirname in dirnames:
+            subdirpath = os.path.join(dirname, subdirname)
+            if subdirpath.endswith(suffix):
+                yield subdirpath
+
+
+if __name__ == "__main__":
+    for d in listdirs('inputs'):
+        print d
+  
+
+ I've set up the same directory structure you've been proposing. This is the output of the code above: 
+
+  $ python test.py 
+./Test1/inputs
+./Test2/inputs
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45172387)
+ If you are using Python 3.5 or above, you can get this done in 1 line. 
+
+  import glob
+
+for filename in glob.iglob(root_dir + '**/*.txt', recursive=True):
+     print(filename)
+  
+
+ As mentioned in the https://docs.python.org/3.5/library/glob.html#glob.glob 
+
+ 
+   If recursive is true, the pattern '**' will match any files and zero or more directories and subdirectories. 
+ 
+
+ If you want every file, you can use 
+
+  import glob
+
+for filename in glob.iglob(root_dir + '**/*', recursive=True):
+     print(filename)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/296184)
+  import glob, os, shutil
+
+files = glob.iglob(os.path.join(source_dir, "*.ext"))
+for file in files:
+    if os.path.isfile(file):
+        shutil.copy2(file, dest_dir)
+  
+
+ Read the http://www.python.org/doc/2.5.2/lib/module-shutil.html of the shutil module to choose the function that fits your needs (shutil.copy(), shutil.copy2() or shutil.copyfile()). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/19253210)
+ I guess that best way to go will be external programs, as @Robᵩ suggests in the comment. 
+
+ Using Python I would recommend doing following: 
+
+  import os
+
+def fileIsSame(right, left, path):
+    return os.path.exists (os.path.join(left, path.replace(right, '')));
+
+def compare(right, left):
+    difference = list();
+    for root, dirs, files in os.walk(right):
+        for name in files:
+            path = os.path.join(root, name);
+            # check if file is same
+            if fileIsSame(right, left, path):
+                if os.path.isdir(path):
+                    # recursively check subdirs
+                    difference.extend(compare(path, left));
+            else:
+                # count file as difference
+                difference.append(path);
+
+    return difference;
+  
+
+ This approach lacks normal  fileIsSame  function that would make sure files are same by content or by date modified and be sure to handle paths correctly (as I'm not sure this variant will). This algorithm requres you to specify full paths. 
+
+ Usage example: 
+
+  print (compare(r'c:\test', r'd:\copy_of_test'));
+  
+
+ If second folder is copy of first, all the differences in paths (different disk letter and foldername) is ignored. Output will be  [] . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2578059)
+ Use http://docs.python.org/library/os#os.walk. It recursively walks into directory and subdirectories, and already gives you separate variables for files and directories. 
+
+  import re
+import os
+from __future__ import with_statement
+
+PATH = "/home/tirengarfio/Desktop/pruebaba"
+
+for path, dirs, files in os.walk(PATH):
+    for filename in files:
+        fullpath = os.path.join(path, filename)
+        with open(fullpath, 'r') as f:
+            data = re.sub(r'(\s*function\s+.*\s*{\s*)',
+                r'\1echo "The function starts here."',
+                f.read())
+        with open(fullpath, 'w') as f:
+            f.write(data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/5817256)
+ You can use http://docs.python.org/library/os.html#os.walk to recursively iterate through a directory and all its subdirectories: 
+
+  for root, dirs, files in os.walk(path):
+    for name in files:
+        if name.endswith((".html", ".htm")):
+            # whatever
+  
+
+ To build a list of these names, you can use a list comprehension: 
+
+  htmlfiles = [os.path.join(root, name)
+             for root, dirs, files in os.walk(path)
+             for name in files
+             if name.endswith((".html", ".htm"))]
+  
+
+
+

@@ -1,0 +1,203 @@
+Query: How to obtain the day of the week in a 3 letter format from a datetime object in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15509654)
+ http://docs.python.org/2/library/datetime.html#strftime-and-strptime-behavior 
+
+ 
+   date, datetime, and time objects all support a  strftime(format)  method, to create a string representing the time under the control of an explicit format string. 
+  
+   ... 
+  
+   . 
+ 
+
+  >>> datetime.datetime.now().strftime('%a')
+   'Wed'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15509881)
+ The http://docs.python.org/2/library/datetime.html#datetime.datetime.strftime of a http://docs.python.org/2/library/datetime.html#datetime.datetime uses the http://docs.python.org/2/library/locale.html to determine the conversion. 
+
+  >>> from datetime import datetime
+>>> t = datetime.now()
+>>> t.strftime('%a')
+'Tue'
+>>> import locale
+>>> locale.setlocale(locale.LC_ALL, 'fr_FR')
+'fr_FR'
+>>> t.strftime('%a')
+'Mar'
+  
+
+ If this is not acceptable (for example, if you're formatting a date for transmission over an Internet protocol, you may actually require the string  Tue  regardless of the user's locale), then you need something like: 
+
+  weekdays = 'Mon Tue Wed Thu Fri Sat Sun'.split()
+return weekdays[datetime.now().weekday()]
+  
+
+ Or you could explicitly request the "C" locale: 
+
+  locale.setlocale(locale.LC_TIME, 'C')
+return datetime.now().strftime('%a')
+  
+
+ but setting the locale like this affects all formatting operations on all threads in your program, so it might not be such a good idea. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53404716)
+ You should using this format  
+
+  datetime.datetime.strptime(old_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+Out[180]: datetime.datetime(2018, 6, 6, 23, 59, 59, 999000)
+  
+
+ Update  
+
+  dt1=datetime.datetime.strptime(old_date, '%Y-%m-%dT%H:%M:%S.%fZ')+datetime.timedelta(days=1)
+dt1.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]+'Z'
+Out[196]: '2018-06-07 23:59:59.999Z'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9847269)
+ Use  weekday()  (http://docs.python.org/library/datetime.html#datetime.date.weekday): 
+
+  >>> import datetime
+>>> datetime.datetime.today()
+datetime.datetime(2012, 3, 23, 23, 24, 55, 173504)
+>>> datetime.datetime.today().weekday()
+4
+  
+
+ From the documentation: 
+
+ 
+   Return the day of the week as an integer, where Monday is 0 and Sunday is 6. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7551224)
+ Maybe  weekday  is based on locale while  strftime  is not? Because I have different output: 
+
+  In [14]: d.strftime("%A")
+Out[14]: 'Sunday'
+
+In [15]: d.strftime("%w")
+Out[15]: '0'
+
+In [16]: now.weekday()
+Out[16]: 0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16770463)
+  >>> from datetime import datetime, timedelta
+>>> d = datetime.strptime('2013-05-27', '%Y-%m-%d') # Monday
+>>> t = timedelta((12 - d.weekday()) % 7)
+>>> d + t
+datetime.datetime(2013, 6, 1, 0, 0)
+>>> (d + t).strftime('%Y-%m-%d')
+'2013-06-01'
+  
+
+ I use  (12 - d.weekday()) % 7  to compute the delta in days between given day and next Saturday because  weekday  is between 0 (Monday) and 6 (Sunday), so Saturday is 5. But: 
+
+ 
+ 5 and 12 are the same modulo 7 (yes, we have 7 days in a week :-) ) 
+ so  12 - d.weekday()  is between 6 and 12 where  5 - d.weekday()  would be between 5 and -1 
+ so this allows me not to handle the negative case (-1 for Sunday). 
+ 
+
+ Here is a very simple version (no check) for any weekday: 
+
+  >>> def get_next_weekday(startdate, weekday):
+    """
+    @startdate: given date, in format '2013-05-25'
+    @weekday: week day as a integer, between 0 (Monday) to 6 (Sunday)
+    """
+    d = datetime.strptime(startdate, '%Y-%m-%d')
+    t = timedelta((7 + weekday - d.weekday()) % 7)
+    return (d + t).strftime('%Y-%m-%d')
+
+>>> get_next_weekday('2013-05-27', 5) # 5 = Saturday
+'2013-06-01'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6172810)
+ Assuming  day  is a  datetime.date  or  datetime.datetime  object, this code creates a  datetime / date  object for last week's friday: 
+
+  friday = day - timedelta(days=day.weekday()) + timedelta(days=4, weeks=-1)
+  
+
+ Explanation:  timedelta(days=day.weekday())  is the offset between monday and  day  so adding 4 days and subtracting one week will get you last week's friday. 
+
+ Of course you can simplify this ( +4d -1w = -3d ): 
+
+  friday = day - timedelta(days=day.weekday() + 3)
+  
+
+ Note: To get  timedelta , use  from datetime import timedelta  or just  import datetime  and use  datetime.timedelta  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35890416)
+  %U  treats weeks as starting on  Sunday , not on Monday. From the https://docs.python.org/2/library/datetime.html#strftime-and-strptime-behavior: 
+
+ 
+    %U  
+  Week number of the year (Sunday as the first day of the week) as a zero padded decimal number. All days in a new year preceding the first Sunday are considered to be in week 0. 
+ 
+
+ You could use the  %W  format, which gives a zero-padded week number based on  Monday  being the first day of the week: 
+
+ 
+    %W  
+  Week number of the year (Monday as the first day of the week) as a decimal number. All days in a new year preceding the first Monday are considered to be in week 0.   
+ 
+
+ The alternative is to use  b.isocalendar()[1]  if you need to get the week number as per ISO 8601. The rules for what is considered week 1 differ from the ISO calendar calculations;  %W  bases this on the first Monday in the year, while ISO 8601 states that the week that includes January 4 is the first week. For 2016 both systems align, but that's not the case in 2014, 2015 or 2019: 
+
+  >>> d = datetime(2019, 3, 9)
+>>> d.strftime('%W')
+'09'
+>>> d.isocalendar()[1]
+10
+  
+
+ If you wait until Python 3.6, you can use the  %V  format to include the ISO week number, see http://bugs.python.org/issue12006. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54869936)
+ You could use the https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.dt.html accessor to obtain the  date  and  hour  from the datetime values: 
+
+  df.date = pd.to_datetime(df.date)
+df = df.rename(columns = {'date':'datetime'})
+df.assign(date = df.date.dt.date, hour = df.date.dt.hour)
+
+         datetime        date       hour
+0 2018-08-26 07:30:26  2018-08-26     7
+1 2018-05-12 08:10:26  2018-05-12     8
+2 2018-11-16 14:36:26  2018-11-16    14
+3 2018-12-06 17:40:26  2018-12-06    17
+  
+
+
+

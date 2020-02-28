@@ -1,0 +1,116 @@
+Query: Get the number of rows in table using SQLAlchemy
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10822842)
+ This should work 
+
+  rows = session.query(Congress).count()
+  
+
+  EDIT:  Another way related to my first try 
+
+  from sqlalchemy import func
+rows = session.query(func.count(Congress.id)).scalar()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34183819)
+ use http://docs.sqlalchemy.org/en/latest/orm/query.html#sqlalchemy.orm.query.Query.having 
+
+  from sqlalchemy import func
+
+session.query(Parent).\
+        join(Parent.children).\
+        group_by(Parent).\
+        having(func.count(Child.id) > 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14967752)
+ You could load your collection into a dictionary: 
+
+  ref_by_number = dict(
+  (row.number, row)
+  for row in db.session.query(reference).filter(reference.parent == 1)
+)
+  
+
+ Then you can access what you want using  ref_by_number[number]  (this assumes that the  number  attributes are unique). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34698050)
+ This is covered in the http://docs.sqlalchemy.org/en/latest/orm/query.html#sqlalchemy.orm.query.Query.filter_by. A query returns one or more model instances representing rows, and column data is stored on these instances as attributes. 
+
+  account = session.query(Accounts).filter_by(id = <some_id>).first()
+print account.site
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6448824)
+  dbsession.query(MyTable).filter(MyTable.name==u'john')  will go through ORM and return you objects. If you just want to return all columns, you can bypass ORM with this: 
+
+  query = dbsession.query(MyTable).filter(MyTable.name==u'john')
+rows = query.statement.execute().fetchall()
+for row in rows:
+    print row
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/32992460)
+ you can use http://docs.sqlalchemy.org/en/rel_0_9/dialects/postgresql.html#sqlalchemy.dialects.postgresql.Any 
+
+  from sqlalchemy.dialects.postgresql import Any
+session.query(TestArr).filter(Any(2, TestArr.partners)).all()
+  
+
+ or  @>  array operator 
+
+  session.query(TestArr).filter(TestArr.partners.op('@>')([2])).all()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32407685)
+ You're overwriting sess with the number of deleted rows, and then trying to commit that number to the database.  .delete() method returns the number of rows to be deleted (http://docs.sqlalchemy.org/en/rel_1_0/orm/query.html#sqlalchemy.orm.query.Query.delete). 
+
+ Additionally, you set autoflush=False when you created your session. That makes it so you have to explicitly flush to the db after a commit.  
+
+  Session = sessionmaker(autocommit=False, bind=conn)
+sess = Session()
+rows_deleted = sess.query(Table).filter(Column.id==1).delete()
+sess.commit()
+print str(rows_deleted) + " rows were deleted"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36879384)
+ If you're using SQLAlchemy, you don't need to mess with hand-crafting the string because SQLAlchemy http://docs.sqlalchemy.org/en/latest/core/dml.html#sqlalchemy.sql.expression.Insert.values.params.*args: 
+
+  rows = []
+for i, name in enumerate(rawdata):
+    row = {
+        'id': i,
+        'name': name,
+        'valid': True,
+    }
+    rows.append(row)
+if len(rows) > 0:  # INSERT fails if no rows
+    insert_query = SQLAlchemyModelName.__table__.insert().values(rows)
+    session.execute(insert_query)
+  
+
+
+

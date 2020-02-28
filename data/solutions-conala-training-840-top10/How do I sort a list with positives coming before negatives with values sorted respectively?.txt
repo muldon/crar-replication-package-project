@@ -1,0 +1,323 @@
+Query: How do I sort a list with positives coming before negatives with values sorted respectively?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40621356)
+ Just comparing the different ways. 
+
+ Results: 
+
+  > Shuffle cost comparison small
+shuffle_lst: 0.001181483967229724
+shuffle_ar: 0.014688121969811618
+> Shuffle cost comparison medium
+shuffle_lst: 0.572294642101042
+shuffle_ar: 0.3266364939045161
+> Shuffle cost comparison large
+shuffle_lst: 26.5786890439922
+shuffle_ar: 6.284286553971469
+
+                    +cost               -cost
+bisectme:    0.004252934013493359    0.003071450046263635
+lexicon:     0.010936842067167163    0.009755358099937439
+compreh.:    0.0071560649666935205   0.005974580999463797
+arrayme:     0.03787591797299683     0.023187796003185213
+nplexicon:   0.022204622975550592    0.007516501005738974
+npbisect:    0.023507782025262713    0.008819660055451095
+
+                    +cost               -cost
+bisectme:    7.716002315981314   7.143707673880272
+lexicon:     22.17862514301669   21.606330500915647
+compreh.:    8.690494343056343   8.118199700955302
+arrayme:     1.5029839979251847      1.1763475040206686
+nplexicon:   2.0811527019832283      1.7545162080787122
+npbisect:    1.3076487149810418      0.9810122210765257
+
+                    +cost               -cost
+bisectme:    180.77819497592282      154.19950593193062
+arrayme:     22.476932613993995      16.192646060022525
+nplexicon:   41.74795828794595   35.46367173397448
+npbisect:    20.13856932707131   13.85428277309984
+  
+
+ Code: 
+
+  import sys
+import numpy as np
+from timeit import timeit
+from bisect import bisect
+from random import shuffle
+
+def shuffle_lst():
+    np.random.shuffle(lst)
+
+def shuffle_ar():
+    np.random.shuffle(ar)
+
+def bisectme():
+    np.random.shuffle(lst)
+    lst.sort()
+    i = bisect(lst, 0)
+    return lst[i:] + lst[:i]
+
+def lexicon():
+    np.random.shuffle(lst)
+    return sorted(lst, key=lambda x: (x < 0, x))
+
+def comprehension():
+    np.random.shuffle(lst)
+    return sorted([i for i in lst if i > 0]) + sorted([i for i in lst if i < 0])
+
+def arrayme():
+    np.random.shuffle(ar)
+    return np.concatenate([np.sort(ar[ar >= 0]), np.sort(ar[ar < 0])], axis=0)
+
+def nplexicon():
+    np.random.shuffle(ar)
+    return ar[np.lexsort((ar, ar < 0))]
+
+def numpybisect():
+    np.random.shuffle(ar)
+    ar.sort()
+    i = ar.__abs__().argmin()
+    return np.concatenate((ar[i:], ar[:i]))
+
+
+nloops = 1000
+
+lst = list(range(-10**1, 0, 1)) + list(range(10**1, -1, -1))
+ar = np.array(lst)
+print("> Shuffle cost comparison small")
+cost_shuffle_list_small = timeit(shuffle_lst, number=nloops)
+print("shuffle_lst:", cost_shuffle_list_small)
+cost_shuffle_array_small = timeit(shuffle_ar, number=nloops)
+print("shuffle_ar:", cost_shuffle_array_small)
+
+lst = list(range(-10**4, 0, 1)) + list(range(10**4, -1, -1))
+ar = np.array(lst)
+print("> Shuffle cost comparison medium")
+cost_shuffle_list_medium = timeit(shuffle_lst, number=nloops)
+print("shuffle_lst:", cost_shuffle_list_medium)
+cost_shuffle_array_medium = timeit(shuffle_ar, number=nloops)
+print("shuffle_ar:", cost_shuffle_array_medium)
+
+nloops = 100
+
+lst = list(range(-10**6, 0, 1)) + list(range(10**6, -1, -1))
+ar = np.array(lst)
+print("> Shuffle cost comparison large")
+cost_shuffle_list_large = timeit(shuffle_lst, number=nloops)
+print("shuffle_lst:", cost_shuffle_list_large)
+cost_shuffle_array_large = timeit(shuffle_ar, number=nloops)
+print("shuffle_ar:", cost_shuffle_array_large)
+
+print()
+
+nloops = 1000
+
+## With small lists/arrays
+lst = list(range(-10**1, 0, 1)) + list(range(10**1, -1, -1))
+ar = np.array(lst)
+
+print("\t\t\t\t\tw/o pen.\t\t\t\tw. pen.")
+
+foo = timeit(bisectme, number=nloops)
+print("bisectme:\t", foo, "\t", foo - cost_shuffle_list_small)
+
+foo = timeit(lexicon, number=nloops)
+print("lexicon:\t", foo, "\t", foo - cost_shuffle_list_small)
+
+foo = timeit(comprehension, number=nloops)
+print("compreh.:\t", foo, "\t", foo - cost_shuffle_list_small)
+
+foo = timeit(arrayme, number=nloops)
+print("arrayme:\t", foo, "\t", foo - cost_shuffle_array_small)
+
+foo = timeit(nplexicon, number=nloops)
+print("nplexicon:\t", foo, "\t", foo - cost_shuffle_array_small)
+
+foo = timeit(numpybisect, number=nloops)
+print("npbisect:\t", foo, "\t",  foo - cost_shuffle_array_small)
+
+print()
+
+## With medium lists/arrays
+lst = list(range(-10**4, 0, 1)) + list(range(10**4, -1, -1))
+ar = np.array(lst)
+
+print("\t\t\t\t\tw/o cost\t\t\t\tw. cost")
+
+foo = timeit(bisectme, number=nloops)
+print("bisectme:\t", foo, "\t", foo - cost_shuffle_list_medium)
+
+foo = timeit(lexicon, number=nloops)
+print("lexicon:\t", foo, "\t", foo - cost_shuffle_list_medium)
+
+foo = timeit(comprehension, number=nloops)
+print("compreh.:\t", foo, "\t", foo - cost_shuffle_list_medium)
+
+foo = timeit(arrayme, number=nloops)
+print("arrayme:\t", foo, "\t", foo - cost_shuffle_array_medium)
+
+foo = timeit(nplexicon, number=nloops)
+print("nplexicon:\t", foo, "\t", foo - cost_shuffle_array_medium)
+
+foo = timeit(numpybisect, number=nloops)
+print("npbisect:\t", foo, "\t",  foo - cost_shuffle_array_medium)
+
+print()
+
+
+## With large lists/arrays
+nloops = 100
+
+lst = list(range(-10**6, 0, 1)) + list(range(10**6, -1, -1))
+ar = np.array(lst)
+
+print("\t\t\t\t\tw/o cost\t\t\t\tw. cost")
+
+foo = timeit(bisectme, number=nloops)
+print("bisectme:\t", foo, "\t", foo - cost_shuffle_list_large)
+
+foo = timeit(arrayme, number=nloops)
+print("arrayme:\t", foo, "\t", foo - cost_shuffle_array_large)
+
+foo = timeit(nplexicon, number=nloops)
+print("nplexicon:\t", foo, "\t", foo - cost_shuffle_array_large)
+
+foo = timeit(numpybisect, number=nloops)
+print("npbisect:\t", foo, "\t",  foo - cost_shuffle_array_large)
+
+print()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40620875)
+ Create two lists, one with positive value and another with the negative values and then sort the content of each list the way you like. For example: 
+
+  my_list = [1, -2, 10, -12, -4, -5, 9, 2]
+pos_list, neg_list = [], []
+for item in my_list:
+    if item < 0: 
+        neg_list.append(item)
+    else:
+        pos_list.append(item)
+
+final_list = sorted(pos_list) + sorted(neg_list)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40620914)
+  import numpy as np
+lst = [1, -2, 10, -12, -4, -5, 9, 2]
+ar = np.array(lst)
+lst = list(np.concatenate([np.sort(ar[ar >= 0]), np.sort(ar[ar < 0], reverse = True)], axis = 0))
+print(lst)
+  
+
+ And if you don't have to use a list but are happy with numpy arrays then you don't have to pay the costs of casting, i.e. 
+
+  import numpy as np
+ar = np.array([1, -2, 10, -12, -4, -5, 9, 2])
+ar = np.concatenate([np.sort(ar[ar >= 0]), np.sort(ar[ar < 0])], axis = 0)
+print(ar)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40620929)
+ Create two separate list. One positive values one with negative values. sort the negative list, then concatenate them together: 
+
+  >>> lst = [1, -2, 10, -12, -4, -5, 9, 2]
+>>> sorted([i for i in lst if i > 0]) + sorted([i for i in lst if i =< 0])
+[1, 2, 9, 10, -12, -5, -4, -2]
+>>> 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40640266)
+ I don't know if it's the  most  Pythonic, and it certainly does not have any bells-and-whistles, but IMO it's a clear and understandable code: 
+
+  lst = [1, -2, 10, -12, -4, -5, 9, 2]
+
+pos = list()
+neg = list()
+
+for i in lst:
+    neg.append(i) if i < 0 else pos.append(i)
+
+print(sorted(pos) + sorted(neg))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40620838)
+ You could just use a regular sort, and then bisect the list at 0: 
+
+  >>> lst
+[1, -2, 10, -12, -4, -5, 9, 2]
+>>> from bisect import bisect
+>>> lst.sort()
+>>> i = bisect(lst, 0)  # use `bisect_left` instead if you want zeroes first
+>>> lst[i:] + lst[:i]
+[1, 2, 9, 10, -12, -5, -4, -2]
+  
+
+ The last line here takes advantage of a slice invariant  lst == lst[:n] + lst[n:]  
+
+ Another option would be to use a tuple as a sort key, and rely on https://en.wikipedia.org/wiki/Lexicographical_order ordering of tuples: 
+
+  >>> sorted(lst, key=lambda x: (x<0, x))  # use <= instead if you want zeroes last
+[1, 2, 9, 10, -12, -5, -4, -2]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40634496)
+ Kudos to wmin for the logic of his solution (accepted answer) which is great. So for completeness, a similar answer to this but based on numpy, which is significantly faster for anything else other than small lists/arrays, is as follows: 
+
+  lst = [1, -2, 10, -12, -4, -5, 9, 2]
+ar = np.array(lst)
+ar.sort()
+i = ar.__abs__().argmin()
+np.concatenate((ar[i:], ar[:i]))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40699945)
+ Sort the list in place twice like so: 
+
+  lst = [1, -2, 10, -12, -4, -5, 9, 2]
+lst.sort()
+lst.sort(key=int(0).__gt__)      # key is True for items <= 0
+  
+
+ This takes advantage of the fact the python  sort  function/method is  stable .  That means that items with the same value or key stay in the same order.  The first sort puts all the items in order from smallest to largest.  For the second sort, all the items < 0 get a key of True, all the items >= 0 get a key of False.  Because True (1) > False (0), the second sort moves all the negative items to the end, without changing the order of the negative items. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40624134)
+ You could just sort by the negative of the element's inverse: 
+
+  from __future__ import division
+
+sorted(lst, key=lambda i: 0 if i == 0 else -1 / i)
+  
+
+ Taking the inverse switches the order of the magnitudes (larger numbers in the middle, smaller on the outside). Taking the negative reverses the order (positives first, negatives last). 
+
+ Be aware of the size of your numbers of course and if they'll cause any over- or underflow issues. 
+
+
+

@@ -1,0 +1,159 @@
+Query: How do I ping a host
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13283707)
+  
+
+  $host="192.168.0.104";
+
+exec("ping -c 4 " . $host, $output, $result);
+
+print_r($output);
+
+if ($result == 0)
+
+echo "Ping successful!";
+
+else
+
+echo "Ping unsuccessful!";
+  
+
+ Note: This is dependant on the OS you are running. Windows will default to only 4 pings while Linux will ping forever. 
+
+ To ping twice in Windows, use "ping -n 2 host" 
+
+ To ping twice in Linux, use "ping -c 2 host" 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4686237)
+ The short answer is that there is no good, universal way to do this. Ping is about as close as you can get (almost all hosts will respond to that), but as you observed, in PHP that usually requires root access to use the low port.  
+
+ Does your host allow you to execute system calls, so you could run the ping command at the OS level and then parse the results? This is probably your best bet. 
+
+  $result = exec("ping -c 2 google.com");
+  
+
+ If a host is blocking a ping request, you could do a more general portscan to look for other open ports (but this is pretty rude, don't do it to hosts who haven't given you specific permission). http://nmap.org/ is a good tool for doing this. It uses quite a few tricks to figure out if a host is up and what services may or may not be running. Be careful though, as some shared hosting providers will terminate your account for "hacking activity" if you install and use Nmap, especially against hosts you do not control or have permission to probe. 
+
+ Beyond that, if you are on the same unswitched ethernet layer as another host (if you happen to be on the same open WiFi network, for example), an ethernet adaptor in promiscuous mode can sniff traffic to and from a host even if it does not respond directly to you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15346772)
+ what you need is http://www.php.net/manual/en/function.preg-grep.php. Give this a try: 
+
+  function pingAddress($TEST) {
+    $pingresult = exec("ping -n 1 $TEST  && exit", $output, $result);
+    //echo $result. " ";
+
+    if (($result == 0)){
+        if(count(preg_grep('/Destination host unreachable/i', $output)) == 0){
+            echo "Ping successful!  ";
+        else
+            echo "Ping unsuccessful!  ";
+    }
+    elseif ($result == 1){
+        echo "Ping unsuccessful!  ";
+    }    
+  
+
+ } 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4686374)
+ You could use cURL 
+
+  $url = 'yoururl';
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_NOBODY, true);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_exec($ch);
+$retcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+if (200==$retcode) {
+    // All's well
+} else {
+    // not so much
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1696215)
+ You could send a ping to a host that is probably up (e.g. Google). 
+
+ There seems to be no PHP built-in for this, so you'd have to resort to shell commands. The return value of  ping  on *nix can tell you whether a reply was received. 
+
+  Update :  ping -c1 -q -w1  should be the right command on Linux. This will give you exit code 0 if a reply was received, something else otherwise, and it times out after one second. 
+
+ Hence, something like this (warning, my PHP is rusty) should do the trick: 
+
+  function is_online() {
+    $retval = 0;
+    system("ping -c1 -q -w1", $retval);
+    return $retval == 0;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14973933)
+ If any ping fails (in a set) it will not have  0%  in the output (i.e.  0%  packet loss), which is the same for Linux and Windows: 
+
+  function ping($host, $times = 3)
+{
+  exec("/bin/ping -c 3 $host", $out, $status);
+
+  return $status === 0 && false !== strpos(join('', $out), '0%');
+}
+
+if (ping('www.google.com)) {
+  echo "yay\n";
+} else {
+  echo "oh dear\n";
+}
+  
+
+ You may have to adjust the  ping  arguments to fit your environment and make sure that the host name is sanitized. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22831703)
+ It looks like your host is not able to resolve smtp.gmail.com. 
+
+ Try to ping it: 
+
+  ping smtp.gmail.com
+  
+
+  
+
+   php -r 'var_dump(gethostbyname("smtp.gmail.com"));'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14006434)
+ You can always use Net_Ping to ping from php
+http://pear.php.net/package/Net_Ping/redirected 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8503890)
+ Your "localhost" cannot resolve the name www.google.com, which means your machine doesn't/can't reach a valid dns server. 
+
+ Try ping google.com on the console of that machine to verify this.  
+
+
+

@@ -1,0 +1,222 @@
+Query: Python - Bulk Select then Insert from one DB to another
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8216043)
+ You can http://www.sqlite.org/lang_attach.html two databases to the same connection with code like this: 
+
+  import sqlite3
+connection = sqlite3.connect('/path/to/temp.sqlite')
+cursor=connection.cursor()
+cursor.execute('ATTACH "/path/to/main.sqlite" AS master')
+  
+
+ There is no ON DUPLICATE KEY syntax in sqlite as there is in MySQL. https://stackoverflow.com/questions/2717590/sqlite-upsert-on-duplicate-key-update contains alternatives. 
+
+ So to do the bulk insert in one sql statement, you could use something like 
+
+  cursor.execute('INSERT OR REPLACE INTO master.table1 SELECT * FROM table1')
+  
+
+ See http://www.sqlite.org/lang_conflict.html and other ON CONFLICT options. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49395529)
+ You can look at executemany from pyodbc or sqlite. If you can build a list of parameters from your select, you can pass the list to executemany.  
+
+ Depending on the number of records you plan to insert, performance can be a problem as referenced in this open issue. https://github.com/mkleehammer/pyodbc/issues/120 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36225905)
+ You can use http://www.postgresql.org/docs/current/static/queries-with.html in PostgreSQL 
+
+  WITH moved_posts AS (
+    DELETE FROM post
+    WHERE expiry > time_stamp
+    RETURNING *
+)
+INSERT INTO old_post
+SELECT * from moved_posts
+  
+
+ CTE support for DELETE will be added in SQLAlchemy 1.1. In current release you can execute raw SQL 
+
+  from sqlalchemy import text
+
+sql = text('''
+WITH moved_posts AS (
+    DELETE FROM post
+    WHERE expiry > ?
+    RETURNING *
+)
+INSERT INTO old_post
+SELECT * from moved_posts
+''')
+db.session.execute(sql, [time_stamp])
+db.session.commit()
+  
+
+ In SQLAlchemy 1.1 it would look like this 
+
+  posts = Post.__table__
+old_posts = OldPost.__table__
+moved_posts = (
+    posts.delete()
+    .where(posts.c.expiry > ts)
+    .returning(*(posts.c._all_columns))
+    .cte('moved_posts'))
+insert = (
+    old_posts.insert()
+    .from_select(
+        [c.name for c in moved_posts.columns],
+        moved_posts.select()
+    ))
+db.session.execute(insert)
+db.session.commit()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/37008956)
+ The best way to handle this is to use the pyodbc function  executemany . 
+
+  ds1Cursor.execute(selectSql)
+result = ds1Cursor.fetchall()
+
+
+ds2Cursor.executemany('INSERT INTO [TableName] (Col1, Col2, Col3) VALUES (?, ?, ?)', result)
+ds2Cursor.commit()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36225970)
+ Query for old  Posts .  Bulk insert  OldPosts  with the old  Posts'  data.  Bulk delete the old  Posts . 
+
+  keys = db.inspect(Post).columns.keys()
+get_columns = lambda post: {key: getattr(post, key) for key in keys}
+
+posts = Post.query.filter(Post.expiry > ts)
+db.session.bulk_insert_mappings(OldPost, (get_columns(post) for post in posts))
+posts.delete()
+db.session.commit()
+  
+
+ The  get_columns  function takes a  Post  instance and creates a dictionary out of the column keys and values.  Read the docs and warnings about using bulk http://docs.sqlalchemy.org/en/latest/orm/session_api.html#sqlalchemy.orm.session.Session.bulk_insert_mappings and http://docs.sqlalchemy.org/en/latest/orm/query.html#sqlalchemy.orm.query.Query.delete operations. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45332828)
+ Here's a function that can do the bulk insert into SQL Server database. 
+
+  import pyodbc
+import contextlib
+
+def bulk_insert(table_name, file_path):
+    string = "BULK INSERT {} FROM '{}' (WITH FORMAT = 'CSV');"
+    with contextlib.closing(pyodbc.connect("MYCONN")) as conn:
+        with contextlib.closing(conn.cursor()) as cursor:
+            cursor.execute(string.format(table_name, file_path))
+        conn.commit()
+        conn.close()
+  
+
+ This definitely works. 
+
+ UPDATE: I've noticed at the comments, as well as coding regularly, that pyodbc is better supported than pypyodbc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43632261)
+ I usually do it using http://docs.sqlalchemy.org/en/latest/orm/session_api.html#sqlalchemy.orm.session.Session.add_all. 
+
+  from app import session
+from models import User
+
+objects = [User(name="u1"), User(name="u2"), User(name="u3")]
+session.add_all(objects)
+session.commit()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14090031)
+ You can't do INSERT .. SELECT with django ORM, but you can do a bulk insert (since django 1.4): 
+
+  m = Message.objects.create(*args)
+recipients = []
+for email in ModelWithEmails.active.values_list('email', flat=True):
+    recipients.append(Recipient(message=m, email=email))
+
+Recipient.objects.bulk_create(recipients)
+  
+
+ &nbsp;
+Or a tiny bit more efficient: 
+
+  m = Message.objects.create(*args)
+emails = ModelWithEmails.active.values_list('email', flat=True)
+Recipient.objects.bulk_create([Recipient(message=m, email=email) for email in emails])
+  
+
+ &nbsp; 
+
+ For INSERT .. SELECT you'll have to fall back to raw SQL. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31205155)
+ SQLAlchemy introduced that in version  1.0.0 : 
+
+ https://docs.sqlalchemy.org/en/latest/orm/persistence_techniques.html#bulk-operations 
+
+ With these operations, you can now do bulk inserts or updates! 
+
+  
+
+  s = Session()
+objects = [
+    User(name="u1"),
+    User(name="u2"),
+    User(name="u3")
+]
+s.bulk_save_objects(objects)
+s.commit()
+  
+
+ Here, a bulk insert will be made. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47646025)
+  Collection.bulk_write  accepts as argument an iterable of query operations.  
+
+  pymongo  has  pymongo.operations.InsertOne  operation not <s>InsertMany</s>. 
+
+ For your situation, you can build a list of  InsertOne  operations for each document in the source collection. Then do a bulk_write on the destination using the built-up list of operations. 
+
+  from pymongo import InsertOne
+...
+cursor_excess_new = (
+    db.test_collection_new
+      .find()
+      .sort([("_id", 1)])
+      .limit(excess_num)
+)
+
+queries = [InsertOne(doc) for doc in cursor_excess_new]
+db.test_collection_old.bulk_write(queries)
+  
+
+
+

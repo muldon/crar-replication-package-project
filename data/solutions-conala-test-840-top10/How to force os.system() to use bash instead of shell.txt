@@ -1,0 +1,214 @@
+Query: How to force os.system() to use bash instead of shell
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32769039)
+ The solution below still initially invokes a shell, but it switches to bash for the command you are trying to execute: 
+
+  os.system('/bin/bash -c "echo hello world"')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34671331)
+ I use this: 
+
+  subprocess.call(["bash","-c",cmd])
+  
+
+ //OK, ignore this because I have not notice subprocess not considered. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/21822142)
+ Both commands are executed in different subshells. 
+
+ Setting variables in the first  system  call does not affect the second  system  call.  
+
+ You need to put two command in one string (combining them with  ; ). 
+
+  >>> import os
+>>> os.system('GREPDB="echo 123"; /bin/bash -c "$GREPDB"')
+123
+0
+  
+
+  NOTE  You need to use  "$GREPDB"  instead of  '$GREPDBS' . Otherwise it is interpreted literally instead of being expanded. 
+
+ If you can use  subprocess : 
+
+  >>> import subprocess
+>>> subprocess.call('/bin/bash -c "$GREPDB"', shell=True,
+...                 env={'GREPDB': 'echo 123'})
+123
+0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46878360)
+ Your default  login  shell is  bash .  subprocess.Popen , though, uses the system default shell  /bin/sh , which does not recognize the  &>  operator. If you want to force it to use  bash , use the  executable  option: 
+
+  a = subprocess.Popen("sleep 5 &> a.txt", shell=True, executable="/bin/bash")
+  
+
+ Alternatively, you can handle the redirection yourself in Python: 
+
+  with open("a.txt", "w") as fh:
+    a = subprocess.Popen(["sleep", "5"], stdout=fh, stderr=fh)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3258304)
+ What made you think os.system would use csh? It uses standard C function system, that on Unix system will call just basic /bin/sh. This will not be csh, but most probably bash, or some simpler version of it. 
+
+ BTW: note that what you do with shell environment in os.system will not affect subsequent calls to os.system, because each is run in different subshell. In other words, changes made to the environment are lost. And your call to alias fails, because /bin/sh uses different syntax for aliases than csh. 
+
+ You could workaround this by running not  foo , but something along the lines: 
+
+  os.system("/bin/csh -i -c 'foo arg1 arg2'")
+  
+
+ Note the option  -i  which is supposed to force csh to read startup scripts. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7513199)
+ From Python, run bash with  os.system ,  os.popen  or  subprocess  and pass the appropriate command-line arguments. 
+
+  os.system(r'C:\cygwin\bin\bash --login -c "some bash commands"')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36825757)
+ When you use  os.system , the shell used is  /bin/sh . On many operating systems,  /bin/sh  is not  bash . The redirection you are using,  &> , is not defined by POSIX and will not work on some shells such as  dash , which is  /bin/sh  on Debian and many of its derivatives. The following should correctly suppress the output: 
+
+  os.system('sudo ifdown wlan0 > /dev/null 2>&1')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28572898)
+ There are four strong cases for preferring Python's more-specific methods in the https://docs.python.org/2/library/os.html module over using https://docs.python.org/2/library/os.html#os.system or the https://docs.python.org/2/library/subprocess.html module when executing a command: 
+
+ 
+  Redundancy  - spawning another process is redundant and wastes time and resources. 
+  Portability  - Many of the methods in the  os  module are available in multiple platforms while many shell commands are os-specific. 
+  Understanding the results  - Spawning a process to execute arbitrary commands forces you to parse the results from the output and understand  if  and  why  a command has done something wrong. 
+  Safety  - A process can potentially execute any command it's given. This is a weak design and it can be avoided by using specific methods in the  os  module. 
+ 
+
+ Redundancy (see http://en.wikipedia.org/wiki/Redundant_code): 
+
+ You're actually executing a redundant "middle-man" on your way to the eventual system calls ( chmod  in your example). This middle man is a new process or sub-shell. 
+
+ From https://docs.python.org/2/library/os.html#os.system: 
+
+ 
+   Execute the command (a string) in a subshell ... 
+ 
+
+ And https://docs.python.org/2/library/subprocess.html is just a module to spawn new processes. 
+
+ You can do what you need without spawning these processes. 
+
+ Portability (see http://en.wikipedia.org/wiki/Software_portability#Source_code_portability): 
+
+ The https://docs.python.org/2/library/os.html module's aim is to provide generic operating-system services and it's description starts with: 
+
+ 
+   This module provides a portable way of using operating system dependent functionality. 
+ 
+
+ You can use https://docs.python.org/2/library/os.html#os.listdir on both windows and unix. Trying to use  os.system  /  subprocess  for this functionality will force you to maintain two calls (for  ls  /  dir ) and check what operating system you're on. This is not as portable and  will  cause even more frustration later on (see  Handling Output ). 
+
+ Understanding the command's results: 
+
+ Suppose you want to list the files in a directory. 
+
+ If you're using  os.system("ls")  /  subprocess.call(['ls']) , you can only get the process's output back, which is basically a big string with the file names. 
+
+ How can you tell a file with a space in it's name from two files? 
+
+ What if you have no permission to list the files? 
+
+ How should you map the data to python objects? 
+
+ These are only off the top of my head, and while there are solutions to these problems - why solve again a problem that was solved for you? 
+
+ This is an example of following the http://en.wikipedia.org/wiki/Don&#39;t_repeat_yourself principle (Often reffered to as "DRY") by  not  repeating an implementation that already exists and is freely available for you. 
+
+ Safety: 
+
+<p and  subprocess  are powerful. It's good when you need this power, but it's dangerous when you don't. When you use  os.listdir , you  know  it can not do anything else other then list files or raise an error. When you use  os.system  or  subprocess  to achieve the same behaviour you can potentially end up doing something you did not mean to do. 
+
+  Injection Safety (see http://en.wikipedia.org/wiki/Code_injection#Shell_injection) : 
+
+ If you use input from the user as a new command you've basically given him a shell. This is much like SQL injection providing a shell in the DB for the user. 
+
+ An example would be a command of the form: 
+
+  # ... read some user input
+os.system(user_input + " some continutation")
+  
+
+ This can be easily exploited to run  any  arbitrary code using the input:  NASTY COMMAND;#  to create the eventual: 
+
+  os.system("NASTY COMMAND; # some continuation")
+  
+
+ There are many such commands that can put your system at risk. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37635450)
+ From the  man time  documentation: 
+
+ 
+   After the utility finishes, time writes the total time elapsed, the time consumed by system overhead, and the time used to execute utility  to the standard error stream.  
+ 
+
+ . You are capturing the  stdout  stream, not the  stderr  stream, so whatever output you  see  must be the result of something else mangling your Python stderr stream. 
+
+ Capture  stderr : 
+
+  proc = subprocess.Popen("time ./<binary>", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+stdout, stderr = proc.communicate()
+  
+
+ The  stderr  variable then holds the  time  command output. 
+
+ If this continues to produce the same output, your  /bin/bash  implementation has a built-in  time  command that overrides the  /usr/bin/time  version (which probably outputs everything on one line). You can force the use of the bash builtin by telling Python to run with that: 
+
+  proc = subprocess.Popen("time ./<binary>", shell=True, executable='/bin/bash',
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+stdout, stderr = proc.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26168632)
+ The  export  line will set an environment variable for the shell in which it's executed and all its sub-shells. But what's happening here is that Python creates a new shell, executes the line to set the environment variable, and then the shell terminates. That means the environment variable is no longer in force. In fact, the  JAVA_HOME  environment variable you set in the first line isn't even in force for the second line when that gets executed, because that's in its own shell that also terminates immediately! 
+
+ The way round it is to run a whole shell script that sets the environment variable and then launches Java: 
+
+  #!/bin/bash
+
+JAVA_HOME=/usr/java/path
+PATH=$JAVA_HOME/bin:$PATH
+
+java ...
+  
+
+
+

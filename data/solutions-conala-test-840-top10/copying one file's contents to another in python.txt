@@ -1,0 +1,235 @@
+Query: copying one file's contents to another in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/36875517)
+ While this may not completely answer your question, but for plain copying without any other processing of file contents, you should consider other means, e.g. the https://docs.python.org/2/library/shutil.html module: 
+
+  shutil.copy('file.txt', 'file2.txt')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36875837)
+ The only potential problem with your  output.write(input.read())  version is if the size of the file is too large to hold all of it in memory. You can use a loop that reads smaller batches. 
+
+  with open('file2.txt', 'wb+') as output, open('file.txt', 'rb') as input:
+    while True:
+        data = input.read(100000)
+        if data == '':  # end of file reached
+            break
+        output.write(data)
+  
+
+ This will work for both text and binary files. But you need to add the  b  modifier to the modes for portable operation on binary files. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44723001)
+ Please note that the  shutil  module also contains https://docs.python.org/3/library/shutil.html#shutil.copyfileobj, basically implemented like Barmar's answer. 
+
+ Or, to answer your question: 
+
+  from shutil import copyfileobj
+
+with open('file2.txt', 'w+') as output, open('file.txt', 'r') as input:
+    copyfileobj(input, output)
+  
+
+ would be my suggestion. It avoids re-implementing the buffering mechanism and, should the implementation of the standard library improve, your code wins as well. 
+
+ 
+
+ On Unix, there also is a syscall for copying data from one file descriptor to another. It is called http://man7.org/linux/man-pages/man2/sendfile.2.html and used mostly for sending data from an open file to a socket (serving HTTP requests, etc.). 
+
+ You could use it for copying data between regular files as well though.
+By using a syscall the kernel copies the content without the need of copying buffers to and from userland. 
+
+ There is a python package, https://github.com/giampaolo/pysendfile, implementing it. You could use it like: 
+
+  from sendfile import sendfile
+import os.path
+
+with open('file2.txt', 'w+') as output, open('file.txt', 'r') as input:
+    offset = 0
+    input_size = os.path.getsize('file.txt')
+    sendfile(output.fileno(), input.fileno(), offset, input_size)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50989563)
+ You forgot to return to the beginning of  outFile  after writing to it.
+So inserting  outFile.seek(0)  should fix your issues. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/16627478)
+ You should use http://docs.python.org/2/library/shutil.html#shutil.copyfile or http://docs.python.org/2/library/shutil.html#shutil.copyfileobj instead, which does this efficiently and correctly using a buffer. 
+
+ Not that it is particularly hard,  shutil.copyfileobj()  is implemented as: 
+
+  def copyfileobj(fsrc, fdst, length=16*1024):
+    """copy data from file-like object fsrc to file-like object fdst"""
+    while 1:
+        buf = fsrc.read(length)
+        if not buf:
+            break
+        fdst.write(buf)
+  
+
+ This makes sure that your memory isn't filled up by a big file, by reading the file in chunks instead.   .read()  is not guaranteed to return all of the data of the file, you could end up not copying all of the data if you don't loop until  .read()  returns an empty string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28766502)
+ As of Python 2.6, you can use https://docs.python.org/2/library/zipfile.html#zipfile.ZipFile.open to open a file handle on a file, and copy contents efficiently to a target file of your choosing: 
+
+  import errno
+import os
+import shutil
+import zipfile
+
+TARGETDIR = '/foo/bar/baz'
+
+with open(doc, "rb") as zipsrc:
+    zfile = zipfile.ZipFile(zipsrc)
+    for member in zfile.infolist():
+       target_path = os.path.join(TARGETDIR, member.filename)
+       if target_path.endswith('/'):  # folder entry, create
+           try:
+               os.makedirs(target_path)
+           except (OSError, IOError) as err:
+               # Windows may complain if the folders already exist
+               if err.errno != errno.EEXIST:
+                   raise
+           continue
+       with open(target_path, 'wb') as outfile, zfile.open(member) as infile:
+           shutil.copyfileobj(infile, outfile)
+  
+
+ This uses https://docs.python.org/2/library/shutil.html#shutil.copyfileobj to efficiently read data from the open zipfile object, copying it over to the output file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28001172)
+ In most current implementations of Python, in practice, files are closed as soon as the file object is dereferenced, because garbage collection is mostly by reference count. 
+
+ However, the Python  language  does not guarantee that: you're relying on an implementation detail. 
+
+ Thus, the one-liner will break in current or future Python implementations that use more advanced garbage collection techniques (e.g delegating GC to an underlying JVM or .. 
+
+  with   does  guarantee closure as soon as the block exits -- in any correct implementation of the language.  . 
+
+ Furthermore, suppose the file named by  argv[2]  exists, but the one named by  arg[1]  doesn't.  In the one-liner: 
+
+  (open(argv[2], 'w')).write(open(argv[1]).read())
+  
+
+ you  first  open the to-be-written file (thus wiping out its contents) -- with redundant parentheses BTW, but they're innocuous:.   Then  in you try to open the to-be-read file, get an exception, and fail -- but the first file you opened is irretrievably wiped out anyway (i.e, left empty on disk).  This is unlikely to be the desired behavior in this case. 
+
+ In the  with  variant, you  first  try to open the file to be read -- if that fails, you never wipe out the file to be written.  That feels like more robust behavior to me, too -- and this applies to any version of Python, past, present, or future:. 
+
+ And, one more thing: I wonder if the specs assert that the file contents fit in memory.  If they don't, trying to read the file in one gulp will fail with a memory error -- rather, you'd want a loop reading and writing some large but bounded  BUFFER_SIZE  bytes at a time.  Which underscores that for copying purposes it's better to open the files in binary, rather than text mode (text mode is the default so it's used in your code, as you don't specify otherwise).  In this vein, more robust is: 
+
+  with open(argv[1], 'rb') as source:
+    with open(argv[2], 'wb') as dest:
+        while True:
+            buf = source.read(BUFFER_SIZE)
+            if not buf: breal
+            dest.write(buf)
+  
+
+ Funny how many little details can go wrong with just copying a file, hm?  Which is why the key to Python bliss is learning Python's large  standard library , full of modules carefully coded to take care of all the various corner cases that can arise even in the simplest task. 
+
+ And the real answer to the question (the one I'd give an A+ were I interviewing a job candidate claiming mastery of Python) is (drum roll...): 
+
+  import shutil
+
+shutil.copy2(argv[1], argv[2])
+  
+
+   See the docs at https://docs.python.org/2/library/shutil.html#shutil.copy2 (and just above at the  copy  and  copystat  functions in the same module): this safely and securely copies "permission bits, last access time, last modification time,  and  flags"... there's more to file copying that strikes the eye, and  shutil  takes care of it all on your behalf. 
+
+ Learning the Python standard library is at least as important as learning the language itself 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4847660)
+  
+
+  def copy(src, dst):
+    if os.path.islink(src):
+        linkto = os.readlink(src)
+        os.symlink(linkto, dst)
+    else:
+        shutil.copy(src,dst)
+  
+
+ http://docs.python.org/library/shutil.html#shutil.copytree does something similar, but as senderle noted, it's picky about copying only directories, not single files. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37646622)
+ You can use https://docs.python.org/2/library/os.html#os.stat as mentioned https://docs.python.org/3/library/os.html#os.stat. 
+See https://github.com/prateek27/Python-Scripts/blob/master/copy_data.py for a great example on usage. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/53153102)
+  
+
+  import os
+import time
+def main( event, path ):  
+ if os.path.exists(path):
+   while True:
+    try:
+        new_path= path + "_"
+        os.rename(path,new_path)
+        os.rename(new_path,path)
+        time.sleep(0.05)
+        print("event type: %s path: %s " %(event.event_type, path))
+        break
+    except OSError:
+        time.sleep(0.05)
+  
+
+ I utilized the fact that no two processes can simulatenously utilize a file for IO operations. In windows, when a file is copying, it is kept open by an OS process. Once copying is done, the file is closed by the OS process, and the os module in python can finally rename the file successfully 
+
+ @Anmol- Not a duplicate. The issue with this code , in windows, is that the os reserves a binary file and writes over it while copying, and hence the size displayed by os.stat won't incrementally increase. We would want a piece of code that notifies us whenever image copying has completed. This particular code is a polling code which works well on linux, and notifies us when the copying process is done (in linux, the size increases incrementally with time) 
+
+  import os
+import time
+def main( event,path ):    
+  historicalSize = -1  
+  while (historicalSize != os.path.getsize(path)):
+    historicalSize = os.stat(path).st_size  
+    print("Size now %s" %historicalSize)
+    time.sleep(1)      
+  else: print( "event type: %s path: %s " %(event.event_type, path)) 
+  
+
+ Output should be like 
+
+  Size now 124
+Size now 12345
+Size now 238590
+.....
+  
+
+  
+
+  Size now 23459066950
+  
+
+
+

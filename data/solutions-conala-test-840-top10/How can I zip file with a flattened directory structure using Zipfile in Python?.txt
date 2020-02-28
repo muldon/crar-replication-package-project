@@ -1,0 +1,356 @@
+Query: How can I zip file with a flattened directory structure using Zipfile in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12777267)
+ First add 
+
+  import os
+  
+
+ then modify the  archive.write  line to be: 
+
+  archive.write(pdffile, os.path.basename(pdffile))
+  
+
+ This specifies that each pdf should be written into the zip file with a path equivalent to only the filename portion of the path from which you are reading it (by specifying the http://docs.python.org/library/zipfile.html#zipfile.ZipFile.write). 
+
+ Note, however, that this means that if you have two PDF files with the same name in different directories, one will overwrite the other. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32904890)
+ I have another code example that may help, using python3, pathlib and zipfile.
+It should work in any OS. 
+
+  from pathlib import Path
+import zipfile
+from datetime import datetime
+
+DATE_FORMAT = '%y%m%d'
+
+
+def date_str():
+    """returns the today string year, month, day"""
+    return '{}'.format(datetime.now().strftime(DATE_FORMAT))
+
+
+def zip_name(path):
+    """returns the zip filename as string"""
+    cur_dir = Path(path).resolve()
+    parent_dir = cur_dir.parents[0]
+    zip_filename = '{}/{}_{}.zip'.format(parent_dir, cur_dir.name, date_str())
+    p_zip = Path(zip_filename)
+    n = 1
+    while p_zip.exists():
+        zip_filename = ('{}/{}_{}_{}.zip'.format(parent_dir, cur_dir.name,
+                                             date_str(), n))
+        p_zip = Path(zip_filename)
+        n += 1
+    return zip_filename
+
+
+def all_files(path):
+    """iterator returns all files and folders from path as absolute path string
+    """
+    for child in Path(path).iterdir():
+        yield str(child)
+        if child.is_dir():
+            for grand_child in all_files(str(child)):
+                yield str(Path(grand_child))
+
+
+def zip_dir(path):
+    """generate a zip"""
+    zip_filename = zip_name(path)
+    zip_file = zipfile.ZipFile(zip_filename, 'w')
+    print('create:', zip_filename)
+    for file in all_files(path):
+        print('adding... ', file)
+        zip_file.write(file)
+    zip_file.close()
+
+
+if __name__ == '__main__':
+    zip_dir('.')
+    print('end!')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35690896)
+ You've stated that you need to support "tar, bz2, zip or tar.gz".  Python's  tarfile  module will automatically handle gz and bz2 compressed tar files, so there is really only 2 types of archive that you need to support: tar and zip. (bz2 by itself is not an archive format, it's just compression). 
+
+ You can determine whether a given file is a tar file with  tarfile.is_tarfile() . This will also work on tar files compressed with gzip or bzip2 compression. Within a tar file you can determine whether a file is a directory using  TarInfo.isdir()  or a file with  TarInfo.isfile() . 
+
+ Similarly you can determine whether a file is a zip file using  zipfile.is_zipfile() . With  zipfile  there is no method to distinguish directories from normal file, but files that end with  /  are directories.  
+
+ So, given a file name, you can do this: 
+
+  import zipfile
+import tarfile
+
+filename = 'test.tgz'
+
+if tarfile.is_tarfile(filename):
+    f = tarfile.open(filename)
+    for info in f:
+        if info.isdir():
+            file_type = 'directory'
+        elif info.isfile():
+            file_type = 'file'
+        else:
+            file_type = 'unknown'
+        print('{} is a {}'.format(info.name, file_type))
+
+elif zipfile.is_zipfile(filename):
+    f = zipfile.ZipFile(filename)
+    for name in f.namelist():
+         print('{} is a {}'.format(name, 'directory' if name.endswith('/') else 'file'))
+
+else:
+    print('{} is not an accepted archive file'.format(filename))
+  
+
+ When run on a tar file with this structure: 
+
+ 
+(py2)[mhawke@localhost tmp]$ tar tvfz /tmp/test.tgz
+drwxrwxr-x mhawke/mhawke     0 2016-02-29 12:38 x/
+lrwxrwxrwx mhawke/mhawke     0 2016-02-29 12:38 x/4 -> 3
+drwxrwxr-x mhawke/mhawke     0 2016-02-28 21:14 x/3/
+drwxrwxr-x mhawke/mhawke     0 2016-02-28 21:14 x/3/4/
+-rw-rw-r-- mhawke/mhawke     0 2016-02-28 21:14 x/3/4/zzz
+drwxrwxr-x mhawke/mhawke     0 2016-02-28 21:13 x/2/
+-rw-rw-r-- mhawke/mhawke     0 2016-02-28 21:13 x/2/aa
+drwxrwxr-x mhawke/mhawke     0 2016-02-28 21:13 x/1/
+-rw-rw-r-- mhawke/mhawke     0 2016-02-28 21:13 x/1/abc
+-rw-rw-r-- mhawke/mhawke     0 2016-02-28 21:13 x/1/ab
+-rw-rw-r-- mhawke/mhawke     0 2016-02-28 21:13 x/1/a
+ 
+
+ The output is: 
+
+ 
+x is a directory
+x/4 is a unknown
+x/3 is a directory
+x/3/4 is a directory
+x/3/4/zzz is a file
+x/2 is a directory
+x/2/aa is a file
+x/1 is a directory
+x/1/abc is a file
+x/1/ab is a file
+x/1/a is a file
+ 
+
+ Notice that  x/4  is "unknown" because it is a symbolic link. 
+
+ There is no easy way, with  zipfile , to distinguish a symlink (or other file types) from a directory or normal file. The information is there in the  ZipInfo.external_attr  attribute, but it's messy to get it back out: 
+
+  import stat
+
+linked_file = f.filelist[1]
+is_symlink = stat.S_ISLNK(linked_file.external_attr >> 16L)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47632134)
+ It is possible to iterate over the  ZipFile.infolist() . On the returned  ZipInfo  objects you can then manipulate the  filename  to remove the directory part and finally extract it to a specified directory. 
+
+  import glob
+import zipfile
+import shutil
+import os
+
+my_dir = "D:\\Download\\"
+my_zip = "D:\\Download\\my_file.zip"
+
+with zipfile.ZipFile(my_zip) as zip:
+    for zip_info in zip.infolist():
+        if zip_info.filename[-1] == '/':
+            continue
+        zip_info.filename = os.path.basename(zip_info.filename)
+        zip.extract(zip_info, my_dir)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32640292)
+ Using the terms in the documentation, you have specified a  root_dir , but not a  base_dir . Try specifying the  base_dir  like so:  
+
+  shutil.make_archive('/home/code/test_dicoms',
+                    'zip',
+                    '/home/code/',
+                    'test_dicoms')
+  
+
+ To answer your second question, it depends upon the version of Python you are using. Starting from Python 3.4, ZIP64 extensions will be availble by default. Prior to Python 3.4,  make_archive  will not automatically create a file with ZIP64 extensions. If you are using an older version of Python and want ZIP64, you can invoke the underlying  zipfile.ZipFile()  directly. 
+
+ If you choose to use  zipfile.ZipFile()  directly, bypassing  shutil.make_archive() , here is an example: 
+
+  import zipfile
+import os
+
+d = '/home/code/test_dicoms'
+
+os.chdir(os.path.dirname(d))
+with zipfile.ZipFile(d + '.zip',
+                     "w",
+                     zipfile.ZIP_DEFLATED,
+                     allowZip64=True) as zf:
+    for root, _, filenames in os.walk(os.path.basename(d)):
+        for name in filenames:
+            name = os.path.join(root, name)
+            name = os.path.normpath(name)
+            zf.write(name, name)
+  
+
+ Reference:  
+
+ 
+ https://docs.python.org/2/library/shutil.html#shutil.make_archive 
+ https://docs.python.org/2/library/zipfile.html#zipfile-objects 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/27992144)
+ The  zipfile.write()  method takes an optional  arcname  argument that specifies what the name of the file should be inside the zipfile 
+
+ I think you need to do a modification for the destination, otherwise it will duplicate the directory. Use : arcname  to avoid it.  
+
+  import os
+import zipfile
+
+def zip(src, dst):
+    zf = zipfile.ZipFile("%s.zip" % (dst), "w", zipfile.ZIP_DEFLATED)
+    abs_src = os.path.abspath(src)
+    for dirname, subdirs, files in os.walk(src):
+        for filename in files:
+            absname = os.path.abspath(os.path.join(dirname, filename))
+            arcname = absname[len(abs_src) + 1:]
+            print 'zipping %s as %s' % (os.path.join(dirname, filename),
+                                        arcname)
+            zf.write(absname, arcname)
+    zf.close()
+
+zip("src", "dst")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37666607)
+  ZipFile.write  has https://docs.python.org/2/library/zipfile.html#zipfile.ZipFile.write
+which does exactly what you want. 
+
+  import zipfile,os
+
+project='C:/Users/user1/Documents/work/filesToZip'
+
+# prevent adding zip to itself if the old zip is left in the directory
+zip_path = os.path.join(project,'jobs.zip')
+if os.path.exists(zip_path):
+    os.unlink(zip_path);
+
+dirlist = os.listdir(project)
+
+zip_file = zipfile.ZipFile(zip_path, 'w')
+for file_name in dirlist:
+    zip_file.write(os.path.join(project, file_name), file_name)
+zip_file.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27992286)
+ Check out the documentation for  Zipfile.write . 
+
+ 
+   ZipFile.write(filename[, arcname[, compress_type]]) Write the file
+  named filename to the archive, giving it the archive name arcname (by
+  default, this will be the same as filename, but without a drive letter
+  and with leading path separators removed) 
+ 
+
+ https://docs.python.org/2/library/zipfile.html#zipfile.ZipFile.write 
+
+ Try the following: 
+
+  import zipfile
+import os
+filename = 'foo.txt'
+
+# Using os.path.join is better than using '/' it is OS agnostic
+path = os.path.join(os.path.sep, 'tmp', 'bar', 'baz', filename)
+zip_filename = os.path.splitext(filename)[0] + '.zip'
+zip_path = os.path.join(os.path.dirname(path), zip_filename)
+
+# If you need exception handling wrap this in a try/except block
+with zipfile.ZipFile(zip_path, 'w') as zf:
+    zf.write(path, zip_filename)
+  
+
+ The bottom line is that if you do not supply an archive name then the filename is used as the archive name and it will contain the full path to the file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14863566)
+ ZipFile needs a file-like object, so you can use StringIO to turn the data you read from the nested zip into such an object. The caveat is that you'll be loading the full (still compressed) inner zip into memory. 
+
+  with zipfile.ZipFile('foo.zip') as z:
+    with z.open('nested.zip') as z2:
+        z2_filedata = cStringIO.StringIO(z2.read())
+        with zipfile.ZipFile(z2_filedata) as nested_zip:
+            print nested_zip.open('data.txt').read()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14696259)
+ You can read the contents of the zip file with the  namelist()  method. Directories will have a trailing path separator: 
+
+  >>> import zipfile
+>>> zip = zipfile.ZipFile('test.zip')
+>>> zip.namelist()
+['dir2/', 'file1']
+  
+
+ You can do this before  or  after extracting contents. 
+
+ <strike>Depending on your operating environment, the result of  namelist()  may be limited to the top-level paths of the zip archive (e.g. Python on Linux) or may cover the full contents of the archive (e.g. IronPython on Windows).</strike> 
+
+ The  namelist()  returns a complete listing of the zip archive contents, with directories marked with a trailing path separator. For instance, a zip archive of the following file structure: 
+
+<pre class="lang-none prettyprint-override"> ./file1
+./dir2
+./dir2/dir21
+./dir3
+./dir3/file3
+./dir3/dir31
+./dir3/dir31/file31
+  
+
+ results in the following list being returned by  zipfile.ZipFile.namelist() : 
+
+  [ 'file1', 
+  'dir2/', 
+  'dir2/dir21/', 
+  'dir3/', 
+  'dir3/file3', 
+  'dir3/dir31/', 
+  'dir3/dir31/file31' ]
+  
+
+
+

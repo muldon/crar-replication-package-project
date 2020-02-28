@@ -1,0 +1,251 @@
+Query: python: dictionary to string, custom format?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41231617)
+ Using custom placeholder tokens with python  string.format()  
+
+ Context 
+
+ 
+ python 2.7 
+  string.format()  
+ alternative approach that allows custom placeholder syntax 
+ 
+
+ Problem 
+
+ We want to use custom placeholder delimiters with python str.format() 
+
+ 
+  string.format()  is powerful, but no native support for placeholder delimiter modification. 
+  string.format()  uses curly-brace which is very common and and causes https://en.wikipedia.org/wiki/Delimiter#Delimiter_collision 
+  string.format()  default workaround is to double-up the delimiters, which can be cumbersome. 
+ 
+
+ Solution 
+
+ We write a custom class that extends native python  str.format()  
+
+ 
+ extend native python  string.Formatter  with custom class 
+ configure  string.format()  to support arbitrary delimiter placeholder syntax 
+ permit other enhancements such as custom formatters and filters 
+ 
+
+ Example001: Demo use of a custom  ReFormat  class 
+
+ 
+ we wrote a custom  ReFormat  class that extends python  str.format()  
+ 
+
+<pre class="lang-python prettyprint-override"> # import custom class
+import ReFormat
+
+# prepare source data
+odata = { "fname" : "Planet",
+          "lname" : "Earth",
+          "age"   : "4b years",
+         }
+
+# format output using .render() 
+# method of custom ReFormat class
+#
+vout = ReFormat.String("Hello <%fname%> <%lname%>!".render()
+print(vout)
+  
+
+ Pitfalls 
+
+ 
+ requires extension class to  str.format()  
+ not intended as a substitute for full-blown sandbox-compatible templating solution 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35574442)
+ I don't think it is possible to use alternative delimiters. You need to use double-curly braces  {{   }}  for curly braces that you don't want to be replaced by  format() : 
+
+  inp = """
+DATABASE = {{
+    'name': '{DB_NAME}'
+}}"""
+
+dictionary = {'DB_NAME': 'abc'}
+output = inp.format(**dictionary)
+print(output)
+  
+
+  Output  
+
+  DATABASE = {
+    'name': 'abc'
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47956605)
+ In python 3.6 I prefer this syntax, which makes the code even more readable: 
+
+  ' '.join([f'{key}: {value}' for key, value in d.items()])
+  
+
+ See https://www.python.org/dev/peps/pep-0498/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20678565)
+ You could do something with  get_value  in a custom  string.Formatter  to try replacement fields as dictionary keys before falling back on index into arg keys - note the possible conflict of priority and intent here... so it's not exactly recommended, but an idea of what's possible: 
+
+  import string
+
+class MyFormatter(string.Formatter):
+    def get_value(self, key, args, kwargs):
+        try:
+            return kwargs[str(key)]
+        except KeyError:
+            return super(MyFormatter, self).get_value(key, args, kwargs)
+
+s = 'hello there {5} - you are number {0}'
+d = {'5': 'you'}
+print MyFormatter().format(s, 1, 2, 3, **d)
+# hello there you - you are number 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/8519646)
+ Go through the  dict.items()  iterator that will yield a key, value tuple: 
+
+  ' '.join(['%s:: %s' % (key, value) for (key, value) in d.items()])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26921237)
+ With your syntax, you need to make a  tuple , instead of a  join ed comma-separated string, since the latter is treated as one supplied string argument, hence the error you're experiencing: 
+
+  '%s%s/%s%s/%s%s%s%s' % tuple('13082004')
+  
+
+ Or, use the newer string  .format()  method, with the  *  operator to unpack the string into multiple arguments: 
+
+  '{}{}/{}{}/{}{}{}{}'.format(*'13082004')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/15177097)
+ Your  MyClass()  instances do have a dictionary associated with them, access it with the http://docs.python.org/2/library/functions.html#vars: 
+
+  '%(a)s' % vars(m)
+  
+
+ This works for all custom classes that do not use a  __slots__  attribute. 
+
+ Alternatively, you can use the newer http://docs.python.org/2/library/stdtypes.html#str.format, which lets you access object attributes: 
+
+  '{0.a}'.format(m)
+  
+
+ It's this method of formatting that looks for a  .__format__(format_spec)  method on your custom classes, see the http://docs.python.org/2/library/functions.html#format. 
+
+ Last but not least, any object with a http://docs.python.org/2/reference/datamodel.html#object.__getitem__ can be used for string formatting as if it is a dictionary: 
+
+  >>> class Foo(object):
+...     def __getitem__(self, name):
+...         if name == 'bar': return 'baz'
+...         raise AttributeError(name)
+... 
+>>> '%(bar)s' % Foo()
+'baz'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21688083)
+ What @adsmith didn't mention is that the format names must be valid  python identifiers.  Hence you can include underscores and digits, but you can't include a (quoted) colon because it cannot be part of an identifier. 
+
+  I would look into renaming your dictionary objects, or adapting your format strings to use positional arguments.  
+
+ If these are impractical due to the nature of your data, or if you just want to get your way on this,  the http://docs.python.org/3.1/library/string.html#string-formatting class is your friend.  It allows you to override python's template string parser with your own  parse()  method.  Since you don't actually seem to need a format specification inside the braces (like  {test:6d}  to pad something to 6 spaces), all you have to do is construct a  parse  method that treats the entire format string as the field name, with empty  format_spec  and  conversion . 
+
+  Edit:  This seemed like a fun thing to try, so here's a simple working implementation.  
+
+  import string
+
+class myFormatter(string.Formatter):
+    def parse(self, fstring):
+        if fstring is None:  # we also get called with the (null) format spec, for some reason
+            return
+        parts = fstring.split("}")
+        for part in parts:
+            if "{" in part:
+                literal, fieldname = part.split("{")
+                yield (literal, fieldname, None, None)
+            else:
+                yield (part, None, None, None)
+  
+
+ Use it like this: 
+
+  >>> custom = myFormatter()
+>>> custom.format("hello {test:1}", [], **{'test:1': 'world'})
+'hello world'
+  
+
+  
+
+  print custom.vformat(templatestring, [], valuedict)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44954950)
+ While other answers here have provided good ways of formatting your regular dictionary, if you have many cases where you need this functionality, you may want to consider creating a custom dictionary object by inheriting from  collections.UserDict , and overriding its default  __repr__() : 
+
+  >>> from collections import UserDict
+>>> 
+>>> class custom_dict(UserDict):
+...     def __repr__(self):
+...         return '\n'.join('{} ==> {}'.format(k, v) for k, v in self.data.items())
+... 
+>>> foo_dict = {
+...     'a' : '1',
+...     'b' : '2',
+...     'c' : '3',
+...     }
+>>> 
+>>> new_dict = custom_dict(foo_dict)
+>>> new_dict
+a ==> 1
+b ==> 2
+c ==> 3
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44570265)
+ I liked what Filip Dupanović did above. I modified this to be python3-ish using  str.format  method. 
+
+  ' '.join(['{0}:: {1}'.format(key, value) for (key, value) in d.items()])
+  
+
+ I modified the above to generate a string I could feed to a SQL table create statement. 
+
+  fieldpairs = ','.join(['{0} {1}'.format(key, value) for (key, value) in HiveTypes.items()])
+  
+
+
+

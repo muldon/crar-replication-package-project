@@ -1,0 +1,204 @@
+Query: Easiest way to remove unicode representations from a string in python 3?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13794050)
+ You want to use the built-in codec  unicode_escape . 
+
+ If  t  is already a  bytes  (an 8-bit string), it's as simple as this: 
+
+  >>> print(t.decode('unicode_escape'))
+Róisín
+  
+
+ If  t  has already been decoded to Unicode, you can to encode it back to a  bytes  and then  decode  it this way. If you're sure that all of your Unicode characters have been escaped, it actually doesn't matter what codec you use to do the encode. Otherwise, you could try to get your original byte string back, but it's simpler, and probably safer, to just force any non-encoded characters to get encoded, and then they'll get decoded along with the already-encoded ones: 
+
+  >>> print(t.encode('unicode_escape').decode('unicode_escape')
+Róisín
+  
+
+ In case you want to know how to do this kind of thing with regular expressions in the future, note that http://docs.python.org/3/library/re.html?highlight=unicode_escape#re.sub lets you pass a function instead of a pattern for the  repl . And you can convert any hex string into an integer by calling  int(hexstring, 16) , and any integer into the corresponding Unicode character with  chr  (note that this is the one bit that's different in Python 2—you need  unichr  instead).  
+
+  >>> re.sub(r'(\\u[0-9A-Fa-f]+)', lambda matchobj: chr(int(matchobj.group(0)[2:], 16)), t)
+Róisín
+  
+
+ Or, making it a bit more clear: 
+
+  >>> def unescapematch(matchobj):
+...     escapesequence = matchobj.group(0)
+...     digits = escapesequence[2:]
+...     ordinal = int(digits, 16)
+...     char = chr(ordinal)
+...     return char
+>>> re.sub(r'(\\u[0-9A-Fa-f]+)', unescapematch, t)
+Róisín
+  
+
+ The  unicode_escape  codec actually handles  \U ,  \x ,  \X , octal ( \066 ), and special-character ( \n ) sequences as well as just  \u , and it implements the proper rules for reading only the appropriate max number of digits (4 for  \u , 8 for  \U , etc., so  r'\\u22222'  decodes to  '∢2'  rather than  '' ), and probably more things I haven't thought of. But this should give you the idea. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9883439)
+  # -*- coding: utf-8 -*-
+for i, j in enumerate(u'Сон'):
+    print '%d: %s' % (i+1, j)
+  
+
+ About source code encodings in Python: http://www.python.org/dev/peps/pep-0263/ 
+
+ 'u' prefix before string means that unicode string will be used. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14366363)
+ you can use  str.strip() : 
+
+  str.strip()  when used with no arguments, strips all types of leading and trailing whitespaces. 
+
+  >>> productDictionary={'': '34.8\r\n', 
+  'Mozzarella di Giovanni\r\n': '34.8\r\n', 
+   'Queso Cabrales\r\n': '14\r\n', 
+   'Singaporean Hokkien Fried Mee\r\n': '9.8\r\n'
+}
+
+>>> productDictionary=dict(map(str.strip,x) for x in productDictionary.items()) 
+>>> print productDictionary
+>>>
+{'': '34.8',
+ 'Mozzarella di Giovanni': '34.8',
+ 'Queso Cabrales': '14',
+ 'Singaporean Hokkien Fried Mee': '9.8'}
+  
+
+  help()  on  str.strip()  
+
+ 
+   S.strip([chars]) -> string or unicode 
+  
+   Return a copy of the string S with leading and trailing whitespace
+  removed. If chars is given and not None, remove characters in chars
+  instead. If chars is unicode, S will be converted to unicode before
+  stripping 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17747381)
+ Get a list of lists, where each sublist has the int represented in the last two positions of each sublist in  Positions : 
+
+  [[int(i) for i in L[-2:]] for L in Positions]
+  
+
+ Turn the string representations of the integers in  Positions  into  int s: 
+
+  [[int(i) for i in L if ((i.startswith('-') and all(char.isdigit() for char in i)) or all(char.isdigit() for char in i) else i] for L in Positions]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37658398)
+ The  'u'  in  u'active_e'  just indicates that this is a  unicode  object, and not a bytestring. You can use  encode  to convert it: 
+
+  > u = u'active_e'
+> s = u.encode('utf-8')
+
+> u
+u'active_e'
+> s
+'active_e'
+
+# But:
+> print(u)
+active_e
+> print(s)
+active_e
+
+> type(u)
+<type 'unicode'>
+> type(s)
+<type 'str'>
+  
+
+ But in most contexts,  unicode  objects are just as fine as bytestrings. For pure ASCII strings, even  u == s  will be  True : 
+
+  > u == s
+True
+
+# careful with non-ascii chars:
+> u = u'äöüß'
+> s = u.encode('utf-8')
+> u == s
+False
+
+> len(u)
+4
+> len(s)
+8  # ä,ö,ü,ß have two-byte representations
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4461245)
+ 
+ You do not decode to UTF-8, you  encode to  UTF-8 or  decode from . 
+ You can safely decode from UTF8 even if it's just ASCII. ASCII is a subset of UTF8. 
+  The easiest way to detect if it needs decoding or not is 
+
+  if not isinstance(data, unicode):
+    # It's not Unicode!
+    data = data.decode('UTF8')
+   
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35803791)
+ Yes you can use remove. Check out https://docs.djangoproject.com/es/1.9/ref/models/relations/#django.db.models.fields.related.RelatedManager.remove 
+
+ In your case, you would need a reference to the tags and not their string representations. 
+
+  tags_to_be_removed = Tags.objects.filter(pk__gte=5) # use your filter
+restaurant.tags.remove(*tags_to_be_removed)
+  
+
+ We want to convert the list into args for  remove  https://stackoverflow.com/questions/3941517/converting-list-to-args-in-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44599288)
+ There are many possible  encode / decode  chains which lead to the desired result. Here is one: 
+
+  In [257]: '\xed\x95\x9c'.encode('latin-1').decode('utf-8')
+Out[257]: '한'
+  
+
+ https://stackoverflow.com/a/14082441/190597 I used to find this encode/decode chain. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45338192)
+  u"\u2022"  (your  s ) is a Unicode string (type  unicode ) containing the bullet character. 
+
+  "\xe2\x80\xa2"  (your  ss ) is a byte string (type  str ) containing the three bytes used to encode the bullet character as UTF-8. 
+
+ You can convert one to the other using  str.decode  and  unicode.decode : 
+
+  >>> s_encode = s.encode("UTF-8")
+>>> s_encode == ss
+True
+
+>>> ss_decode = ss.decode("UTF-8")
+>>> ss_decode == s
+True
+  
+
+
+

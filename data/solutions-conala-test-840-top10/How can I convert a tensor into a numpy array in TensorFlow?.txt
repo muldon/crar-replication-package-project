@@ -1,0 +1,195 @@
+Query: How can I convert a tensor into a numpy array in TensorFlow?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42925913)
+ Maybe you can try，this method: 
+
+  import tensorflow as tf
+W1 = tf.Variable(tf.random_uniform([1], -1.0, 1.0))
+init = tf.global_variables_initializer()
+sess = tf.Session()
+sess.run(init)
+array = W1.eval(sess)
+print (array)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/34097344)
+ To convert back from tensor to numpy array you can simply run  .eval()  on the transformed tensor. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37912938)
+ Any tensor returned by  Session.run  or  eval  is a NumPy array. 
+
+  >>> print(type(tf.Session().run(tf.constant([1,2,3]))))
+<class 'numpy.ndarray'>
+  
+
+  
+
+  >>> sess = tf.InteractiveSession()
+>>> print(type(tf.constant([1,2,3]).eval()))
+<class 'numpy.ndarray'>
+  
+
+  
+
+  >>> sess = tf.Session()
+>>> with sess.as_default():
+>>>    print(type(tf.constant([1,2,3]).eval()))
+<class 'numpy.ndarray'>
+  
+
+  EDIT:  Not  any  tensor returned by  Session.run  or  eval()  is a NumPy array. Sparse Tensors for example are returned as SparseTensorValue: 
+
+  >>> print(type(tf.Session().run(tf.SparseTensor([[0, 0]],[1],[1,2]))))
+<class 'tensorflow.python.framework.sparse_tensor.SparseTensorValue'>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45918520)
+ You can use  tf.convert_to_tensor() : 
+
+  import tensorflow as tf
+import numpy as np
+
+data = [[1,2,3],[4,5,6]]
+data_np = np.asarray(data, np.float32)
+
+data_tf = tf.convert_to_tensor(data_np, np.float32)
+
+sess = tf.InteractiveSession()  
+print(data_tf.eval())
+
+sess.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48322961)
+ You should use https://www.tensorflow.org/api_docs/python/tf/contrib/lookup/HashTable: 
+
+  import tensorflow as tf
+import numpy as np
+
+d = {1:1,2:5,3:7,4:5,5:8,6:2}
+keys = list(d.keys())
+values = [d[k] for k in keys]
+table = tf.contrib.lookup.HashTable(
+  tf.contrib.lookup.KeyValueTensorInitializer(keys, values, key_dtype=tf.int64, value_dtype=tf.int64), -1
+)
+elems = tf.convert_to_tensor(np.array([1, 2, 3, 4, 5, 6]), dtype=tf.int64)
+res = tf.map_fn(lambda x: table.lookup(x), elems)
+sess=tf.Session()
+sess.run(table.init)
+print(sess.run(res))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40902502)
+ You can use https://www.tensorflow.org/versions/r0.11/api_docs/python/array_ops.html#pack (https://www.tensorflow.org/api_docs/python/tf/stack in TensorFlow 1.0.0) method for this purpose. Here is how to pack a random image of type  numpy.ndarray  into a  Tensor : 
+
+  import numpy as np
+import tensorflow as tf
+random_image = np.random.randint(0,256, (300,400,3))
+random_image_tensor = tf.pack(random_image)
+tf.InteractiveSession()
+evaluated_tensor = random_image_tensor.eval()
+  
+
+ UPDATE: to convert a Python object to a Tensor you can use https://www.tensorflow.org/api_docs/python/tf/convert_to_tensor function. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40451543)
+ Tensorflow (as far as I know) currently does not support Tensors with different lengths along a dimension. 
+
+ Depending on your goal, you could pad your list with zeros (inspired by https://stackoverflow.com/questions/35751306/python-how-to-pad-numpy-array-with-zeros) and then convert to a tensor. For example using numpy: 
+
+  >>> import numpy as np
+>>> x = np.array([[1,2,3],[4,5],[1,4,6,7]])
+>>> max_length = max(len(row) for row in x)
+>>> x_padded = np.array([row + [0] * (max_length - len(row)) for row in x])
+>>> x_padded
+array([[1, 2, 3, 0],
+   [4, 5, 0, 0],
+   [1, 4, 6, 7]])
+>>> x_tensor = tf.convert_to_tensor(x_padded)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/40609730)
+  a = tf.convert_to_tensor([[1, 2, 3],
+                          [4, 5, 6],
+                          [7, 8, 9]])
+b = tf.reshape(a, [3, 3, 1])
+c = tf.tile(b, [1, 1, 2])
+d = tf.reshape(c, [3, 6])
+print(d.eval())
+array([[1, 1, 2, 2, 3, 3],
+       [4, 4, 5, 5, 6, 6],
+       [7, 7, 8, 8, 9, 9]], dtype=int32)
+
+e = tf.reshape(d, [3, 6, 2])
+f = tf.tile(e, [1, 1, 2])
+g = tf.transpose(f, [0, 2, 1])
+print(g.eval())
+array([[[1, 1, 2, 2, 3, 3],
+        [1, 1, 2, 2, 3, 3]],
+
+       [[4, 4, 5, 5, 6, 6],
+        [4, 4, 5, 5, 6, 6]],
+
+       [[7, 7, 8, 8, 9, 9],
+        [7, 7, 8, 8, 9, 9]]], dtype=int32)
+
+h = tf.reshape(g, [6, 6])
+print(h.eval())
+array([[1, 1, 2, 2, 3, 3],
+       [1, 1, 2, 2, 3, 3],
+       [4, 4, 5, 5, 6, 6],
+       [4, 4, 5, 5, 6, 6],
+       [7, 7, 8, 8, 9, 9],
+       [7, 7, 8, 8, 9, 9]], dtype=int32)
+  
+
+ You can get a shape of the  a  tensor (if it's defined) using: 
+
+  shape = a.get_shape().as_list()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49589735)
+ There is a  .numpy()  function which you can use, alternatively you could also do  numpy.array(y) . For example: 
+
+  import tensorflow as tf
+import numpy as np
+
+tf.enable_eager_execution()
+
+x = tf.constant([1., 2.])
+print(type(x))            # <type 'EagerTensor'>
+print(type(x.numpy()))    # <type 'numpy.ndarray'>
+print(type(np.array(x)))  # <type 'numpy.ndarray'>
+  
+
+ See https://www.tensorflow.org/programmers_guide/eager#setup_and_basic_usage. 
+
+ Hope that helps. 
+
+
+

@@ -1,0 +1,267 @@
+Query: Posting raw data with Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24119878)
+ You're confusing form-encoded and JSON data here.  request.POST['foo']  is for form-encoded data. You are posting raw JSON, so you should use  request.body . 
+
+  received_json_data=json.loads(request.body)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27826652)
+ Use  requests.post(url, data=f.read(), ...)  instead of the  files  keyword argument. 
+
+ 
+
+ Using  requests.post(files=files)  will upload your file(s) as Multipart-encoded data (see the http://docs.python-requests.org/en/latest/user/quickstart/#post-a-multipart-encoded-file) - this is what you want for file upload in an HTML form, but that's not what you need in in your case. 
+
+  curl --data-binary @filename  will send the raw, unencoded contents of the file as the  POST  body. Such a request will look like this: 
+
+  POST / HTTP/1.1
+Host: localhost
+Content-type: text/xml
+Content-Length: 4
+
+FOO
+  
+
+ (Where  FOO  is the request body / the file contents). 
+
+ Your request with the multipart encoded data however currently looks like this: 
+
+  POST / HTTP/1.1
+Host: localhost
+Content-type: text/xml
+Content-Length: 144
+
+--c225e276f4d4486fabe5770cd4f72a11
+Content-Disposition: form-data; name="file"; filename="file"
+
+FOO
+
+--c225e276f4d4486fabe5770cd4f72a11--
+  
+
+ So the equivalent to  curl 's  --data-binary  for the  requests  library is to simply pass the raw data in the  data  keyword argument: 
+
+  data = open('foo.xml', 'rb').read()
+newjobxml = requests.post(url, data=data, headers=headers, timeout=int(timeout))
+  
+
+ BTW: You may want to take a look at the https://github.com/txels/autojenkins Python module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33955129)
+ With Postman you are sending a  multipart/form-data  request, with  requests  you  only send JSON  (the value of the  data  field in Postman), and are not including the  apikey  field. 
+
+ Use a dictionary with the JSON data as one of the values, and pass that in as the  files  argument. It  probably  also works as the  data  argument (sent as  application/x-www-urlencoded ): 
+
+  form_structure = {'apikey': 'XXXX', 'data': dump_data}
+requests.post(url, files=form_structure)
+# probably works too: requests.post(url, data=form_structure)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35087348)
+ For python3 you have to decode body first: 
+
+  received_json_data = json.loads(request.body.decode("utf-8"))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15900453)
+  params  is for GET-style URL parameters,  data  is for POST-style body information. It is perfectly legal to provide  both  types of information in a request, and your request does so too, but you encoded the URL parameters into the URL already. 
+
+ Your raw post contains  JSON  data though.  requests  can handle JSON encoding for you, and it'll set the correct  Content-Header  too; all you need to do is pass in the Python object to be encoded as JSON into the  json  keyword argument. 
+
+ You could split out the URL parameters as well: 
+
+  params = {'sessionKey': '9ebbd0b25760557393a43064a92bae539d962103', 'format': 'xml', 'platformId': 1}
+  
+
+ then post your data with: 
+
+  import requests
+
+url = 'http://192.168.3.45:8080/api/v2/event/log'
+
+data = {"eventType": "AAS_PORTAL_START", "data": {"uid": "hfe3hf45huf33545", "aid": "1", "vid": "1"}}
+params = {'sessionKey': '9ebbd0b25760557393a43064a92bae539d962103', 'format': 'xml', 'platformId': 1}
+
+requests.post(url, params=params, json=data)
+  
+
+ The  json  keyword is new in  requests  version 2.4.2; if you still have to use an older version, encode the JSON manually using the  json  module and post the encoded result as the  data  key; you will have to explicitly set the Content-Type header in that case: 
+
+  import requests
+import json
+
+headers = {'content-type': 'application/json'}
+url = 'http://192.168.3.45:8080/api/v2/event/log'
+
+data = {"eventType": "AAS_PORTAL_START", "data": {"uid": "hfe3hf45huf33545", "aid": "1", "vid": "1"}}
+params = {'sessionKey': '9ebbd0b25760557393a43064a92bae539d962103', 'format': 'xml', 'platformId': 1}
+
+requests.post(url, params=params, data=json.dumps(data), headers=headers)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41533406)
+ I have found the answer. Sorry for posting the question. I am new in programming.. 
+
+  import pyaudio
+import wave
+
+FORMAT = pyaudio.paInt16
+
+CHANNELS = 1
+RATE = 16000
+CHUNK = int(RATE / 10)
+RECORD_SECONDS = 5
+
+audio = pyaudio.PyAudio()
+
+# start Recording
+stream = audio.open(format=FORMAT, channels=CHANNELS,
+            rate=RATE, input=True,
+            frames_per_buffer=CHUNK)
+print "recording..."
+frames = []
+
+for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+    data = stream.read(CHUNK)
+    frames.append(data)
+print "finished recording"
+
+
+# stop Recording
+stream.stop_stream()
+stream.close()
+audio.terminate()
+
+
+
+file = open("newfile.raw", "w")
+file.write(b''.join(frames))
+file.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26989525)
+ Requests POSTs  data  as form-encoded data. That's what you get in  deposit . If you want to post JOSN, encode  data  before posting. 
+
+  r = requests.post(url, data=json.dumps(data))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3244765)
+ I had the same problem. I had been posting a complex JSON response, and I couldn't read my data using the request.POST dictionary. 
+
+ My JSON POST data was: 
+
+  //JavaScript code:
+//Requires json2.js and jQuery.
+var response = {data:[{"a":1, "b":2},{"a":2, "b":2}]}
+json_response = JSON.stringify(response); // proper serialization method, read 
+                                          // http://ejohn.org/blog/ecmascript-5-strict-mode-json-and-more/
+$.post('url',json_response);
+  
+
+ In this case you need to use method provided by aurealus. Read the request.body and deserialize it with the json stdlib. 
+
+  #Django code:
+import json
+def save_data(request):
+  if request.method == 'POST':
+    json_data = json.loads(request.body) # request.raw_post_data w/ Django < 1.4
+    try:
+      data = json_data['data']
+    except KeyError:
+      HttpResponseServerError("Malformed data!")
+    HttpResponse("Got json data")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/3020756)
+ If you are posting JSON to Django, I think you want  request.body  ( request.raw_post_data  on Django < 1.4). This will give you the raw JSON data sent via the post. . 
+
+ Here is an example using JavaScript, http://en.wikipedia.org/wiki/JQuery, jquery-json and Django. 
+
+ JavaScript: 
+
+  var myEvent = {id: calEvent.id, start: calEvent.start, end: calEvent.end,
+               allDay: calEvent.allDay };
+$.ajax({
+    url: '/event/save-json/',
+    type: 'POST',
+    contentType: 'application/json; charset=utf-8',
+    data: $.toJSON(myEvent),
+    dataType: 'text',
+    success: function(result) {
+        alert(result.Result);
+    }
+});
+  
+
+  
+
+  def save_events_json(request):
+    if request.is_ajax():
+        if request.method == 'POST':
+            print 'Raw Data: "%s"' % request.body   
+    return HttpResponse("OK")
+  
+
+ Django < 1.4: 
+
+    def save_events_json(request):
+    if request.is_ajax():
+        if request.method == 'POST':
+            print 'Raw Data: "%s"' % request.raw_post_data
+    return HttpResponse("OK")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/8520362)
+ Voidspace has http://www.voidspace.org.uk/python/articles/authentication.shtml on using basic auth with urllib2. I've copied the appropriate code snippet below, changed to use POST. 
+
+  import urllib2
+
+theurl = 'http://www.someserver.com/toplevelurl/somepage.htm'
+username = 'johnny'
+password = 'XXXXXX'
+
+passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+passman.add_password(None, theurl, username, password)
+
+authhandler = urllib2.HTTPBasicAuthHandler(passman)
+
+opener = urllib2.build_opener(authhandler)
+
+urllib2.install_opener(opener)
+
+pagehandle = urllib2.urlopen(theurl, open("mytext.xml").read())
+  
+
+ Without seeing your code it's hard to say why you would be getting a 400 response. 
+
+
+

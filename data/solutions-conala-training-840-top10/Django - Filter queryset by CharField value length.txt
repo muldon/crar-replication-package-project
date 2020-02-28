@@ -1,0 +1,178 @@
+Query: Django - Filter queryset by CharField value length
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23351303)
+ 'Recent' Django versions have the built in  django.db.models.functions.Length  lookup/transform, so you can do: 
+
+  MyModel.objects.annotate(length=Length('text')).filter(length__gt=254)
+  
+
+ See https://docs.djangoproject.com/en/1.11/ref/models/database-functions/#length 
+
+ Old answer: 
+
+ I think you have to options: 
+
+ Using 'extra' on the queryset: 
+
+  MyModel.objects.extra(where=["CHAR_LENGTH(text) > 254"])
+  
+
+ Or abusing Regex lookups, I'm assuming this will be slower: 
+
+  MyModel.objects.filter(text__regex = r'^.{254}.*')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36051518)
+ If you find that you are using a lot of extra and regex, following @BBT's suggestions, I went ahead and implemented the transform as follows: 
+
+  # utils.db
+
+from django.db.models import Transform
+from django.db.models import CharField
+
+class CharacterLength(Transform):
+    lookup_name = 'len'
+    def as_sql(self, compiler, connection):
+        lhs, params = compiler.compile(self.lhs)
+        return "LENGTH(%s)" % lhs, params
+
+CharField.register_lookup(CharacterLength)
+  
+
+ Thereafter, I could do a cascaded lookup on "mycolname" as follows: 
+
+  from utils.db import *
+
+queryset.filter(mycolname__len__gte=10)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53653505)
+ look here http://books.agiliq.com/projects/django-admin-cookbook/en/latest/filter_fk_dropdown.html 
+
+  @admin.register(Hero)
+class HeroAdmin(admin.ModelAdmin, ExportCsvMixin):
+    ...
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "category":
+            kwargs["queryset"] = Category.objects.filter(name__in=['God', 'Demi God'])
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39386611)
+  .get  returns an instance, not a queryset. 
+
+ To see the query that is done, do the same thing but with  .filter , which does return a queryset: 
+
+  queryset = Artist.objects.filter(name="Eminem")
+print queryset.query
+x = queryset.get()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2454022)
+ Use Django's lovely http://docs.djangoproject.com/en/1.1/topics/db/aggregation/. 
+
+  from django.db.models import Count
+qs = Foo.objects.filter(
+           bar__eg_id__in=id_list
+      ).annotate(
+           bar_count=Count('bar')
+      ).order_by('bar_count')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/22843920)
+ Override https://docs.djangoproject.com/en/dev/ref/contrib/admin/#django.contrib.admin.ModelAdmin.get_queryset (for django>=1.6) method of your  ModelAdmin : 
+
+ 
+   The  get_queryset  method on a ModelAdmin returns a QuerySet of all
+  model instances that can be edited by the admin site. 
+ 
+
+  class ItemAdmin(admin.ModelAdmin):
+    def get_queryset(self, request):
+        qs = super(ItemAdmin, self).get_queryset(request)
+        return qs.filter(status='pending')
+  
+
+ FYI, for django <= 1.5 use https://docs.djangoproject.com/en/1.5/ref/contrib/admin/#django.contrib.admin.ModelAdmin.queryset method instead. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2454049)
+ You can do that by using http://docs.djangoproject.com/en/dev/topics/db/aggregation/, and more especifically http://docs.djangoproject.com/en/dev/topics/db/aggregation/#generating-aggregates-for-each-item-in-a-queryset and http://docs.djangoproject.com/en/dev/topics/db/aggregation/#order-by. 
+
+ In your example, it would be: 
+
+  from django.db.models import Count
+
+id_list = [7, 8, 9, 10]
+qs = Foo.objects.filter(bar__eg_id__in=id_list)
+qs = qs.annotate(count=Count("bar"))
+qs = qs.order_by('-count')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30616564)
+ Use the get_queryset method:
+https://docs.djangoproject.com/en/stable/ref/contrib/admin/#django.contrib.admin.ModelAdmin.get_queryset 
+
+ Should look like: 
+
+  class BAdmin(admin.TabularInline):
+    ...
+
+    def get_queryset(self, request):
+        qs = super(BAdmin, self).get_queryset(request)
+        return qs.filter(user=request.user)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10182504)
+ Use the  render_change_form  method: 
+
+  class CompanyAdmin(admin.ModelAdmin):
+    def render_change_form(self, request, context, *args, **kwargs):
+         context['adminform'].form.fields['theme'].queryset = Theme.objects.filter(name__iexact='company')
+         return super(CompanyAdmin, self).render_change_form(request, context, *args, **kwargs)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/10253503)
+ I solved this by extending the  get_queryset  method of the  ContentAdmin  class. After that, it was just a matter of getting the right ORM query 
+
+  def get_queryset(self, request):
+    qs = super(ContentAdmin, self).get_queryset(request)
+    return qs.filter(score__name='Twitter').order_by('-score__score')
+  
+
+ For Django 1.5 and earlier, the method was  queryset . 
+
+  def queryset(self, request):
+    qs = super(ContentAdmin, self).queryset(request)
+    return qs.filter(score__name='Twitter').order_by('-score__score')
+  
+
+
+

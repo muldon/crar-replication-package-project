@@ -1,0 +1,265 @@
+Query: python http request with token
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13360753)
+ I studied oauth2client\client.py : decorator.http() not only authorizes the request, but also refreshes the access_token if it has been expired. 
+
+ I very welcome ideas on how to solve this? . 
+
+ UPDATE AND SOLVED 
+
+ The TokeInfo API does not need any Authorization. The request itself has to contain the access_token. The Authorization header is ignored. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53654338)
+ If you debug and see the value that you are retrieving with  request.META.get('HTTP_AUTHORIZATION') , you will notice that it's something like this: 
+
+  JWT eyJhbGciOiAiSFMyNTYiLCAidHlwIj
+  
+
+ that value and prefix will be different based on your authentication backend for django rest. But you can simply fix this bug with code below: 
+
+  from rest_framework.authtoken.models import Token
+from rest_framework.views import APIView
+
+class MyView(APIView):
+
+    def post(self, request, format=None):
+        my_token = request.META.get('HTTP_AUTHORIZATION').split()[1]
+        user_id = Token.objects.get(key=my_token).user_id
+        return Response(status=status.HTTP_200_OK)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28385211)
+ According to https://developer.github.com/v3/#parameters, for  POST  request, the parameters should be encoded with  json  and the content-type should be  application/json : 
+
+  import json
+
+....
+
+token = raw_input('Access Token: ')
+url = 'https://api.github.com/user/repos?access_token=' + token
+values = {"name": "newnewnewnew"}
+data = json.dumps(values)  # <---
+req = urllib2.Request(url, data, headers={'Content-Type': 'application/json'})  # <---
+response = urllib2.urlopen(req)
+the_page = response.read()
+print the_page
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29716749)
+ If you go to the url with a browser  it shows you that you need a key: 
+
+ 
+   Whoa there!
+  There is no request token for this page. That's the special key we need from applications asking to use your Twitter account. Please go back to the site or application that sent you here and try again; it was probably just a mistake. 
+ 
+
+ If you go to https://dev.twitter.com/oauth/reference/post/oauth/request_token it will let you choose one of your apps and 
+it will bring you to a signature-generator that will show you the request settings. 
+
+ To get a request_token you can use https://requests-oauthlib.readthedocs.org/en/latest/: 
+
+  import requests
+from requests_oauthlib import OAuth1
+
+
+REQUEST_TOKEN_URL = "https://api.twitter.com/oauth/request_token"
+CONSUMER_KEY = "xxxxxxxx
+CONSUMER_SECRET = "xxxxxxxxxxxxxxxxx"
+
+oauth = OAuth1(CONSUMER_KEY, client_secret=CONSUMER_SECRET)
+r = requests.post(url=REQUEST_TOKEN_URL, auth=oauth)
+print(r.content)
+oauth_token=xxxxxxxxxxxxxx&oauth_token_secret=xxxxxxxxxxx&oauth_callback_confirmed=true
+  
+
+ You then need to extract the oauth_token oauth_token_secret: 
+
+  from urlparse import parse_qs
+import webbrowser
+
+data = parse_qs(r.content)
+oauth_token = data['oauth_token'][0]
+oauth_token_secret = data['oauth_token_secret'][0]
+AUTH = "https://api.twitter.com/oauth/authorize?oauth_token={}"
+auth = AUTH.format(oauth_token)
+webbrowser.open(auth)
+  
+
+ A webpage will open asking to  Authorize your_app to use your account?  
+
+ For python 3 use: 
+
+  from urllib.parse import parse_qs
+
+
+data = parse_qs(r.text)
+oauth_token = data['oauth_token'][0]
+oauth_token_secret = data['oauth_token_secret'][0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7571727)
+ First, import the https://github.com/simplegeo/python-oauth2 and set up the service's URL and consumer information: 
+
+  import oauth2
+
+REQUEST_TOKEN_URL = 'http://www.tumblr.com/oauth/request_token'
+AUTHORIZATION_URL = 'http://www.tumblr.com/oauth/authorize'
+ACCESS_TOKEN_URL = 'http://www.tumblr.com/oauth/access_token'
+CONSUMER_KEY = 'your_consumer_key'
+CONSUMER_SECRET = 'your_consumer_secret'
+
+consumer = oauth2.Consumer(CONSUMER_KEY, CONSUMER_SECRET)
+client = oauth2.Client(consumer)
+  
+
+  Step 1: Get a request token.  This is a temporary token that is used for 
+having the user authorize an access token and to sign the request to obtain 
+said access token. 
+
+  resp, content = client.request(REQUEST_TOKEN_URL, "GET")
+
+request_token = dict(urlparse.parse_qsl(content))
+print "Request Token:"
+print "    - oauth_token        = %s" % request_token['oauth_token']
+print "    - oauth_token_secret = %s" % request_token['oauth_token_secret']
+  
+
+  Step 2: Redirect to the provider.  Since this is a CLI script we do not 
+redirect. In a web application you would redirect the user to the URL
+below. 
+
+  print "Go to the following link in your browser:"
+print "%s?oauth_token=%s" % (AUTHORIZATION_URL, request_token['oauth_token'])
+
+# After the user has granted access to you, the consumer, the provider will
+# redirect you to whatever URL you have told them to redirect to. You can 
+# usually define this in the oauth_callback argument as well.
+oauth_verifier = raw_input('What is the PIN? ')
+  
+
+  Step 3:  Once the consumer has redirected the user back to the oauth_callback
+URL you can request the access token the user has approved. You use the 
+request token to sign this request. After this is done you throw away the
+request token and use the access token returned. You should store this 
+access token somewhere safe, like a database, for future use. 
+
+  token = oauth2.Token(request_token['oauth_token'], request_token['oauth_token_secret'])
+token.set_verifier(oauth_verifier)
+client = oauth2.Client(consumer, token)
+
+resp, content = client.request(ACCESS_TOKEN_URL, "POST")
+access_token = dict(urlparse.parse_qsl(content))
+
+print "Access Token:"
+print "    - oauth_token        = %s" % access_token['oauth_token']
+print "    - oauth_token_secret = %s" % access_token['oauth_token_secret']
+print
+  
+
+ Now that you have an access token, you can call protected methods with it. 
+
+  EDIT:  Turns out that tumblr does not support the PIN authorization method. Relevant post https://groups.google.com/group/tumblr-api/browse_thread/thread/857285e6a2b4268/15060607dc306c1d?lnk=gst&q=pin#15060607dc306c1d. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48876624)
+ You should send CSRF token in POST data 
+
+  r = post_request.post(
+    'http://127.0.0.1:8000/message/', 
+    data={'csrfmiddlewaretoken': csrftoken},
+    headers=dict(Referer=URL)
+)
+  
+
+ Alternative way to send CSRF token would be through header 
+
+  r = post_request.post(
+    'http://127.0.0.1:8000/message/', 
+    headers={'Referer': URL, 'X-CSRFToken': csrftoken)
+)
+  
+
+  HTTP_X_CSRFTOKEN  is a default value of  settings.CSRF_HEADER_NAME  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26962393)
+ The https://docs.djangoproject.com/en/dev/ref/request-response/#django.http.HttpRequest.META says: 
+
+ 
+   HTTP headers in the request are converted to META keys by converting all characters to uppercase, replacing any hyphens with underscores and adding an HTTP_ prefix to the name. 
+ 
+
+ So try  request.META.get('HTTP_X_PINPOINT_TOKEN') . 
+
+ (An easy way to debug this would be to print or log  request.META.keys() .) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20308335)
+ After another hour I figured it out:
+The request has to go to  https://accounts.google.com/o/oauth2/token  (httpS, not http). 
+
+ If the request is sent to http:// it is redirected to https and in the process, the POST becomes a GET, hence the error message. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43234143)
+ I recommend this method. 
+
+  from oauth2client import client, GOOGLE_TOKEN_URI
+
+CLIENT_ID = "client_id"
+CLIENT_SECRET = "client_secret"
+REFRESH_TOKEN = "refresh_token"
+
+
+credentials = client.OAuth2Credentials(
+    access_token = None, 
+    client_id = CLIENT_ID, 
+    client_secret = CLIENT_SECRET, 
+    refresh_token = REFRESH_TOKEN, 
+    token_expiry = None, 
+    token_uri = GOOGLE_TOKEN_URI,
+    token_ id = None, 
+    revoke_uri= None)
+
+http = credentials.authorize(httplib2.Http())
+  
+
+ Even if the access token has expired, the credential is still authorize because of the refresh token. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23743339)
+ Pass the CSRF token to Django, or disable CSRF on the view handling the request. 
+
+  from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+
+@csrf_exempt
+def my_view(request):
+    return HttpResponse('Hello world')
+  
+
+
+

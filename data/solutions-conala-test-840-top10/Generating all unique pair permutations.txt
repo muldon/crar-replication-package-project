@@ -1,0 +1,280 @@
+Query: Generating all unique pair permutations
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/942551)
+ Check out http://docs.python.org/library/itertools.html#itertools.product in the  itertools  module.  . 
+
+  import itertools
+
+my_list = [1,2,3,4]
+for pair in itertools.product(my_list, repeat=2):
+    foo(*pair)
+  
+
+ This is equivalent to: 
+
+  my_list = [1,2,3,4]
+for x in my_list:
+    for y in my_list:
+        foo(x, y)
+  
+
+  Edit:  There are two very similar functions as well, http://docs.python.org/library/itertools.html#itertools.permutations and http://docs.python.org/library/itertools.html#itertools.combinations.  To illustrate how they differ: 
+
+  product()  generates every possible pairing of elements, including all duplicates: 
+
+  1,1  1,2  1,3  1,4
+2,1  2,2  2,3  2,4
+3,1  3,2  3,3  3,4
+4,1  4,2  4,3  4,4
+  
+
+  permutations()  generates all unique orderings of each unique pair of elements, eliminating the  x,x  duplicates: 
+
+   .   1,2  1,3  1,4
+2,1   .   2,3  2,4
+3,1  3,2   .   3,4
+4,1  4,2  4,3   .
+  
+
+ Finally,  combinations()  only generates each unique pair of elements, in lexicographic order: 
+
+   .   1,2  1,3  1,4
+ .    .   2,3  2,4
+ .    .    .   3,4
+ .    .    .    .
+  
+
+ All three of these functions were introduced in Python 2.6. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45704910)
+ You could use  itertools.permutations  and then use a list comprehension to create pairs out of the first 4 items in each permuation: 
+
+  l1=[0,1,2,3,4]
+from itertools import permutations
+l2 = permutations(l1)
+l3 = [[(x[0], x[1]), (x[2], x[3]), x[4]] for x in l2]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52928982)
+ This is a combination of (a) finding lists  [k_1, ..., k_n]  such that each  k_i  equals either  k_(i-1)  or  k_(i-1)+1 , and (b) finding the unique permutations of those lists. 
+
+ The first can be done using a recursive function: 
+
+  def combinations(n, k=0):
+    if n > 1:
+        yield from ([k] + res for i in (0, 1)
+                              for res in combinations(n-1, k+i))
+    else:
+        yield [k]
+  
+
+ For lists with  n  elements, there will be  2^(n-1)  such combinations: 
+
+  >>> list(combinations(2))
+[[0, 0], [0, 1]]
+>>> list(combinations(3))
+[[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 2]]
+>>> list(combinations(4))
+[[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 1], [0, 0, 1, 2], [0, 1, 1, 1], [0, 1, 1, 2], [0, 1, 2, 2], [0, 1, 2, 3]]
+  
+
+ Combine that with  itertools.permutations  and filter out duplicates to get the final result: 
+
+  import itertools
+def all_combinations(n):
+    return (x for combs in combinations(n)
+              for x in set(itertools.permutations(combs)))
+  
+
+ Example: 
+
+  >>> list(all_combinations(3))
+[(0, 0, 0), (0, 0, 1), (0, 1, 0), (1, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 0), (0, 1, 2), (0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 0, 1), (2, 1, 0)]
+>>> sum(1 for _ in all_combinations(4))
+75
+>>> sum(1 for _ in all_combinations(5))
+541
+  
+
+ Note: Generating  all   n!  permutations and then filtering the duplicates can be  very  wasteful even for slightly larger values of  n . There are smarter ways of generating only unique permutations that can be used instead of  itertools.permutations , see e.g. https://stackoverflow.com/q/11425070/1639625 or <a href="https://stackoverflow.com/q/6284396/1639625" . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14369388)
+ I find also surprising that  itertools  doesn't have a function for the more intuitive concept of unique permutations. Generating repetitive permutations only to select the unique among them is out of the question for any serious application. 
+
+ I have written my own iterative generator function which behaves similarly to  itertools.permutations  but does not return duplicates. Only permutations of the original list are considered, sublists may be created with the standard  itertools  library. 
+
+  def unique_permutations(t):
+    lt = list(t)
+    lnt = len(lt)
+    if lnt == 1:
+        yield lt
+    st = set(t)
+    for d in st:
+        lt.remove(d)
+        for perm in unique_permutations(lt):
+            yield [d]+perm
+        lt.append(d)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53970731)
+ The following solution may meet your needs. Your solution is using  itertools.combinations , and the key difference between  permutations  and  combinations  is that order does not matter in combinations, such that  'redblue'  and  'bluered'  would not be unique. 
+
+  from itertools import permutations
+
+def all_permutations(l):
+    o = []
+    for x in range(1, len(l) + 1):
+        o.extend([''.join(p) for p in list(permutations(l, x))])
+    return o
+
+colors = ['red', 'blue', 'pink']
+
+print(all_permutations(colors))
+  
+
+  
+
+  ['red', 'blue', 'pink', 'redblue', 'redpink', 'bluered', 'bluepink', 'pinkred', 'pinkblue', 'redbluepink', 'redpinkblue', 'blueredpink', 'bluepinkred', 'pinkredblue', 'pinkbluered']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37583203)
+ Use  itertools.combinations()  to find all possible  positions  for your ones, then construct the numbers using those positions: 
+
+  def binary(length=4, ones=2):
+    result = []
+    for positions in combinations(range(length), ones):
+        result.append("".join("1" if _ in positions else "0" for _ in range(length)))
+    return result
+  
+
+  
+
+  In [9]: binary()
+Out[9]: ['1100', '1010', '1001', '0110', '0101', '0011']
+
+In [10]: binary(5)
+Out[10]:
+['11000', '10100', '10010', '10001', '01100', '01010', '01001', '00110', '00101', '00011']
+
+In [11]: binary(4,1)
+Out[11]: ['1000', '0100', '0010', '0001']
+
+In [12]: binary(4,4)
+Out[12]: ['1111']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52206554)
+ For the nested list example, you can do the following, making use of  itertools.permutations  and  dict.setdefault : 
+
+  from itertools import permutations
+
+list3 = [[2, 3], [2, 3, 4]]
+
+d = {}
+for l in list3:
+    for a, b in permutations(l, 2):
+        d[a][b] = d.setdefault(a, {}).setdefault(b, 0) + 1
+
+# {2: {3: 2, 4: 1}, 3: {2: 2, 4: 1}, 4: {2: 1, 3: 1}}
+  
+
+ For flat lists  l , use only the inner loop and omit the outer one 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1985841)
+ I have a marvelous followup to SilentGhost's proposal - posting a separate answer since the margins of a comment would be too narrow to contain code :-) 
+
+  itertools.permutations  is built in (since 2.6) and fast.  We just need a filtering condition that for every (perm, perm[::-1]) would accept exactly one of them. Since the OP says items are always distinct, we can just compare any 2 elements: 
+
+  for p in itertools.permutations(range(3)):
+    if p[0] < p[-1]:
+        print p
+  
+
+  
+
+  (0, 1, 2)
+(0, 2, 1)
+(1, 0, 2)
+  
+
+ This works because reversing the permutation would always flip the relation! 
+ p[0] < p[1]  or any other pair would also work, so you also have some control over which half of permutations you get. 
+
+ I'm not sure if there is any more effecient way to filter.   itertools.permutations  guarantees lexicographic order, but the lexicographic position  p  and  p[::-1]  are related in a quite complex way.  In particular, just stopping at the middle doesn't work. 
+
+ But I suspect (didn't check) that the built-in iterator with 2:1 filtering would outperform any custom implementation.  And of course it wins on simplicity! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/13408250)
+  
+
+  l = [1,2,3,3,4]
+
+print sorted(set(itertools.permutations(l,3)))
+  
+
+ Output: 
+
+  [(1, 2, 3), (1, 2, 4), (1, 3, 2), (1, 3, 3), (1, 3, 4), ..., (4, 3, 3)]
+  
+
+ This keeps it in order and removes duplicates. 
+
+ 
+
+ If you want to avoid generating each possible permutation before-hand, I would do something like this: 
+
+  gen = itertools.permutations(l,3)
+s = set()
+
+for i in gen:
+    if i not in s:
+        print i  # or do anything else
+    # if some_cond: break
+    s.add(i)
+  
+
+ Here  gen  is a  generator , so you are not pre-creating all of the elements you might use. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49272555)
+ Even if you only generate permutations that are the same length as the input string, the number of permutations can be very large. Consider the string in your example:  Dcoderplatform . The number of permutations is the factorial of the length of the string. In this case  14!  or  87178291200  permutations. So you can expect your process to be terminated when given an input string of any significant length. 
+
+ Fortunately, there's an easier way to do this. Assuming you aren't required to use the  permutations()  function, you should use the following method. 
+
+ Given two strings,  str1  and  str2 , you can check if one is a permutation (an anagram) of the other like this: 
+
+  str1 = 'Dcoderplatform'
+str2 = 'patlodercDmfro'
+if ''.join(sorted(str1)) == ''.join(sorted(str2)):
+    print('{} and {} are anagrams'.format(str1, str2))
+  
+
+
+

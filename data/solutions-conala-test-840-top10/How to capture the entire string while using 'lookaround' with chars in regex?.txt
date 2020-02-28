@@ -1,0 +1,214 @@
+Query: How to capture the entire string while using 'lookaround' with chars in regex?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26027058)
+ Group 0 is the entire regex — it will contain the entire string that was matched by the regex. The capturing groups [indicated with  (  and  ) ] are numbered from 1.  
+
+ To extract just the number, you can simply use  group(1) : 
+
+  >>> import re
+>>> r = r'^(\d+),?$'
+>>> re.match(r, '123,').group(1)
+'123'
+  
+
+ For more information about grouping, refer to the https://docs.python.org/2/howto/regex.html#grouping.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32926759)
+ You can use following regex : 
+
+  >>> re.findall(r'\b(?:b+a)+b+\b',mystring)
+['bab', 'babab', 'babbab']
+  
+
+   
+
+ https://www.debuggex.com/r/2Dci_dNShHW6S-my 
+
+ As you can see from preceding diagram this regex will match any combination of  ba  (which  b  can presents more than one time), which produce words that every  a  precede by  b  then the whole of the string can be followed by one or more  b .  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51153697)
+ You may use 
+
+  re.findall(r'(.\s*(\d+) Kill\(s\)\s*', s)
+  
+
+ See the https://regex101.com/r/XK0BYH/1 
+
+  Details  
+
+ 
+  (.  - Capturing group 1: any 0+ chars other than line break chars, as few as possible 
+  \s*  - 0+ whitespaces 
+  (\d+)  - Capturing group 2: one or more digits 
+   Kill(s)  - a space and  Kill(s)  substring 
+  \s*  - 0+ whitespaces 
+ 
+
+ https://ideone.com/bCKhBa: 
+
+  import re
+rx = r"(.\s*(\d+) Kill\(s\)\s*"
+s = "Abc - 33 SR 11 Kill(s) P G - (Type-1P-G) 2 Kill(s) M 1 Kill(s) S - M9A CWS 1 Kill(s) 11 Kill(s)"
+print(re.findall(rx, s))
+  
+
+ Output: 
+
+  [('Abc - 33 SR', '11'), ('P G - (Type-1P-G)', '2'), ('M', '1'), ('S - M9A CWS', '1'), ('', '11')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49026399)
+ You're replacing the entire match with "dot", not just the dot. 
+
+ I know of two ways of solving this: 
+
+ 1. Positive lookaround assertions:</h3>
+
+  re.sub(r'(?<=\d)\.(?=\d)',r"dot", t)
+  
+
+ In this solution, you're only matching the dot itself, but assert that there is a number before and behind it. 
+
+ 2. Catching the numbers and replacing with the capture groups and dot:</h3>
+
+  re.sub(r'(\d+)\.(\d+)',r"\1dot\2", t)
+  
+
+ Here you match the entire float, but remember the part before and after the dot in capture groups. You then change the replacement string to be "the first capture group, then the string 'dot', then the second capture group". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26974243)
+ Apply the quantifier to the entire group: 
+
+  ^(?:1:[^|\n]*\|?)+(?<!\|)$
+  
+
+  ^  asserts the position at the beginning of the string. It then matches  1:  followed by any characters that are not  |  or a newline,  zero  or more times (indicated by the  * ). This entire group can be repeated  one  or more times (indicated by the  + ). The  (?<!\|)  is a negative lookbehind that asserts that the last character is not a  | .  $  asserts position at the end of the string. 
+
+  
+
+  1:foo
+1:foo|1:bar
+1:foo|1:bar|1:baz
+1:foo|1:bar|1:baz|1:bak
+  
+
+   
+
+  1:foo|
+  
+
+ . 
+
+ http://regex101.com/r/bH1xW5/6 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51282474)
+ You may capture the left-hand context in a capturing group and just match any word to later replace with a backreference to the group value and another word: 
+
+  import re
+aa='''123456
+$SETGLOBAL AAAA
+BBBBBB
+$SETGLOBAL TTTT'''
+text="CCCC"
+print(re.sub(r"(\$SETGLOBAL\s+)\w+", r"\1{}".format(text), aa, 1))
+# or
+# print(re.sub(r"(\$SETGLOBAL\s+)\S+", r"\1{}".format(text), aa, 1))
+  
+
+ See the https://ideone.com/bLk2dH 
+
+ Here,  
+
+ 
+  (\$SETGLOBAL\s+)\w+  - matches and captures  $SETGLOBAL  and any 1+ whitespace chars into Group 1 (later referenced with  \1  from the replacement pattern), and just matches 1 or more word chars with  \w+  ( \w  matches any letters, digits or  _  chars (and some more Unicode chars if you use it in Python 3, or when using  re.U  flag in Python 2.x).  NOTE:   \S+  will match 1 or more any non-whitespace chars. 
+  \1  - is the backreference to the value stored in Group 1 buffer 
+ 
+
+ The  1  argument is the  limit  argument, it tells  re.sub  to only replace once, the first match. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4574516)
+  >>> import re
+>>> re.sub(r'([a-z])\1+', r'\1', 'ffffffbbbbbbbqqq')
+'fbq'
+  
+
+ The  ()  around the  [a-z]  specify a  capture group , and then the  \1  (a  backreference ) in both the pattern and the replacement refer to the contents of the first capture group. 
+
+ Thus, the regex reads "find a letter, followed by one or more occurrences of that same letter" and then entire found portion is replaced with a single occurrence of the found letter. 
+
+ On side note...</h3>
+
+ Your example code for just  a  is actually buggy: 
+
+  >>> re.sub('a*', 'a', 'aaabbbccc')
+'abababacacaca'
+  
+
+ You really would want to use  'a+'  for your regex instead of  'a*' , since the  *  operator matches "0 or more" occurrences, and thus will match empty strings in between two non- a  characters, whereas the  +  operator matches "1 or more". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32169056)
+ You can search using this lookaround regex: 
+
+  (?<= )&&(?= )
+  
+
+ and replace by  and  
+
+  Code:  
+
+  p = re.compile(ur'(?<= )&&(?= )', re.IGNORECASE)
+test_str = u"x&& &&& && && x"
+
+result = re.sub(p, "and", test_str)
+  
+
+ https://regex101.com/r/gX7wY0/5 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2990682)
+  import re
+password = raw_input("Enter string to test: ")
+if re.match(r'[A-Za-z0-9@#$%^&+=]{8,}', password):
+    # match
+else:
+    # no match
+  
+
+   {8,}  means "at least 8".   .match  function requires the entire string to match the entire regex, not just a portion. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43215813)
+ lookaround regex,\d{2,3} means 2 or 3 digits, (?=[a-z]) means letter after digits.  
+
+  In [136]: re.findall(r'(\d{2,3})(?=[a-z])',string)
+Out[136]: ['11', '22', '333', '44', '66', '777']
+  
+
+
+

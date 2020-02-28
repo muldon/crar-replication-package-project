@@ -1,0 +1,356 @@
+Query: Parse_dates in Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34328087)
+ Set  parse_dates  to the first column with  parse_dates=[0] : 
+
+  ts = pd.read_csv(file, sep=';', parse_dates=[0], index_col=0, dayfirst=True)
+
+idx = pd.date_range('01.01.2000', '02.01.2000')
+
+ts.index = pd.DatetimeIndex(ts.index)
+ts = ts.reindex(idx, fill_value='NaN')
+print(ts)
+  
+
+ prints: 
+
+                value
+2000-01-01        1
+2000-01-02        2
+2000-01-03      NaN
+...
+2000-01-31      NaN
+2000-02-01        3
+  
+
+  parse_dates=[0]  tells pandas to explicitly parse the first column as dates. From the docs: 
+
+ 
+   parse_dates : boolean, list of ints or names, list of lists, or dict 
+  
+   If True -> try parsing the index. 
+  
+   If [1, 2, 3] -> try parsing columns 1, 2, 3 each as a separate date column. 
+  
+   If [[1, 3]] -> combine columns 1 and 3 and parse as a single date column. 
+  
+   {'foo' : [1, 3]} -> parse columns 1, 3 as date and call result 'foo' 
+  
+   A fast-path exists for iso8601-formatted dates. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45955927)
+ the built in dateparser in  pandas  is man/woman enough to handle this already, so just pass param  parse_dates=[0]  to tell  read_csv  to parse the first column as datetimes, additionally you need to pass  dayfirst=True : 
+
+  In[19]:
+import pandas as pd
+import io
+t="""Date,X1,X2
+12/6/2017 23:00,28.88,3.19
+12/6/2017 23:20,928.86,3.37
+12/6/2017 23:40,930.26,3.38
+13-06-17 0:00,930.37,3.41
+13-06-17 0:20,930.39,3.49
+13-06-17 0:40,930.15,3.54
+13-06-17 1:00,930.36,3.46"""
+df = pd.read_csv(io.StringIO(t), parse_dates=['Date'], dayfirst=True)
+df
+Out[19]: 
+                 Date      X1    X2
+0 2017-06-12 23:00:00   28.88  3.19
+1 2017-06-12 23:20:00  928.86  3.37
+2 2017-06-12 23:40:00  930.26  3.38
+3 2017-06-13 00:00:00  930.37  3.41
+4 2017-06-13 00:20:00  930.39  3.49
+5 2017-06-13 00:40:00  930.15  3.54
+6 2017-06-13 01:00:00  930.36  3.46
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34169045)
+ There is the  parse_dates  parameter in  read_csv . 
+
+ 
+   parse_dates : boolean, list of ints or names, list of lists, or dict
+      If True -> try parsing the index.
+      If [1, 2, 3] -> try parsing columns 1, 2, 3 each as a separate date column.
+      If [[1, 3]] -> combine columns 1 and 3 and parse as a single date column.
+      {'foo' : [1, 3]} -> parse columns 1, 3 as date and call result 'foo'
+      A fast-path exists for iso8601-formatted dates. 
+ 
+
+  
+
+  df = pd.read_csv(filename, parse_dates=['date_col_1', 'date_col2', etc...])
+  
+
+ A specific example: 
+
+  df = pd.DataFrame({'date': ['2015-1-1', '2015-2-1', '2015-3-1']})
+df['date'] = pd.to_datetime(df['date'])
+df.to_csv('dates.csv')
+
+df2 = pd.read_csv('dates.csv')
+
+>>> type(df2['date'].iloc[0])
+str
+
+df2 = pd.read_csv('dates.csv', parse_dates=['date'])
+
+>>> type(df2['date'].iloc[0])
+pandas.tslib.Timestamp
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/23313725)
+ I'd do the following: 
+
+  data = """
+year,month,x1,x2
+2008,1,283.7,8
+2008,2,323.1,8
+2008,3,270.7,2
+2008,4,353.6,2
+""" 
+
+df = pd.read_csv(StringIO(data),header=True,                           
+                 parse_dates={'date':[0,1]},
+                 index_col='date')
+df.index = df.index.values.astype('datetime64[M]')
+print df
+
+               x1  x2
+2008-01-01  283.7   8
+2008-02-01  323.1   8
+2008-03-01  270.7   2
+2008-04-01  353.6   2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38850852)
+ Pandas  read_csv  accepts http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html argument which you can define your own date parsing function. So for example in your case you have 2 different datetime formats you can simply do: 
+
+  import datetime
+
+def date_parser(d):
+    try:
+        d = datetime.datetime.strptime("format 1")
+    except ValueError:
+        try:
+            d = datetime.datetime.strptime("format 2")
+        except:
+            # both formats not match, do something about it
+    return d
+
+df = pd.read_csv('/Users/n....', 
+                 names=names, 
+                 parse_dates=['date1', 'date2']),
+                 date_parser=date_parser) 
+  
+
+ You can then parse those dates in different formats in those columns. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40019165)
+ You can use parameter  parse_dates  where define column names in  list  in http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html: 
+
+  import pandas as pd
+import numpy as np
+import io
+
+temp=u"""cal,month,year,day
+3668.4333,1,2002,10
+3652.2498,1,2002,11
+3647.8662,1,2002,12
+3646.6843,1,2002,13
+3661.9414,2,2003,14"""
+#after testing replace io.StringIO(temp) to filename
+df = pd.read_csv(io.StringIO(temp), parse_dates=[['year','month','day']])
+
+print (df)
+  year_month_day        cal
+0     2002-01-10  3668.4333
+1     2002-01-11  3652.2498
+2     2002-01-12  3647.8662
+3     2002-01-13  3646.6843
+4     2003-02-14  3661.9414
+
+print (df.dtypes)
+year_month_day    datetime64[ns]
+cal                      float64
+dtype: object
+  
+
+ Then you can rename column: 
+
+  df.rename(columns={'year_month_day':'date'}, inplace=True)
+print (df)
+        date        cal
+0 2002-01-10  3668.4333
+1 2002-01-11  3652.2498
+2 2002-01-12  3647.8662
+3 2002-01-13  3646.6843
+4 2003-02-14  3661.9414
+  
+
+ Or better is pass  dictionary  with new column name to  parse_dates : 
+
+  df = pd.read_csv(io.StringIO(temp), parse_dates={'dates': ['year','month','day']})
+
+print (df)
+       dates        cal
+0 2002-01-10  3668.4333
+1 2002-01-11  3652.2498
+2 2002-01-12  3647.8662
+3 2002-01-13  3646.6843
+4 2003-02-14  3661.9414
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30833226)
+ If you use  parse_dates=True  then  read_csv  tries to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html. 
+Therefore, you would also need to declare the first column as the index with  index_col=[0] : 
+
+  In [216]: pd.read_csv('testdata.csv', dayfirst=True, parse_dates=True, index_col=[0])
+Out[216]: 
+            morgens  mittags  abends
+Datum                               
+2015-03-16      382      452     202
+2015-03-17      288      467     192
+  
+
+ Alternatively, if you don't want the  Datum  column to be an index, you could use
+ parse_dates=[0]   to explicitly tell  read_csv   to parse the first column as dates: 
+
+  In [217]: pd.read_csv('testdata.csv', dayfirst=True, parse_dates=[0])
+Out[217]: 
+       Datum  morgens  mittags  abends
+0 2015-03-16      382      452     202
+1 2015-03-17      288      467     192
+  
+
+ 
+
+ Under the hood  read_csv  uses  dateutil.parser.parse  to parse date strings: 
+
+  In [218]: import dateutil.parser as DP
+
+In [221]: DP.parse('16.03.2015', dayfirst=True)
+Out[221]: datetime.datetime(2015, 3, 16, 0, 0)
+  
+
+ Since  dateutil.parser  has no trouble parsing date strings in  DD.MM.YYYY  format, you don't have to declare a custom date parser here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34848630)
+ Maybe better is parse datetime in function http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html by parameter  parse_dates : 
+
+  import pandas as pd
+import io
+
+temp=u"""DATE          PRICE
+ 12/26/2015     XXX
+ 12/26/2015     YYY
+ 25-Dec-15      ZZZ
+ 25-Dec-15      WWW"""
+
+#after testing change io.StringIO(temp) to filename
+df = pd.read_csv(io.StringIO(temp), sep="\s+", parse_dates=['DATE'])
+
+print df
+
+        DATE PRICE
+0 2015-12-26   XXX
+1 2015-12-26   YYY
+2 2015-12-25   ZZZ
+3 2015-12-25   WWW
+
+print df.dtypes
+
+DATE     datetime64[ns]
+PRICE            object
+dtype: object
+
+print df.index
+
+Int64Index([0, 1, 2, 3], dtype='int64')
+  
+
+ Or if you want set  index  to  DatetimeIndex : 
+
+  #after testing change io.StringIO(temp) to filename    
+df = pd.read_csv(io.StringIO(temp), sep="\s+", parse_dates=['DATE'], index_col=['DATE'] )
+
+print df
+
+           PRICE
+DATE            
+2015-12-26   XXX
+2015-12-26   YYY
+2015-12-25   ZZZ
+2015-12-25   WWW
+
+print df.dtypes
+
+PRICE    object
+dtype: object
+print df.index
+
+DatetimeIndex(['2015-12-26', '2015-12-26', '2015-12-25', '2015-12-25'], dtype='datetime64[ns]', name=u'DATE', freq=None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36358512)
+ You need to specify a list of column names: 
+
+  parse_dates=['A']
+  
+
+ Example: 
+
+  >>> pd.read_csv('date.csv', parse_dates=['A']).dtypes
+Unnamed: 0             int64
+A             datetime64[ns]
+dtype: object
+dtypes: datetime64[ns](1), int64(1)
+memory usage: 24.0 bytes
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/11617682)
+ If you pass a list to  index_col , it means you want to create a hierarchical index out of the columns in the list. 
+
+ In addition, the  parse_dates  keyword can be set to either True or a list/dict. If True, then it tries to parse individual columns as dates, otherwise it combines columns to parse a single date column. 
+
+ In summary, what you want to do is: 
+
+  from datetime import datetime
+import pandas as pd
+parse = lambda x: datetime.strptime(x, '%Y%m%d %H')
+pd.read_csv("..\\file.csv",  parse_dates = [['YYYYMMDD', 'HH']], 
+            index_col = 0, 
+            date_parser=parse)
+  
+
+
+

@@ -1,0 +1,207 @@
+Query: How can I remove the fragment identifier from a URL?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6250083)
+ Just use  split()  
+
+  >>> foo = "http://www.address.com/something#something"
+>>> foo = foo.split('#')[0]
+>>> foo
+'http://www.address.com/something'
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6250107)
+ For Python 2 use https://docs.python.org/2/library/urlparse.html#urlparse.urldefrag: 
+
+  >>> urlparse.urldefrag("http://www.address.com/something#something")
+('http://www.address.com/something', 'something')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37632561)
+ In python 3, the  urldefrag  function is now part of  urllib.parse : 
+
+  from urllib.parse import urldefrag
+unfragmented = urldefrag("http://www.address.com/something#something")
+
+('http://www.address.com/something', 'something')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/8868267)
+ To remove query, fragment parts from URL</h3>
+
+ In Python using http://docs.python.org/library/urlparse#urlparse.urlsplit: 
+
+  import urlparse
+
+url = urlparse.urlsplit(URL)               # parse url
+print urlparse.urlunsplit(url[:3]+('','')) # remove query, fragment parts
+  
+
+ Or a more lightweight approach but it might be less universal:  
+
+  print URL.partition('?')[0]
+  
+
+ According to http://tools.ietf.org/html/rfc3986#appendix-B URI can be parsed using the regular expression: 
+
+  /^(([^:\/?#]+):)?(\/\/([^\/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/
+  
+
+ Therefore if there is no fragment identifier (the last part in the above regex) or the query component is present (the 2nd to last part) then  URL.partition('?')[0]  should work, otherwise answers that split an url on '?' would fail e.g., 
+
+  http://example.com/path#here-?-ereh
+  
+
+ but  urlparse  answer still http://ideone.com/HhdEt. 
+
+ To check whether you can access page via URL</h3>
+
+ In Python: 
+
+  import urllib2
+
+try:
+    resp = urllib2.urlopen(URL)
+except IOError, e:
+    print "error: can't open %s, reason: %s" % (URL, e)
+else:
+    print "success, status code: %s, info:\n%s" % (resp.code, resp.info()),
+  
+
+  resp.read()  could be used to read the contents of the page. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51093603)
+ The very helpful library https://github.com/gruns/furl makes it trivial to remove both query and fragment parts: 
+
+  >>> furl.furl("https://hi.com/?abc=def#ghi").remove(args=True, fragment=True).url
+https://hi.com/
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11640565)
+ It's a bit long but uses the url* modules, and avoids re's. 
+
+  from urllib import urlencode
+from urlparse import urlparse, parse_qs, urlunparse
+
+url = 'http://whatever.com/somepage?utm_one=3&something=4&utm_two=5&utm_blank&something_else'
+
+parsed = urlparse(url)
+qd = parse_qs(parsed.query, keep_blank_values=True)
+filtered = dict( (k, v) for k, v in qd.iteritems() if not k.startswith('utm_'))
+newurl = urlunparse([
+    parsed.scheme,
+    parsed.netloc,
+    parsed.path,
+    parsed.params,
+    urlencode(filtered, doseq=True), # query string
+    parsed.fragment
+])
+
+print newurl
+# 'http://whatever.com/somepage?something=4&something_else'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20705345)
+ Everything after the  #  forms the http://en.wikipedia.org/wiki/Fragment_identifier of a resource and is handled  client side . In the normal course of operation, the fragment identifier is never sent to the server: 
+
+ 
+   The fragment identifier functions differently than the rest of the URI: namely, its processing is exclusively client-side with no participation from the web server 
+ 
+
+ If a server is ever sent a fragment identifier in a URL, it must ignore this part of the URL. It is not part of the path, and thus Flask just sees  127.0.0.1:7777/  for all your sample URLs with a fragment. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29197423)
+ I know this is a bit more than the OP asked for, However I had the pieces to the following url, and was looking for a simple way to join them: 
+
+  >>> url = 'https://api.foo.com/orders/bartag?spamStatus=awaiting_spam&page=1&pageSize=250'
+  
+
+ Doing some looking around: 
+
+  >>> split = urlparse.urlsplit(url)
+>>> split
+SplitResult(scheme='https', netloc='api.foo.com', path='/orders/bartag', query='spamStatus=awaiting_spam&page=1&pageSize=250', fragment='')
+>>> type(split)
+<class 'urlparse.SplitResult'>
+>>> dir(split)
+['__add__', '__class__', '__contains__', '__delattr__', '__dict__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getitem__', '__getnewargs__', '__getslice__', '__getstate__', '__gt__', '__hash__', '__init__', '__iter__', '__le__', '__len__', '__lt__', '__module__', '__mul__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__rmul__', '__setattr__', '__sizeof__', '__slots__', '__str__', '__subclasshook__', '__weakref__', '_asdict', '_fields', '_make', '_replace', 'count', 'fragment', 'geturl', 'hostname', 'index', 'netloc', 'password', 'path', 'port', 'query', 'scheme', 'username']
+>>> split[0]
+'https'
+>>> split = (split[:])
+>>> type(split)
+<type 'tuple'>
+  
+
+ So in addition to the path joining which has already been answered in the other answers,  To get what I was looking for I did the following:  
+
+  >>> split
+('https', 'api.foo.com', '/orders/bartag', 'spamStatus=awaiting_spam&page=1&pageSize=250', '')
+>>> unsplit = urlparse.urlunsplit(split)
+>>> unsplit
+'https://api.foo.com/orders/bartag?spamStatus=awaiting_spam&page=1&pageSize=250'
+  
+
+ According to the https://docs.python.org/2/library/urlparse.html#urlparse.urlsplit it takes EXACTLY a 5 part tuple. 
+
+ With the following tuple format: 
+
+ 
+   scheme  0   URL scheme specifier    empty string 
+  
+   netloc  1   Network location part   empty string  
+  
+   path    2   Hierarchical path   empty string  
+  
+   query   3   Query component empty string  
+  
+   fragment    4   Fragment identifier empty string 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11242355)
+ Don't use regex, use urlparse to get netloc 
+
+  >>> x = 'http://www.domain.com/'
+>>> from urlparse import urlparse
+>>> o = urlparse(x)
+>>> o
+ParseResult(scheme='http', netloc='www.domain.com', path='/', params='', query='', fragment='')
+>>> 
+  
+
+  
+
+  >>> o.netloc
+'www.domain.com'
+>>> if o.netloc.startswith('www.'): print o.netloc[4:]
+... 
+domain.com
+>>> 
+  
+
+
+

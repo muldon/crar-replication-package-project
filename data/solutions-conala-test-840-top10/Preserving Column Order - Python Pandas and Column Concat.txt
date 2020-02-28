@@ -1,0 +1,249 @@
+Query: Preserving Column Order - Python Pandas and Column Concat
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48064892)
+  def concat_ordered_columns(frames):
+    columns_ordered = []
+    for frame in frames:
+        columns_ordered.extend(x for x in frame.columns if x not in columns_ordered)
+    final_df = pd.concat(frames)    
+    return final_df[columns_ordered]       
+
+# Usage
+dfs = [df_a,df_b,df_c]
+full_df = concat_ordered_columns(dfs)
+  
+
+ This should work. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51322617)
+ you can also specify the order like this :  
+
+  import pandas as pd
+
+data1 = pd.DataFrame({ 'b' : [1, 1, 1], 'a' : [2, 2, 2]})
+data2 = pd.DataFrame({ 'b' : [1, 1, 1], 'a' : [2, 2, 2]})
+listdf = [data1, data2]
+data = pd.concat(listdf)
+sequence = ['b','a']
+data = data.reindex(columns=sequence)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39047188)
+ You can create the original DataFrames with OrderedDicts 
+
+  from collections import OrderedDict
+
+odict = OrderedDict()
+odict['b'] = [1, 1, 1]
+odict['a'] = [2, 2, 2]
+data1 = pd.DataFrame(odict)
+data2 = pd.DataFrame(odict)
+frames = [data1, data2]
+data = pd.concat(frames)
+data
+
+
+    b    a
+0   1    2
+1   1    2
+2   1    2
+0   1    2
+1   1    2
+2   1    2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35051774)
+ Another workaround is to do this: 
+
+  import pandas as pd
+data = pd.read_csv(filename)
+data2 = df[['A','B','C']]  #put 'A' 'B' 'C' in the desired order
+data2.to_csv(filename)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12193483)
+  pd.concat  takes a list of Series: 
+
+  orig = pd.concat([pd.Series(...) for i in li], axis=1)
+  
+
+ (renamed your  list  to  li ) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48522597)
+ I think not, need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.sort_index.html for sorting columns names: 
+
+  df = pd.concat(frames, axis = 1).sort_index(axis=1)
+  
+
+ If want sorted by indices positions: 
+
+  L = list1 + list2 + list3
+df1 = pd.concat(frames, axis = 1).reindex(columns=df.columns[sorted(L)])
+  
+
+ Or sorting in  iloc : 
+
+  df_1 = df.iloc[:,sorted(list1)]
+#carry out preprocessing
+df_2 = df.iloc[:,sorted(list2)]
+#carry out preprocessing
+df_3 = df.iloc[:,sorted(list3)]
+#carry out preprocessing
+  
+
+  Sample : 
+
+  np.random.seed(100)
+df = pd.DataFrame(np.random.randint(10, size=(5,10)), columns=list('EFGHIJABCD'))
+print (df)
+   E  F  G  H  I  J  A  B  C  D
+0  8  8  3  7  7  0  4  2  5  2
+1  2  2  1  0  8  4  0  9  6  2
+2  4  1  5  3  4  4  3  7  1  1
+3  7  7  0  2  9  9  3  2  5  8
+4  1  0  7  6  2  0  8  2  5  1
+
+list1 = [1,4,3]
+list2 = [2,5,6]
+list3 = [9,8,7]
+  
+
+ 
+
+  df_1 = df.iloc[:,list1]
+#carry out preprocessing
+df_2 = df.iloc[:,list2]
+#carry out preprocessing
+df_3 = df.iloc[:,list3]
+#carry out preprocessing
+
+#join the frames back together
+frames = [df_1,df_2,df_3]
+L = list1 + list2 + list3
+
+df1 = pd.concat(frames, axis = 1).reindex(columns=df.columns[sorted(L)])
+print (df1)
+   F  G  H  I  J  A  B  C  D
+0  8  3  7  7  0  4  2  5  2
+1  2  1  0  8  4  0  9  6  2
+2  1  5  3  4  4  3  7  1  1
+3  7  0  2  9  9  3  2  5  8
+4  0  7  6  2  0  8  2  5  1
+
+df2 = pd.concat(frames, axis = 1).sort_index(axis=1)
+print (df2)
+   A  B  C  D  F  G  H  I  J
+0  4  2  5  2  8  3  7  7  0
+1  0  9  6  2  2  1  0  8  4
+2  3  7  1  1  1  5  3  4  4
+3  3  2  5  8  7  0  2  9  9
+4  8  2  5  1  0  7  6  2  0
+  
+
+ EDIT: 
+
+ If same columns names as values in list  L : 
+
+  L.sort()
+df = df[L]
+  
+
+  
+
+  df = df[sorted(L)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/21435402)
+ You could also use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html: 
+
+  In [36]: pd.concat([noclickDF, clickDF], ignore_index=True)
+Out[36]: 
+   click    id  location
+0      0   123       321
+1      0  1543       432
+2      1   421       123
+3      1   436      1543
+  
+
+ Under the hood,  DataFrame.append  calls  pd.concat .
+ DataFrame.append  has code for handling various types of input, such as Series, tuples, lists and dicts. If you pass it a DataFrame, it passes straight through to  pd.concat , so using  pd.concat  is a bit more direct.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32535389)
+ Assuming the concatenated DataFrame is  df , you can perform the reordering of columns as follows: 
+
+  important = ['Username', 'Name']
+reordered = important + [c for c in df.columns if c not in important]
+df = df[reordered]
+print df
+  
+
+ Output: 
+
+       Username   Name Alias1 Alias2
+0  Tomfoolery    Tom    TJZ    NaN
+1     MsMeryl  Meryl    Mer    NaN
+2     Midsize  Timmy   Yoda    NaN
+0    Firedbob    Bob   Fire  Gingy
+1  Tomfoolery    Tom    TJZ   Awww
+  
+
+ The list of numbers  [0, 1, 2, 0, 1]  is the index of the DataFrame. To prevent them from being written to the output file, you can use the  index=False  option in  to_csv() : 
+
+  df.to_csv('Result.csv', index=False, sep=' ')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42929856)
+ Use  pd.concat()  like so: 
+
+  #Split into separate tables
+df_1 = df[['A', 'B']]
+df_2 = df[['A1', 'B1']]
+df_2.columns = ['A', 'B'] # Make column names line up
+
+# Add the ID column
+df_1 = df_1.assign(id=1)
+df_2 = df_2.assign(id=2)
+
+# Concatenate
+pd.concat([df_1, df_2])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/15658719)
+ The column order should generally be preserved when reading and then writing a csv file like that, but if for some reason they are not in the order you want you can use the  columns  keyword argument in  to_csv . 
+
+ For example, if you have a csv with columns a, b, c, d: 
+
+  data = pd.read_csv(filename)
+data.to_csv(filename, columns=['a', 'b', 'c', 'd'])
+  
+
+
+

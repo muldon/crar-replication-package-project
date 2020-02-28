@@ -1,0 +1,296 @@
+Query: Pythonic way to fetch all elements in a dictionary, falling between two keys?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8654665)
+ for python 2.5.2: 
+
+  dict( (k,v) for k,v in parent_dict.iteritems() if k > 2 and k < 4 )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8654667)
+  dict((k,v) for k,v in parent_dict.iteritems() if 2 < k < 4)
+  
+
+ This works for Python 2.6.5. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44640293)
+ Yes, you make things too complicated, simply use  dictionary comprehension : 
+
+  {k:v1-d2.get(k,0) for k,v1 in d1.items()}
+  
+
+ This will generate: 
+
+  >>> {k:v1-d2.get(k,0) for k,v1 in d1.items()}
+{'red': 9, 'blue': 18, 'green': 27, 'yellow': 40}
+  
+
+ The code works as follows: the dictionary comprehension will iterate through the  items()  of  d1 , with  k  the key and  v1  the value of  d1  that is associated with  k . 
+
+ Then for each such key-value pair, we will associate  v1-d2.get(k,0)  with the key  k  in the resulting dictionary.  d2.get(k,0)  will aim to fetch the value associated with  k , and if the key is  not  in the dictionary, it will return  0 . 
+
+ The algorithm runs - given dictionary lookup can happen in  O(1)  (not guaranteed, but very likely) - in  O(n)  with  n  the number of elements in  d1 , so reasonably fast. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/7935325)
+ This issue is made a lot harder by dict keys being in no particular order.  If you can play with how you make the dict so they are in order (like your example) and use python >= 2.7 you can use http://docs.python.org/library/collections.html#collections.OrderedDict and http://docs.python.org/library/bisect.html to make this lightning fast. 
+
+  import collections
+a = collections.OrderedDict()
+for i in range(100):
+    a[i] = i
+
+import bisect
+ind = bisect.bisect_left(a.keys(), 45.3)
+  
+
+ Then you only have to check element  ind  and  ind-1  to see which is closer, thus making a lot fewer calculations. 
+
+ 
+
+ As pointed out below by Steven G, in Python3 the .keys() is not just a list and must be changed into one.  
+
+  bisect.bisect_left(list(a.keys()), 45.3)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7934624)
+ here's your function on one line: 
+
+  data.get(num, data[min(data.keys(), key=lambda k: abs(k-num))])
+  
+
+ edit: to not evaluate the min when the key is in the dict use: 
+
+  data[num] if num in data else data[min(data.keys(), key=lambda k: abs(k-num))]
+  
+
+ or if all values in  data  evaluate to  True  you can use: 
+
+  data.get(num) or data[min(data.keys(), key=lambda k: abs(k-num))]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8654731)
+  Solution  
+
+ Starting from python 2.7, you can use dictionary comprehension. There are like list comprehensions, but applied to a dictionary: 
+
+  >>> parent_dict = {1: 'Homer',
+...                2: 'Bart',
+...                3: 'Lisa',
+...                4: 'Marge',
+...                5: 'Maggie'
+...                }
+>>> {key:val for key,val in parent_dict.iteritems() if 2 < key < 4 }
+1: {3: 'Lisa'}
+  
+
+ You probably don't need to make it a function, but if you do, you can just use a lambda function as a filter: 
+
+  >>> def filter_func(somedict, key_criteria_func):
+...     return {k:v for k, v in somedict.iteritems() if  key_criteria_func(k)}
+... 
+... filter_func(parent_dict, lambda x: 2 < x < 4)
+2: {3: 'Lisa'}
+  
+
+ For Python 2.6.5 and all version before 2.7, replace the dict comprehension with: 
+
+  dict((k,v) for k,v in parent_dict.iteritems() if 2 < k < 4)
+  
+
+    
+
+ Lambda function are not magic, it's just a way to easily create fonction on the fly. You can do everything you do with  lambda  witout it, the only difference is that lambdas are expression, and therefor can be used directly between parenthis. 
+
+  
+
+  >>> func = lambda x: 2 < x < 4
+>>> func(3)
+True
+  
+
+  
+
+  >>> def func(x):
+...    return 2 < x < 4
+...
+>>> func(3)
+True
+  
+
+  and produce the same function, except the lambda function won't have a name. But you don't care, on your case you don't need a name, you just need a reference to call it, and the variable  func  contains this reference. 
+
+ The lambda syntax is weird because: 
+
+ 
+ You don't need parenthesis for the parameters (you don't even need parameter) 
+ you don't do  def var(param):  but  var = lambda param: . Nothing magic, it's just syntax 
+ you can't make a 2 lines  lambda : the return result must fit in one instruction. 
+ you don't use the  return  keyword: the right part of the lambda is returned automatically 
+ 
+
+ Now the nice thing with a lamda, is that since it's an expression, you can use it between parenthese, meaning you can create and pass your fonction à the same time. 
+
+  
+
+  >>> filter_func(parent_dict, lambda x: 2 < x < 4)
+  
+
+  
+
+  >>> def func(x):
+...    return 2 < x < 4
+...
+>>> filter_func(parent_dict, func)
+  
+
+ . The lambda is just shorter. 
+
+ The hard part here is to understand that you can pass a function as a parameter in Python because everything in Python is an object, including functions. 
+
+  
+
+  >>> def func():
+...    print "test"
+...
+>>> ref_to_func = func # assign the function refence to another var
+>>> del func # delete this label
+>>> ref_to_func() # call the function from this label
+test
+  
+
+ And you can even define a fonction on one line: 
+
+  >>> def func(): print "test"
+>>> func() 
+test
+  
+
+  
+
+  filter_func(parent_dict, def func(x): 2 < x 4 )
+  
+
+ Which is where lambdas are useful. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32719857)
+ First get all keys and set up a new dictionary from your list of dictionaries: 
+
+  d1 = {'a' : 2, 'b' : 1, 'c' : 1}
+d2 = {'a' : 3, 'b' : 1.1, 'd' : 2}
+mylist = [d1, d2]
+sum_dict = dict.fromkeys(set().union(*mylist), 0)
+  
+
+ After that that is simple to just iterate over the list of dictionaries and the keys: 
+
+  for d in mylist:
+    for k in d.keys():
+        sum_dict[k] += d[k]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26836482)
+ You can use either counter as mentioned in the other answer, or a dictionary to go through the elements and count the frequency of every character. 
+
+ You can use  zip  to traverse two lists, by getting elements in the same position (just to accelerate things as they have the same length ). If the key exist, we add one. If it doesn't exist, we add the key to the dictionary, with a value  1  
+
+  def perm_check(str1,str2):
+    if len(str1)!=len(str2):
+        return False
+
+    d1,d2={},{}
+
+    for x,y in zip(list(str1),list(str2)):
+        if x not in d1.keys():
+            d1[x]=1
+        else:
+            d1[x]+=1
+
+        if y not in d2.keys():
+            d2[y]=1
+        else:
+            d2[y]+=1
+
+
+    return d1==d2
+
+print perm_check("dad","add") #True
+
+print perm_check("dad","adb") #False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50789460)
+ Even cleaner than turning  l1  into a  set , use the keys of the dictionary you're building.  
+
+  d = {x: [] for x in l1}
+k = None
+
+for x in l2:
+    if x in d:
+        k = x
+    elif k is not None:
+        d[k].append(x)
+  
+
+ This is because (in the worst case) your code would be iterating over all the values in  l1  for every value in  l2  on the  if x in l1:  line, because https://wiki.python.org/moin/TimeComplexity#list. Checking if a value is  in  a dictionary's keys is constant time in the average case (https://wiki.python.org/moin/TimeComplexity#set, as already https://stackoverflow.com/a/50356484/3064538). 
+
+ I set  k  to  None  and check for it because your code would've returned  d  with  '': ['x','q','we','da','po'] , which is presumably not what you want. This assumes  l1  can't contain  None . 
+
+ My solution also assumes it's okay for the resulting dictionary to contain keys with empty lists if there are items in  l1  that never appear in  l2 . If that's not okay, you can remove them at the end with 
+
+  final_d = {k: v for k, v in d.items() if v}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/36861857)
+ You can use a dictionary for categorizing the items based on first two items in each sub list then use a list comprehension in order to concatenate the dict's keys and values: 
+
+ Note that the reason of using  OrderedDict  is that it will preserver the order for you. 
+
+  >>> from collections import OrderedDict
+>>> d = OrderedDict()
+>>> 
+>>> for i, j, k in data:
+...     d.setdefault((i, j), []).append(k)
+... 
+>>> [[i,j] + k for (i,j), k in d.items()]
+[['a', 'b', 1, 2, 3], ['a', 'c', 3, 4], ['f', 'g', 2, 5, 9]]
+  
+
+ If you are dealing with large lists and you care about the memory optimization, you can use  groupby  and  chain  functions from  itertools  module that return iterator: 
+
+  >>> from itertools import groupby, chain
+>>> from operator import itemgetter
+>>> from collections import OrderedDict
+
+>>> [OrderedDict.fromkeys(chain.from_iterable(g)).keys() for _,g in groupby(data, key=itemgetter(0, 1))]
+[['a', 'b', 1, 2, 3], ['a', 'c', 3, 4], ['f', 'g', 2, 5, 9]]
+  
+
+
+

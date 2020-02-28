@@ -1,0 +1,391 @@
+Query: Create Pandas DataFrame from txt file with specific pattern
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41386636)
+ Assuming you have the following DF: 
+
+  In [73]: df
+Out[73]:
+                                                 text
+0                                       Alabama[edit]
+1                       Auburn (Auburn University)[1]
+2              Florence (University of North Alabama)
+3     Jacksonville (Jacksonville State University)[2]
+4          Livingston (University of West Alabama)[2]
+5            Montevallo (University of Montevallo)[2]
+6                           Troy (Troy University)[2]
+7   Tuscaloosa (University of Alabama, Stillman Co...
+8                   Tuskegee (Tuskegee University)[5]
+9                                        Alaska[edit]
+10      Fairbanks (University of Alaska Fairbanks)[2]
+11                                      Arizona[edit]
+12         Flagstaff (Northern Arizona University)[6]
+13                   Tempe (Arizona State University)
+14                     Tucson (University of Arizona)
+15                                     Arkansas[edit]
+  
+
+ you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.extract.html method: 
+
+  In [117]: df['State'] = df.loc[df.text.str.contains('[edit]', regex=False), 'text'].str.extract(r'(.*?)\[edit\]', expand=False)
+
+In [118]: df['Region Name'] = df.loc[df.State.isnull(), 'text'].str.extract(r'(.*?)\s*[\(\[]+.*[\n]*', expand=False)
+
+In [120]: df.State = df.State.ffill()
+
+In [121]: df
+Out[121]:
+                                                 text     State   Region Name
+0                                       Alabama[edit]   Alabama           NaN
+1                       Auburn (Auburn University)[1]   Alabama        Auburn
+2              Florence (University of North Alabama)   Alabama      Florence
+3     Jacksonville (Jacksonville State University)[2]   Alabama  Jacksonville
+4          Livingston (University of West Alabama)[2]   Alabama    Livingston
+5            Montevallo (University of Montevallo)[2]   Alabama    Montevallo
+6                           Troy (Troy University)[2]   Alabama          Troy
+7   Tuscaloosa (University of Alabama, Stillman Co...   Alabama    Tuscaloosa
+8                   Tuskegee (Tuskegee University)[5]   Alabama      Tuskegee
+9                                        Alaska[edit]    Alaska           NaN
+10      Fairbanks (University of Alaska Fairbanks)[2]    Alaska     Fairbanks
+11                                      Arizona[edit]   Arizona           NaN
+12         Flagstaff (Northern Arizona University)[6]   Arizona     Flagstaff
+13                   Tempe (Arizona State University)   Arizona         Tempe
+14                     Tucson (University of Arizona)   Arizona        Tucson
+15                                     Arkansas[edit]  Arkansas           NaN
+
+In [122]: df = df.dropna()
+
+In [123]: df
+Out[123]:
+                                                 text    State   Region Name
+1                       Auburn (Auburn University)[1]  Alabama        Auburn
+2              Florence (University of North Alabama)  Alabama      Florence
+3     Jacksonville (Jacksonville State University)[2]  Alabama  Jacksonville
+4          Livingston (University of West Alabama)[2]  Alabama    Livingston
+5            Montevallo (University of Montevallo)[2]  Alabama    Montevallo
+6                           Troy (Troy University)[2]  Alabama          Troy
+7   Tuscaloosa (University of Alabama, Stillman Co...  Alabama    Tuscaloosa
+8                   Tuskegee (Tuskegee University)[5]  Alabama      Tuskegee
+10      Fairbanks (University of Alaska Fairbanks)[2]   Alaska     Fairbanks
+12         Flagstaff (Northern Arizona University)[6]  Arizona     Flagstaff
+13                   Tempe (Arizona State University)  Arizona         Tempe
+14                     Tucson (University of Arizona)  Arizona        Tucson
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41386637)
+ You could parse the file into tuples first: 
+
+  import pandas as pd
+from collections import namedtuple
+
+Item = namedtuple('Item', 'state area')
+items = []
+
+with open('unis.txt') as f: 
+    for line in f:
+        l = line.rstrip('\n') 
+        if l.endswith('[edit]'):
+            state = l.rstrip('[edit]')
+        else:            
+            i = l.index(' (')
+            area = l[:i]
+            items.append(Item(state, area))
+
+df = pd.DataFrame.from_records(items, columns=['State', 'Area'])
+
+print df
+  
+
+ output: 
+
+        State          Area
+0   Alabama        Auburn
+1   Alabama      Florence
+2   Alabama  Jacksonville
+3   Alabama    Livingston
+4   Alabama    Montevallo
+5   Alabama          Troy
+6   Alabama    Tuscaloosa
+7   Alabama      Tuskegee
+8    Alaska     Fairbanks
+9   Arizona     Flagstaff
+10  Arizona         Tempe
+11  Arizona        Tucson
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41386865)
+   TL;DR   
+ s.groupby(s.str.extract('(?P<State>.\[edit\]', expand=False)..apply(pd.Series.tail, n=-1)..iloc[:, [0, 2]]  
+
+ 
+
+  regex = '(?P<State>.\[edit\]'  # pattern to match
+print(s.groupby(
+    # will get nulls where we don't have "[edit]"
+    # forward fill fills in the most recent line
+    # where we did have an "[edit]"
+    s.str.extract(regex, expand=False).ffill()  
+).apply(
+    # I still have all the original values
+    # If I group by the forward filled rows
+    # I'll want to drop the first one within each group
+    pd.Series.tail, n=-1
+).reset_index(
+    # munge the dataframe to get columns sorted
+    name='Region_Name'
+)[['State', 'Region_Name']])
+
+      State                                        Region_Name
+0   Alabama                      Auburn (Auburn University)[1]
+1   Alabama             Florence (University of North Alabama)
+2   Alabama    Jacksonville (Jacksonville State University)[2]
+3   Alabama         Livingston (University of West Alabama)[2]
+4   Alabama           Montevallo (University of Montevallo)[2]
+5   Alabama                          Troy (Troy University)[2]
+6   Alabama  Tuscaloosa (University of Alabama, Stillman Co...
+7   Alabama                  Tuskegee (Tuskegee University)[5]
+8    Alaska      Fairbanks (University of Alaska Fairbanks)[2]
+9   Arizona         Flagstaff (Northern Arizona University)[6]
+10  Arizona                   Tempe (Arizona State University)
+11  Arizona                     Tucson (University of Arizona)
+  
+
+ 
+
+      
+
+  txt = """Alabama[edit]
+Auburn (Auburn University)[1]
+Florence (University of North Alabama)
+Jacksonville (Jacksonville State University)[2]
+Livingston (University of West Alabama)[2]
+Montevallo (University of Montevallo)[2]
+Troy (Troy University)[2]
+Tuscaloosa (University of Alabama, Stillman College, Shelton State)[3][4]
+Tuskegee (Tuskegee University)[5]
+Alaska[edit]
+Fairbanks (University of Alaska Fairbanks)[2]
+Arizona[edit]
+Flagstaff (Northern Arizona University)[6]
+Tempe (Arizona State University)
+Tucson (University of Arizona)
+Arkansas[edit]"""
+
+s = pd.read_csv(StringIO(txt), sep='|', header=None, squeeze=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48353097)
+ If I understand you correctly, this should do what you want: 
+
+  df.apply(lambda x: open('{}.txt'.format(x.filename), 'w').write(x.sex), axis=1)
+  
+
+ Note you can't use .to_csv as this is a method of a DataFrame or Series. It can't be used on a string like 'a' or 'b' 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41386927)
+ You can first http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html with parameter  name  for create  DataFrame  with column  Region Name , separator is value which is NOT in values (like  ; ): 
+
+  df = pd.read_csv('filename.txt', sep=";", names=['Region Name'])
+  
+
+ Then  http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.insert.html new column  State  with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.extract.html rows where text  [edit]  and http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.replace.html all values from  (  to the end to column  Region Name . 
+
+  df.insert(0, 'State', df['Region Name'].str.extract('(.*)\[edit\]', expand=False).ffill())
+df['Region Name'] = df['Region Name'].str.replace(r' \(.+$', '')
+  
+
+ Last remove rows where text  [edit]  by http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing, mask is created by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.contains.html:   
+
+  df = df[~df['Region Name'].str.contains('\[edit\]')].reset_index(drop=True)
+print (df)
+      State   Region Name
+0   Alabama        Auburn
+1   Alabama      Florence
+2   Alabama  Jacksonville
+3   Alabama    Livingston
+4   Alabama    Montevallo
+5   Alabama          Troy
+6   Alabama    Tuscaloosa
+7   Alabama      Tuskegee
+8    Alaska     Fairbanks
+9   Arizona     Flagstaff
+10  Arizona         Tempe
+11  Arizona        Tucson
+  
+
+ If need all values solution is easier: 
+
+  df = pd.read_csv('filename.txt', sep=";", names=['Region Name'])
+df.insert(0, 'State', df['Region Name'].str.extract('(.*)\[edit\]', expand=False).ffill())
+df = df[~df['Region Name'].str.contains('\[edit\]')].reset_index(drop=True)
+print (df)
+      State                                        Region Name
+0   Alabama                      Auburn (Auburn University)[1]
+1   Alabama             Florence (University of North Alabama)
+2   Alabama    Jacksonville (Jacksonville State University)[2]
+3   Alabama         Livingston (University of West Alabama)[2]
+4   Alabama           Montevallo (University of Montevallo)[2]
+5   Alabama                          Troy (Troy University)[2]
+6   Alabama  Tuscaloosa (University of Alabama, Stillman Co...
+7   Alabama                  Tuskegee (Tuskegee University)[5]
+8    Alaska      Fairbanks (University of Alaska Fairbanks)[2]
+9   Arizona         Flagstaff (Northern Arizona University)[6]
+10  Arizona                   Tempe (Arizona State University)
+11  Arizona                     Tucson (University of Arizona)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35442219)
+  df = pd.DataFrame({'phone_number': ['555-111-2222', '555-111-3333']})
+
+df.phone_number.to_csv('phone_numbers.csv')
+  
+
+ and if you don't want the index: 
+
+  df.phone_number.to_csv('phone_numbers.csv', index=False)
+  
+
+ if you want a txt file, just change the filename.  The result is the same. 
+
+  df.phone_number.to_csv('phone_numbers.txt', index=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30389146)
+  
+
+  import pandas as pd
+df = pd.DataFrame(data={'Year':[1988, 1988, 1988], 'Month':[1, 1, 1],
+                        'Day': [1, 2, 3]})
+
+date = [str(y)+'-'+str(m)+'-'+str(d) for y, m, d in zip(df.Year, df.Month, df.Day)]
+df.index = pd.to_datetime(date)
+
+>>> print df
+            Day  Month  Year
+1988-01-01    1      1  1988
+1988-01-02    2      1  1988
+1988-01-03    3      1  1988
+  
+
+ After that you can drop Day, Month, and Year from your dataframe. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48774218)
+ If you're not opposed to having the outputted excel file as a . .xls, I'd recommend making use of some of the features of https://pandas.pydata.org/pandas-docs/stable/.  In particular https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html and https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_excel.html 
+
+ I've provided a fully reproducible example of how you might go about doing this.  Please note that I create 2 .txt files in the first 3 lines for the test. 
+
+  import pandas as pd
+import numpy as np
+import glob
+
+# Creating a dataframe and saving as test_1.txt/test_2.txt in current directory
+# feel free to remove the next 3 lines if yo want to test in your directory
+df = pd.DataFrame(np.random.randn(10, 3), columns=list('ABC'))
+df.to_csv('test_1.txt', index=False)
+df.to_csv('test_2.txt', index=False)
+
+txt_list = [] # empty list
+sheet_list = [] # empty list
+
+# a for loop through filenames matching a specified pattern (.txt) in the current directory
+for infile in glob.glob("*.txt"): 
+    outfile = infile.replace('.txt', '') #removing '.txt' for excel sheet names
+    sheet_list.append(outfile) #appending for excel sheet name to sheet_list
+    txt_list.append(infile) #appending for '...txt' to txtt_list
+
+writer = pd.ExcelWriter('summary.xlsx', engine='xlsxwriter')
+
+# a for loop through all elements in txt_list
+for i in range(0, len(txt_list)):
+    df = pd.read_csv('%s' % (txt_list[i])) #reading element from txt_list at index = i 
+    df.to_excel(writer, sheet_name='%s' % (sheet_list[i]), index=False) #reading element from sheet_list at index = i 
+
+writer.save()
+  
+
+ Output example: 
+
+ https://i.stack.imgur.com/2XG3g.jpg 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35463123)
+ This code has equivalent results as your code. 
+
+  >>>df = pd.DataFrame({'column1':[1,3],'column2':[4,5]})
+
+>>>df['column1'].to_csv('file_name.txt',sep=' ')
+>>>cat file_name.txt
+0 1
+1 3
+  
+
+ Various other methods of saving your column as file_name.txt include:  
+
+  >>>df.to_csv('file_name.txt',columns=['column1'],index=False) 
+>>>cat file_name.txt
+column1
+a
+b 
+
+>>>df['column1'].to_csv('file_name.txt',index=False)
+>>>cat file_name.txt
+a
+b
+
+>>>df.to_csv('file_name.txt',columns=['column1'],index=False,line_terminator=',')
+>>>cat file_name.txt
+column1,a,b,
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/51124445)
+ Because of pandas 0.23.0 bug in  replace()  function (https://github.com/pandas-dev/pandas/issues/21159) when trying to replace by regex pattern the error occurs: 
+
+  df.COL.str.replace(regex_pat, '', regex=True)
+...
+--->
+TypeError: Type aliases cannot be used with isinstance().
+  
+
+ I would suggest to use  pandas.Series.apply  function with precompiled regex pattern: 
+
+  In [1170]: df4 = pd.DataFrame({'COL': ['hi A/P_90890 how A/P_True A/P_/93290 are AP_wueiwo A/P_|iwoeu you A/P_?9028k ?', 'Im  fine, what A/P_49 A/P_0.0309 about you?']})
+
+In [1171]: pat = re.compile(r'\s*A/?P_[^\s]*')
+
+In [1172]: df4['COL']= df4.COL.apply(lambda x: pat.sub('', x))
+
+In [1173]: df4
+Out[1173]: 
+                         COL
+0           hi how are you ?
+1  Im  fine, what about you?
+  
+
+
+

@@ -1,0 +1,228 @@
+Query: building lucene search query
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2869818)
+ Not exactly what you are looking for but I'd still suggest to check http://www.compass-project.org/, it might give you some ideas. And maybe also http://www.hibernate.org/subprojects/search.html. 
+
+  Update:  To clarify, Compass is not an ORM (neither Hibernate Search), it's a search oriented API and because it tries to abstract the underlying search engine (Lucene), I was suggesting to have a look at some structures it uses: Analyzers, Analyzer Filter, Query Parser, etc. 
+
+ 
+   Building on top of Lucene, Compass http://www.compass-project.org/docs/latest/reference/html/core-searchengine.html  common usage patterns of Lucene such as google-style search (...) 
+ 
+
+ See also:</h3>
+
+ 
+ http://www.manning-sandbox.com/thread.jspa?messageID=74202 
+ http://jroller.com/kimchy/entry/hibernate_search_lucene 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22936018)
+ If using a Lucene Reader, i.e. the  IndexReader , you can help yourself by writing 
+
+  TopDocs results = searcher.search(query, reader.numDocs());
+  
+
+ This will ensure no result is omitted from the search. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14469172)
+ I am actually getting different results for  StandardAnalyzer . Consider this code (using Lucene v4): 
+
+  public class Tokens {
+
+    private static void printTokens(String string, Analyzer analyzer) throws IOException {
+        System.out.println("Using " + analyzer.getClass().getName());
+        TokenStream ts = analyzer.tokenStream("default", new StringReader(string));
+        OffsetAttribute offsetAttribute = ts.addAttribute(OffsetAttribute.class);
+        CharTermAttribute charTermAttribute = ts.addAttribute(CharTermAttribute.class);
+
+        while(ts.incrementToken()) {
+            int startOffset = offsetAttribute.startOffset();
+            int endOffset = offsetAttribute.endOffset();
+            String term = charTermAttribute.toString();
+            System.out.println(term + " (" + startOffset + " " + endOffset + ")");
+        }
+        System.out.println();
+    }
+
+    public static void main(String[] args) throws IOException {
+        printTokens("foo-bar 1-2-3", new StandardAnalyzer(Version.LUCENE_40));
+        printTokens("foo-bar 1-2-3", new ClassicAnalyzer(Version.LUCENE_40));
+
+        QueryParser standardQP = new QueryParser(Version.LUCENE_40, "", new StandardAnalyzer(Version.LUCENE_40));
+        BooleanQuery q1 = (BooleanQuery) standardQP.parse("someField:(foo\\-bar\\ 1\\-2\\-3)");
+        System.out.println(q1.toString() + "     # of clauses:" + q1.getClauses().length);
+    }
+}
+  
+
+  
+
+  Using org.apache.lucene.analysis.standard.StandardAnalyzer
+foo (0 3)
+bar (4 7)
+1 (8 9)
+2 (10 11)
+3 (12 13)
+
+Using org.apache.lucene.analysis.standard.ClassicAnalyzer
+foo (0 3)
+bar (4 7)
+1-2-3 (8 13)
+
+someField:foo someField:bar someField:1 someField:2 someField:3     # of clauses:5
+  
+
+ So above code proves that  StandardAnalyzer , unlike for example  ClassicAnalyzer , should be splitting  1-2-3  into different tokens - exactly as you want. For queries, you need to escape every keyword, including space, otherwise QP thinks this has a different meaning. 
+
+ If you don't want to escape your query string, you can always tokenize it manually (like in  printTokens  method above), then wrap each token with a  TermQuery  and stack all TermQueries into a  BooleanQuery . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13620348)
+ MultiFieldQueryParser allows you to search for a "WORD" in more then one Fileds with same Analyzer.  
+
+ e.g.  
+
+   Query query = MultiFieldQueryParser.parse("development",
+        new String[]{"title", "subject"},
+        new SimpleAnalyzer());
+  
+
+ it will look for word development in Field : "title" and Field : "subject"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29466757)
+  org.apache.lucene.queryparser.classic.QueryParser  is still there.  If the class isn't being found, the issue is likely with your classpath.  Remember, the queryparser is in  lucene-queryparser-5.0.0.jar , not  lucene-core-5.0.0.jar , so make sure you've got them both in your classpath. 
+
+ As far as the changes in the  QueryParser  signature, passing in a  Version  argument was deprecated in 4.10, and has been removed in 5.0.0.  Just remove the version argument. 
+
+  Query q = new QueryParser("title", analyzer).parse(querystr);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50379562)
+ micpalmia is correct. For creating small index of less than questions should would not need Elastic Search or Solr. You should go with lucene-core and lucene. 
+
+ If you are using maven in your java project, you can include following dependency in you pom.xml. 
+
+  <!-- https://mvnrepository.com/artifact/org.apache.lucene/lucene-core -->
+<dependency>
+    <groupId>org.apache.lucene</groupId>
+    <artifactId>lucene-core</artifactId>
+    <version>7.3.1</version>
+</dependency>
+<!-- https://mvnrepository.com/artifact/org.apache.lucene/lucene-queryparser -->
+<dependency>
+    <groupId>org.apache.lucene</groupId>
+    <artifactId>lucene-queryparser</artifactId>
+    <version>7.3.1</version>
+</dependency>
+  
+
+ Once you have these libraries, you can index your questions as documents following https://www.tutorialspoint.com/lucene/lucene_indexing_process.htm. Where your document could be simple object containing Question Id, Title and Description. 
+
+  private org.apache.lucene.document.Document createDocument
+    (String id, String title, String description){
+    Document document = new Document();
+    document.add(new StringField("id", id, Field.Store.YES));
+    document.add(new StringField("title", title, Field.Store.YES));
+    document.add(new StringField("description", description, Field.Store.YES));
+    return document;
+}
+  
+
+ While searching for duplicate question your would follow <a href="https://www.tutorialspoint.com/lucene/lucene_search_operation.htm"  
+
+  import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+
+private static TopDocs searchByTitle(String title, IndexSearcher searcher) 
+throws Exception {
+    QueryParser qp = new QueryParser("title", new StandardAnalyzer());
+    qp.setAllowLeadingWildcard(true);
+    Query titleQuery = qp.parse(title);
+    TopDocs hits = searcher.search(firstNameQuery, 10);
+    return hits;
+}
+  
+
+ where you can also tell your searchByTitle function to search over description 
+
+  TopDocs docs = searchByTitle(" ( title:" + enteredText + "~ OR title:*" + enteredText + 
+    "* ) OR  ( description:" + enteredText + " )", searcher)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12070116)
+ No, you need to create a Lucene Query to run against Hibernates'  Search  class like this: 
+
+  MultiFieldQueryParser parser = new MultiFieldQueryParser(Version.LUCENE_29, searchFields, new KeywordAnalyzer());
+org.apache.lucene.search.Query query = parser.parse("Text from entity to search for"); // Or any other valid query
+FullTextSession fullTextSession = Search.getFullTextSession(hibernateSession);
+org.hibernate.Query hibernateQuery = fullTextSession.createFullTextQuery(query, YOUR_TARGET_ENTITY_HERE.class);
+List result = hibernateQuery.list();
+  
+
+ I have no idea why they named the Hibernate result class  Query  too.. 
+
+  searchFields  is a  String[]  containing the list of fields to search. 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17081771)
+ You can use a product like http://lucene.apache.org/core/ or http://lucene.apache.org/solr/ for this instead of writing this on your own. 
+
+ Lucene is a high-performance search engine for documents. 
+SOLR is built on top of Lucene and provides additional features (like hit highlighting, faceted search, database integration or rich document (Word, PDF, .. search 
+
+ Lucene will analyze your text data and build up an index. When performing a search you run a lucene query against this index. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37909856)
+ BooleanQuery is now immutable (you can read about the change in the https://lucene.apache.org/core/6_0_0/MIGRATE.html and the linked JIRA issues). 
+
+ Instead, you would now use  BooleanQuery.Builder : 
+
+  BooleanQuery booleanQuery = new BooleanQuery.Builder()
+    .add(query1, BooleanClause.Occur.MUST)
+    .add(query2, BooleanClause.Occur.MUST)
+    .build();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33442420)
+ Your  booleanQuery  object is actually an instance of  BooleanQuery.Builder , not  BooleanQuery . 
+
+ After you're done adding all your queries to the builder, you need to call the  build  method. 
+
+ . 
+
+  TopDocs hits = is.search(booleanQuery.build(),10);
+  
+
+
+

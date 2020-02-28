@@ -1,0 +1,295 @@
+Query: Zip and apply a list of functions over a list of values in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4232419)
+ Code that is meant to function robustly would do this in a for loop so that it could provide meaningful error reporting: 
+
+  for i in xrange(num_columns):
+    try:
+        outrow.append(functions[i](input_values[i])
+    except (ValueError, EtcetcError) as e:
+        self.do_error_reporting(row_number, i, input_value[i], e)
+        outrow.append(None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33705301)
+ Use  zip()  and a list comprehension to apply each function to their paired argument: 
+
+  arguments = [1, 2, 3, 4]
+functions = [a, b, c, d]
+
+results = [func(arg) for func, arg in zip(functions, arguments)]
+  
+
+  
+
+  >>> def a(i): return 'function a: {}'.format(i)
+...
+>>> def b(i): return 'function b: {}'.format(i)
+...
+>>> def c(i): return 'function c: {}'.format(i)
+...
+>>> def d(i): return 'function d: {}'.format(i)
+...
+>>> arguments = [1, 2, 3, 4]
+>>> functions = [a, b, c, d]
+>>> [func(arg) for func, arg in zip(functions, arguments)]
+['function a: 1', 'function b: 2', 'function c: 3', 'function d: 4']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4231439)
+ These solutions seem overly complicated:   map  already zips its arguments: 
+
+  map(lambda x,y:x(y), functions, values)
+  
+
+ Or, if you prefer the iterator version: 
+
+  from itertools import imap
+imap(lambda x,y:x(y), functions, values)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4231364)
+ One of the beautiful features of functional encapsulation is they can hide ugliness. 
+
+ If you need  zipmap , define it: 
+
+  def zipmap(values, functions):
+    return [functions[i](values[i]) for i in range(
+      len(functions))]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53271619)
+ The code below should achieve what you need 
+
+  import itertools
+import operator
+
+l1 = [1, 2, 3]
+l2 = [1, 2, 3, 4]
+
+list(itertools.starmap(operator.mul, itertools.zip_longest(l1, l2, fillvalue=1)))
+# result [1, 3, 9, 4]
+  
+
+ Explanation</h3>
+
+  zip_longest  will zip and fill missing values from shorter list: 
+
+  itertools.zip_longest(l1, l2, fillvalue=1)
+[(1, 1), (2, 2), (3, 3), (1, 4)]
+  
+
+  starmap  will apply multiplication operator to every integer pair 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50852707)
+ Use  zip  with convert tuples to lists: 
+
+  df['list_score'] = [list(x) for x in zip(df['Score1'], df['Score2'])]
+  
+
+  
+
+  df['list_score'] = list(map(list, zip(df['Score1'], df['Score2'])))
+print (df)
+   Name1    Name2  Score1  Score2 list_score
+0  Bruce    Jacob       3       4     [3, 4]
+1   Aida  Stephan       0       1     [0, 1]
+  
+
+  
+
+  df = pd.concat([df] * 1000, ignore_index=True)
+
+In [105]: %timeit df['list_score'] = [list(x) for x in zip(df['Score1'], df['Score2'])]
+851 µs ± 36.1 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+
+In [106]: %timeit df['list_score'] = list(map(list, zip(df['Score1'], df['Score2'])))
+745 µs ± 35.1 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+
+In [107]: %timeit df['list_score'] = df[['Score1', 'Score2']].apply(tuple, axis=1).apply(list)
+35.5 ms ± 295 µs per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+In [108]: %timeit df['list_score'] = df[['Score1', 'Score2']].values.tolist()
+949 µs ± 105 µs per loop (mean ± std. dev. of 7 runs, 1000 loops each)
+  
+
+ https://i.stack.imgur.com/eIG6M.png 
+
+ This was the setup used to generate the https://github.com/nschloe/perfplot above: 
+
+  def list_comp(df):
+    df['list_score'] = [list(x) for x in zip(df['Score1'], df['Score2'])]
+    return df
+
+def map_list(df):
+    df['list_score'] = list(map(list, zip(df['Score1'], df['Score2'])))
+    return df
+
+def apply(df):
+    df['list_score'] = df[['Score1', 'Score2']].apply(tuple, axis=1).apply(list)
+    return df
+
+def values(df):
+    df['list_score'] = df[['Score1', 'Score2']].values.tolist()
+    return df
+
+
+def make_df(n):
+    df = pd.DataFrame(np.random.randint(10, size=(n, 2)), columns=['Score1','Score2'])
+    return df
+
+perfplot.show(
+    setup=make_df,
+    kernels=[list_comp, map_list, apply, values],
+    n_range=[2**k for k in range(2, 15)],
+    logx=True,
+    logy=True,
+    equality_check=False,  # rows may appear in different order
+    xlabel='len(df)')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45901074)
+ You can use  from_items  like this (assuming that your lists are of the same length): 
+
+  pd.DataFrame.from_items(zip(s.index, s.values))
+
+   0  1
+0  1  4
+1  2  5
+2  3  6
+  
+
+  
+
+  pd.DataFrame.from_items(zip(s.index, s.values)).T
+
+   0  1  2
+0  1  2  3
+1  4  5  6
+  
+
+ depending on your desired output. 
+
+ This can be much faster than using an  apply  (as used in https://stackoverflow.com/a/45901030/1534017 which, however, does also wk f lists of different length): 
+
+  %timeit pd.DataFrame.from_items(zip(s.index, s.values))
+1000 loops, best of 3: 669 µs per loop
+
+%timeit s.apply(lambda x:pd.Series(x)).T
+1000 loops, best of 3: 1.37 ms per loop
+  
+
+  
+
+  %timeit pd.DataFrame.from_items(zip(s.index, s.values)).T
+1000 loops, best of 3: 919 µs per loop
+
+%timeit s.apply(lambda x:pd.Series(x))
+1000 loops, best of 3: 1.26 ms per loop
+  
+
+ Also https://stackoverflow.com/a/45901040/1534017 is quite fast (also wks f lists of different length): 
+
+  %timeit pd.DataFrame(item f item in s)
+1000 loops, best of 3: 636 µs per loop
+  
+
+   
+
+  %timeit pd.DataFrame(item f item in s).T
+1000 loops, best of 3: 884 µs per loop
+  
+
+ Fastest solution seems to be https://stackoverflow.com/a/45901240/1534017 (tested f Python 2; also wks f lists of different length; use  itertools.zip_longest  in Python 3.6+): 
+
+  %timeit pd.DataFrame.from_recds(izip_longest(*s.values))
+1000 loops, best of 3: 529 µs per loop
+  
+
+ An additional option: 
+
+  pd.DataFrame(dict(zip(s.index, s.values)))
+
+   0  1
+0  1  4
+1  2  5
+2  3  6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48248750)
+ Use  zip  with a list comp to build a list of dataframes - 
+
+  c = [a, b]
+r = pd.cut(c, 3, labels=False)
+
+df_list = [pd.DataFrame({'Values' : v, 'Labels' : l}) for v, l in zip(c, r)]
+  
+
+  
+
+  df_list
+
+[   Labels  Values
+ 0       0       1
+ 1       0       2
+ 2       2       9
+ 3       0       1
+ 4       1       5
+ 5       0       3,    Labels  Values
+ 0       2       9
+ 1       2       8
+ 2       2       7
+ 3       2       8
+ 4       2       9
+ 5       0       1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/27518315)
+ This is a little more convoluted, but you did ask for a 'pythonic-way' ;) 
+
+  newD = {k:round(v) for k, v in d.items()}
+  
+
+ However, this dictionary comprehension will only work on 2.7+. If using an older version of Python, try this more convoluted way: 
+
+  newD = dict(zip(d.keys(), [round(v) for v in d.values()]))
+  
+
+ Let me unpack this a little bit: 
+
+ 
+ We are beginning by reassigning the new dictionary ( d ) object back to a new dictionary as requested (although you could easily assign it to the same name) 
+ The outer  dict()  ensures the final result is a dictionary object 
+  zip()  returns a list of tuples, where the i-th tuple contains the i-th element from each of the argument sequences 
+ The first argument sequence given to  zip()  is the dictionary keys ( d.keys() ) 
+ The second argument sequence given to  zip()  is the rounded values after a list comprehension 
+ The list comprehension rounds each value in the dictionary values and returns a list of the rounded values 
+ 
+
+
+

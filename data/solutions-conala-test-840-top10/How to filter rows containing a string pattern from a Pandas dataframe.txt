@@ -1,0 +1,160 @@
+Query: How to filter rows containing a string pattern from a Pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50776095)
+ Use  join  with  |  for regex  OR  with  \b  for word boundary: 
+
+  L = ['cat', 'dog']
+pat = r'(\b{}\b)'.format('|'.join(L))
+df[df["B"].str.contains(pat, case=False, na=False)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39348412)
+ You can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.any.html with http://pandas.pydata.org/pandas-docs/stable/indexing.html#boolean-indexing: 
+
+  pdf = pd.DataFrame({'A':[1,2,3],
+                   'email1':['gmail.com','t','f'],
+                   'email2':['u','gmail.com','t'],
+                   'D':[1,3,5],
+                   'E':[5,3,6],
+                   'F':[7,4,3]})
+print (pdf)
+   A  D  E  F     email1     email2
+0  1  1  5  7  gmail.com          u
+1  2  3  3  4          t  gmail.com
+2  3  5  6  3          f          t
+
+#filter column names                   
+emailids = [col for col in pdf.columns if 'email' in col]
+print (emailids)
+['email1', 'email2']
+
+#apply string function for each filtered column
+df = pd.concat([pdf[col].str.contains('gmail.com') for col in pdf[emailids]], axis=1)
+
+print (df)
+  email1 email2
+0   True  False
+1  False   True
+2  False  False
+
+#filter at least one True by any
+print (pdf[df.any(1)])
+   A  D  E  F     email1     email2
+0  1  1  5  7  gmail.com          u
+1  2  3  3  4          t  gmail.com
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/26641085)
+ The  Series.str.contains  method expects a regex pattern (by default), not a literal string. Therefore  str.contains("^")  matches the beginning of any string. Since every string has a beginning, everything matches. Instead use  str.contains("\^")  to match the literal  ^  character.  
+
+ To check every column, you could use  for col in df  to iterate through the column names, and then call  str.contains  on each column: 
+
+  mask = np.column_stack([df[col].str.contains(r"\^", na=False) for col in df])
+df.loc[mask.any(axis=1)]
+  
+
+ Alternatively, you could pass  regex=False  to  str.contains  to make the test use the Python  in  operator; but (in general) using regex is faster. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54209883)
+ Start with setting "id" as the index, if not yet done. 
+
+  df = df.set_index('id')
+  
+
+ One option to check each string is using  applymap  calling  str.endswith : 
+
+  df[df.applymap(lambda x: x.endswith('--')).all(1)]
+
+   pattern1 pattern2 pattern3
+id                           
+2     a-a--    a-b--    a-c--
+3     a-v--    a-m--    a-k--
+  
+
+ 
+
+ Another option is  apply  calling  pd.Series.str.endswith  for each column: 
+
+  df[df.apply(lambda x: x.str.endswith('--')).all(1)]
+
+   pattern1 pattern2 pattern3
+id                           
+2     a-a--    a-b--    a-c--
+3     a-v--    a-m--    a-k--
+  
+
+ 
+
+ Lastly, for performance, you can AND masks inside a list comprehension using  logical_and.reduce : 
+
+  # m = np.logical_and.reduce([df[c].str.endswith('--') for c in df.columns])
+m = np.logical_and.reduce([
+    [x.endswith('--') for x in df[c]] for c in df.columns])
+m
+# array([False,  True,  True, False])
+
+df[m]
+   pattern1 pattern2 pattern3
+id                           
+2     a-a--    a-b--    a-c--
+3     a-v--    a-m--    a-k--
+  
+
+ 
+
+ If there are other columns, but you only want to consider those named "pattern*", you can use  filter  on the DataFrame: 
+
+  u = df.filter(like='pattern')
+  
+
+ Now repeat the options above using  u , for example, the first option will be 
+
+  df[u.applymap(lambda x: x.endswith('--')).all(1)]
+  
+
+ .... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/40008322)
+ If anyone wonders how to perform a related problem:   "Select column by partial string"    
+
+ Use: 
+
+  df.filter(like='hello')  # select columns which contain the word hello
+  
+
+ And to select rows by partial string matching, pass  axis=0  to filter: 
+
+  # selects rows which contain the word hello in their index label
+df.filter(like='hello', axis=0)  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53056778)
+ Two pattern matches, and filter the dataframe 
+
+  cond1 = df.col2.str.extract('([A-Za-z]+)\d', expand = False).eq(df.col1)
+cond2 = df.col2.str.extract('[A-Za-z](\d{3})$', expand = False)
+
+df[(cond1) & (cond2)]
+
+    col1    col2
+0   xxxx    xxxx123@gmail.com
+  
+
+
+

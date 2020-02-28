@@ -1,0 +1,379 @@
+Query: How do I generate public and private keys?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2331865)
+ You can generate Certificate in java dynamically, by using a pair or keys. (Public Key, Private Keys). Get These keys as BigInteger format and checking the following code to generate certificate. 
+
+  RSAPrivateKeySpec serPrivateSpec = new RSAPrivateKeySpec(
+    new BigInteger(val of pub key), new BigInteger(val of pri key));
+fact = KeyFactory.getInstance("RSA");
+PrivateKey serverPrivateKey = fact.generatePrivate(serPrivateSpec);
+
+RSAPublicKeySpec serPublicSpec = new RSAPublicKeySpec(
+    new BigInteger(agentCL.getSerPubMod()), new BigInteger(agentCL.getSerPubExp()));
+PublicKey serverPublicKey = fact.generatePublic(serPublicSpec);
+
+keyStore = KeyStore.getInstance(IMXAgentCL.STORE_TYPE);
+keyStore.load(null, SOMEPWD.toCharArray());
+
+Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+X509Certificate[] serverChain = new X509Certificate[1];
+X509V3CertificateGenerator serverCertGen = new X509V3CertificateGenerator();
+X500Principal serverSubjectName = new X500Principal("CN=OrganizationName");
+serverCertGen.setSerialNumber(new BigInteger("123456789"));
+// X509Certificate caCert=null;
+serverCertGen.setIssuerDN(somename);
+serverCertGen.setNotBefore(new Date());
+serverCertGen.setNotAfter(new Date());
+serverCertGen.setSubjectDN(somename);
+serverCertGen.setPublicKey(serverPublicKey);
+serverCertGen.setSignatureAlgorithm("MD5WithRSA");
+// certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, false,new
+// AuthorityKeyIdentifierStructure(caCert));
+serverCertGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
+    new SubjectKeyIdentifierStructure(serverPublicKey));
+serverChain[0] = serverCertGen.generateX509Certificate(serverPrivateKey, "BC"); // note: private key of CA
+
+keyStore.setEntry("xyz",
+    new KeyStore.PrivateKeyEntry(serverPrivateKey, serverChain),
+    new KeyStore.PasswordProtection("".toCharArray()));
+  
+
+ Hope this will help you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23330265)
+ Generating an RSA keypair is easy in Java. For example: 
+
+  import java.security.*;
+import java.security.interfaces.*;
+
+public class RSACreate {
+
+    public static void main(String[] args) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048, new SecureRandom());
+        KeyPair kp = kpg.generateKeyPair();
+        RSAPrivateCrtKey rsaPriv = (RSAPrivateCrtKey) kp.getPrivate();
+        RSAPublicKey rsaPub = (RSAPublicKey) kp.getPublic();
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17515382)
+ The x509 encoded data should be in DER format. You can produce such keys using OpenSSL:
+(Note, credit to http://codeartisan.blogspot.com/2009/05/public-key-cryptography-in-java.html for the OpenSSL refresher.) 
+
+ To generate a key, use: 
+
+  $ openssl genrsa -out private_key.pem 2048
+  
+
+  
+
+  $ openssl genrsa -aes256 -out private_key.pem 2048
+  
+
+ Or, using ssh-keygen (following your example): 
+
+  $ ssh-keygen -t rsa -C "myEmail" -I X.509
+  
+
+ I'll assume you saved the key as 'private_key.pem'
+Generate a public key in DER format: 
+
+  $ openssl rsa -in private_key.pem -pubout -outform DER -out tst_public.der
+  
+
+ A byte array containing the contents of the file will now be accepted by X509EncodedKeySpec. 
+
+ If you want to load the private key, use OpenSSL to save an  unencrypted  copy of your private key (don't do this in an insecure environment): 
+
+  $ openssl pkcs8 -topk8 -inform PEM -outform DER -in private_key.pem -out private_key.der -nocrypt
+
+
+You can then pass this file as a byte array to `PKCS8EncodedKeySpec`.
+  
+
+ You can also generate your key pairs in Java: 
+
+  private static int rsabits = 2048; // or higher, if you've got the cpu*time
+public static SecureRandom sr = new SecureRandom(); // reseed periodically 
+
+public static KeyPair newKeyPair() throws NoSuchAlgorithmException {
+    KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+    generator.initialize(rsabits, sr);
+    return generator.generateKeyPair();
+}
+  
+
+ Then you can use  KeyPair.getPublic()  and  KeyPair.getPrivate()  to access your keys. You can save or load them as byte arrays with something like: 
+
+  public static byte[] pubKeyToBytes(PublicKey key){
+    return key.getEncoded(); // X509 for a public key
+}
+public static byte[] privKeyToBytes(PrivateKey key){
+    return key.getEncoded(); // PKCS8 for a private key
+}
+public static PublicKey bytesToPubKey(byte[] bytes) throws InvalidKeySpecException, NoSuchAlgorithmException{
+    return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
+}
+public static PrivateKey bytesToPrivKey(byte[] bytes) throws InvalidKeySpecException, NoSuchAlgorithmException{
+    return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(bytes));
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40835364)
+ OPENSSL by default generate  Private Key  in  PKCS#1  format
+it's as follows 
+
+ 
+  -----BEGIN RSA PRIVATE KEY----- 
+...
+-----END RSA PRIVATE KEY-----
+  
+ 
+
+ You can convert  Private Key  to  PKCS#8  format
+and this is as follows 
+
+ 
+  -----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+  
+ 
+
+ SSL Always export  Public Key  in  X.509  format
+it's as follows 
+
+ 
+  -----BEGIN PUBLIC KEY-----
+...
+-----END PUBLIC KEY-----
+  
+ 
+
+ I use this bat script for generate RSA keypair. 
+
+  @ECHO OFF
+SET mypath=%~dp0
+cd %mypath:~0,-1%
+
+ECHO === GENERATE PRIVATE KEY --- Format: PKCS#1 --- File: private.txt===
+openssl genrsa -f4 -out private.txt 4096 
+
+ECHO === GENERATE PRIVATE KEY --- Format: PKCS#8 --- File: private8.txt===
+openssl pkcs8 -topk8 -inform pem -in private.txt -outform PEM -nocrypt -out private8.txt
+
+ECHO === GENERATE PUBLIC KEY --- Format: X.509 --- File: public.txt===
+openssl rsa -in private.txt -outform PEM -pubout -out public.txt
+PAUSE
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18850104)
+  .Net, you can create your key pair like this: 
+
+  public static Tuple<string, string> CreateKeyPair()
+{
+    CspParameters cspParams = new CspParameters { ProviderType = 1 };
+
+    RSACryptoServiceProvider rsaProvider = new RSACryptoServiceProvider(1024, cspParams);
+
+    string publicKey = Convert.ToBase64String(rsaProvider.ExportCspBlob(false));
+    string privateKey = Convert.ToBase64String(rsaProvider.ExportCspBlob(true));
+
+    return new Tuple<string, string>(privateKey, publicKey);
+}
+  
+
+ You can then use your public key to encrypt a message like so: 
+
+  public static byte[] Encrypt(string publicKey, string data)
+{
+    CspParameters cspParams = new CspParameters { ProviderType = 1 };
+    RSACryptoServiceProvider rsaProvider = new RSACryptoServiceProvider(cspParams);
+
+    rsaProvider.ImportCspBlob(Convert.FromBase64String(publicKey));
+
+    byte[] plainBytes = Encoding.UTF8.GetBytes(data);
+    byte[] encryptedBytes = rsaProvider.Encrypt(plainBytes, false);
+
+    return encryptedBytes;
+}
+  
+
+ And use your private key to decrypt like this: 
+
+  public static string Decrypt(string privateKey, byte[] encryptedBytes)
+{
+    CspParameters cspParams = new CspParameters { ProviderType = 1 };
+    RSACryptoServiceProvider rsaProvider = new RSACryptoServiceProvider(cspParams);
+
+    rsaProvider.ImportCspBlob(Convert.FromBase64String(privateKey));
+
+    byte[] plainBytes = rsaProvider.Decrypt(encryptedBytes, false);
+
+    string plainText = Encoding.UTF8.GetString(plainBytes, 0, plainBytes.Length);
+
+    return plainText;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19886537)
+ It's probably easiest to use  keypair.getPublic.getEncoded()  or  keypair.getPrivate.getEncoded() : 
+
+ RSA private keys are encoded in PKCS#8 format, and public keys are encoded in X.509 format. 
+
+  KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+kpg.initialize(2048);
+KeyPair keyPair = kpg.generateKeyPair();
+PublicKey pub = keyPair.getPublic();
+PrivateKey prv = keyPair.getPrivate();
+
+byte[] pubBytes = pub.getEncoded();
+byte[] prvBytes = prv.getEncoded();
+
+// now save pubBytes or prvBytes
+
+// to recover the key
+KeyFactory kf = KeyFactory.getInstance("RSA");
+PrivateKey prv_recovered = kf.generatePrivate(new PKCS8EncodedKeySpec(prvBytes));
+PublicKey pub_recovered = kf.generatePublic(new X509EncodedKeySpec(pubBytes));
+
+System.out.println("Private Key: \n" + prv_recovered.toString());
+System.out.println("Public Key: \n" + pub_recovered.toString());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18850301)
+ I think you are mixing things up. AES is a symmetric cipher, thus only have one key both for encryption and decryption. Asymmetric ciphers like RSA have two keys. A public key for encryption and a private key for decryption. 
+
+ http://www.reddit.com/r/programming/comments/1mimft/five_years_ago_stack_overflow_launched_then_a/cca0sgh 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/31848282)
+ 
+   how can I get RSA keys 
+ 
+
+ You can easily generate your own RSA CRT keys for your testing purpose. I wrote the following code snippet for you to generate RSA CRT 1408 bit. Note, all the interfaces and classes I used will be found in  java.security.  
+
+  public static String byteToHex(byte[] data){
+    String r = "";
+    for(int i=0;i<data.length;i++){
+        r+=Integer.toString(  (data[i] & 0xff) + 0x100,16).substring(1);
+    }   
+    return r;
+}   
+
+public static void main(String[] args) throws NoSuchAlgorithmException {      
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+    keyGen.initialize(1408);
+
+    KeyPair keyPair = keyGen.generateKeyPair();
+
+    RSAPublicKey publicKey = (RSAPublicKey ) keyPair.getPublic();
+    RSAPrivateCrtKey privateKey = (RSAPrivateCrtKey) keyPair.getPrivate();
+
+    System.out.println("Public Modulus: "+  byteToHex(publicKey.getModulus().toByteArray()));
+    System.out.println("Public Exponent: "+byteToHex(publicKey.getPublicExponent().toByteArray()));
+
+    System.out.println("Private Modulus: "+byteToHex(privateKey.getModulus().toByteArray()));
+
+    System.out.println("Private Private Exponent: "+byteToHex(privateKey.getPrivateExponent().toByteArray()));
+    System.out.println("Private Prime Exponent DP : "+byteToHex(privateKey.getPrimeExponentP().toByteArray())); // d mod (p-1)
+    System.out.println("Private Prime Exponent DQ: "+byteToHex(privateKey.getPrimeExponentQ().toByteArray())); // d mod (q-1)
+
+    System.out.println("Private Prime P: "+byteToHex(privateKey.getPrimeP().toByteArray())); // P
+
+    System.out.println("Private Prime Q: "+byteToHex(privateKey.getPrimeQ().toByteArray())); // Q
+
+    System.out.println("Private Coefficient PQ : "+byteToHex(privateKey.getCrtCoefficient().toByteArray()));  // PQ 
+}
+  
+
+ And the generated key components will look like: 
+
+  Public Modulus: 0095c606a1ca4c5e97afa469c29d0bba478ed9d44f736877ab370a003409a1f04598de1638a394d56e296cd8e52ca37883fd43faa6af299c63180068070ee2f5dbb898d65cc76d0f07a5f2ae6c2b703b069ae5edd4b8c07f2cf642f7f687b5da40a0e877bc5e34c6e0a7fcfbd5f0be1504c03eb0e9b6b3893b4f502e495a56d2e5bce8f28bc2d520aac69af021c1646e285ce226a138e8775164f870856b3f327efaeecf77fa67e520fe37aa053e3a7145
+Public Exponent: 010001
+Private Modulus: 0095c606a1ca4c5e97afa469c29d0bba478ed9d44f736877ab370a003409a1f04598de1638a394d56e296cd8e52ca37883fd43faa6af299c63180068070ee2f5dbb898d65cc76d0f07a5f2ae6c2b703b069ae5edd4b8c07f2cf642f7f687b5da40a0e877bc5e34c6e0a7fcfbd5f0be1504c03eb0e9b6b3893b4f502e495a56d2e5bce8f28bc2d520aac69af021c1646e285ce226a138e8775164f870856b3f327efaeecf77fa67e520fe37aa053e3a7145
+Private Private Exponent: 455cab4f9c4f97f329bdbbd90c401529f4a73ee2f8b0a5d31e2f3c7edd0329322224a027e4e215a1e9ff65c764cfe40d446a8a174dc1b8924fd848551478d9a1c330ccfdb4c1f616f5ac9948b1294dbcb659cbb61b45d2df363499320ce43c04c038b3988f062fcc1d6d3dfcc7a6ff6ad160ace5c8f14662c9f8cc69f790463d65e20cfffea2a3ecd0626b207acad31b25d46688d3facd157285847e08511e8127dc4bdea9ffc1c3b57f1e8be04f9275
+Private Prime Exponent DP : 00d634ed8f011db920750a594d23b6066a2181ae8378d5f90b4e701b634f9378c1215015c875b7e852118ed92433772b01f6d315813d45de63edd9f8acee4d819f320e7b50c819160621450a673ea7b61678d1b50a2a13059f
+Private Prime Exponent DQ: 1e6bf49a032f5168cfb5817f51f6dac5613bd769c56b96008ca3b1f2e62824efcefd1cfc827c08efd42190db0de54d12b2296b67f71dfc24e9d58927ad61ff3b5492225a84d35188a38f32a9aea0287fe597af3d76540e49
+Private Prime P: 00f88b11b520fc307cdddc8f0526172b7d0d25bffb3f46005bfc686101ebea8df24b657abe2118c74968e3106f39ef1b080d9eb134efcaf85a603ae9e8b0a9d5dc8bee0ee3d1de88a57b432080afd99657cdf6bc3a35962fcb
+Private Prime Q: 009a445bb5fe1ff143eca24abb8852a76c3b4a40ec5dead5602948f1f2b0e8365a3e885bc886dd48e4219f46d898c465936fb8536144a7674c1a31f9c3c11f63623e8b1c60ce4746d53c737c55479555f7e16871e135aba12f
+Private Coefficient PQ : 00b21001cee21e109dfd63dc39c7315bbf45faa835c22c9d0cd1d109c9843fc00285adc7f6bc0cf66e855c2e7155d104858845b9ab5c5ce8db95c65dd566e41ef938d5c594de5af8fda13a32e82162d4b730a453625c2d7783
+  
+
+  EDIT:  You can create your own key generation spec, for example: 
+
+  RSAKeyGenParameterSpec keyGenParameterSpec = 
+              new RSAKeyGenParameterSpec(1408, RSAKeyGenParameterSpec.F0);
+
+KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+keyGen.initialize(keyGenParameterSpec);
+//.... rest of the code will be the same I posted above
+  
+
+ And this time you will get: 
+
+  Public Exponent: 03
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22077915)
+ If you have a byte[] representing the output of getEncoded() on a key, you can use KeyFactory to turn that back into a PublicKey object or a PrivateKey object. 
+
+  byte[] privateKeyBytes;
+byte[] publicKeyBytes;
+KeyFactory kf = KeyFactory.getInstance("RSA"); // or "EC" or whatever
+PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
+PublicKey publicKey = kf.generatePublic(new X509EncodedKeySpec(publicKeyBytes));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/21647527)
+ This question is pretty old, but I recently stumbled upon the problem (I'm implementing requirements of some protocol which requires encryption with private key). I will just quote the post from https://www.ibm.com/developerworks/community/forums/html/topic?id=77777777-0000-0000-0000-000014555794#77777777-0000-0000-0000-000014555794: 
+
+ 
+   I recently stumbled upon the same issue, submitted PMR 22265,49R, and IBM Support after consultation with "development" (whoever those are) ruled that private keys cannot be used for encryption. No matter how much I tried to argue with them that private keys should not be used for data protection, which is only one purpose behind encryption, and that it is perfectly fine to use private keys for encryption to achieve non-repudiation, they were unshakable in their belief. You have got to love people, who insist that 2x2=5. 
+  
+   Here is how I worked around this problem: Essentially, I created a public key object with private key's crypto material. You will need to do the reverse, create a private key object with public key's crypto material, to decrypt with public key if you want to avoid the "Public key cannot be used to decrypt" exception. 
+ 
+
+  RSAPrivateCrtKey privateKey = (RSAPrivateCrtKey) ks.getKey(keyAlias, ksPassword.trim().toCharArray());
+RSAPublicKeySpec spec = new RSAPublicKeySpec(
+   privateKey.getModulus(),
+   privateKey.getPrivateExponent()
+);
+Key fakePublicKey = KeyFactory.getInstance("RSA").generatePublic(spec);
+encryptCipher.init(Cipher.ENCRYPT_MODE, fakePublicKey);
+  
+
+
+

@@ -1,0 +1,225 @@
+Query: Find matching rows in 2 dimensional numpy array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20230555)
+ I can't think of a numpy specific way to do it, but here's what I would do with regular lists: 
+
+  >>> L1= [[3, 3, 1, 0],
+...        [2, 3, 1, 3],
+...        [0, 2, 3, 1],
+...        [1, 0, 2, 3],
+...        [3, 1, 0, 2]]
+>>> L2 = [[0, 3, 3, 1],
+...        [0, 2, 3, 1],
+...        [1, 0, 2, 3],
+...        [3, 1, 0, 2],
+...        [3, 3, 1, 0]]
+>>> L1 = {tuple(row):i for i,row in enumerate(L1)}
+>>> answer = []
+>>> for i,row in enumerate(L2):
+...   if tuple(row) in L1:
+...     answer.append((L1[tuple(row)], i))
+... 
+>>> answer
+[(2, 1), (3, 2), (4, 3), (0, 4)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25823673)
+  In [5]: np.where((vals[:,0] == 0) & (vals[:,1]==1))[0]
+Out[5]: array([ 3, 15])
+  
+
+ 
+
+ I'm not sure why, but this is significantly faster than 
+ np.where((vals == (0, 1)).all(axis=1)) : 
+
+  In [34]: vals2 = np.tile(vals, (1000,1))
+
+In [35]: %timeit np.where((vals2 == (0, 1)).all(axis=1))[0]
+1000 loops, best of 3: 808 µs per loop
+
+In [36]: %timeit np.where((vals2[:,0] == 0) & (vals2[:,1]==1))[0]
+10000 loops, best of 3: 152 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/25824672)
+ Using the https://github.com/EelcoHoogendoorn/Numpy_arraysetops_EP package, you can simply write: 
+
+  import numpy_indexed as npi
+print(np.flatnonzero(npi.contains([[0, 1]], vals)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20230759)
+ This is an all  numpy  solution - not that is necessarily better than an iterative Python one.  It still has to look at all combinations. 
+
+  In [53]: np.array(np.all((x[:,None,:]==y[None,:,:]),axis=-1).nonzero()).T.tolist()
+Out[53]: [[0, 4], [2, 1], [3, 2], [4, 3]]
+  
+
+ The intermediate array is  (5,5,4) .  The  np.all  reduces it to: 
+
+  array([[False, False, False, False,  True],
+       [False, False, False, False, False],
+       [False,  True, False, False, False],
+       [False, False,  True, False, False],
+       [False, False, False,  True, False]], dtype=bool)
+  
+
+ The rest is just extracting the indices where this is  True  
+
+ In crude tests, this times at 47.8 us; the other answer with the  L1  dictionary at 38.3 us; and a third with a double loop at 496 us. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52095255)
+ This function takes an  input_array , a  pattern  and a function that lets you identify the wildcard. Here I have used  np.nan  as wildcard but it could be anything, giving that you can make your own  wildcard_function .  
+
+ It works for arrays of any dimension (1 or more). I have tested it for your example and it seems ok.  
+
+  from itertools import product
+import numpy as np
+
+
+def match_pattern(input_array, pattern, wildcard_function=np.isnan):
+
+    pattern_shape = pattern.shape
+    input_shape = input_array.shape
+
+    is_wildcard = wildcard_function(pattern) # This gets a boolean N-dim array
+
+    if len(pattern_shape) != len(input_shape):
+        raise ValueError("Input array and pattern must have the same dimension")
+
+    shape_difference = [i_s - p_s for i_s, p_s in zip(input_shape, pattern_shape)]
+
+    if any((diff < -1 for diff in shape_difference)):
+        raise ValueError("Input array cannot be smaller than pattern in any dimension")
+
+    dimension_iterators = [range(0, s_diff + 1) for s_diff in shape_difference]
+
+    # This loop will iterate over every possible "window" given the shape of the pattern
+    for start_indexes in product(*dimension_iterators):
+        range_indexes = [slice(start_i, start_i + p_s) for start_i, p_s in zip(start_indexes, pattern_shape)]
+        input_match_candidate = input_array[range_indexes]
+
+        # This checks that for the current "window" - the candidate - every element is equal 
+        #  to the pattern OR the element in the pattern is a wildcard
+        if np.all(
+            np.logical_or(
+                is_wildcard, (input_match_candidate == pattern)
+            )
+        ):
+            return True
+
+    return False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50782917)
+ You can do it this way: 
+
+  ([0, 40] == a).all(1).any()
+  
+
+ The first step is to compute a 2D boolean array of where the matches are.  Then you find the rows where all elements are true.  Then you check if any rows are fully matching. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49521816)
+ We can leverage http://www.scipy-lectures.org/advanced/advanced_numpy/#indexing-scheme-strides based http://scikit-image.org/docs/dev/api/skimage.util.html#skimage.util.view_as_windows for efficient patch extraction, and then compare those patches against each row off  a , all of it in a vectorized manner. Then, get the matching indices with  np.argwhere  - 
+
+  # a and b from posted question
+In [325]: from skimage.util.shape import view_as_windows
+
+In [428]: w = view_as_windows(b,(1,a.shape[1]))
+
+In [429]: np.argwhere((w == a).all(-1).any(-2))[:,::-1]
+Out[429]: 
+array([[0, 0],
+       [1, 0],
+       [0, 1],
+       [3, 1],
+       [2, 2]])
+  
+
+ Alternatively, we could get the indices by the order of rows in  a  by  pushing forward  the first axis of  a  while performing broadcasted comparisons - 
+
+  In [444]: np.argwhere((w[:,:,0] == a[:,None,None,:]).all(-1).any(-1))
+Out[444]: 
+array([[0, 0],
+       [0, 1],
+       [1, 0],
+       [2, 2],
+       [3, 1]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16401762)
+  import numpy
+A = numpy.array([[1, -1, 1, -1],
+                 [1, 1, -1, 1],
+                 [1, -1, 1, -1]])
+b = numpy.array([1, -1, 1, -1])
+
+print ((A == b).sum(axis=1) == b.size).sum()
+  
+
+ This will do a row match, and we select and count the rows where all values match the pattern we are looking for. This requires that  b  has the same shape as  A[0] . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49521355)
+ Another way I can think of is to loop over each row in  a  and perform a 2D correlation between the  b  which you can consider as a 2D signal a row in  a . 
+ We would find the results which are equal to the sum of squares of all values in  a .  If we subtract our correlation result with this sum of squares, we would find matches with a zero result.  Any rows that give you a 0 result would mean that the subarray was found in that row.  If you are using floating-point numbers for example, you may want to compare with some small threshold that is just above 0. 
+
+ If you can use SciPy, the https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.correlate2d.html method is what I had in mind. 
+
+  import numpy as np
+from scipy.signal import correlate2d
+
+a = np.array([[ 25,  28],
+              [ 84,  97],
+              [105,  24]])
+
+b = np.array([[ 25,  28,  84,  97],
+              [ 22,  25,  28, 900],
+              [ 11,  12, 105,  24]])
+
+EPS = 1e-8
+result = []
+for (i, row) in enumerate(a):
+    out = correlate2d(b, row[None,:], mode='valid') - np.square(row).sum()
+    locs = np.where(np.abs(out) <= EPS)[0]
+
+    unique_rows = np.unique(locs)
+    for res in unique_rows:
+        result.append((i, res))
+  
+
+  
+
+  In [32]: result
+Out[32]: [(0, 0), (0, 1), (1, 0), (2, 2)]
+  
+
+ The time complexity of this could be better, especially since we're looping over each row of  a  to find any subarrays in  b . 
+
+
+

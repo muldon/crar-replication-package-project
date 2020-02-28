@@ -1,0 +1,347 @@
+Query: fastest way to find the magnitude (length) squared of a vector field
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19864047)
+ The fastest is probably going to be http://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html: 
+
+  np.einsum('...j,...j->...', vf, vf)
+  
+
+ The above code tells numpy to grab its to inputs and reduce the last dimension of each by multiplying corresponding values and adding them together. With your dataset there is a problem of overflow, since the magnitudes will not fit in a 32 bit integer, which is the default return of  np.arange . You can solve that by specifying the return dtype, as either  np.int64  or  np.double : 
+
+  >>> np.einsum('...j,...j->...', vf,vf)[-1, -1, -1]
+-603979762
+>>> np.einsum('...j,...j->...', vf,vf).dtype
+dtype('int32')
+
+>>> np.einsum('...j,...j->...', vf,vf, dtype=np.int64)[-1, -1, -1]
+7599823767207950
+>>> np.einsum('...j,...j->...', vf,vf, dtype=np.double)[-1, -1, -1]
+7599823767207950.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28109263)
+ You can vectorise this operation, which should increase execution speed bu several orders of magnitude: 
+
+  norm = numpy.fmax(1.0, numpy.linalg.norm(var, axis=2))
+res = var / norm[:, :, numpy.newaxis]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35713109)
+ Fastest way I found is via inner1d. Here's how it compares to other numpy methods: 
+
+  import numpy as np
+from numpy.core.umath_tests import inner1d
+
+V = np.random.random_sample((10**6,3,)) # 1 million vectors
+A = np.sqrt(np.einsum('...i,...i', V, V))
+B = np.linalg.norm(V,axis=1)   
+C = np.sqrt((V ** 2).sum(-1))
+D = np.sqrt((V*V).sum(axis=1))
+E = np.sqrt(inner1d(V,V))
+
+print [np.allclose(E,x) for x in [A,B,C,D]] # [True, True, True, True]
+
+import cProfile
+cProfile.run("np.sqrt(np.einsum('...i,...i', V, V))") # 3 function calls in 0.013 seconds
+cProfile.run('np.linalg.norm(V,axis=1)')              # 9 function calls in 0.029 seconds
+cProfile.run('np.sqrt((V ** 2).sum(-1))')             # 5 function calls in 0.028 seconds
+cProfile.run('np.sqrt((V*V).sum(axis=1))')            # 5 function calls in 0.027 seconds
+cProfile.run('np.sqrt(inner1d(V,V))')                 # 2 function calls in 0.009 seconds
+  
+
+ inner1d is ~3x faster than linalg.norm and a hair faster than einsum 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/26431649)
+ You want to compute all pairwise squared Euclidean distances between your points. The fastest would be to use  scipy.distance.cdist : 
+
+  >>> import numpy as np
+>>> from scipy.spatial.distance import cdist
+>>> x = np.random.rand(10, 2)
+>>> t = np.random.rand(8, 2)
+
+>>> cdist(x, t, 'sqeuclidean')
+array([[ 0.61048982,  0.04379578,  0.30763149],
+       [ 0.02709455,  0.30235292,  0.25135934],
+       [ 0.21249888,  0.14024951,  0.28441688],
+       [ 0.39221412,  0.01994213,  0.17699239]])
+  
+
+ If you want to do it yourself in numpy. something like this should do the trick: 
+
+  >>> np.sum((x[:, None] - t)**2, axis=-1)
+array([[ 0.61048982,  0.04379578,  0.30763149],
+       [ 0.02709455,  0.30235292,  0.25135934],
+       [ 0.21249888,  0.14024951,  0.28441688],
+       [ 0.39221412,  0.01994213,  0.17699239]])
+  
+
+ Or, using your separate arrays for x and y coordinates: 
+
+  >>> dx, dy = x.T
+>>> tx, ty = t.T
+
+>>> (dx[:, None] - tx)**2 + (dy[:, None] - ty)**2
+array([[ 0.61048982,  0.04379578,  0.30763149],
+       [ 0.02709455,  0.30235292,  0.25135934],
+       [ 0.21249888,  0.14024951,  0.28441688],
+       [ 0.39221412,  0.01994213,  0.17699239]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32142625)
+ A https://en.wikipedia.org/wiki/Norm_(mathematics) is a function that takes a vector as an input and returns a scalar value that can be interpreted as the "size", "length" or "magnitude" of that vector. More formally, norms  are defined as having the following mathematical properties: 
+
+ 
+ They scale multiplicatively, i.e.  Norm(a· v ) = |a|·Norm( v )  for any scalar  a  
+ They satisfy the triangle inequality, i.e.  Norm( u  +  v ) ≤ Norm( u ) + Norm( v )  
+ The norm of a vector is zero if and only if it is the zero vector, i.e.  Norm( v ) = 0 ⇔  v  =  0   
+ 
+
+ The Euclidean norm (also known as the L² norm) is just one of many different norms - there is also the max norm, the Manhattan norm etc. The L² norm of a single vector is equivalent to the Euclidean distance from that point to the origin, and the L² norm of the difference between two vectors is equivalent to the Euclidean distance between the two points. 
+
+ 
+
+ As  @nobar 's answer says,  np.linalg.norm(x - y, ord=2)  (or just  np.linalg.norm(x - y) ) will give you Euclidean distance between the vectors  x  and  y . 
+
+ Since you want to compute the Euclidean distance between  a[1, :]  and every other row in  a , you could do this a lot faster by eliminating the  for  loop and broadcasting over the rows of  a : 
+
+  dist = np.linalg.norm(a[1:2] - a, axis=1)
+  
+
+ It's also easy to compute the Euclidean distance yourself using broadcasting: 
+
+  dist = np.sqrt(((a[1:2] - a) ** 2).sum(1))
+  
+
+ The fastest method is probably http://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html: 
+
+  from scipy.spatial.distance import cdist
+
+dist = cdist(a[1:2], a)[0]
+  
+
+ 
+
+ Some timings for a (1000, 1000) array: 
+
+  a = np.random.randn(1000, 1000)
+
+%timeit np.linalg.norm(a[1:2] - a, axis=1)
+# 100 loops, best of 3: 5.43 ms per loop
+
+%timeit np.sqrt(((a[1:2] - a) ** 2).sum(1))
+# 100 loops, best of 3: 5.5 ms per loop
+
+%timeit cdist(a[1:2], a)[0]
+# 1000 loops, best of 3: 1.38 ms per loop
+
+# check that all 3 methods return the same result
+d1 = np.linalg.norm(a[1:2] - a, axis=1)
+d2 = np.sqrt(((a[1:2] - a) ** 2).sum(1))
+d3 = cdist(a[1:2], a)[0]
+
+assert np.allclose(d1, d2) and np.allclose(d1, d3)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41176452)
+ You can define the closest square and then carry the array to it and reshape 
+
+  import numpy as np
+n = np.random.randint(10, 200)
+a = np.arange(n)
+ns = np.ceil(np.sqrt(n)).astype(int)
+s = np.zeros(ns**2)
+s[:a.size] = a
+s = s.reshape(ns,ns)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46940467)
+ Not the fastest, but perhaps the shortest (and hence a "neat") way of doing it: 
+
+  surrounded = np.sum(a[1:-1, 1:-1]**2) == np.sum(a**2)
+print(surrounded)  # True
+  
+
+ Here,  a  is the array. 
+
+ This compares the sum of all squared elements to the sum of all squared elements except for those on the boundary. If we left out the squaring, cases where positive and negative boundary values add up to zero would produce the wrong answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32503027)
+ For accuracy reason, you should use https://docs.python.org/2/library/math.html to avoid any overflow. 
+
+  from math import hypot
+
+def __abs__(self):
+    return hypot(self.x, self.y)
+  
+
+ Math.hypot(x, y): Return the Euclidean norm, sqrt(x x + y y). This is the length of the vector from the origin to point (x, y). 
+
+ This would give: 
+
+  from math import hypot
+class Vector(object):
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __abs__(self):
+        return hypot(self.x, self.y)
+
+v=Vector(3,1)
+magnitude = abs(v)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32502800)
+ You can define  vector_mag  like so: 
+
+  def __abs__(self):
+    return (self.x ** 2 + self.y ** 2) ** 0.5
+  
+
+ Then calling your method is as easy as this: 
+
+  vector1 = Vector(10, 1)
+print 'Magnitude =', abs(vector1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/43943429)
+ I took all these answers and wrote a script to 1. validate each of the results (see assertion below) and 2. see which is the fastest.
+Code and results are below: 
+
+  # Imports
+import numpy as np
+import scipy.sparse as sp
+from scipy.spatial.distance import squareform, pdist
+from sklearn.metrics.pairwise import linear_kernel
+from sklearn.preprocessing import normalize
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Create an adjacency matrix
+np.random.seed(42)
+A = np.random.randint(0, 2, (10000, 100)).astype(float).T
+
+# Make it sparse
+rows, cols = np.where(A)
+data = np.ones(len(rows))
+Asp = sp.csr_matrix((data, (rows, cols)), shape = (rows.max()+1, cols.max()+1))
+
+print "Input data shape:", Asp.shape
+
+# Define a function to calculate the cosine similarities a few different ways
+def calc_sim(A, method=1):
+    if method == 1:
+        return 1 - squareform(pdist(A, metric='cosine'))
+    if method == 2:
+        Anorm = A / np.linalg.norm(A, axis=-1)[:, np.newaxis]
+        return np.dot(Anorm, Anorm.T)
+    if method == 3:
+        Anorm = A / np.linalg.norm(A, axis=-1)[:, np.newaxis]
+        return linear_kernel(Anorm)
+    if method == 4:
+        similarity = np.dot(A, A.T)
+
+        # squared magnitude of preference vectors (number of occurrences)
+        square_mag = np.diag(similarity)
+
+        # inverse squared magnitude
+        inv_square_mag = 1 / square_mag
+
+        # if it doesn't occur, set it's inverse magnitude to zero (instead of inf)
+        inv_square_mag[np.isinf(inv_square_mag)] = 0
+
+        # inverse of the magnitude
+        inv_mag = np.sqrt(inv_square_mag)
+
+        # cosine similarity (elementwise multiply by inverse magnitudes)
+        cosine = similarity * inv_mag
+        return cosine.T * inv_mag
+    if method == 5:
+        '''
+        Just a version of method 4 that takes in sparse arrays
+        '''
+        similarity = A*A.T
+        square_mag = np.array(A.sum(axis=1))
+        # inverse squared magnitude
+        inv_square_mag = 1 / square_mag
+
+        # if it doesn't occur, set it's inverse magnitude to zero (instead of inf)
+        inv_square_mag[np.isinf(inv_square_mag)] = 0
+
+        # inverse of the magnitude
+        inv_mag = np.sqrt(inv_square_mag).T
+
+        # cosine similarity (elementwise multiply by inverse magnitudes)
+        cosine = np.array(similarity.multiply(inv_mag))
+        return cosine * inv_mag.T
+    if method == 6:
+        return cosine_similarity(A)
+
+# Assert that all results are consistent with the first model ("truth")
+for m in range(1, 7):
+    if m in [5]: # The sparse case
+        np.testing.assert_allclose(calc_sim(A, method=1), calc_sim(Asp, method=m))
+    else:
+        np.testing.assert_allclose(calc_sim(A, method=1), calc_sim(A, method=m))
+
+# Time them:
+print "Method 1"
+%timeit calc_sim(A, method=1)
+print "Method 2"
+%timeit calc_sim(A, method=2)
+print "Method 3"
+%timeit calc_sim(A, method=3)
+print "Method 4"
+%timeit calc_sim(A, method=4)
+print "Method 5"
+%timeit calc_sim(Asp, method=5)
+print "Method 6"
+%timeit calc_sim(A, method=6)
+  
+
+ Results: 
+
+  Input data shape: (100, 10000)
+Method 1
+10 loops, best of 3: 71.3 ms per loop
+Method 2
+100 loops, best of 3: 8.2 ms per loop
+Method 3
+100 loops, best of 3: 8.6 ms per loop
+Method 4
+100 loops, best of 3: 2.54 ms per loop
+Method 5
+10 loops, best of 3: 73.7 ms per loop
+Method 6
+10 loops, best of 3: 77.3 ms per loop
+  
+
+
+

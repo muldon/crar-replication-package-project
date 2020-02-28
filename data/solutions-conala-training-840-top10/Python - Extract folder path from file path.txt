@@ -1,0 +1,194 @@
+Query: Python - Extract folder path from file path
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8384788)
+ Using  os.path.split  or  os.path.basename  as others suggest won't work in all cases: if you're running the script on Linux and attempt to process a classic windows-style path, it will fail. 
+
+ Windows paths can use either backslash or forward slash as path separator. Therefore, the  ntpath  module (which is equivalent to os.path when running on windows) will work for all<sup>(1) paths on all platforms. 
+
+  import ntpath
+ntpath.basename("a/b/c")
+  
+
+ Of course, if the file ends with a slash, the basename will be empty, so make your own function to deal with it: 
+
+  def path_leaf(path):
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
+  
+
+  
+
+  >>> paths = ['a/b/c/', 'a/b/c', '\\a\\b\\c', '\\a\\b\\c\\', 'a\\b\\c', 
+...     'a/b/../../a/b/c/', 'a/b/../../a/b/c']
+>>> [path_leaf(path) for path in paths]
+['c', 'c', 'c', 'c', 'c', 'c', 'c']
+  
+
+   
+
+ <sup>(1) There's one caveat: Linux filenames  may contain backslashes . So on linux,  r'a/b\c'  always refers to the file  b\c  in the  a  folder, while on Windows, it always refers to the  c  file in the  b  subfolder of the  a  folder. So when both forward and backward slashes are used in a path, you  need  to know the associated platform to be able to interpret it correctly. In practice it's usually safe to assume it's a windows path since backslashes are seldom used in Linux filenames, but keep this in mind when you code so you don't create accidental security holes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17057580)
+ The built-in submodule http://docs.python.org/2/library/os.path.html has a function for that very task. 
+
+  import os
+os.path.dirname('T:\Data\DBDesign\DBDesign_93_v141b.mdb')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53762362)
+ The second argument to https://docs.paramiko.org/en/stable/api/sftp.html#paramiko.sftp_client.SFTPClient.get is a path to a local  file . While you seem to pass a path to a  directory . 
+
+ Also, you should not use  os.path.join  on SFTP paths.  os.path.join  is for local paths. SFTP always uses forward slashes, while  os.path.join  uses local OS-specific separators (back slashes on Windows). 
+
+  sftp.get(path + '/' + file, os.path.join('E:\InsightImport\CSV_EXTRACT', file))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/53227220)
+ You can use https://docs.python.org/3/library/os.path.html#os.path.splitext and extract the first split, via either a list comprehension or  apply  with a custom function. 
+
+  from os.path import splitext
+
+df = pd.DataFrame({'filepaths': [r'/volume1/SYN/FOLDER1/FILE.TXT',
+                                 r'/volume1/SYN/FOLDER2/SUBFOLDER/FILE.PDF']})
+
+# list comprehension, more efficient
+df['folder'] = [splitext(x)[0] for x in df['filepaths']]
+
+# apply + lambda implicit loop
+df['folder'] = df['filepaths'].apply(lambda x: splitext(x)[0])
+
+print(df)
+
+                                 filepaths  \
+0            /volume1/SYN/FOLDER1/FILE.TXT   
+1  /volume1/SYN/FOLDER2/SUBFOLDER/FILE.PDF   
+
+                                folder  
+0            /volume1/SYN/FOLDER1/FILE  
+1  /volume1/SYN/FOLDER2/SUBFOLDER/FILE  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6149487)
+ Use http://docs.python.org/library/tarfile.html#tarfile.TarFile.extractfile and write it into a file of your choice. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45966265)
+ It will be extracted to the working directory by default:  
+
+  import os
+os.getcwd()
+  
+
+ So, the path to the extracted data is: 
+
+  from pathlib import Path
+extracted_to_path = Path.cwd() / 'sampleFolder'
+  
+
+ To extract in a different location: 
+
+  with tarfile.open('sample.tar.gz') as tar:
+    tar.extractall(path='/other/folder')
+  
+
+ 
+
+  edit:  If you just want to know the name  "sampleFolder"  contained in the archive, it's not necessary to extract somewhere.  You should use https://docs.python.org/3/library/tarfile.html#tarfile.TarFile.getnames: 
+
+  tar.getnames()
+  
+
+ Note that tarballs can have multiple files or folders within.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8009120)
+ Building on the second example from the https://docs.python.org/3.5/library/tarfile.html#examples, you could extract the contained sub-folder and all of its contents with something like this: 
+
+  with tarfile.open("sample.tar") as tar:
+    subdir_and_files = [
+        tarinfo for tarinfo in tar.getmembers()
+        if tarinfo.name.startswith("subfolder/")
+    ]
+    tar.extractall(members=subdir_and_files)
+  
+
+ This creates a list of the subfolder and its contents, and then uses the recommended  extractall()  method to extract just them. Of course, replace  "subfolder/"  with the actual path (relative to the root of the tar file) of the sub-folder you want to extract. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14360434)
+ Use this: 
+
+  import sys
+import os
+
+path = sys.argv[1]
+
+# Check if path exits
+if os.path.exists(path):
+    print "File exist"
+
+# Get filename
+print "filename : " + path.split("/")[-1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31066177)
+ Using https://docs.python.org/3/library/os.html#os.walk and https://docs.python.org/3/tutorial/classes.html#generator-expressions to get all file paths in current directory recursively: 
+
+  from glob import glob
+import fileinput
+import os
+
+with open('output.txt', 'w') as out:
+    files = (os.path.join(p, f) for p, ds, fs in os.walk(os.curdir) for f in fs)
+    for line in fileinput.input(files):
+        if 'Subject:' in line:
+            out.write(line)
+  
+
+  fs  in the above code is a list of file names. You need to iterate them to get file paths. 
+
+ https://docs.python.org/3/library/os.path.html#os.path.join is used to make a path by joining parent directory  p  and file name  f . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47135258)
+ Found the error by myself. From the https://docs.python.org/2/library/zipfile.html#zipfile.ZipFile.extractall: 
+
+ 
+   ZipFile.extractall([path[, members[, pwd]]]) 
+  
+   Extract all members from the archive to the current working directory. path specifies a different directory to extract to. members is optional and must be a subset of the list returned by namelist(). pwd is the password used for encrypted files. 
+ 
+
+ Subset of the list referes back to a list.  
+
+  currentFile.extractall(path, ['foo bar/'])
+  
+
+ . Hope it will help someone. Also notice that path and members is reversed in comparison to the  extract  method! 
+
+
+

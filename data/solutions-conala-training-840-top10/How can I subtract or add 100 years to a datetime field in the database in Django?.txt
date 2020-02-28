@@ -1,0 +1,198 @@
+Query: How can I subtract or add 100 years to a datetime field in the database in Django?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5871403)
+ Use http://docs.python.org/release/2.5.2/lib/datetime-timedelta.html. Something like this should do the trick: 
+
+  import datetime
+years = 100
+days_per_year = 365.24
+hundred_years_later = my_object.date + datetime.timedelta(days=(years*days_per_year))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/5871888)
+ I would use the relativedelta function of the dateutil.relativedelta package, which will give you are more accurate 'n-years ago' calculation: 
+
+  from dateutil.relativedelta import relativedelta
+import datetime
+
+years_ago = datetime.datetime.now() - relativedelta(years=5)
+  
+
+ Then simply update the date field as others have shown here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47795566)
+ I Know it's an old question, but I had the problem to find out a good one to solve my problem, I have created this: Use plus(+) or minus(-) to handle with: 
+
+  import datetime # Don't forget to import it
+
+def subadd_date(date,years):
+    ''' Subtract or add Years to a specific date by pre add  + or - '''
+    if isinstance(date,datetime.datetime) and isinstance(years,int):
+        day,month,year = date.day , date.month , date.year
+        #If you want to have HOUR, MINUTE, SECOND 
+        #With TIME: 
+        # day,month,year,hour,minute,second = date.day, date.month,date.year,date.hour,date.minute,date.second  
+
+        py = year + years # The Past / Futur Year
+        new_date_str = "%s-%s-%s" % (day,month,py) # New Complete Date
+        # With TIME : new_date_str = "%s-%s-%s %s:%s:%s" % (month,day,py,hour,minute,second)
+        try:
+            new_date = datetime.datetime.strptime(new_date_str,"%d-%m-%Y")
+        except ValueError: # day is out of range for month (February 29th)
+            new_date_str = "%s-%s-%s" % (1,month+1,py) # New Complete Date : March 1st
+            new_date = datetime.datetime.strptime(new_date_str,"%d-%m-%Y")
+
+        return new_date
+        # With TIME : return datetime.datetime.strptime(new_date_str,"%d-%m-%Y %H:%M:%Y")
+    return None
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5871265)
+ When you get the value of a Django  datetime  field from the database, it comes in the form of a Python  datetime  object. 
+
+ I think the easiest way to add 100 years to a Python datetime object is like this: 
+
+  from datetime import datetime
+
+d = datetime_object_from_database
+
+d_plus_100_years = datetime(d.year + 100, *d.timetuple()[1:-2])
+  
+
+ Then save that back to the database. As noted in the comments though, this will fail utterly if the date is a leap day in a year that’s a multiple of 400. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5871804)
+   .update()  method on a Django query set allows you update all values without retrieving the object from the database. You can refer to the existing value using an http://docs.djangoproject.com/en/dev/topics/db/queries/#filters-can-reference-fields-on-the-model. 
+
+ Unfortunately Python's timedelta doesn't work with years, so you'll have to work out 100 years expressed in days (it's 36524.25): 
+
+  MyModel.objects.update(timestamp=F('timestamp')+timedelta(days=36524.25))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2861851)
+ Django  datetime  objects are just regular http://docs.python.org/library/datetime#datetime-objects.  When you subtract one  datetime  from another you get a http://docs.python.org/library/datetime#timedelta-objects object. 
+
+ If you are looking to subtract a length of time from a  datetime  you need to subtract a  timedelta  object from it.  For example: 
+
+  >>> from datetime import datetime, timedelta
+>>> now = datetime.now()
+>>> print now
+2010-05-18 23:16:24.770533
+>>> this_time_yesterday = now - timedelta(hours=24)
+>>> print this_time_yesterday
+2010-05-17 23:16:24.770533
+>>> (now - this_time_yesterday).days
+1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31169977)
+ You could use pd.Timedelta: 
+
+  df["NEW_DATE"] = df["ACC_DATE"] - pd.Timedelta(days=365) 
+  
+
+ Or replace: 
+
+  df["NEW_DATE"] = df["ACC_DATE"].apply(lambda x: x.replace(year=x.year - 1))
+  
+
+ But neither will catch leap years so you could use  dateutil.relativedelta  : 
+
+  from dateutil.relativedelta import  relativedelta
+
+df["NEW_DATE"] = df["ACC_DATE"].apply(lambda x: x - relativedelta(years=1))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26789573)
+  import datetime as DT
+import io
+import numpy as np
+import pandas as pd
+
+pd.options.mode.chained_assignment = 'warn'
+
+content = '''     ssno        lname         fname    pos_title             ser  gender  dob 
+0    23456789    PLILEY     JODY        BUDG ANAL             0560  F      031871 
+1    987654321   NOEL       HEATHER     PRTG SRVCS SPECLST    1654  F      120852
+2    234567891   SONJU      LAURIE      SUPVY CONTR SPECLST   1102  F      010999
+3    345678912   MANNING    CYNTHIA     SOC SCNTST            0101  F      081692
+4    456789123   NAUERTZ    ELIZABETH   OFF AUTOMATION ASST   0326  F      031387'''
+
+df = pd.read_table(io.BytesIO(content), sep='\s{2,}')
+df['dob'] = df['dob'].apply('{:06}'.format)
+
+now = pd.Timestamp(DT.datetime.now())
+df['dob'] = pd.to_datetime(df['dob'], format='%m%d%y')    # 1
+df['dob'] = df['dob'].where(df['dob'] < now, df['dob'] -  np.timedelta64(100, 'Y'))   # 2
+df['age'] = (now - df['dob']).astype('<m8[Y]')    # 3
+print(df)
+  
+
+  
+
+          ssno    lname      fname            pos_title   ser gender  \
+0   23456789   PLILEY       JODY            BUDG ANAL   560      F   
+1  987654321     NOEL    HEATHER   PRTG SRVCS SPECLST  1654      F   
+2  234567891    SONJU     LAURIE  SUPVY CONTR SPECLST  1102      F   
+3  345678912  MANNING    CYNTHIA           SOC SCNTST   101      F   
+4  456789123  NAUERTZ  ELIZABETH  OFF AUTOMATION ASST   326      F   
+
+                  dob  age  
+0 1971-03-18 00:00:00   43  
+1 1952-12-08 18:00:00   61  
+2 1999-01-09 00:00:00   15  
+3 1992-08-16 00:00:00   22  
+4 1987-03-13 00:00:00   27  
+  
+
+ 
+
+ 
+ It looks like your  dob  column are currently strings. First,
+convert them to  Timestamps  using  pd.to_datetime . 
+ The format  '%m%d%y'  converts the last two digits to years, but
+unfortunately assumes  52  means 2052. Since that's probably not
+Heather Noel's birthyear, let's subtract 100 years from  dob 
+whenever the  dob  is greater than  now . You may want to subtract a few years to  now  in the condition  df['dob'] < now  since it may be slightly more likely to have a 101 year old worker than a 1 year old worker... 
+ You can subtract dob  from  now  to obtain http://docs.scipy.org/doc/numpy/reference/arrays.datetime.html#datetime-and-timedelta-arithmetic. To
+convert that to years, use  astype('<m8[Y]')  or  astype('timedelta64[Y]') . 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46404600)
+ Use http://pandas.pydata.org/pandas-docs/stable/timeseries.html#dateoffset-objects: 
+
+  df["NEW_DATE"] = df["ACC_DATE"] - pd.offsets.DateOffset(years=1)
+print (df)
+        ACC_DATE   NEW_DATE
+index                      
+538   2006-04-07 2005-04-07
+550   2006-04-12 2005-04-12
+  
+
+
+

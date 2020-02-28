@@ -1,0 +1,233 @@
+Query: beautifulsoup can't find href in file using regular expression
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11066890)
+ You need to escape the question mark. The regular expression  w?  means  zero or one w .  
+
+  print soup.find('a', href = re.compile(r'.*follow\?page.*'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/23549169)
+ An alternate to https://stackoverflow.com/a/23548604/1454048, using  BeautifulSoup : 
+
+  from bs4 import BeautifulSoup
+
+data = """
+<snipped html>
+"""
+
+soup = BeautifulSoup(data)
+
+for tableHeaders in soup.find_all('td', class_="tableHeader"):
+    if tableHeaders.get_text() == "Max Enroll":
+        print tableHeaders.find_next_siblings('td', class_="odd")[0].get_text()
+  
+
+ Output: 
+
+  30
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10886448)
+ You picked the right tool in BeautifulSoup.  Technically you could do it all do it in one script, but you might want to segment it, because it looks like you'll be dealing with tens of thousands of e-mails, all of which are seperate requests - and that will take a while. 
+
+ http://www.crummy.com/software/BeautifulSoup/bs4/doc/ is gonna help you a lot, but here's just a little code snippet to get you started.  This gets all of the html tags that are index pages for the e-mails, extracts their href links and appends a bit to the front of the url so they can be accessed directly. 
+
+  from bs4 import BeautifulSoup
+import re
+import urllib2
+soup = BeautifulSoup(urllib2.urlopen("http://www.419scam.org/emails/"))
+tags = soup.find_all(href=re.compile("20......../index\.htm")
+links = []
+for t in tags:
+    links.append("http://www.419scam.org/emails/" + t['href'])
+  
+
+ 're' is a Python's regular expressions module.  In the fifth line, I told BeautifulSoup to find all the tags in the soup whose href attribute match that regular expression.  I chose this regular expression to get only the e-mail index pages rather than all of the href links on that page.  I noticed that the index page links had that pattern for all of their URLs. 
+
+ Having all the proper 'a' tags, I then looped through them, extracting the string from the href attribute by doing t['href'] and appending the rest of the URL to the front of the string, to get raw string URLs. 
+
+ Reading through that documentation, you should get an idea of how to expand these techniques to grab the individual e-mails. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24875071)
+ You can use regular expressions to extract variables from  href  attributes: 
+
+  import re
+from bs4 import BeautifulSoup
+
+data = """
+<div>
+    <table>
+        <A href="javascript:Set_Variables('foo1','bar1''')" onmouseover="javascript: return window.status=''">
+        <A href="javascript:Set_Variables('foo2','bar2''')" onmouseover="javascript: return window.status=''">
+    </table>
+</div>
+"""
+
+soup = BeautifulSoup(data)
+
+pattern = re.compile(r"javascript:Set_Variables\('(\w+)','(\w+)'")
+for a in soup('a'):
+    match = pattern.search(a['href'])
+    if match:
+        print match.groups()
+  
+
+  
+
+  ('foo1', 'bar1')
+('foo2', 'bar2')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/29502587)
+ In general http://docs.python-requests.org/en/latest/ is the easiest way to get webpages. 
+
+ If the name of the data files  follows the pattern   NPPES_Data_Dissemination_<Month>_<year>.zip , which seems logical, you can request that directly; 
+
+  import requests
+
+url = "http://nppes.viva-it.com/NPPES_Data_Dissemination_{}_{}.
+r = requests.get(url.format("March", 2015))
+  
+
+ The data is then in  r.text . 
+
+ If the data-file name is less certain, you can get the webpage and use a regular expression to search for links to  zip  files; 
+
+  In [1]: import requests
+
+In [2]: r = requests.get('http://nppes.viva-it.com/NPI_Files.html')
+
+In [3]: import re
+
+In [4]: re.findall('http.*NPPES.*\.zip', r.text)
+Out[4]: 
+['http://nppes.viva-it.com/NPPES_Data_Dissemination_March_2015.zip',
+ 'http://nppes.viva-it.com/NPPES_Deactivated_NPI_Report_031015.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_030915_031515_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_031615_032215_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_032315_032915_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_033015_040515_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_100614_101214_Weekly.zip']
+  
+
+ The regular expression in In[4] basically says to find strings that start with "http", contain "NPPES" and end with "..
+This isn't speficic enough. Let's change the regular expression as shown below; 
+
+  In [5]: re.findall('http.*NPPES_Data_Dissemination.*\.zip', r.text)
+Out[5]: 
+['http://nppes.viva-it.com/NPPES_Data_Dissemination_March_2015.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_030915_031515_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_031615_032215_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_032315_032915_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_033015_040515_Weekly.zip',
+ 'http://nppes.viva-it.com/NPPES_Data_Dissemination_100614_101214_Weekly.zip']
+  
+
+ This gives us the URLs of the file we want but also the weekly files. 
+
+  In [6]: fileURLS = re.findall('http.*NPPES_Data_Dissemination.*\.zip', r.text)
+  
+
+ Let's filter out the weekly files: 
+
+  In [7]: [f for f in fileURLS if 'Weekly' not in f]
+Out[7]: ['http://nppes.viva-it.com/NPPES_Data_Dissemination_March_2015.zip']
+  
+
+ This is the URL you seek. But this whole scheme does depend on how regular the names are. You can add flags to the regular expression searches to discard the case of the letters, that would make it accept more.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33508243)
+ If you were to solve it with  find_all() , you may use a  regular expression or a function : 
+
+  soup.find_all("a", id=re.compile(r"^link\d+$")  # id starts with 'link' followed by one or more digits at the end of the value
+soup.find_all("a", id=lambda value: value and value.startswith("link"))  # id starts with 'link'
+  
+
+ Or, you can approach it with a  CSS Selector : 
+
+  soup.select("a[id^=link]")  # id starts with 'link'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/822523)
+ As pointed out by the other answers, using regular expressions to parse HTML = bad, bad idea. 
+
+ With that in mind, I will add in code of my favorite parser:  http://www.crummy.com/software/BeautifulSoup/: 
+
+  from BeautifulSoup import BeautifulSoup
+
+soup = BeautifulSoup(htmlcode)
+links = soup.findAll('a', href=True)
+mp3s = [l for l in links if l['href'].endswith('.mp3')]
+for song in mp3s:
+    print link['href']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41203049)
+ You could make a more generic scraper, searching for all tags and all links within those tags. Once you have the list of all links, you can use a regular expression or similar to find the links that match your desired structure.  
+
+  import requests
+from bs4 import BeautifulSoup
+import re
+
+response = requests.get('http://www.businessinsider.com')
+
+soup = BeautifulSoup(response.content)
+
+# find all tags
+tags = soup.find_all()
+
+links = []
+
+# iterate over all tags and extract links
+for tag in tags:
+    # find all href links
+    tmp = tag.find_all(href=True)
+    # append masters links list with each link
+    map(lambda x: links.append(x['href']) if x['href'] else None, tmp)
+
+# example: filter only careerbuilder links
+filter(lambda x: re.search('[w]{3}\.careerbuilder\.com', x), links)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21508370)
+ You can pass a compiled regular expression object: 
+
+  import re
+
+...
+
+link=soup.find_all(
+    'a',
+    xtclib=re.compile(r"listing_list_\d+_title_link"),
+    href=True)
+  
+
+ See http://www.crummy.com/software/BeautifulSoup/bs4/doc/#a-regular-expression. 
+
+
+

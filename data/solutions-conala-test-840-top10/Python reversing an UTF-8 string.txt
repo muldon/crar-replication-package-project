@@ -1,0 +1,177 @@
+Query: Python reversing an UTF-8 string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34015656)
+ Python 2 strings are  byte strings , and UTF-8 encoded text uses multiple bytes per character. Just because your terminal manages to interpret the UTF-8 bytes as characters, doesn't mean that Python knows about what bytes form one UTF-8 character. 
+
+ Your bytestring consists of 6 bytes, every two bytes form one character: 
+
+  >>> a = "čšž"
+>>> a
+'\xc4\x8d\xc5\xa1\xc5\xbe'
+  
+
+ However, how many bytes UTF-8 uses depends on where in the Unicode standard the character is defined; ASCII characters (the first 128 characters in the Unicode standard) only need 1 byte each, and many emoji need 4 bytes! 
+
+ In UTF-8 order is  everything ; reversing the above bytestring reverses the bytes, resulting in some gibberish as far as the UTF-8 standard is concerned, but the middle 4 bytes just  happen  to be valid UTF-8 sequences (for  š  and  ō ): 
+
+  >>> a[::-1]
+'\xbe\xc5\xa1\xc5\x8d\xc4'
+-----~~~~~~~~^^^^^^^^####
+  |     š       ō      |
+  \                    \
+   invalid UTF8 byte    opening UTF-8 byte missing a second byte
+  
+
+ You'd have to decode the byte string to a  unicode  object, which consists of single characters. Reversing that object gives you the right results: 
+
+  b = a.decode('utf8')[::-1]
+print b
+  
+
+ You can always  encode  the object back to UTF-8 again: 
+
+  b = a.decode('utf8')[::-1].encode('utf8')
+  
+
+ Note that in Unicode, you can still run into issues when reversing text, when https://en.wikipedia.org/wiki/Combining_character are used. Reversing text with combining characters places those combining characters in front rather than after the character they combine with, so they'll combine with the wrong character instead: 
+
+  >>> print u'e\u0301a'
+éa
+>>> print u'e\u0301a'[::-1]
+áe
+  
+
+ You can mostly avoid this by converting the Unicode data to its normalised form (which replaces combinations with 1-codepoint forms) but there are plenty of other exotic Unicode characters that don't play well with string reversals. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26869980)
+ You have a http://en.wikipedia.org/wiki/Mojibake; UTF-8 bytes decoded as Latin-1 or CP1251 in this case. 
+
+ You can repair it by reversing the process: 
+
+  >>> print u'ÐÐ»ÑÐ±Ð½Ð¸ÑÐ½ÑÐ¹ Ð½Ð¾Ð²Ð¾Ð³Ð¾Ð´Ð½Ð¸Ð¹ Ð¿ÑÐ½Ñ'.encode('latin1').decode('utf8')
+Клубничный новогодний пунш
+  
+
+ (I had to copy the string from the original post source to capture all the non-printable bytes in the Mojibake). 
+
+ The better method would be to  not incorrectly decoding  in the first place. You decoded the original text with the wrong encoding, use UTF-8 as the codec instead. 
+
+ If you used  requests  to download the page, do not use  response.text  in this case; if the server failed to specific codec then the HTTP RFC default is to use Latin-1, but HTML documents often embed the encoding in a  <meta>  header instead. Leave decoding in such cases to your parser, like BeautifulSoup: 
+
+  response = requests.get(url)
+soup = BeautifulSoup(response.content)  # pass in undecoded bytes
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2625377)
+  From http://docs.python.org/library/xml.dom.minidom.html#xml.dom.minidom.Node.toprettyxml, I can see the keyword argument name is supposed to be  encoding  and not  coding . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14251152)
+ Do it in the reverse order: first unquote then  .decode('utf-8')  
+
+ Do not mix bytes and Unicode strings. 
+
+ Example</h3>
+
+  import urllib
+
+q = "Eptisa+Servicios+de+Ingenier%C3%ADa+S.L."
+b = urllib.unquote_plus(q)
+u = b.decode("utf-8")
+print u
+  
+
+ Note:  print u  might produce UnicodeEncodeError. To fix it: 
+
+  print u.encode(character_encoding_your_console_understands)
+  
+
+  Or  set  PYTHONIOENCODING  environment variable. 
+
+ On Unix you could try  locale.getpreferredencoding()  as character encoding, on Windows see output of  chcp  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10407924)
+ Use  html.decode('utf-8')  (or whatever encoding it happens to be) to get a  str  object that you can  .find()  on. 
+
+  .decode()  is used to take a flat set of bytes and transform them (via reversing a character encoding, such as UTF-8) into a string of actual codepoints (displayable symbols). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33501090)
+  
+
+  def reverse(ip):
+        if len(ip) <= 1:
+                return ip
+        l = ip.split('.')
+        return '.'.join(l[::-1])
+
+ip = '10.1.2.3'
+print reverse(ip)
+  
+
+ Output: 
+
+  3.2.1.10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32793037)
+ If you're using Python 3, it's pretty easy. First, convert the  str  to  bytes  in a chosen encoding ( utf-8  is usually appropriate), then use  int.from_bytes  to convert to an  int : 
+
+  number = int.from_bytes(mystring.encode('utf-8'), 'little')
+  
+
+ Converting back is slightly trickier (and will lose trailing  NUL  bytes unless you've stored how long the resulting string should be somewhere else; if you switch to  'big'  endianness, you lose leading  NUL  bytes instead of trailing): 
+
+  recoveredstring = number.to_bytes((number.bit_length() + 7) // 8, 'little').decode('utf-8')
+  
+
+ You can do something similar in Python 2, but it's less efficient/direct: 
+
+  import binascii
+number = int(binascii.hexlify(mystring.encode('utf-8')), 16)
+
+hx = '%x' % number
+hx = hx.zfill(len(hx) + (len(hx) & 1))  # Make even length hex nibbles
+recoveredstring = binascii.unhexlify(hx).decode('utf-8')
+  
+
+ That's equivalent to the  'big'  endian approach in Python 3; reversing the intermediate bytes as you go in each direction would get the  'little'  effect. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24893224)
+ You are trying to use the Python 3 version of the https://docs.python.org/3/library/functions.html#open, on Python 2. Between the major versions, I/O support was overhauled, supporting better encoding and decoding. 
+
+ You can get the same new version in Python 2 as https://docs.python.org/2/library/io.html#io.open instead. 
+
+ I'd use the https://docs.python.org/2/library/shutil.html#shutil.copyfileobj to do the copying, so you don't have to read the whole file into memory: 
+
+  import io
+
+with io.open(file_path_ansi, encoding='latin-1', errors='ignore') as source:
+    with io.open(file_path_utf8, mode='w', encoding='utf-8') as target:
+        shutil.copyfileobj(source, target)
+  
+
+ Be careful though; most people talking about ANSI refer to  one  of the http://en.wikipedia.org/wiki/Windows_code_page; you may really have a file in CP (codepage) 1252, which is  almost , but not quite the same thing as http://en.wikipedia.org/wiki/ISO/IEC_8859-1. If so, use  cp1252  instead of  latin-1  as the  encoding  parameter. 
+
+
+

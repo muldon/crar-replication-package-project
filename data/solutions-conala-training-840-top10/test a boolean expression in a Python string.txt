@@ -1,0 +1,297 @@
+Query: test a boolean expression in a Python string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14518554)
+ In the first, you first check if there are enough characters to test against, in the second you don't: 
+
+  if len(string)>=2  string[0]==string[-1]:
+  
+
+  
+
+  if string[0]==string[-1]  len(string)>=2:
+  
+
+  pass in an  empty  string: 
+
+  match_ends(['', 'x', 'xy', 'xyx', 'xx'])
+  
+
+ The empty string has length 0,  no character at index 0: 
+
+  >>> len('')
+0
+>>> ''[0]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+IndexError: string index out of range
+  
+
+ The  if  boolean expression is being evaluated left-to-right,  the  string[0]==string[-1]  expression is evaluated before the  len(string)>=2  test,  then fails for that empty string. 
+
+ In the other version, the  len(string)>=2  part is evaluated first, found to be  False  for the empty string (0 is not greater or equal to 2)  Python then doesn't need to look at the other half of the    expression at all, since there is no chance the    expression will become  True  whatever the second half evaluates to. 
+
+ See http://docs.python.org/2/reference/expressions.html#boolean-operations in the python documentation: 
+
+ 
+   The expression  x  y  first evaluates  x ; if  x  is false, its value is returned; otherwise,  y  is evaluated  the resulting value is returned. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10586876)
+ Is this a user-defined string, or one you're defining? 
+
+ If it's a string you're creating, you could use  eval  ( eval("20 < 30") ), but if the string is given by the user, you might want to sanitize it first... 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15112149)
+ You misunderstand how boolean expressions work; they don't work like an English sentence and guess that you are talking about the same comparison for all names here.  
+
+  if x == 1 or y == 1 or z == 1:
+  
+
+  x  and  y  are otherwise evaluated on their own ( False  if  0 ,  True  otherwise). 
+
+ You can shorten that using a containment test against https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences: 
+
+  if 1 in (x, y, z):
+  
+
+ or better still: 
+
+  if 1 in {x, y, z}:
+  
+
+ using https://docs.python.org/3/tutorial/datastructures.html#sets to take advantage of the constant-cost membership test ( in  takes a fixed amount of time whatever the left-hand operand is). 
+
+ When you use  or , python sees each side of the operator as  separate  expressions. The expression  x or y == 1  is treated as first a boolean test for  x , then if that is False, the expression  y == 1  is tested. 
+
+ This is due to http://docs.python.org/2/reference/expressions.html#operator-precedence. The  or  operator has a lower precedence than the  ==  test, so the latter is evaluated  first . 
+
+ However, even if this were  not  the case, and the expression  x or y or z == 1  was actually interpreted as  (x or y or z) == 1  instead, this would still not do what you expect it to do.  
+
+  x or y or z  would evaluate to the first argument that is 'truthy', e.g. not  False , numeric 0 or empty (see http://docs.python.org/2/reference/expressions.html#boolean-operations for details on what Python considers false in a boolean context). 
+
+ So for the values  x = 2; y = 1; z = 0 ,  x or y or z  would resolve to  2 , because that is the first true-like value in the arguments. Then  2 == 1  would be  False , even though  y == 1  would be  True . 
+
+ The same would apply to the inverse; testing multiple values against a single variable;  x == 1 or 2 or 3  would fail for the same reasons. Use  x == 1 or x == 2 or x == 3  or  x in {1, 2, 3} . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44310579)
+ I can't say if this is the  fastest , (this is still O(n*m)), but this is the way I would do it: 
+
+  def check_strings(search_list, input_string):
+    return [s in input_string for s in search_list]
+  
+
+ The following program  might  be faster, or not. It uses a regular expression to make one pass through the input string. Note that you may you may want to use  re.escape(i)  in the  re.findall()  expression, or not, depending upon your needs. 
+
+  def check_strings_re(search_string, input_string):
+    import re
+    return [any(l)
+            for l in
+            zip(*re.findall('|'.join('('+i+')' for i in search_string),
+                            input_string))]
+  
+
+ Here is a complete test program: 
+
+  def check_strings(search_list, input_string):
+    return [s in input_string for s in search_list]
+
+
+def check_strings_re(search_string, input_string):
+    import re
+    return [any(l)
+            for l in
+            zip(*re.findall('|'.join('('+i+')' for i in search_string),
+                            input_string))]
+
+
+search_strings = ["hello", "world", "goodbye"]
+test_string = "hello world"
+assert check_strings(search_strings, test_string) == [True, True, False]
+assert check_strings_re(search_strings, test_string) == [True, True, False]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34221430)
+ In the first two comparisons, you are checking whether the string  "Test"  has the same value as the object  True  or  False . This is a value comparison.  
+
+ If they have a different type, the comparison will return  False . You can see this also when comparing lists, numbers etc.:  [1]==1  (false),  (1,)==[1]  (false). 
+
+ In the third and fourth comparisons, you are still doing a value comparison, but since both sides are of the same type (boolean), it will compare the values. 
+
+  Hello5  is printed because it is not the null string  "" . You can see this by trying  "Test" != None , which returns  True .  
+
+ While it is a comparison to  None  when it comes to most classes( None  is Python's null value), Python's standard data types are compared to their "null" value, which are: 
+
+ 
+ The empty string  ""  for strings, 
+  []  for lists (similary  ()  for tuples,  {}  for dictionaries), 
+  0  for ints and floats, 
+ 
+
+ just like a boolean comparison. Therefore it is not wrong to think of  if expression  as an implicit cast to  if bool(expression) . 
+
+ What is going on under the hood is the evaluation of the https://docs.python.org/2/reference/datamodel.html#object.__nonzero__(python2.x) or https://docs.python.org/3.5/reference/datamodel.html#object.__bool__(python3.x) method of the class. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43032866)
+ 
+   I can't understand exact meaning of the second paragraph. In C, we can
+  use the &&(logical and) as the following expression: (i  != 0) && (j /
+  i > 0) to prevent the error of a division by zero. So then, could I
+  use the expression (i != 0) and ( j / i > 0) in Python as C to get the
+  same effect?　 
+ 
+
+ Yes 
+
+ 
+   What's the
+  usage of or as a short-circuit to constructing Boolean expressions as
+  said in the second paragraph ? 
+ 
+
+ As an example: 
+
+  if (y is None) or (x not in y):
+  
+
+ where  y  is either a list of things or  None  which in this case we want to treat a bit like an empty list, but  x not in None  would be an error. 
+
+  
+
+  (i  == 0) or (j / i > 0)
+  
+
+ 
+   The final question is about the grammar
+  of had the prior test not succeeded in the second paragraph. I this it
+  should be "an error condition that can had the prior test not
+  succeeded", am I right? 
+ 
+
+ No, your phrasing is not correct grammar. 
+
+ If you have  X and/or Y ,  X  is the first or 'prior' test,  Y  is the second, and it's possible that  X  is false and trying to evaluate  Y  will cause an error. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/17134050)
+ Interpreting a non-empty string as  bool  will always evaluate to  True . I.e.: 
+
+  print bool("False") # True
+print bool("0") # True
+  
+
+ This is, because a str is an iterable object (such as  list ,  set  or  dict ). All iterable objects are considered to be  True , if they are non-empty. A  str  is an iterable, that iterates over its characters. This is useful, e.g. if you want to test if a string  s  is empty.  
+
+  if s:
+  # do something with non-empty string s.
+  
+
+ However, if you want to  evaluate the expression  that is represented by the string, then call  eval : 
+
+  print eval("False") # False
+print eval("0") # 0
+print bool(eval("0")) # False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17231974)
+  b()  will only be evaluated if  a(my_var)  is  True , yes. The  and  operator short-circuits if  a(my_var)  is falsey. 
+
+ From the http://docs.python.org/2/reference/expressions.html#boolean-operations: 
+
+ 
+   The expression  x and y  first evaluates  x ; if  x  is false, its value is returned; otherwise,  y  is evaluated and the resulting value is returned. 
+ 
+
+ You can test this yourself with a function that prints something when called: 
+
+  >>> def noisy(retval):
+...     print "Called, returning {!r}".format(retval)
+...     return retval
+... 
+>>> noisy(True) and noisy('whatever')
+Called, returning True
+Called, returning 'whatever'
+'whatever'
+>>> noisy(False) and noisy('whatever')
+Called, returning False
+False
+  
+
+ Python consideres empty containers and numeric 0 values as false: 
+
+  >>> noisy(0) and noisy('whatever')
+Called, returning 0
+0
+>>> noisy('') and noisy('whatever')
+Called, returning ''
+''
+>>> noisy({}) and noisy('whatever')
+Called, returning {}
+{}
+  
+
+ Custom classes can implement a http://docs.python.org/2/reference/datamodel.html#object.__nonzero__ to return a boolean flag for the same test, or implement a http://docs.python.org/2/reference/datamodel.html#object.__len__ if they are a container type instead; returning  0  means the container is empty and is to be considered false. 
+
+ On a closely related note, the  or  operator does the same thing, but in reverse. If the first expression evaluates to true the second expression will not be evaluated: 
+
+  >>> noisy('Non-empty string is true') or noisy('whatever')
+Called, returning 'Non-empty string is true'
+'Non-empty string is true'
+>>> noisy('') or noisy('But an empty string is false')
+Called, returning ''
+Called, returning 'But an empty string is false'
+'But an empty string is false'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14278744)
+ You are looking at a list comprehension; for each  i  it will calculate  i in data['message'] . 
+
+ If you were to write this out in a loop instead, it would be: 
+
+  tmplist = []
+for i in ['地震了吗', '地震了么', '地震了?', '地震了？', '地震了吧']:
+    tmplist.append(i in data['message'])
+  
+
+ So, for each string in the list, test the boolean expression  i in data['message']  and add the result ( True  or  False ) in `tmplist. 
+
+ The  reduce()  function then returns the equivalent of: 
+
+  tmplist[0] or tmplist[1] or tmplist[2] or ... or tmplist[len(tmplist)-1]
+  
+
+ but expressed in a more tortuous manner.  reduce(lambda a, b: a or b, sequence)  starts with  sequence[0]  and  sequence[1]  as  a  and  b , then takes the result of the  lambda  as  a  and the next element in  sequence  as  b , and repeats this until all elements in senquence have been processed. 
+
+ A friendlier way to write this would be to use http://docs.python.org/2/library/functions.html#any instead: 
+
+  return any(i in data['message']
+    for i in ['地震了吗', '地震了么', '地震了?', '地震了？', '地震了吧'])
+  
+
+  any()  is actually more efficient; it'll run the generator and will stop immediately when a match is found; if  data['message']  contains  '地震了吗'  only one test will be performed. 
+
+
+

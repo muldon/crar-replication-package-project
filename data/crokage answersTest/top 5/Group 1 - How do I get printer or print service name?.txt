@@ -1,0 +1,214 @@
+Query: How do I get printer or print service name?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35535726)
+ This gives you back a list of available printers: 
+
+  PrintService[] services = PrinterJob.lookupPrintServices();
+  
+
+ You can loop through this array and select the printer by name (services[i]. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14501228)
+   PrintService service = 
+                PrintServiceLookup.lookupDefaultPrintService();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1097593)
+ I'm not sure if this solves your problem but I use the following to print a text file  
+
+  FileInputStream textStream;
+textStream = new FileInputStream(FILE_NAME);
+
+DocFlavor flavor = DocFlavor.INPUT_STREAM.AUTOSENSE;
+Doc mydoc = new SimpleDoc(textStream, flavor, null);
+
+   PrintService[] services = PrintServiceLookup.lookupPrintServices(
+                flavor, aset);
+   PrintService defaultService = PrintServiceLookup.lookupDefaultPrintService();
+
+   if(services.length == 0) {
+       if(defaultService == null) {
+             //no printer found
+
+       } else {
+            //print using default
+            DocPrintJob job = defaultService.createPrintJob();
+            job.print(mydoc, aset);
+
+       }
+
+    } else {
+
+       //built in UI for printing you may not use this
+       PrintService service = ServiceUI.printDialog(null, 200, 200, services, defaultService, flavor, aset);
+
+
+        if (service != null)
+        {
+           DocPrintJob job = service.createPrintJob();
+           job.print(mydoc, aset);
+        }
+
+    }
+  
+
+ You may not need the ServiceUI, but I think you could use PrintService[] services  to get a list of printers available for printing.  And using an input stream and the Doc class you can print a file to a printer.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10108339)
+ I think, that your printer installed as not default in OS. Check what is your "service".
+Also you can choose printer from print dialog, like this: 
+
+  PrintRequestAttributeSet pras =
+                new HashPrintRequestAttributeSet();
+        DocFlavor flavor = DocFlavor.INPUT_STREAM.TEXT_PLAIN_UTF_8;
+        PrintRequestAttributeSet aset =
+                new HashPrintRequestAttributeSet();
+        aset.add(MediaSizeName.ISO_A4);
+        aset.add(new Copies(1));
+        aset.add(Sides.ONE_SIDED);
+        aset.add(Finishings.STAPLE);
+
+        PrintService printService[] =
+                PrintServiceLookup.lookupPrintServices(flavor, pras);
+        PrintService defaultService =
+                PrintServiceLookup.lookupDefaultPrintService();
+        PrintService service = ServiceUI.printDialog(null, 200, 200,
+                printService, defaultService, flavor, pras);
+        if (service != null) {
+            try {
+                FileInputStream fis = new FileInputStream("c://test.txt");
+                DocAttributeSet das = new HashDocAttributeSet();
+                Doc doc1 = new SimpleDoc(fis, flavor, das);
+
+                DocPrintJob job1 = service.createPrintJob();
+
+                try {
+                    job1.print(doc1, pras);
+                } catch (PrintException e) {
+                    e.printStackTrace();
+                }
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+  
+
+ Some printers doesn't support text DocFlavors, only images. Also you can simply printing html files using OS native methods like this: 
+
+  if (Desktop.isDesktopSupported()){
+    Desktop desktop = Desktop.getDesktop();
+    if (desktop.isSupported(Desktop.Action.PRINT))
+    {
+        try {
+            File html1 = new File("c://file1.html");
+            desktop.print(html1);
+            desktop.print(html2);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+  
+
+ } 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45434237)
+ Windows solution, query WMI "win32_printer" object: 
+
+  public static void main(String[] args) {
+    // select printer that have state = 0 and status = 3, which indicates that printer can print
+    ProcessBuilder builder = new ProcessBuilder("powershell.exe", "get-wmiobject -class win32_printer | Select-Object Name, PrinterState, PrinterStatus | where {$_.PrinterState -eq 0 -And $_.PrinterStatus -eq 3}");
+    String fullStatus = null;
+    Process reg;
+    builder.redirectErrorStream(true);
+    try {
+        reg = builder.start();
+        fullStatus = getStringFromInputStream(reg.getInputStream());
+        reg.destroy();
+    } catch (IOException e1) {
+        // TODO Auto-generated catch block
+        e1.printStackTrace();
+    }
+    System.out.print(fullStatus);
+}
+  
+
+ For converting InputStream to String look here: https://stackoverflow.com/a/35446009/8070550, or you can simply use: 
+
+  public static String getStringFromInputStream(InputStream is) {
+    ByteArrayOutputStream result = new ByteArrayOutputStream();
+    byte[] buffer = new byte[1024];
+    int length;
+    try {
+        while ((length = is.read(buffer)) != -1) {
+            result.write(buffer, 0, length);
+        }
+    } catch (IOException e1) {
+        e1.printStackTrace();
+    }
+    // StandardCharsets.UTF_8.name() > JDK 7
+    String finalResult = "";
+    try {
+        finalResult = result.toString("UTF-8");
+    } catch (UnsupportedEncodingException e) {
+        e.printStackTrace();
+    }
+    return finalResult;
+}
+  
+
+ Output: 
+
+<pre class="lang-none prettyprint-override"> Name                          PrinterState PrinterStatus
+----                          ------------ -------------
+Foxit Reader PDF Printer                 0             3
+Send to OneNote 2010                     0             3
+Microsoft XPS Document Writer            0             3
+Microsoft Print to PDF                   0             3
+Fax                                      0             3
+\\192.168.50.192\POS_PRINTER             0             3
+  
+
+ As you can see, you now have all the printers that are in working state in the string.  
+
+ You can use your existing method (getAvailablePrinters()) and e.g. add something like this: 
+
+      ArrayList<String> workingPrinter = new ArrayList<String>();
+    System.out.println("Working printers:");
+    for(String printer : getAvailablePrinters()){
+        if(fullStatus.contains("\n" + printer + " ")){  // add a newline character before the printer name and space after so that it catches exact name 
+            workingPrinter.add(printer);
+            System.out.println(printer);
+        }
+    }
+  
+
+ And now you will have a nice list of working printers.  
+
+ Console output: 
+
+<pre class="lang-none prettyprint-override"> Working printers:
+Send to OneNote 2010
+Foxit Reader PDF Printer
+Microsoft XPS Document Writer
+Microsoft Print to PDF
+Fax
+\\192.168.50.192\POS_PRINTER
+  
+
+ Of course you have to be careful with the names with this approach - e.g. if "POS_PRINTER" is in all printers but not in working printers list, it could still get added to the workingPrinters list, if there is a working printer named "POS_PRINTER 1" as that name contains "\nPOS_PRINTER " string... 
+
+
+

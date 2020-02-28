@@ -1,0 +1,102 @@
+Query: How do I generate public and private keys?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/21647527)
+ This question is pretty old, but I recently stumbled upon the problem (I'm implementing requirements of some protocol which requires encryption with private key). I will just quote the post from https://www.ibm.com/developerworks/community/forums/html/topic?id=77777777-0000-0000-0000-000014555794#77777777-0000-0000-0000-000014555794: 
+
+ 
+   I recently stumbled upon the same issue, submitted PMR 22265,49R, and IBM Support after consultation with "development" (whoever those are) ruled that private keys cannot be used for encryption. No matter how much I tried to argue with them that private keys should not be used for data protection, which is only one purpose behind encryption, and that it is perfectly fine to use private keys for encryption to achieve non-repudiation, they were unshakable in their belief. You have got to love people, who insist that 2x2=5. 
+  
+   Here is how I worked around this problem: Essentially, I created a public key object with private key's crypto material. You will need to do the reverse, create a private key object with public key's crypto material, to decrypt with public key if you want to avoid the "Public key cannot be used to decrypt" exception. 
+ 
+
+  RSAPrivateCrtKey privateKey = (RSAPrivateCrtKey) ks.getKey(keyAlias, ksPassword.trim().toCharArray());
+RSAPublicKeySpec spec = new RSAPublicKeySpec(
+   privateKey.getModulus(),
+   privateKey.getPrivateExponent()
+);
+Key fakePublicKey = KeyFactory.getInstance("RSA").generatePublic(spec);
+encryptCipher.init(Cipher.ENCRYPT_MODE, fakePublicKey);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/37795584)
+ Here is what I have followed 
+
+ Create Keystore 
+
+ 
+   keytool -genkey -keyalg RSA -alias selfsigned -keystore keystore.jks
+  -storepass password -validity 360 -keysize 2048 
+ 
+
+ You can create Key store from existing private key and public key. . 
+
+  
+
+      KeyStore ks = KeyStore.getInstance("JKS");
+    InputStream readStream = // Use file stream to load from file system or class.getResourceAsStream to load from classpath
+    ks.load(readStream, "password".toCharArray());
+    Key key = ks.getKey("selfsigned", "password".toCharArray());
+    readStream.close();
+  
+
+ Use JJwt api to sign the message 
+
+  String s = Jwts.builder().setSubject("Abc").signWith(SignatureAlgorithm.RS512, key).compact();
+  
+
+ Use JJwt api to claim the message 
+
+  X509Certificate certificate = (X509Certificate) keyEntry.getCertificate();
+Jwts.parser().setSigningKey(certificate.getPublicKey()).parseClaimsJws(s).getBody().getSubject().equals("Abc");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2331865)
+ You can generate Certificate in java dynamically, by using a pair or keys. (Public Key, Private Keys). Get These keys as BigInteger format and checking the following code to generate certificate. 
+
+  RSAPrivateKeySpec serPrivateSpec = new RSAPrivateKeySpec(
+    new BigInteger(val of pub key), new BigInteger(val of pri key));
+fact = KeyFactory.getInstance("RSA");
+PrivateKey serverPrivateKey = fact.generatePrivate(serPrivateSpec);
+
+RSAPublicKeySpec serPublicSpec = new RSAPublicKeySpec(
+    new BigInteger(agentCL.getSerPubMod()), new BigInteger(agentCL.getSerPubExp()));
+PublicKey serverPublicKey = fact.generatePublic(serPublicSpec);
+
+keyStore = KeyStore.getInstance(IMXAgentCL.STORE_TYPE);
+keyStore.load(null, SOMEPWD.toCharArray());
+
+Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+
+X509Certificate[] serverChain = new X509Certificate[1];
+X509V3CertificateGenerator serverCertGen = new X509V3CertificateGenerator();
+X500Principal serverSubjectName = new X500Principal("CN=OrganizationName");
+serverCertGen.setSerialNumber(new BigInteger("123456789"));
+// X509Certificate caCert=null;
+serverCertGen.setIssuerDN(somename);
+serverCertGen.setNotBefore(new Date());
+serverCertGen.setNotAfter(new Date());
+serverCertGen.setSubjectDN(somename);
+serverCertGen.setPublicKey(serverPublicKey);
+serverCertGen.setSignatureAlgorithm("MD5WithRSA");
+// certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, false,new
+// AuthorityKeyIdentifierStructure(caCert));
+serverCertGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
+    new SubjectKeyIdentifierStructure(serverPublicKey));
+serverChain[0] = serverCertGen.generateX509Certificate(serverPrivateKey, "BC"); // note: private key of CA
+
+keyStore.setEntry("xyz",
+    new KeyStore.PrivateKeyEntry(serverPrivateKey, serverChain),
+    new KeyStore.PasswordProtection("".toCharArray()));
+  
+
+ Hope this will help you. 
+
+
+

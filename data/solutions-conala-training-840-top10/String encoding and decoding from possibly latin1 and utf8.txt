@@ -1,0 +1,338 @@
+Query: String encoding and decoding from possibly latin1 and utf8
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/10525418)
+  
+
+  print str.encode('cp1252').decode('utf-8').encode('cp1252').decode('utf-8')
+  
+
+ an example using  ipython : 
+
+  In [49]: a=u'Teresa de Jes\xc3\u0192\xc2\xbas Galicia G\xc3\u0192\xc2\xb3mez'
+
+In [50]: a=u'Teresa de Jes\xc3\u0192\xc2\xbas Galicia G\xc3\u0192\xc2\xb3mez'
+
+In [51]: print a
+Teresa de JesÃƒÂºs Galicia GÃƒÂ³mez
+
+In [52]: print a.encode('cp1252').decode('utf-8').encode('cp1252').decode('utf-8')
+Teresa de Jesús Galicia Gómez
+  
+
+ This is a  "mis-encoded"  utf-8.. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14443797)
+ To decode a byte sequence from latin 1 to Unicode, use the http://docs.python.org/2/library/stdtypes.html#str.decode: 
+
+  >>> '\xe9'.decode('latin1')
+u'\xe9'
+  
+
+ Python uses  \xab  escapes for unicode codepoints below  \u00ff .  
+
+  >>> '\xe9'.decode('latin1') == u'\u00e9'
+True
+  
+
+ The above Latin-1 character can be encoded to UTF-8 as: 
+
+  >>> '\xe9'.decode('latin1').encode('utf8')
+'\xc3\xa9'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/448383)
+ To represent a unicode string as a string of bytes is known as <b>encoding</b>. Use  u'...'.encode(encoding) . 
+
+ Example: 
+
+ 
+    >>> u'æøå'.encode('utf8')
+    '\xc3\x83\xc2\xa6\xc3\x83\xc2\xb8\xc3\x83\xc2\xa5'
+    >>> u'æøå'.encode('latin1')
+    '\xc3\xa6\xc3\xb8\xc3\xa5'
+    >>> u'æøå'.encode('ascii')
+    UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-5: 
+    ordinal not in range(128)
+ 
+
+ You typically encode a unicode string whenever you need to use it for IO, for instance transfer it over the network, or save it to a disk file. 
+
+ To convert a string of bytes to a unicode string is known as <b>decoding</b>. Use  unicode('...', encoding)  or '...'.decode(encoding). 
+
+ Example: 
+
+ 
+   >>> u'æøå'
+   u'\xc3\xa6\xc3\xb8\xc3\xa5' # the interpreter prints the unicode object like so
+   >>> unicode('\xc3\xa6\xc3\xb8\xc3\xa5', 'latin1')
+   u'\xc3\xa6\xc3\xb8\xc3\xa5'
+   >>> '\xc3\xa6\xc3\xb8\xc3\xa5'.decode('latin1')
+   u'\xc3\xa6\xc3\xb8\xc3\xa5'
+ 
+
+ You typically decode a string of bytes whenever you receive string data from the network or from a disk file. 
+
+ I believe there are some changes in unicode handling in python 3, so the above is probably not correct for python 3. 
+
+ Some good links: 
+
+ 
+ http://www.joelonsoftware.com/articles/Unicode.html 
+ http://docs.python.org/howto/unicode.html 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31741136)
+ For me the collation parameter did not work.  
+
+ My connection string was: 
+
+  db = create_engine('mysql+pymysql://user:pass@dbhost/schema?charset=utf8')  
+
+ Pymysql was executing set names utf8 because of the charset, and the database was converting the utf8 to the encoding of the table, resulting in data loss. 
+
+ If i left the charset out, the charset was defaulting to latin1, and pymysql was trying to encode my utf8 strings to latin1 before sending them to the database, thus throwing UnicodeEncode errors. 
+
+ This worked for me : session.execute(text("SET NAMES latin1")) 
+to make the database assume the utf8 strings i was sending did not need to be converted. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15637448)
+ Your data is not UTF8 encoded; more likely it is using the Latin-1 encoding: 
+
+  >>> print st.decode('latin1')
+/Märzen
+  
+
+   .decode()  is enough, no need to  also  call  unicode() . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1058532)
+ That text is indeed iso-88591-1, and I can decode it without a problem, and indeed your code runs without a hitch. 
+
+ Your error, however, is an ENCODE error, not a decode error. And you don't do any encoding in your code, so. Possibly you have gotten encoding and decoding confused, it's a common problem. 
+
+ You DECODE from Latin1 to Unicode. You ENCODE the other way. Remember that Latin1, UTF8 etc are called "encodings". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/6539919)
+ Try decoding it first, then encoding: 
+
+  apple.decode('iso-8859-1').encode('utf8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42316067)
+ With a little experimentation with common encodings, I was able to reverse your https://en.wikipedia.org/wiki/Mojibake: 
+
+  bad = 'j\xe2\x95\x9c\xe2\x95\x99\xe2\x94\x90\xe2\x94\x8c\xe2\x95\xac\xe2\x94\x80\xe2\x95\xa1\xe2\x95\xa1'
+>>> good = bad.decode('utf8').encode('cp437').decode('gbk')
+>>> good
+u'j\u63a5\u53e3\u6587\u6863'        # u'j接口文档'
+  
+
+  gbk  - common Chinese Windows encoding 
+ cp437  - common US Windows OEM console encoding 
+ utf8  - common Linux encoding 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6539952)
+ This is a common problem, so here's a relatively thorough illustration. 
+
+ For non-unicode strings (i.e. those without  u  prefix like  u'\xc4pple' ), one must decode from the native encoding ( iso8859-1 / latin1 , unless https://stackoverflow.com/q/2276200/19212 function) to http://en.wikipedia.org/wiki/Unicode, then encode to a character set that can display the characters you wish, in this case I'd recommend http://en.wikipedia.org/wiki/UTF-8. 
+
+ First, here is a handy utility function that'll help illuminate the patterns of Python 2.7 string and unicode: 
+
+  >>> def tell_me_about(s): return (type(s), s)
+  
+
+ A plain string</h3>
+
+  >>> v = "\xC4pple" # iso-8859-1 aka latin1 encoded string
+
+>>> tell_me_about(v)
+(<type 'str'>, '\xc4pple')
+
+>>> v
+'\xc4pple'        # representation in memory
+
+>>> print v
+?pple             # map the iso-8859-1 in-memory to iso-8859-1 chars
+                  # note that '\xc4' has no representation in iso-8859-1, 
+                  # so is printed as "?".
+  
+
+ Decoding a iso8859-1 string - convert plain string to unicode</h3>
+
+  >>> uv = v.decode("iso-8859-1")
+>>> uv
+u'\xc4pple'       # decoding iso-8859-1 becomes unicode, in memory
+
+>>> tell_me_about(uv)
+(<type 'unicode'>, u'\xc4pple')
+
+>>> print v.decode("iso-8859-1")
+Äpple             # convert unicode to the default character set
+                  # (utf-8, based on sys.stdout.encoding)
+
+>>> v.decode('iso-8859-1') == u'\xc4pple'
+True              # one could have just used a unicode representation 
+                  # from the start
+  
+
+ A little more illustration — with “Ä”</h3>
+
+  >>> u"Ä" == u"\xc4"
+True              # the native unicode char and escaped versions are the same
+
+>>> "Ä" == u"\xc4"  
+False             # the native unicode char is '\xc3\x84' in latin1
+
+>>> "Ä".decode('utf8') == u"\xc4"
+True              # one can decode the string to get unicode
+
+>>> "Ä" == "\xc4"
+False             # the native character and the escaped string are
+                  # of course not equal ('\xc3\x84' != '\xc4').
+  
+
+ Encoding to UTF</h3>
+
+  >>> u8 = v.decode("iso-8859-1").encode("utf-8")
+>>> u8
+'\xc3\x84pple'    # convert iso-8859-1 to unicode to utf-8
+
+>>> tell_me_about(u8)
+(<type 'str'>, '\xc3\x84pple')
+
+>>> u16 = v.decode('iso-8859-1').encode('utf-16')
+>>> tell_me_about(u16)
+(<type 'str'>, '\xff\xfe\xc4\x00p\x00p\x00l\x00e\x00')
+
+>>> tell_me_about(u8.decode('utf8'))
+(<type 'unicode'>, u'\xc4pple')
+
+>>> tell_me_about(u16.decode('utf16'))
+(<type 'unicode'>, u'\xc4pple')
+  
+
+ Relationship between unicode and UTF and latin1</h3>
+
+  >>> print u8
+Äpple             # printing utf-8 - because of the encoding we now know
+                  # how to print the characters
+
+>>> print u8.decode('utf-8') # printing unicode
+Äpple
+
+>>> print u16     # printing 'bytes' of u16
+���pple
+
+>>> print u16.decode('utf16')
+Äpple             # printing unicode
+
+>>> v == u8
+False             # v is a iso8859-1 string; u8 is a utf-8 string
+
+>>> v.decode('iso8859-1') == u8
+False             # v.decode(...) returns unicode
+
+>>> u8.decode('utf-8') == v.decode('latin1') == u16.decode('utf-16')
+True              # all decode to the same unicode memory representation
+                  # (latin1 is iso-8859-1)
+  
+
+ Unicode Exceptions</h3>
+
+   >>> u8.encode('iso8859-1')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 0:
+  ordinal not in range(128)
+
+>>> u16.encode('iso8859-1')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xff in position 0:
+  ordinal not in range(128)
+
+>>> v.encode('iso8859-1')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xc4 in position 0:
+  ordinal not in range(128)
+  
+
+ One would get around these by converting from the specific encoding (latin-1, utf8, utf16) to unicode e.g.  u8.decode('utf8').encode('latin1') . 
+
+ So perhaps one could draw the following principles and generalizations: 
+
+ 
+ a type  str  is a set of bytes, which may have one of a number of encodings such as Latin-1, UTF-8, and UTF-16 
+ a type  unicode  is a set of bytes that can be converted to any number of encodings, most commonly UTF-8 and latin-1 (iso8859-1) 
+ the  print  command has https://stackoverflow.com/questions/2596714, set to  sys.stdout.encoding  and defaulting to UTF-8 
+ One must decode a  str  to unicode before converting to another encoding. 
+ 
+
+ Of course, all of this changes in Python 3.x. 
+
+ Hope that is illuminating. 
+
+ Further reading</h3>
+
+ 
+ http://www.tbray.org/ongoing/When/200x/2003/04/26/UTF, by Tim Bray. 
+ 
+
+ And the very illustrative rants by Armin Ronacher: 
+
+ 
+ http://lucumr.pocoo.org/2013/7/2/the-updated-guide-to-unicode/ 
+ http://lucumr.pocoo.org/2014/1/5/unicode-in-2-and-3/ 
+ http://lucumr.pocoo.org/2014/1/9/ucs-vs-utf8/ 
+ http://lucumr.pocoo.org/2014/5/12/everything-about-unicode/ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14443847)
+  >>> u"é".encode('utf-8')
+'\xc3\xa9'
+  
+
+ You've got a UTF-8 encoded byte sequence. Don't try to print encoded bytes directly. To print them you need to decode the encoded bytes back into a Unicode string. 
+
+  >>> u"é".encode('utf-8').decode('utf-8')
+u'\xe9'
+>>> print u"é".encode('utf-8').decode('utf-8')
+é
+  
+
+ Notice that encoding and decoding are opposite operations which effectively cancel out. You end up with the original  u"é"  string back, although Python prints it as the equivalent  u'\xe9' .  
+
+  >>> u"é" == u'\xe9'
+True
+  
+
+
+

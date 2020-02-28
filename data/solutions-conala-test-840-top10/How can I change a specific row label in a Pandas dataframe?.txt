@@ -1,0 +1,373 @@
+Query: How can I change a specific row label in a Pandas dataframe?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42142857)
+ use  index  attribute: 
+
+   df.index = df.index[:-1].append(pd.Index(['A']))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42142888)
+ You can get the last index using negative indexing similar to that in Python  
+
+  last = df.index[-1]
+  
+
+  
+
+  df = df.rename(index={last: 'a'})
+  
+
+ Edit: If you are looking for a one-liner, 
+
+  df.index = df.index[:-1].tolist() + ['a']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46621777)
+ You can use  df.loc[_not_yet_existing_index_label_] = new_row . 
+
+  
+
+  In [3]: df.loc['e'] = [1.0, 'hotel', 'true']
+
+In [4]: df
+Out[4]:
+   number    variable values
+a     NaN        bank   True
+b     3.0        shop  False
+c     0.5      market   True
+d     NaN  government   True
+e     1.0       hotel   true
+  
+
+ PS using this method you can't add a row with already existing (duplicate) index value (label) - a row with this index label will be  updated  in this case. 
+
+ 
+
+  UPDATE:  
+
+ 
+   This might not work in recent Pandas/Python3 if the index is a
+  DateTimeIndex and the new row's index doesn't exist. 
+ 
+
+ it'll work if we specify correct index value(s). 
+
+ Demo (using  pandas: 0.23.4 ): 
+
+  In [17]: ix = pd.date_range('2018-11-10 00:00:00', periods=4, freq='30min')
+
+In [18]: df = pd.DataFrame(np.random.randint(100, size=(4,3)), columns=list('abc'), index=ix)
+
+In [19]: df
+Out[19]:
+                      a   b   c
+2018-11-10 00:00:00  77  64  90
+2018-11-10 00:30:00   9  39  26
+2018-11-10 01:00:00  63  93  72
+2018-11-10 01:30:00  59  75  37
+
+In [20]: df.loc[pd.to_datetime('2018-11-10 02:00:00')] = [100,100,100]
+
+In [21]: df
+Out[21]:
+                       a    b    c
+2018-11-10 00:00:00   77   64   90
+2018-11-10 00:30:00    9   39   26
+2018-11-10 01:00:00   63   93   72
+2018-11-10 01:30:00   59   75   37
+2018-11-10 02:00:00  100  100  100
+
+In [22]: df.index
+Out[22]: DatetimeIndex(['2018-11-10 00:00:00', '2018-11-10 00:30:00', '2018-11-10 01:00:00', '2018-11-10 01:30:00', '2018-11-10 02:00:00'], dtype='da
+tetime64[ns]', freq=None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35131602)
+ Just filter by label and sum what is left: 
+
+  df.loc[df['label'] == 1].sum()
+  
+
+ Example: 
+
+  df = pd.DataFrame(np.random.randint(2, size=(10, 4)),
+                  columns=['col1', 'col2', 'col3', 'label'])
+print(df)
+
+   col1  col2  col3  label
+0     0     0     1      1
+1     1     1     0      0
+2     1     1     0      0
+3     0     0     0      0
+4     0     0     1      0
+5     0     0     0      1
+6     1     0     1      1
+7     0     1     1      0
+8     0     0     0      0
+9     0     0     0      0
+
+results = []
+for col in df.columns:
+    val = len(df[(df[col]==1) & (df.label==1)])
+    results.append(val)
+results
+
+[1, 0, 2, 3]
+
+df.loc[df['label'] == 1].sum().tolist()
+
+[1, 0, 2, 3]
+  
+
+  EDIT:  
+
+ If not everything is 0 or 1 but you still want to sum the cases where both the column value and the label are equal to 1, after filtering by label make everyting which is not 0 or 1 to be 0 and sum what is left: 
+
+  df = pd.DataFrame(np.random.randint(3, size=(10, 4)),
+                  columns=['col1', 'col2', 'col3', 'label'])
+print(df)
+
+   col1  col2  col3  label
+0     0     0     2      1
+1     1     0     0      2
+2     2     1     0      2
+3     1     1     1      0
+4     0     0     2      1
+5     2     2     1      2
+6     0     2     1      1
+7     1     1     0      0
+8     1     0     0      2
+9     0     2     1      2
+
+results = []
+for col in df.columns:
+    val = len(df[(df[col]==1) & (df.label==1)])
+    results.append(val)
+results
+
+[0, 0, 1, 3]
+
+df.loc[df['label'] == 1][df == 1].sum().fillna(0).tolist()
+
+[0.0, 0.0, 1.0, 3.0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51626766)
+ To print a specific row we have couple of pandas method
+1. - It only get label i.e column name or Features
+2.i - Here i stands for integer, actually row number 
+3.ix - It is a mix of label as well as integer
+How to use for specific row
+1.  
+
+  df.[row,column]
+  
+
+ For first row and all column  
+
+  df.[0,:]
+  
+
+ For first row and some specific column 
+
+  df.[0,'column_name']
+  
+
+ 2.i
+For first row and all column  
+
+  df.i[0,:]
+  
+
+ For first row and some specific column i.e first three cols 
+
+  df.i[0,0:3]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/24039650)
+ If you have one large dataframe and only a few update values I would use apply like this: 
+
+  import pandas as pd
+
+df = pd.DataFrame({'filename' :  ['test0.dat', 'test2.dat'], 
+                                  'm': [12, 13], 'n' : [None, None]})
+
+data = {'filename' :  'test2.dat', 'n':16}
+
+def update_vals(row, data=data):
+    if row.filename == data['filename']:
+        row.n = data['n']
+    return row
+
+df.apply(update_vals, axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35133120)
+ You can use http://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.equal.html to get a  boolean  array for element-wise equality. This works for any  integer  as well as other  dtypes . 
+
+ To illustrate: 
+
+  df = pd.DataFrame(np.random.randint(2, size=(10, 4)), columns=['col1', 'col2', 'col3', 'label'])
+
+   col1  col2  col3  label
+0     0     1     1      0
+1     1     0     1      0
+2     1     0     0      1
+3     1     0     0      0
+4     0     1     1      1
+5     1     1     0      0
+6     0     0     0      1
+7     1     1     1      0
+8     0     1     0      1
+9     0     1     1      1
+  
+
+ Compare  label   column  to each other  column : 
+
+  comparison = np.equal(df[['col1', 'col2', 'col3']], df[['label']])
+
+    col1   col2   col3
+0   True  False  False
+1  False   True  False
+2   True  False  False
+3  False   True   True
+4  False   True   True
+5  False  False   True
+6  False  False  False
+7  False  False  False
+8  False   True  False
+9  False   True   True
+  
+
+ You can then sum the result to get the number of equal cases per column: 
+
+  comparison.sum()
+
+col1    2
+col2    5
+col3    4
+dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51733807)
+ you could filter the columns and go over all the values in the row and check for change: 
+
+  columns_needed =  [col for col in df.columns.values if col.startswith('t')]
+df['toatal_change'] = df[columns_needed].apply(lambda row: sum([1 for val, val2 
+                                          in zip(row, row[1:]) if val != val2]),axis=1)
+  
+
+  
+
+       id t1 t2 t3 t4  toatal_change
+0  adam  A  A  A  B              1
+1  john  A  B  B  A              2
+  
+
+ the  lambda  expression in  apply  is equivalent to: 
+
+  def check_chage(row):
+    is_eq_next_val = [1 for val, val2 in zip(row, row[1:]) if val != val2]
+    return sum(is_eq_next_val)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30863210)
+ You shouldn't be using  enumerate  to generate the index and column values, you should use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.iterrows.html#pandas.DataFrame.iterrows.  
+
+ Example usage: 
+
+  In [6]:
+df = pd.DataFrame({'a':np.arange(5), 'b':np.random.randn(5)})
+df
+
+Out[6]:
+   a         b
+0  0 -0.579585
+1  1 -0.582196
+2  2 -0.367147
+3  3 -0.363332
+4  4  0.880826
+
+In [9]:
+for index, row in df.iterrows():
+    print('index: ', index)
+    print('row: ', row)
+  
+
+ output: 
+
+  index:  0
+row:  a    0.000000
+b   -0.579585
+Name: 0, dtype: float64
+index:  1
+row:  a    1.000000
+b   -0.582196
+Name: 1, dtype: float64
+index:  2
+row:  a    2.000000
+b   -0.367147
+Name: 2, dtype: float64
+index:  3
+row:  a    3.000000
+b   -0.363332
+Name: 3, dtype: float64
+index:  4
+row:  a    4.000000
+b    0.880826
+Name: 4, dtype: float64
+  
+
+ This will allow you to access a specifc row using  df.loc[index] , if you need the columns you can access using  row.index  in the above  for  loop 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/51539766)
+ You need  axis=0  to set a value for all columns. 
+
+ You also need  pd.DataFrame.mask  instead of  pd.DataFrame.where  to change values where the specified criterion is  True . 
+
+  df = pd.DataFrame([[75, 100, 65],
+                   [25, 25, 30],
+                   [55, 90, 45],
+                   [55, 90, 75]])
+
+df.mask((df < 50).any(axis=1), df.mean(axis=1), axis=0, inplace=True)
+
+print(df)
+
+           0           1          2
+0  75.000000  100.000000  65.000000
+1  26.666667   26.666667  26.666667
+2  63.333333   63.333333  63.333333
+3  55.000000   90.000000  75.000000
+  
+
+
+

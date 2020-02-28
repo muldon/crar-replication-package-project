@@ -1,0 +1,374 @@
+Query: Regex matching 5-digit substrings not enclosed with digits
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41807955)
+ Your current regex ( ((\D|^)*)\d\d\d\d\d((\D|$)*) ) used with  re.findall  won't return the digit chunks because they are not  captured . More, the  (\D|^)*  and 
+ (\D|$)*  parts are  optional  and that means they do not do what they are supposed to do, the regex will find 5 digit chunks inside longer digits chunks. 
+
+ If you must find 5 digit chunk not enclosed with other digits, use 
+
+  re.findall(r"(?<!\d)\d{5}(?!\d)", s)
+  
+
+ See the https://regex101.com/r/B4Pr6x/1 
+
+  Details : 
+
+ 
+  (?<!\d)  -  no digit is allowed before the current location 
+  \d{5}  - 5 digits 
+  (?!\d)  - no digit allowed after the current location. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41807898)
+ Using http://www.regular-expressions.info/wdboundaries.html, which match at beginning / end of the wd: 
+
+  >>> re.findall(r"\b\d\d\d\d\d\b", "Helpdesk-Agenten (m/w) Kennziffer: 12966")
+['12966']
+  
+
+  \d\d\d\d\d  can be replaced with  \d{5} : 
+
+  >>> re.findall(r"\b\d{5}\b", "Helpdesk-Agenten (m/w) Kennziffer: 12966")
+['12966']
+  
+
+ 
+
+  UPDATE  If you need to get  12966  out of  12966abc , see Wikt Stribiżew's answer which use negative lookaround assertions. 
+
+  
+
+  >>> [match.group(2) f match in re.finditer(r'(\D|^)(\d{5})(\D|$)', '12345abc')]
+['12345']
+  
+
+  combining simple regular expression with list comprehension: 
+
+  >>> [match f match in re.findall(r'\d+', '12345abc') if len(match) == 5]
+['12345']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24691821)
+  Overlapping Matches: Use Lookaheads  
+
+ This will do it: 
+
+  subject = "by the way I know 54 how to take praise for 65 excellent questions 34 thank you for asking appreciated."
+for match in re.finditer(r"(?=((?:\b\w+\b ){4}\d+(?: \b\w+\b){4}))", subject):
+    print(match.group(1))
+  
+
+    
+
+ The output depends on your definition of a word. Here, in a word, I have allowed digits. This produces the following output. 
+
+  Output (allowing digits in words)  
+
+  the way I know 54 how to take praise
+to take praise for 65 excellent questions 34 thank
+for 65 excellent questions 34 thank you for asking
+  
+
+  Option 2: No digits in Words  
+
+  subject = "by the way I know 54 how to take praise for 65 excellent questions 34 thank you for asking appreciated."    
+for match in re.finditer(r"(?=((?:\b[a-z]+\b ){4}\d+(?: \b[a-z]+\b){4}))", subject, re.IGNORECASE):
+    print(match.group(1))
+  
+
+  Output 2  
+
+  the way I know 54 how to take praise
+  
+
+  Option 3: extending to four uninterrupted non-digit words  
+
+ Based on your comments, this option will extend to the left and right of the pivot until four uninterrupted non-digit words are matched. Commas are ignored. 
+
+  subject = "by the way I know 54 how to take praise for 65 excellent questions 34 thank you for asking appreciated. One Two Three Four 55 Extend 66 a b c d AA BB CC DD 71 HH DD, JJ FF"
+for match in re.finditer(r"(?=((?:\b[a-z]+[ ,]+){4}(?:\d+ (?:[a-z]+ ){1,3}?)*?\d+.*?(?:[ ,]+[a-z]+){4}))", subject, re.IGNORECASE):
+    print(match.group(1))
+  
+
+  Output 3  
+
+  the way I know 54 how to take praise
+to take praise for 65 excellent questions 34 thank you for asking
+One Two Three Four 55 Extend 66 a b c d
+AA BB CC DD 71 HH DD, JJ FF
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20291683)
+  [0-9]\.[0-9]
+  
+
+  first [0-9] will match once occurrence of a digit.
+ . will match 0-1 periods
+[0-9] will match 0-1 digits. 
+
+ So, your regex will parse 1, 11, 1.1, but not 1.11 or 11.1 
+
+ If you want to parse all of the above, I suggest the following. 
+
+  ([0-9]+(:\.[0-9]+))(:\s)
+  
+
+ [0-9]+ - Match 1 or more digits 
+\. - Match 1 period 
+[0-9]* - Match all remaining digits. 
+() - Enter this regex 0 or 1 times.   
+
+ Anything within parenthesis will be captured. If you see a regex enclosed in (:...) it is a NON-capturing regex. BUT if that (...) is enclosed in a (...), it will be captured by the (...) regex... it's kind of messy. But the above should work to capture only the number and not the space. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51534547)
+ You may match substrings starting with one or more digits followed with 1+ whitespaces,  - , 1+ whitespaces and ending with the same pattern or end of string. 
+
+  re.findall(r"\d+\s+-\s+.(?=\s*(?:,\s*)?\d+\s+-\s|\Z)", s, re.S)
+  
+
+ See the https://regex101.com/r/atrAgF/2 
+
+  Note : If the leading number length is more than one, say, it is at least a 2-digit number, you may replace the  \d+  with  \d{2,} , etc. Adjust as you see fit. 
+
+  Regex demo  
+
+ 
+  \d+  - 1+ digits 
+  \s+-\s+  - a  -  enclosed with 1+ whitespaces 
+  .  - any 0+ chars, as few as possible, up to the location in string that is followed with... 
+  (?=\s*(?:,\s*)?\d+\s+-\s|\Z)  - (a positive lookahead):
+
+ 
+  \s*(?:,\s*)?\d+\s+-\s  - 0+ whitespaces, an optional substringof a comma and 0+ whitespaces after it, 1+ digits, 1+ whitespaces,  -  and a whitespace 
+  |   - or 
+  \Z  - end of string 
+  
+ 
+
+ https://ideone.com/OiSwpw: 
+
+  import re
+
+rx = r"\d+\s+-\s+.(?=\s*(?:,\s*)?\d+\s+-\s|\Z)"
+texts = ["123 - Footwear, 5678 - Apparel, Accessories & Luxury Goods, 9876 - Leisure Products", "321 - Apparel & Accessories, 4321 - Apparel & Accessories > Handbags, Wallets & Cases, 187 - Apparel & Accessories > Shoes"]
+for s in texts:
+    print("--- {} ----".format(s))
+    print(re.findall(rx, s, re.S))
+  
+
+ Output: 
+
+  --- 123 - Footwear, 5678 - Apparel, Accessories & Luxury Goods, 9876 - Leisure Products ---
+['123 - Footwear', '5678 - Apparel, Accessories & Luxury Goods', '9876 - Leisure Products']
+--- 321 - Apparel & Accessories, 4321 - Apparel & Accessories > Handbags, Wallets & Cases, 187 - Apparel & Accessories > Shoes ---
+['321 - Apparel & Accessories', '4321 - Apparel & Accessories > Handbags, Wallets & Cases', '187 - Apparel & Accessories > Shoes']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40508960)
+ 
+   The logic would be to find the first digit and extend it until find a first space. 
+ 
+
+ You may use  \d\S*  regex: 
+
+  import re
+s = 'Knorr 12x10g Fish bouillon cube'
+val = re.findall(r'\d\S*', s)
+print(val)
+  
+
+ See the https://ideone.com/ocnUxm 
+
+ The  re.findall  method will find all non-overlapping occurrences of substrings starting with a digit ( \d ) with 0+ characters other than whitespace after it ( \S* ). If the number of non-whitespaces should be non-zero, replace  *  with  +  (1 or more occurrences). 
+
+ To avoid matching trailing punctuation, you may add  \b  at the end of the regex pattern ( r'\d\S*\b' ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49975048)
+ You may make your regex a bit more specific: 
+
+  ^(?P<speaker_id>\d+)\s*\|\s*(?P<sex>[MF])\s*\|\s*(?P<subset>.\s*\|\s*(?P<minutes>\d[\d.]*)\s*\|\s*(?P<speaker_name>.*)
+  
+
+ See the https://regex101.com/r/GQzWOg/3 
+
+ Breaking it down: 
+
+ 
+  ^  - start of string (or line if you use  re.M  flag) 
+  (?P<speaker_id>\d+)  - 1+ digits 
+  \s*\|\s*  -  |  enclosed with 0+ whitespaces 
+  (?P<sex>[MF])  -  M  or  F  (for gender) 
+  \s*\|\s*   -  |  enclosed with 0+ whitespaces 
+  (?P<subset>.  - any 0+ chars other than a newline as few as possible 
+  \s*\|\s*  -  |  enclosed with 0+ whitespaces 
+  (?P<minutes>\d[\d.]*)  - a digit and then 0+ digits or  .  
+  \s*\|\s*  -  |  enclosed with 0+ whitespaces  
+  (?P<speaker_name>.*)  - any 0+ chars other than a newline up to the end of the string / line. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48762567)
+ You may remove the digit-and-dot substrings at the end of the string only with 
+
+  import re
+text = ['bits', 'scrap 1.2', 'bits and pieces', 'junk 3.4.2']
+print([re.sub(r'\s+\d+(?.\d+)*$', '', x) for x in text])
+# => output = ['bits', 'scrap', 'bits and pieces', 'junk']
+  
+
+ See the https://ideone.com/xb3k97 
+
+ The pattern is 
+
+ 
+  \s+  - 1+ whitespaces (note: if those digits can be "glued" to some other text, replace  +  (one or more occurrences) with  *  quantifier (zero or more occurrences)) 
+  \d+  - 1 or more digits 
+  (?.\d+)*  - 0 or more sequences of
+
+ 
+  \.  - a dot 
+  \d+  - 1 or more digits 
+  
+  $  - end of string. 
+ 
+
+ See the https://regex101.com/r/1BNTtX/2. 
+
+  To do the same with  re.findall  , you can use  
+
+  # To get 'abc 5.6 def' (not 'abc') from 'abc 5.6 def 6.8.9'
+re.findall(r'^(.)(?: \d[\d.]*)?$', x) # 
+# To get 'abc' (not 'abc 5.6 def') from 'abc 5.6 def 6.8.9'
+re.findall(r'^(.)(?: \d.*)?$', x) # 
+  
+
+ See https://regex101.com/r/gttQdO/2/. 
+
+ However, this regex is not efficient enough due to the  .  . Here, 
+
+ 
+  ^  - start of string 
+  (.)  - Group 1: any zero or more chars other than line break chars (use  re.DOTALL  to match all) as few as possible (so that the next optional group could be tested at each position) 
+  (?: \d[\d.]*)?  -an optional non-capturing group matching
+
+ 
+     - a space 
+  \d  - a digit 
+  [\d.]*  - zero or more digits or  .  chars 
+ (OR)  .*  - any 0+ chars other than line break chars, as many as possible 
+  
+  $  - end of string. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54568537)
+ You may use 
+
+  import re
+s = "hello world123"
+print(re.findall(r'[^\W\d_]+|\d+', s))
+# => ['hello', 'world', '123']
+  
+
+ See the https://ideone.com/RjRaWT 
+
+  Pattern details  
+
+ 
+  [^\W\d_]+  - 1 or more letters 
+  |  - or 
+  \d+  - 1+ digits. 
+ 
+
+ See the https://regex101.com/r/7ZZsIO/2. 
+
+  BONUS : To match any letter substrings and numbers of various kinds use 
+
+  [^\W\d_]+|[-+]?\d*\.?\d+(?:[eE][+-]?\d+)?
+  
+
+ See https://regex101.com/r/8qAxP4/2. 
+
+ See https://stackoverflow.com/questions/638565/parsing-scientific-notation-sensibly for the regex details. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/3340115)
+  In [32]: import re
+
+In [33]: s='abcd2343 abw34324 abc3243-23A'
+
+In [34]: re.split('(\d+)',s)
+Out[34]: ['abcd', '2343', ' abw', '34324', ' abc', '3243', '-', '23', 'A']
+  
+
+ Or, if you want to split on the first occurrence of a digit: 
+
+  In [43]: re.findall('\d*\D+',s)
+Out[43]: ['abcd', '2343 abw', '34324 abc', '3243-', '23A']
+  
+
+ 
+
+ 
+  \d+  matches 1-or-more digits. 
+  \d*\D+  matches 0-or-more digits followed by 1-or-more non-digits. 
+  \d+|\D+  matches 1-or-more digits  or  1-or-more non-digits. 
+ 
+
+ Consult https://docs.python.org/3/library/re.html#regular-expression-syntax for more about Python's regex syntax. 
+
+ 
+
+  re.split(pat, s)  will split the string  s  using  pat  as the delimiter.  If  pat  begins and ends with parentheses (so as to be a "capturing group"), then  re.split  will return the substrings matched by  pat  as well. For instance, compare: 
+
+  In [113]: re.split('\d+', s)
+Out[113]: ['abcd', ' abw', ' abc', '-', 'A']   # <-- just the non-matching parts
+
+In [114]: re.split('(\d+)', s)
+Out[114]: ['abcd', '2343', ' abw', '34324', ' abc', '3243', '-', '23', 'A']  # <-- both the non-matching parts and the captured groups
+  
+
+ In contrast,  re.findall(pat, s)  returns only the parts of  s  that match  pat : 
+
+  In [115]: re.findall('\d+', s)
+Out[115]: ['2343', '34324', '3243', '23']
+  
+
+ Thus, if  s  ends with a digit, you could avoid ending with an empty string by using  re.findall('\d+|\D+', s)  instead of  re.split('(\d+)', s) :  
+
+  In [118]: s='abcd2343 abw34324 abc3243-23A 123'
+
+In [119]: re.split('(\d+)', s)
+Out[119]: ['abcd', '2343', ' abw', '34324', ' abc', '3243', '-', '23', 'A ', '123', '']
+
+In [120]: re.findall('\d+|\D+', s)
+Out[120]: ['abcd', '2343', ' abw', '34324', ' abc', '3243', '-', '23', 'A ', '123']
+  
+
+
+

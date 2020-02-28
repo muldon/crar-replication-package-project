@@ -1,0 +1,155 @@
+Query: Regex: How to match words without consecutive vowels?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38862495)
+ Note that, since the desired output includes  meat  but not  fleece , desired words are allowed to have repeated vowels, just not the same vowel repeated. 
+
+ To select lines with no repeated vowel: 
+
+  >>> [w for w in open('file.txt') if not re.search(r'([aeiou])\1', w)]
+['eggs\n', 'meat\n', 'potato\n']
+  
+
+ The regex  [aeiou]  matches any vowel (you can include  y  if you like).  The regex  ([aeiou])\1  matches any vowel followed by the same vowel.  Thus,  not re.search(r'([aeiou])\1', w)  is true only for strings  w  that contain no repeated vowels. 
+
+ Addendum</h3>
+
+ If we wanted to exclude  meat  because it has two vowels in a row, even though they are not the  same  vowel, then: 
+
+  >>> [w for w in open('file.txt') if not re.search(r'[aeiou]{2}', w)]
+['eggs\n', 'potato\n']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28356169)
+ Use regular expressions instead: 
+
+  import re
+
+s = 'There was a boat in the rain near the shore, by some mysterious lake'
+l = [i for i in s.split(' ') if re.search('[aeiou]{2,}', i)]
+
+print ' '.join(l) # back to string
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/10081556)
+ I would not try to make the regex engine do this; I would split the string into consonant and vowel chunks, and then generate the overlapping results. This way, you also don't actually need to hack in markers, assuming you're okay with  ''  as the "vowel" part when the word doesn't actually being or end with a vowel. 
+
+  def overlapping_matches(word):
+    pieces = re.split('([^aeiou]+)', word)
+    # There are other ways to do this; I'm kinda showing off
+    return zip(pieces[:-2], pieces[1:-1], pieces[2:])[::2]
+
+overlapping_matches('dog') # [('', 'd', 'o'), ('o', 'g', '')]
+  
+
+ (This still fails if  word  contains only vowels, but that is trivially corrected if necessary.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38862546)
+ @John1024 's answer should work
+I also would try 
+
+ 
+   "\w*(a{2,}|e{2,}|i{2,}|o{2,}|u{2,})\w*"ig 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48996381)
+ Using a regex is probably the easiest solution: 
+
+  import re
+original_word = 'America'
+vowels = re.compile(r'[aeiou]', re.IGNORECASE)
+with_underscores = re.sub(vowels, '_', original_word)
+print with_underscores
+  
+
+  
+
+  _m_r_c_
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28356161)
+ Alternatively, you could always use regular expressions and list comprehension to get the list of words: 
+
+  >>> import re
+>>> [x for x in s.split() if re.search(r'[aeiou]{2}', x)]
+['boat', 'rain', 'near', 'mysterious']
+  
+
+  s.split()  splits the sentence into a list of words. The expression  [x for x in s.split()]  considers each word in this list in turn. 
+
+ The  re.search(r'[aeiou]{2}', x)  part of the expression searches each word for two consecutive letters from the group  [aeiou] . Only if two consecutive vowels are found is the word put in the new list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22162225)
+  
+
+  vowels = ['a', 'e', 'i', 'o', 'u']
+words = [w for w in a.split() if w[0] not in vowels and w[-1] not in vowels]
+  
+
+ This however would not take care of words ending in  .  and  ,  
+
+ EDIT: If you have to find patterns using regex: 
+
+  ending_in_vowel = r'(\b\w+[AaEeIiOoUu]\b)?' #matches all words ending with a vowel
+begin_in_vowel = r'(\b[AaEeIiOoUu]\w+\b)?' #matches all words beginning with a vowel
+  
+
+ We then need to find all words which either don't begin in a vowel nor end in a vowel 
+
+  ignore = [b for b in re.findall(begin_in_vowel, a) if b]
+ignore.extend([b for b in re.findall(ending_in_vowel, a) if b])
+  
+
+ And your result is then: 
+
+  result = [word for word in a.split() if word not in ignore]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27744910)
+ You could do this with regular expressions and the  re  module's  split  function: 
+
+  >>> import re
+>>> re.split(r"[aeiou]+", "concertation", flags=re.I)
+['c', 'nc', 'rt', 't', 'n']
+  
+
+ This method splits the string whenever one or more consecutive vowels are matched.  
+
+ To explain the regular expression  "[aeiou]+" : here the vowels have been collected into a class  [aeiou]  while the  +  indicates that one or more occurrence of any character in this class can be matched. Hence the string  "concertation"  is split at  o ,  e ,  a  and  io . 
+
+ The  re.I  flag means that the case of the letters will be ignored, effectively making the character class equal to  [aAeEiIoOuU] . 
+
+  Edit : One thing to keep in mind is that this method implicitly assumes that the word contains only vowels and consonants. Numbers and punctuation will be treated as non-vowels/consonants. To match  only  consecutive consonants, instead use  re.findall  with the consonants listed in the character class (as noted in other answers). 
+
+ One useful shortcut to typing out all the consonants is to use the third-party https://pypi.python.org/pypi/regex module instead of  re . 
+
+ This module supports set operations, so the character class containing the consonants can be neatly written as the entire alphabet minus the vowels: 
+
+  [[a-z]--[aeiou]] # equal to [bcdefghjklmnpqrstvwxyz]
+  
+
+ Where  [a-z]  is the entire alphabet,  --  is set difference and  [aeiou]  are the vowels. 
+
+
+

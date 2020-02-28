@@ -1,0 +1,208 @@
+Query: Count the number of Occurrence of Values based on another column
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39607916)
+ You can use the http://pandas.pydata.org/pandas-docs/stable/groupby.html method. 
+
+ Example -  
+
+  In [36]: df.groupby(["country"]).count().sort_values(["accident"], ascending=False).rename(columns={"accident" : "Sum of accidents"}).reset_index()
+Out[36]:
+    country  Sum of accidents
+0   England                 3
+1       USA                 3
+2   Germany                 1
+3  Thailand                 1
+  
+
+   
+
+  df.groupby(["country"]).                               # Group by country
+    count().                                           # Aggregation function which counts the number of occurences of country
+    sort_values(                                       # Sorting it 
+        ["accident"],                                  
+        ascending=False).        
+    rename(columns={"accident" : "Sum of accidents"}). # Renaming the columns
+    reset_index()                                      # Resetting the index, it takes the country as the index if you don't do this.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39608197)
+   Option 1   
+Use  value_counts  
+
+  df.Country.value_counts().reset_index(name='Sum of Accidents')
+  
+
+ https://i.stack.imgur.com/G0Gii.png 
+
+   Option 2   
+Use  groupby  then  size  
+
+  df.groupby('Country').size().sort_values(ascending=False) \
+  .reset_index(name='Sum of Accidents')
+  
+
+ <a href="https://i.stack.imgur.com/K7RDt.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47620420)
+ I believe you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.core.groupby.GroupBy.size.html: 
+
+  df1 = df.groupby(['crime type', 'council']).size().reset_index(name='Count')
+  
+
+  
+
+  df = pd.DataFrame({'crime type':['Anti-social behaviour','Anti-social behaviour',
+                                 'Burglary','Burglary'],
+                   'council':['Fermanagh and omagh','Belfast','Belfast','Belfast']})
+
+
+df1 = df.groupby(['council', 'crime type']).size().unstack(fill_value=0)
+print (df1)
+crime type           Anti-social behaviour  Burglary
+council                                             
+Belfast                                  1         2
+Fermanagh and omagh                      1         0
+
+df1.plot.bar()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/49310199)
+ You can use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html for this: 
+
+  df['count'] = df['id'].map(df['id'].value_counts())
+  
+
+  
+
+     index   id  name       dob       visit  count
+0      0  111   Joe  1/1/2000    1/1/2018      3
+1      1  111   Joe  1/1/2000    1/5/2018      3
+2      2  122   Bob  1/1/1999    2/8/2018      1
+3      3  133  Jill  1/2/1988    7/9/2017      1
+4      4  111   Joe  1/1/2000  12/31/2018      3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/44457331)
+ You need  str[0]  for select first letter form each column, convert to http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.lower.html, compare and count number of  True s by  sum : 
+
+  df = pd.DataFrame(data={'Gender':['Male', 'MALE', 'Female', 'F', 'M'],
+                        'Response': ['yes', 'N', 'no', 'nope', 'NO']})
+print (df)
+   Gender Response
+0    Male      yes
+1    MALE        N
+2  Female       no
+3       F     nope
+4       M       NO
+
+count = len(df.index)
+males = (df['Gender'].str[0].str.lower() == 'm').sum()
+females = (df['Gender'].str[0].str.lower() == 'f').sum()
+
+yes = (df['Response'].str[0].str.lower() == 'y').sum()
+no = (df['Response'].str[0].str.lower() == 'n').sum()
+
+print (count)
+5
+print (males)
+3
+print (females)
+2
+print (yes)
+1
+print (no)
+4
+  
+
+ Another solution with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html, then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.concat.html and last rename  index  values by  dict : 
+
+  a = df['Gender'].str[0].str.lower().value_counts()
+b = df['Response'].str[0].str.lower().value_counts()
+
+s = pd.concat([a,b])
+s.loc['count'] = len(df.index)
+d = {'m':'male', 'f':'female', 'y':'yes', 'n':'no'}
+s = s.rename(index=d)
+print (s)
+male      3
+female    2
+no        4
+yes       1
+count     5
+dtype: int64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50279589)
+ You can do a multiplication using  @  operator for numpy arrays. 
+
+  df = pd.DataFrame(df.values.T @ df.values, df.columns, df.columns)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51256057)
+ use  isnull  to find all rows that are null,  cumsum  with  axis=1  to incrementally count them, filter where the null-count equals 3 & use  idxmax  with  axis=1  to get the column name. 
+
+  (df.isnull().cumsum(axis=1) == 3).idxmax(axis=1)
+  
+
+ you can create a random dataframe with 5 values and 5 nulls using the following helper function. note, i used  randn , thus the values will be floats from a standard normal distribution, you can replace with another random distribution of your choice 
+
+  import string
+import numpy as np
+from numpy.random import permutation, randn
+def get_matrix(rows, vals):
+    return [permutation(np.append(randn(vals), [np.nan]*(vals))) for _ in range(rows)]
+
+df = pd.DataFrame(
+    get_matrix(4,5), list(string.ascii_uppercase[:2*5])
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41333541)
+ Here is a solution that will assign each week into a group and then find the cumulative sum based on that group. 
+
+ The first thing that is done is turn visits into 0/1 with  s.ne(0) . Then the first difference which will create -1/1 for the first row in a group. The cumulative sum of the absolute value is then taken on this to create the groups. Then we can simply use  transform  and take the product of each group.  
+
+  df['group'] = df.groupby(['product', 'store'])['visit']\
+                .transform(lambda s: s.ne(0).diff().abs().cumsum().fillna(0))
+
+df['cum_prod'] = df.groupby(['product', 'store', 'group'])['prob']\
+                   .transform(lambda s: s.prod())
+  
+
+ See the group column in the output below. The one thing you would have to do is make all the non-zero visits have 0 probability, which the last row does not do. 
+
+     product  store  week  visit   prob  group  cum_prod
+0      123    321     1      0  0.003      0  0.000702
+1      123    321     2      0  0.234      0  0.000702
+2      123    321     3      1  0.000      1  0.000000
+3      123    321     4      0  0.198      2  0.198000
+4      123    301     1      0  0.290      0  0.290000
+5      123    301     2      2  0.000      1  0.000000
+6      123    301     3      0  0.989      2  0.989000
+7      123    301     4      4  0.788      3  0.788000
+  
+
+
+

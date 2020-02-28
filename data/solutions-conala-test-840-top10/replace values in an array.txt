@@ -1,0 +1,151 @@
+Query: replace values in an array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49072512)
+ Just use the fact that if you index a numpy array with a list/array of indices you get the values at those indices: 
+
+  data = np.array([1,2,4,8,12,16,20,48])
+bins = np.array([1,3.5,10,15.6])
+
+dig = np.digitize(data, bins) - 1 # -1 because digitize returns the index of where it is larger than the value in bins
+newdata = bins[dig]
+# array([ 1. ,  1. ,  3.5,  3.5, 10. , 15.6, 15.6, 15.6])
+  
+
+ Instead of the  -1  you could also digitize with  bins[1:]  as https://stackoverflow.com/users/1782792/jdehesa suggested https://stackoverflow.com/questions/49072378/python-how-to-replace-array-with-discretized-binned-values-not-the-bin-numbe/49072512#comment85150663_49072378. 
+
+ You need to ensure that  bins  is a  np.array  as in the example above, because indexing lists this way is not possible. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29321084)
+ An un-vectorized linear approach will be to use a dictionary here: 
+
+  dct = dict(keys)
+# new array is required if dtype is different or it it cannot be casted
+new_array = np.empty(data.shape, dtype=str)
+for index in np.arange(data.size):
+    index = np.unravel_index(index, data.shape)
+    new_array[index] = dct[data[index]] 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31389784)
+ Just mask your input array with a random one of the same shape. 
+
+  import numpy as np
+
+# input array
+x = np.array([[ 1., 2., 3.], [ 4., 5., 6.], [ 7., 8., 9.]])
+
+# random boolean mask for which values will be changed
+mask = np.random.randint(0,2,size=x.shape).astype(np.bool)
+
+# random matrix the same shape of your data
+r = np.random.rand(*x.shape)*np.max(x)
+
+# use your mask to replace values in your input array
+x[mask] = r[mask]
+  
+
+ Produces something like this: 
+
+  [[ 1.          2.          3.        ]
+ [ 4.          5.          8.54749399]
+ [ 7.57749917  8.          4.22590641]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43917704)
+ A fully vectorized solution using  np.in1d  and  np.searchsorted : 
+
+  replace = numpy.array([list(replace.keys()), list(replace.values())])    # Create 2D replacement matrix
+mask = numpy.in1d(data, replace[0, :])                                   # Find elements that need replacement
+data[mask] = replace[1, numpy.searchsorted(replace[0, :], data[mask])]   # Replace elements
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50027626)
+ If you want to set a 0 array then i guess there is no need to copy the original array. Just make an array of zeros and set the appropriate indices to nan. 
+
+  import numpy as np
+
+a = np.array([1, 2, np.nan, 4, 5, np.nan])
+b = np.zeros(a.shape)
+b[np.isnan(a)] = np.nan
+  
+
+ outputs 
+
+  >>> b
+[ 0.  0. nan  0.  0. nan]
+  
+
+ edit: now that you've updated the problem you can use this instead: 
+
+  import numpy as np
+
+a = np.array([1, 2, np.nan, 4, 5, np.nan])
+b = np.zeros(a.shape)
+c = np.array([10, 11, 12, 13, 14, 15])
+b[np.isnan(a)] = c[np.isnan(a)]
+
+print(b)
+  
+
+ outputs 
+
+  >>> b
+[ 0.  0. 12.  0.  0. 15.]
+  
+
+ feel free to change the dtype to int if thats what youre using as well 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31389650)
+ You can create bernoulli random variables using scipy, and the parameter p will control what percent of values in your array you end up replacing. Then replace values in your original array based on whether the bernoulli random variable takes on a value of 0 or 1. 
+
+  from scipy.stats import bernoulli as bn
+import numpy as np
+
+array = np.array([[ 1., 2., 3.],[ 4., 5., 6.],[ 7., 8., 9.]])
+np.random.seed(123)
+flag = bn.rvs(p=0.5,size=(3,3))
+random_numbers = np.random.randn(3,3)
+array[flag==0] = random_numbers[flag==0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49330202)
+ you Can use list comprehensions: 
+
+   new_list = [x if toReplace.count(x)==0 else 0 for x in sourceArray]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45631322)
+ You can simply multiply your array with a https://docs.scipy.org/doc/numpy-dev/neps/datetime-proposal.html#timedelta64 object representing 1 hour. 
+
+  dates = np.array(hours * np.timedelta64(3600, 's'), dtype=str)
+
+print(dates)
+# [['13:06:00' '13:12:00' '13:18:00' '13:24:00']
+#  ['14:06:00' '14:12:00' '14:18:00' '14:24:00']
+#  ['15:06:00' '15:12:00' '15:18:00' '15:24:00']]
+  
+
+
+

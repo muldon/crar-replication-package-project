@@ -1,0 +1,184 @@
+Query: Converting JSON date string to python datetime
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13591950)
+ You should get unix timestamp with a regex from this date, then use datetime module to convert it to readable format: 
+
+  >m = re.search(r"Date\((\d+)\+", 'Date(1354011247940+0000)')
+>print(datetime.datetime.fromtimestamp(int(m.group(1))/1000.0).strftime('%Y-%m-%d %H:%M:%S'))
+2012-11-27 12:14:07
+  
+
+ UPD: note , that you also have milliseconds in this date, they will be truncated by this code 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38858104)
+ This is not elegant but you can try convert to string before to json: 
+
+  >>> series.apply(lambda x : x.strftime('%Y-%m-%d')).to_json()
+'{"0":"2000-03-11","1":"2000-03-12","2":"2000-03-13"}'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/19850619)
+ Here is my full solution for converting datetime to JSON and back.. 
+
+  import calendar, datetime, json
+
+def outputJSON(obj):
+    """Default JSON serializer."""
+
+    if isinstance(obj, datetime.datetime):
+        if obj.utcoffset() is not None:
+            obj = obj - obj.utcoffset()
+
+        return obj.strftime('%Y-%m-%d %H:%M:%S.%f')
+    return str(obj)
+
+def inputJSON(obj):
+    newDic = {}
+
+    for key in obj:
+        try:
+            if float(key) == int(float(key)):
+                newKey = int(key)
+            else:
+                newKey = float(key)
+
+            newDic[newKey] = obj[key]
+            continue
+        except ValueError:
+            pass
+
+        try:
+            newDic[str(key)] = datetime.datetime.strptime(obj[key], '%Y-%m-%d %H:%M:%S.%f')
+            continue
+        except TypeError:
+            pass
+
+        newDic[str(key)] = obj[key]
+
+    return newDic
+
+x = {'Date': datetime.datetime.utcnow(), 34: 89.9, 12.3: 90, 45: 67, 'Extra': 6}
+
+print x
+
+with open('my_dict.json', 'w') as fp:
+    json.dump(x, fp, default=outputJSON)
+
+with open('my_dict.json') as f:
+    my_dict = json.load(f, object_hook=inputJSON)
+
+print my_dict
+  
+
+ Output 
+
+  {'Date': datetime.datetime(2013, 11, 8, 2, 30, 56, 479727), 34: 89.9, 45: 67, 12.3: 90, 'Extra': 6}
+{'Date': datetime.datetime(2013, 11, 8, 2, 30, 56, 479727), 34: 89.9, 45: 67, 12.3: 90, 'Extra': 6}
+  
+
+ JSON File 
+
+  {"Date": "2013-11-08 02:30:56.479727", "34": 89.9, "45": 67, "12.3": 90, "Extra": 6}
+  
+
+ This has enabled me to import and export strings, ints, floats and datetime objects.
+It shouldn't be to hard to extend for other types. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10808082)
+ You give the  fromtimestamp  method the time since epoch in milliseconds, but it expects time since epoch in  seconds  (see http://docs.python.org/library/datetime.html#datetime.date.fromtimestamp and http://docs.python.org/library/time.html#time.time documentation) :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7299601)
+ You should use  datetime.datetime.strptime() , which converts a string and date format into a  datetime.datetime  object. 
+
+ The format fields (e.g.,  %Y  denotes four-digit year) are specified http://docs.python.org/library/datetime.html#strftime-and-strptime-behavior. 
+
+  >>> import datetime
+>>> s      = '2011-09-04 23:44:30.801000'
+>>> format = '%Y-%m-%d %H:%M:%S.%f'
+>>> date=datetime.datetime.strptime(s, format)
+>>> date
+datetime.datetime(2011, 9, 4, 23, 44, 30, 801000)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2317046)
+ For  datetime  objects,  strptime  is a http://docs.python.org/library/datetime.html#datetime.datetime.strftime of the  datetime  class, not a free function in the  datetime  module: 
+
+  >>> import datetime
+>>> s = datetime.datetime.strptime("20091229050936", "%Y%m%d%H%M%S")
+>>> print s.strftime('%H:%M %d %B %Y (UTC)')
+05:09 29 December 2009 (UTC)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35305826)
+ https://docs.python.org/2/library/string.html#format-examples can be used as well: 
+
+  t = datetime.datetime(2012, 2, 23, 0, 0)
+"{:%m/%d/%Y}".format(t)
+  
+
+ Output: 
+
+  '02/23/2012'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29783682)
+ converting string 'yyyy-mm-dd' into  datetime / date  python</h3>
+
+  from datetime import date
+
+date_string = '2015-01-30'
+now = date(*map(int, date_string.split('-')))
+# or now = datetime.strptime(date_string, '%Y-%m-%d').date()
+  
+
+ the last business day of the next month</h3>
+
+  from datetime import timedelta
+
+DAY = timedelta(1)
+last_bday = (now.replace(day=1) + 2*31*DAY).replace(day=1) - DAY
+while last_bday.weekday() > 4: # Sat, Sun
+    last_bday -= DAY
+print(last_bday)
+# -> 2015-02-27
+  
+
+ It doesn't take into account holidays. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/10625003)
+ You could use simple string formatting methods: 
+
+  >>> dt = datetime.datetime(2012, 2, 23, 0, 0)
+>>> '{0.month}/{0.day}/{0.year}'.format(dt)
+'2/23/2012'
+>>> '%s/%s/%s' % (dt.month, dt.day, dt.year)
+'2/23/2012'
+  
+
+
+

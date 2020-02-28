@@ -1,0 +1,224 @@
+Query: use a list of values to select rows from a pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51944169)
+  1]  Generic approach for  list_of_values . 
+
+  In [936]: dff = df[df.A.isin(list_of_values)]
+
+In [937]: dff.reindex(dff.A.map({x: i for i, x in enumerate(list_of_values)}).sort_values().index)
+Out[937]:
+   A  B
+2  3  3
+3  4  5
+1  6  2
+  
+
+  2]  If  list_of_values  is sorted. You can use 
+
+  In [926]: df[df.A.isin(list_of_values)].sort_values(by='A')
+Out[926]:
+   A  B
+2  3  3
+3  4  5
+1  6  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51944248)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.merge.html with helper  DataFrame  created by list and with column name of matched column: 
+
+  df = pd.DataFrame({'A' : [5,6,3,4], 'B' : [1,2,3,5]})
+
+list_of_values = [3,6,4]
+df1 = pd.DataFrame({'A':list_of_values}).merge(df)
+print (df1)
+   A  B
+0  3  3
+1  6  2
+2  4  5
+  
+
+  
+
+  df = pd.DataFrame({'A' : [5,6,5,3,4,4,6,5], 'B':range(8)})
+print (df)
+   A  B
+0  5  0
+1  6  1
+2  5  2
+3  3  3
+4  4  4
+5  4  5
+6  6  6
+7  5  7
+
+list_of_values = [6,4,3,7,7,4]
+  
+
+ 
+
+  #create df from list 
+list_df = pd.DataFrame({'A':list_of_values})
+print (list_df)
+   A
+0  6
+1  4
+2  3
+3  7
+4  7
+5  4
+
+#column for original index values
+df1 = df.reset_index()
+#helper column for count duplicates values
+df1['g'] = df1.groupby('A').cumcount()
+list_df['g'] = list_df.groupby('A').cumcount()
+
+#merge together, create index from column and remove g column
+df = list_df.merge(df1).set_index('index').rename_axis(None).drop('g', axis=1)
+print (df)
+   A  B
+1  6  1
+4  4  4
+3  3  3
+5  4  5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35244311)
+ pd.isin() will select multiple values: 
+
+  >>> df[df.A.isin([0,2])]
+   A  B
+0  0  1
+1  2  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54243609)
+ I can only think of  numpy  method  
+
+  pd.Series(df.values[df.index,df.columns.get_indexer(selection)])
+Out[563]: 
+0   -0.082240
+1    0.084844
+2    1.519970
+3   -0.493662
+4    0.274230
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/54243590)
+ IIUC, try this  
+
+  df[selection].values.diagonal()
+  
+
+ If, you need in the form of  Series  as you remarked, do - 
+
+  pd.Series(df[selection].values.diagonal())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54243605)
+ You are slicing the dataframe twice if you first select columns based on selection and then get the diagonal values. You can instead use https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.lookup.html which  returns an array of the values corresponding to each (row, col) pair. 
+
+  df.lookup(df.index, selection)
+
+array([-0.08224 ,  0.084844,  1.51997 , -0.493662,  0.27423 ])
+  
+
+ If you want the data in form of Pandas series, 
+
+  pd.Series(df.lookup(df.index, selection))
+
+0   -0.082240
+1    0.084844
+2    1.519970
+3   -0.493662
+4    0.274230
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54243534)
+ Use  reindex : 
+
+  df.reindex(selection, axis=1)
+  
+
+ Output: 
+
+            A         B         B         A         A
+0  0.065447 -1.890299 -1.890299  0.065447  0.065447
+1  0.389780  0.301049  0.301049  0.389780  0.389780
+2  0.484159 -1.311432 -1.311432  0.484159  0.484159
+3 -0.209745 -2.233050 -2.233050 -0.209745 -0.209745
+4 -0.093495 -1.527827 -1.527827 -0.093495 -0.093495
+  
+
+ Then, use  np.eye  and  mask  
+
+  df.reindex(selection, axis=1).mask(np.eye(5) == 0).stack()
+  
+
+ Output: 
+
+  0  A    0.065447
+1  B    0.301049
+2  B   -1.311432
+3  A   -0.209745
+4  A   -0.093495
+dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49346104)
+ if you don't like that syntax, you can use also use http://pandas.pydata.org/pandas-docs/version/0.14.0/indexing.html#indexing-query (introduced in pandas 0.13 which is from 2014): 
+
+  >>> df.query('A in [0,2]')
+   A  B
+0  0  1
+1  2  3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12098586)
+ This is indeed a duplicate of https://stackoverflow.com/questions/12065885/how-to-filter-the-dataframe-rows-of-pandas-by-within-in, translating the response to your example gives: 
+
+  In [5]: df = DataFrame({'A' : [5,6,3,4], 'B' : [1,2,3, 5]})
+
+In [6]: df
+Out[6]:
+   A  B
+0  5  1
+1  6  2
+2  3  3
+3  4  5
+
+In [7]: df[df['A'].isin([3, 6])]
+Out[7]:
+   A  B
+1  6  2
+2  3  3
+  
+
+
+

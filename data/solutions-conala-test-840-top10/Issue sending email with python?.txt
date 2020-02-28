@@ -1,0 +1,164 @@
+Query: Issue sending email with python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12030303)
+ I found I had to do an ehlo() and a starttls() before sending mail via gmail: 
+
+  server = smtplib.SMTP('smtp.gmail.com', 587)
+server.ehlo()
+server.starttls()
+server.ehlo()
+server.login(SERVER_EMAIL,EMAIL_HOST_PASSWORD)
+  
+
+ It shouldn't make a difference with the login, but I use a MIMEMultipart from email.mime.multipart for the body, with something like: 
+
+  msg = MIMEMultipart('alternative')
+msg['Subject'] = subject
+msg['From'] = mFrom
+msg['To'] = mTo
+if textBody:
+   part1 = MIMEText(textBody, 'plain')
+   msg.attach(part1)
+if htmlBody:
+   part2 = MIMEText(htmlBody, 'html')
+   msg.attach(part2)
+BODY = msg.as_string()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12030201)
+ You need to contact the gmail mail server on the submission port (587), not the default 25: 
+
+  server = smtplib.SMTP('smtp.gmail.com', 587)
+  
+
+ You also need to use  server.starttls()  before logging in (so that your password is not sent in the clear!). This is from a script I have and it works for me: 
+
+  server = smtplib.SMTP()
+server.connect("smtp.gmail.com", "submission")
+server.starttls()
+server.ehlo()
+server.login(user, password)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43552356)
+ I Had the same issue and solved it just by specifying the right port like this: 
+
+  smtplib.SMTP('smtp.gmail.com', 587)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/48750034)
+ This worked for me with my GoDaddy email. Since GoDaddy sets up your email in Office365, you can use smtp.office365.com.  
+
+ settings.py 
+
+  EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.office365.com'
+EMAIL_HOST_USER = 'myemail@GoDaddyDomain.com'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_PASSWORD = 'myPassword'
+EMAIL_PORT = 587
+EMAIL_USE_SSL = False
+EMAIL_USE_TLS = True
+  
+
+ method in views.py that handles sending email. The email variable is from a user form. 
+
+  from django.conf import settings
+from django.core.mail import EmailMessage
+def send_email(subject, body, email):
+    try:
+        email_msg = EmailMessage(subject, body, settings.EMAIL_HOST_USER, [settings.EMAIL_HOST_USER], reply_to=[email])
+        email_msg.send()
+        return "Message sent :)"
+    except:
+        return "Message failed, try again later :("
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/11870860)
+ 1) Postfix is an SMTP server, it has nothing to do with python's  smtpd  EHLO implementation. If you want your custom SMTP server, you don't need postfix, so feel free to remove it. 
+
+ 2)  EHLO  is a  ESMTP  command, not  SMTP , standard  smtpd  python module implements  SMTP , therefore it doesn't have an  EHLO  implementation. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3220085)
+ 
+   Country would be in Eurozone. . 
+ 
+
+ There are companies which offer email-to-fax and fax-to-email conversion (so you can send/receive faxes by sending and receiving emails). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9069779)
+ You can do that with a message queue (like rabbit MQ for example).
+Instead of sending an email directly, you leave the message to the queue.
+Posting into the queue returns immediately.
+Then, in the background, some process is emptying the queue and sending emails. 
+
+ More info here: http://www.rabbitmq.com/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41458270)
+ As it says in the Django docs for  send_email  (https://docs.djangoproject.com/en/1.10/topics/email/#send-mail):  
+
+ 
+    fail_silently : A boolean. If it’s False, send_mail will raise an smtplib.SMTPException. See the smtplib docs for a list of possible exceptions, all of which are subclasses of SMTPException. 
+ 
+
+  
+
+  from smtplib import SMTPException
+
+try:
+    msg.send()
+except SMTPException as e:
+    print('There was an error sending an email: ', e) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11982022)
+ There may be some issue with the connection (maybe it is being blocked by your proxy or firewall?) and the timeout may be pretty big for you to do not see it going further. 
+
+ http://docs.python.org/library/smtplib.html#smtplib.SMTP says: 
+
+ 
+    class smtplib.SMTP([host[, port[, local_hostname[, timeout]]]])  
+  
+   (...) An  SMTPConnectError  is raised if the specified  host  doesn’t respond correctly. The optional  timeout  parameter specifies a timeout in seconds for blocking operations like the connection attempt (if not specified, the global default timeout setting will be used). 
+ 
+
+  
+
+  smtpserver = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9374887)
+ My guess would be that the content of the mail looks "spammy" for Google, but you can do some things that might help you.  
+
+ I would suggest you, since this is a confirmation mail, add another admin for your app an email like:  do-not-reply@domain.com  and use that one for the confirmation emails. Add more text to the body and include the unsubscribe links as well, so your users will have the possibility to not receive more email from your app. Maybe you wouldn't like the last part, but you have to give that options to your users, so this email won't be marked as SPAM. 
+
+
+

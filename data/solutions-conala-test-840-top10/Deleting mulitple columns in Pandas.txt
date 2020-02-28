@@ -1,0 +1,224 @@
+Query: Deleting mulitple columns in Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40240816)
+ You need use subset of columns with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.any.html for at least one  No  in columns: 
+
+  df[(df[['M1: PL - INVOICED','M2: EX - INVOICED','M3: TEST DEP - INVOICED']] == 'No')
+      .any(axis=1)]
+  
+
+  
+
+  df = pd.DataFrame({'M1: PL - INVOICED':['a','Yes','No'],
+                   'M2: EX - INVOICED':['Yes','No','b'],
+                   'M3: TEST DEP - INVOICED':['s','a','No']})
+
+print (df)
+  M1: PL - INVOICED M2: EX - INVOICED M3: TEST DEP - INVOICED
+0                 a               Yes                       s
+1               Yes                No                       a
+2                No                 b                      No
+
+print ((df[['M1: PL - INVOICED','M2: EX - INVOICED','M3: TEST DEP - INVOICED']] == 'No'))
+  M1: PL - INVOICED M2: EX - INVOICED M3: TEST DEP - INVOICED
+0             False             False                   False
+1             False              True                   False
+2              True             False                    True
+
+print ((df[['M1: PL - INVOICED','M2: EX - INVOICED','M3: TEST DEP - INVOICED']] == 'No')
+          .any(axis=1))
+0    False
+1     True
+2     True
+dtype: bool
+
+
+print (df[(df[['M1: PL - INVOICED','M2: EX - INVOICED','M3: TEST DEP - INVOICED']] == 'No')
+           .any(1)])
+
+  M1: PL - INVOICED M2: EX - INVOICED M3: TEST DEP - INVOICED
+1               Yes                No                       a
+2                No                 b                      No
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40240858)
+  
+
+  df[(df[['M1: PL - INVOICED','M2: EX - INVOICED','M3: TEST DEP - INVOICED']] == 'No')]
+  
+
+ So you essentially pass a list of the cols of interest and compare just these columns against your scalar value, if you're after 'No' appearing anywhere then use  any(axis=1)  
+
+  In [115]:
+df = pd.DataFrame({'a':'no', 'b':'yes', 'c':['yes','no','yes','no','no']})
+df
+
+Out[115]:
+    a    b    c
+0  no  yes  yes
+1  no  yes   no
+2  no  yes  yes
+3  no  yes   no
+4  no  yes   no
+  
+
+ With  any(axis=1)  then it returns all rows where No appears in any of the cols of interest: 
+
+  In [133]:    
+df[(df[['a','c']] == 'no').any(axis=1)]
+
+Out[133]:
+    a    b    c
+0  no  yes  yes
+1  no  yes   no
+2  no  yes  yes
+3  no  yes   no
+4  no  yes   no
+  
+
+ You can also use the mask to drop NaN rows for a specific column using  dropna  
+
+  In [132]:    
+df[df[['a','c']] == 'no'].dropna(subset=['c'])
+
+Out[132]:
+    a    b   c
+1  no  NaN  no
+3  no  NaN  no
+4  no  NaN  no
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39734034)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.str.split.html with  expand=True  to separate each string into different columns, then use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.stack.html followed by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html: 
+
+  df['Tags'].str.split(expand=True).stack().value_counts()
+  
+
+ The resulting output: 
+
+  tag_a    3
+tag_b    2
+tag_c    1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29956798)
+ Use a  tuple  or  list . 
+
+  places = {"HouseNum1":[x,y]}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32483238)
+ The problem with  apply  is that you need to return mulitple rows and it expects only one.  
+
+  def json_to_df(row):
+    _, row = row
+    df_json = pd.read_json(row.col2)
+    col1 = pd.Series([row.col1]*len(df_json), name='col1')
+    return pd.concat([col1,df_json],axis=1)
+df = map(json_to_df, df.iterrows())      #returns a list of dataframes
+df = reduce(lambda x,y:x.append(y), x)   #glues them together
+df
+
+col1    t   v
+0   A   05:15   20
+1   A   05:20   25
+0   B   05:15   10
+1   B   05:20   15
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49043666)
+ I think better is for remove all columns with  std  is second level of  MultiIndex  use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop.html with parameter  level=1 : 
+
+  print (df)
+              attribute          attribute2          attribute3         
+                  test1      std      test2      std      test3      std
+d  count type                                                           
+r1 10    rx       0.559    (0.0)      0.559    (0.0)      0.568    (0.0)
+         sth1     0.653  (0.004)      0.653  (0.004)      0.679  (0.002)
+         sth2     0.584  (0.002)      0.584  (0.002)      0.586  (0.003)
+         sth3     0.651  (0.005)      0.651  (0.005)      0.676      (0)
+
+df = df.drop('std', axis=1, level=1)
+print (df)
+              attribute attribute2 attribute3
+                  test1      test2      test3
+d  count type                                
+r1 10    rx       0.559      0.559      0.568
+         sth1     0.653      0.653      0.679
+         sth2     0.584      0.584      0.586
+         sth3     0.651      0.651      0.676
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37069701)
+ The by far the simplest approach is: 
+
+  yourdf.drop(['columnheading1', 'columnheading2'], axis=1, inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46511575)
+ My personal favorite, and easier than the answers I have seen here (for multiple columns): 
+
+  df.drop(df.columns[22:56], axis=1, inplace=True)
+  
+
+ Or creating a list for multiple columns. 
+
+  col = list(df.columns)[22:56]
+df.drop(col, axis=1, inplace=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14363721)
+ You can use the  DataFrame   drop  function to remove columns.  You have to pass the  axis=1  option for it to work on columns and not rows. Note that it returns a copy so you have to assign the result to a new  DataFrame : 
+
+  In [1]: from pandas import *
+
+In [2]: df = DataFrame(dict(x=[0,0,1,0,1], y=[1,0,1,1,0], z=[0,0,1,0,1]))
+
+In [3]: df
+Out[3]:
+   x  y  z
+0  0  1  0
+1  0  0  0
+2  1  1  1
+3  0  1  0
+4  1  0  1
+
+In [4]: df = df.drop(['x','y'], axis=1)
+
+In [5]: df
+Out[5]:
+   z
+0  0
+1  0
+2  1
+3  0
+4  1
+  
+
+
+

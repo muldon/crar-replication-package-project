@@ -1,0 +1,203 @@
+Query: How can I unpack binary hex formatted data in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35043134)
+ Alternative solution is to use https://docs.python.org/2/library/string.html#format-specification-mini-language 
+
+  >>> '{:08b}'.format(250)
+'11111010'
+>>> '{:08b}'.format(2)
+'00000010'
+>>> '{:08b}'.format(7)
+'00000111'
+>>> '0x{:02X}'.format(7)
+'0x07'
+>>> '0x{:02X}'.format(250)
+'0xFA'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/200761)
+ In Python you use the https://docs.python.org/2/library/struct.html module for this. 
+
+  >>> from struct import *
+>>> pack('hhl', 1, 2, 3)
+'\x00\x01\x00\x02\x00\x00\x00\x03'
+>>> unpack('hhl', '\x00\x01\x00\x02\x00\x00\x00\x03')
+(1, 2, 3)
+>>> calcsize('hhl')
+8
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35043228)
+ You can use bin(), hex() for binary and hexa-decimal respectively, and string.zfill() function to achieve 8 bit binary number. 
+
+  >>> bin(7)[2:].zfill(8)
+'00000111'
+>>> bin(10)[2:].zfill(8)
+'00001010'
+>>> bin(250)[2:].zfill(8)
+'11111010'
+>>> 
+>>> hex(7)
+'0x7'
+>>> hex(10)
+'0xa'
+>>> hex(250)
+'0xfa'
+  
+
+ I assume that leading 0's were not required in hexadecimals. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35043047)
+ You can use the built-in functions  bin()  and  hex()  as follows: 
+
+  In[95]: bin(250)[2:]
+Out[95]: '11111010'
+
+In[96]: hex(250)
+Out[96]: '0xfa'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/200861)
+ There's no corresponding "hex nibble" code for struct.pack, so you'll either need to manually pack into bytes first, like: 
+
+  hex_string = 'abcdef12'
+
+hexdigits = [int(x, 16) for x in hex_string]
+data = ''.join(struct.pack('B', (high <<4) + low) 
+               for high, low in zip(hexdigits[::2], hexdigits[1::2]))
+  
+
+ Or better, you can just use the hex codec.  . 
+
+  >>> data = hex_string.decode('hex')
+>>> data
+'\xab\xcd\xef\x12'
+  
+
+ To unpack, you can encode the result back to hex similarly 
+
+  >>> data.encode('hex')
+'abcdef12'
+  
+
+ However, note that for your example, there's probably no need to take the round-trip through a hex representation at all when encoding.  Just use the md5 binary digest directly.  . 
+
+  >>> x = md5.md5('some string')
+>>> x.digest()
+'Z\xc7I\xfb\xee\xc96\x07\xfc(\xd6f\xbe\x85\xe7:'
+  
+
+ This is equivalent to your pack()ed representation.  To get the hex representation, use the same unpack method above: 
+
+  >>> x.digest().decode('hex')
+'acbd18db4cc2f85cedef654fccc4a4d8'
+>>> x.hexdigest()
+'acbd18db4cc2f85cedef654fccc4a4d8'
+  
+
+ [Edit]: Updated to use better method (hex codec) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/42956514)
+ Using  struct.pack  and  struct.unpack : 
+
+  >>> import struct
+>>> n = '00111111100000000000000000000000'
+>>> struct.unpack('f', struct.pack('i', int(n, 2[0]
+1.0
+  
+
+ 
+  int(.., 2  to convert the binary representation to  int  (base 2 
+  struct.pack('i', ..  to convert bytes ( i : 32bit int 
+  struct.unpack('f', ...[0]  to convert bytes back to float. 
+ 
+
+ For other  struct  format character, see https://docs.python.org/3/library/struct.html#format-characters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/918774)
+ The http://docs.python.org/library/struct module is good at unpacking binary data. 
+
+  int_value = struct.unpack('>I', byte_buffer)[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6713636)
+ You can use  struct , using the 'd' modifier for 'double': 
+
+  >>> import struct
+>>> num1 = '0xb4933333'
+>>> num2 = '0x41d26580'
+>>> struct.unpack('!d', (num2[2:]+num1[2:]).decode('hex'))[0]
+1234567890.3
+  
+
+ Be careful what order you append the doubles in, the above assumes a big-endian machine. Also, I stripped  0x  as the  decode  function doesn't expect it. 
+
+ edit: If you're using Python 3, you need to use  bytes.fromhex  instead of  ''.decode('hex') . 
+
+ 
+
+ Just to give an alternative (the above is a very nice solution): 
+
+  >>> import struct
+>>> num1 = '0xb4933333'
+>>> num2 = '0x41d26580'
+>>> low_word = int(num1, 16)
+>>> high_word = int(num2, 16)
+>>> representation = struct.pack('>II', high_word, low_word)
+>>> result = struct.unpack('>d', representation)
+>>> result[0]
+1234567890.3
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/201325)
+ There's an easy way to do this with the  binascii  module: 
+
+  >>> import binascii
+>>> print binascii.hexlify("ABCZ")
+'4142435a'
+  
+
+ Unless I'm misunderstanding something about the nibble ordering (high-nibble first is the default), that should be perfectly sufficient! 
+
+ Furthermore, Python's  hashlib.md5  objects have a  hexdigest()  method to automatically convert the MD5 digest to an ASCII hex string, so that this method isn't even necessary for MD5 digests.  Hope that helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16512300)
+ https://en.wikipedia.org/wiki/Universally_unique_identifier are supported by Python with http://docs.python.org/3.3/library/uuid.html. Do something like this: 
+
+  import uuid
+
+my_uuid = uuid.UUID(bytes_le=fp.read(16))
+  
+
+
+

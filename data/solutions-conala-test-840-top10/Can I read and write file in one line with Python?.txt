@@ -1,0 +1,187 @@
+Query: Can I read and write file in one line with Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/53927155)
+ I think you should always close the file, so the file that you open to write should also use  with  
+
+  with open("test.txt") as f, open("testfile.txt", "w") as f2:
+    for line in f:
+        f2.write(line)
+        if 'str' in line:
+            break
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41829044)
+ The lines returned by https://docs.python.org/2/tutorial/inputoutput.html#methods-of-file-objects still contain the https://stackoverflow.com/questions/15233340/getting-rid-of-n-when-using-readlines. You must https://docs.python.org/2/library/string.html#string.strip them: 
+
+  with open('new_file.txt', 'w') as f2:
+    with open('old_file.txt') as f1:
+        lines = f1.readlines()
+        # lines = f1.read().splitlines()  will even save you the stripping
+        for i, line in enumerate(lines):  # line: 'foo bar \n'         
+            f2.write(line.strip())
+            if i % 2:  # linebreak only every other line
+                f2.write('\n')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53927115)
+  
+
+  with open('text.txt') as f:
+   file = open('testfile.txt', 'w')
+   for line in f:
+       print line
+       file.write(line)
+       if 'str' in line:
+          break
+  
+
+ Create the text file outside of the loop will work. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41829069)
+ You can use a buffer variable to store every second line like so: 
+
+  with open('new_file.txt', 'w') as fout:
+    with open('old_file.txt') as fin:
+        buffer = ""
+        for i, line in enumerate(fin):
+            if i % 2 == 0:
+                buffer = line.replace('\n', '')
+            else:
+                fout.write(sep.join((buffer, line)))
+                buffer = ""
+  
+
+ With  sep = " "  or whatever else you use for separation. 
+
+ This assumes you have an even number of lines, otherwise the last line will not be written. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41829182)
+ You don't need to read the lines into a list, or mess about with line numbers, you can just iterate directly over the file lines: 
+
+  with open('oldfile.txt') as fin, open('newfile.txt', 'w') as fout:
+    for line in fin:
+        fout.write(line[:-1] + ' ' + next(fin))    
+  
+
+  contents of newfile.txt  
+
+  611    2856     618    2582   94075   94107   94065   94068 101071   94104
+598    2856     618     611   93995   94107   93992   93991 94075   94065
+612    2834    2821    2812   94087  101577   94085   94081 101558  101557
+  
+
+ 
+
+  line[:-1] + ' '
+  
+
+ removes the newline char at the end of the long lines, and replaces it with a single space; I'm pretty sure that this is faster than doing  line.replace('\n', ' ') , but I haven't timed it.  
+
+ As with Graipher's solution, if the file  doesn't  have an even number of lines, then the last line will not be copied, but I assume that's not an issue for your data. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34467220)
+ Writing, by default, always takes place at the end of the file. Calling  file.readline()  doesn't change this behaviour, especially since  readline()  calls can use a buffer to read in larger blocks. 
+
+ You could override by using  file.seek()  explicitly to go to the end of a line; you just read the line, you know the length, seek to that point: 
+
+  x = file.readline()
+file.seek(len(x), 0)
+file.write(text) #write the text
+  
+
+ Note that you cannot insert lines, or easily replace lines. A file is a stream of individual bytes, not lines, so if you write in a line of 10 characters (including the newline) you can only replace that line with 10 other characters. Longer or  shorter lines won't work here; you are just going to replace fewer or more characters in the file and either partially replace a line or overwrite (part of) the next line. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/49394568)
+ When you call  f.read()  the second time, there is nothing more to read as the first  f.read()   alread consumed the file stream. Thus, you might solve the issue if you read the file into a variable and then used it instead of the  f.read() , but since you are working with literal texts, you might just as well read the file line by line and use a  str.startswith()  check: 
+
+  def DataExtract(inputfilename):
+    myfilename1 = open('00 extract ' + inputfilename,'w')
+    myfilename2 = open('20 extract ' + inputfilename,'w')
+
+    with open(inputfilename, 'r') as f:
+        for line in f:
+            if line.startswith('00'):
+                myfilename1.write(line)
+            elif line.startswith('20'):
+                myfilename2.write(line)
+
+    myfilename1.close()
+    myfilename2.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22498371)
+ Generally speaking, reading/writing a file at the same time is a really horribly difficult thing to get right.  Usually, you'll read from one file and write to a different file (possibly in memory).  An in-memory implementation would be something like: 
+
+  with open('test1', 'r') as fin:
+    lines = [line.strip('\n') + ' test2\n' for line in fin]
+with open('test1', 'w') as fout:
+    fout.writelines(lines)
+  
+
+ Notice that I read all the file's data into memory in the first  with  block.  In the second  with  block, I write all that data back out to a new file (which conveniently has the same name as the old file effectively overwriting the old).  Of course, if memory is a problem, you can read a line and then write a line to a new file (with a different name).  After you've closed and flushed both files, then you can use  shutil.move  to rename the new file so that you overwrite the old one. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8677460)
+ The first program should read from a file (or  stdin ) and write to  stdout  (not  stdin ). Similarly, the second program should read from  stdin  and write to  stdout . Now you can glue them together in the command line using the pipe symbol: 
+
+  python first.py | python second.py
+  
+
+ That's it! None of the programs has to be aware of the other; that's the beauty of using "pipelining". 
+
+ Addendum: Shell pipelining works over a buffer. The shell listens to the first program and fills the buffer with its output. Simultaneously, the second program reads from the buffer as long as there is something to read, otherwise it waits idly. The communication is simultaneous and requires only a fixed size of memory. 
+
+ Example code: 
+
+  # first.py
+import sys
+for line in open("input.txt"):
+    processed_line = process_line(line)
+    sys.stdout.write(processed_line)
+
+# second.py
+import sys
+for line in sys.stdin:
+    processed_line = process_line(line)
+    sys.stdout.write(processed_line)
+  
+
+ These examples work over lines (which is better if you are working with text files). You could easily do the same byte by byte. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/4454341)
+ You can save one write call with this: 
+
+  f.write('#testfirstline\n' + temp)
+  
+
+ When using 'r+', you would have to rewind the file after reading and before writing. 
+
+
+

@@ -1,0 +1,424 @@
+Query: How can I lookup an attribute in any scope by name?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/49469229)
+ As you can probably guess from the  __name__ , you're accessing the name of the https://docs.python.org/3/library/builtins.html. 
+
+ Whenever you access a variable and that variable isn't found in any closure, the local scope or the global scope, the lookup falls back to the builtins. This is why you can access things like  min  or  max  or  type  even though they're not global variables: 
+
+  >>> 'min' in globals()                                                                   
+False
+>>> min
+<built-in function min>      
+>>> __builtins__.min
+<built-in function min>                                                    
+  
+
+ The same thing happens with  __name__ . Initially, there's a  __name__  variable defined in the global scope: 
+
+  >>> globals()['__name__']
+'__main__'
+  
+
+ But once that name is deleted with  del __name__ , the lookup in the globals fails and falls back to the builtins - so you end up with the name of the  builtins  module. 
+
+  >>> del __name__
+>>> __name__
+'builtins'
+>>> __builtins__.__name__
+'builtins'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12905193)
+ The scope of the name  a  is over the entirety of the function  f , and is purely static. It is not at all correct to say that "there is a 50% chance that the print statement is outside the scope of  a ". "Not in scope" is not the only reason why a name lookup can fail. 
+
+ Note the error you get from this function: 
+
+  >>> def foo():
+...   print a
+... 
+>>> foo()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 2, in foo
+NameError: global name 'a' is not defined
+  
+
+ It's not the same error you get when your function has executed  del a . In my  foo ,  a  was not defined in the local scope of  foo , so name lookup proceeded to the global scope, where  a  wasn't found either, so we get an exception about there not being a global  a . 
+
+ The error you get clearly states that Python is aware that the name  a  is a local variable of  f . However it has no value, because you deleted it. (Normally this would only happen because you try to read a local variable before you've ever written to it, which is why the error message is worded the way it is) 
+
+ Note also this case: 
+
+  a = 3
+>>> def bar():
+...   a = 1
+...   del a
+...   print a
+... 
+>>> bar()
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 4, in bar
+UnboundLocalError: local variable 'a' referenced before assignment
+  
+
+ Python complains about the local  a  not having a value. If  a  were simply not in the local scope, it would have looked up  a  globally and found the  3 : 
+
+  >>> a = 8
+>>> def baz():
+...   print a
+... 
+>>> baz()
+8
+  
+
+ This is different behaviour than you get when you  del  things from the global scope: 
+
+  >>> a = 12
+>>> del a
+>>> print a
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'a' is not defined
+  
+
+ Here you get an exception as if  a  had never existed. The reason for the difference is  because  the local scope of a function is  static . If a function contains an assignment to a name, then that name is locally scoped over the entirety of the function's body<sup>1</sup>. Even before the first assignment, or after you've used  del  to get rid of it, lookup of that name in that function will try to get the value of the local variable. 
+
+ 
+
+ <sup>1</sup> Unless the name has been declared  global  or  nonlocal . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4994930)
+ The mere fact that you assign to the name  Foo  inside the class definition makes the name  Foo  a local name in that scope (i.e. the scope of the class).  The local names are determined statically, during parsing and compiling to byte code.  When the execution reaches the statement 
+
+  Foo = Foo
+  
+
+ Python first evaluates the right-hand side.  It look ups the local name  Foo  -- as determined during compilation -- and fails to find it in the local scope.  . 
+
+ The same will happen if you'd try 
+
+  def test_foo():
+    foo = 3
+    class A:
+        bar = foo
+        foo = 42
+
+test_foo()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20251362)
+ In an ideal world, you'd be right and some of the inconsistencies you found would be wrong. However, CPython has optimized some scenarios, specifically function locals. These optimizations, together with how the compiler and evaluation loop interact and historical precedent, lead to the confusion. 
+
+ Python translates code to bytecodes, and those are then interpreted by a interpreter loop. The 'regular' opcode for accessing a name is  LOAD_NAME , which looks up a variable name as you would in a dictionary.  LOAD_NAME  will first look up a name as a local, and if that fails, looks for a global.  LOAD_NAME  throws a  NameError  exception when the name is not found. 
+
+ For nested scopes, looking up names outside of the current scope is implemented using closures; if a name is not assigned to but is available in a nested (not global) scope, then such values are handled as a closure. This is needed because a parent scope can hold different values for a given name at different times; two calls to a parent function can lead to different closure values. So Python has  LOAD_CLOSURE ,  MAKE_CLOSURE  and  LOAD_DEREF  opcodes for that situation; the first two opcodes are used in loading and creating a closure for a nested scope, and the  LOAD_DEREF  will load the closed-over value when the nested scope needs it. 
+
+ Now,  LOAD_NAME  is relatively slow; it will consult two dictionaries, which means it has to hash the key first and run a few equality tests (if the name wasn't interned). If the name isn't local, then it has to do this again for a global. For functions, that can potentially be called tens of thousands of times, this can get tedious fast. So function locals have special opcodes. Loading a local name is implemented by  LOAD_FAST , which looks up local variables  by index  in a special local names array. This is much faster, but it does require that the compiler first has to see if a name is a local and not global. To still be able to look up global names, another opcode  LOAD_GLOBAL  is used. The compiler explicitly optimizes for this case to generate the special opcodes.  LOAD_FAST  will throw an  UnboundLocalError  exception when there is not yet a value for the name. 
+
+ Class definition bodies on the other hand, although they are treated much like a function, do not get this optimization step. Class definitions are not meant to be called all that often; most modules create classes  once , when imported. Class scopes don't count when nesting either, so the rules are simpler. As a result, class definition bodies do not act like functions when you start mixing scopes up a little. 
+
+ So, for non-function scopes,  LOAD_NAME  and  LOAD_DEREF  are used for locals and globals, and for closures, respectively. For functions,  LOAD_FAST ,  LOAD_GLOBAL  and  LOAD_DEREF  are used instead. 
+
+ Note that class bodies are executed as soon as Python executes the  class  line! So in example 1,  class B  inside  class A  is executed as soon as  class A  is executed, which is when you import the module. In example 2,  C  is not executed until  f()  is called, not before. 
+
+ Lets walk through your examples: 
+
+ 
+  You have nested a class  A.B  in a class  A . Class bodies do not form nested scopes, so even though the  A.B  class body is executed when class  A  is executed, the compiler will use  LOAD_NAME  to look up  x .  A.B().f()  is a  function  (bound to the  B()  instance as a method), so it uses  LOAD_GLOBAL  to load  x . We'll ignore attribute access here, that's a very well defined name pattern.  
+  Here  f().C.z  is at class scope, so the function  f().C().g()  will skip the  C  scope and look at the  f()  scope instead, using  LOAD_DEREF .  
+  Here  var  was determined to be a local by the compiler because you assign to it within the scope. Functions are optimized, so  LOAD_FAST  is used to look up the local and an exception is thrown.  
+  Now things get a little weird.  class A  is executed at class scope, so  LOAD_NAME  is being used.  A.x  was deleted from the locals dictionary for the scope, so the second access to  x  results in the global  x  being found instead;  LOAD_NAME  looked for a local first and didn't find it there, falling back to the global lookup. 
+
+ Yes, this appears inconsistent with the documentation. Python-the-language and CPython-the implementation are clashing a little here. You are, however, pushing the boundaries of what is possible and practical in a dynamic language; checking if  x  should have been a local in  LOAD_NAME  would be possible but takes precious execution time for a corner case that most developers will never run into.  
+  Now you are confusing the compiler. You used  x = x  in the class scope, and thus you are setting a  local  from a name outside of the scope. The compiler finds  x  is a local here (you assign to it), so it never considers that it could also be a scoped name. The compiler uses  LOAD_NAME  for all references to  x  in this scope, because this is not an optimized function body.  
+
+ When executing the class definition,  x = x  first requires you to  look up  x  , so it uses  LOAD_NAME  to do so. No  x  is defined,  LOAD_NAME  doesn't find a local, so the  global   x  is found. The resulting value is stored as a local, which  happens  to be named  x  as well.  print x  uses  LOAD_NAME  again, and now finds the new local  x  value.  
+  Here you did not confuse the compiler. You are creating a local  y ,  x  is not local, so the compiler recognizes it as a scoped name from parent function  f2().myfunc() .  x  is looked up with  LOAD_DEREF  from the closure, and stored in  y .  
+ 
+
+ You could see the confusion between 5 and 6 as a bug, albeit one that is not worth fixing in my opinion. It was certainly filed as such, see http://bugs.python.org/issue532860 in the Python bug tracker, it has been there for over 10 years now. 
+
+ The compiler could check for a scoped name  x  even when  x  is  also  a local, for that first assignment in example 5. Or  LOAD_NAME  could check if the name is meant to be a local, really, and throw an  UnboundLocalError  if no local was found, at the expense of more performance. Had this been in a function scope,  LOAD_FAST  would have been used for example 5, and an  UnboundLocalError  would be thrown immediately. 
+
+ However, as the referenced bug shows, for historical reasons the behaviour is retained. There probably is code out there today that'll break were this bug fixed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2851030)
+ Use  __builtin__  (without the  s  at the end like Triptych and Duncan suggest): 
+
+  >>> import __builtin__
+>>> getattr(__builtin__, 'range')
+<built-in function range>
+  
+
+  __builtins__  is http://docs.python.org/library/__builtin__.html specific thus makes your code less portable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33838178)
+ The problem you're going to run into with trying to implement something like  name_print(variable_name)  is that when the function is called, only its value is passed. The function has no idea of the name of the variable in any scope where it might have relevance. So you'd have to pass the name as a string, then dig the value out of the caller's frame object: 
+
+  from inspect import currentframe
+
+def name_print(name):
+    frame = currentframe().f_back
+    locs, globs = frame.f_locals, frame.f_globals
+    value = locs[name] if name in locs else globs.get(name, "???")
+    print name, "=", value
+    del frame
+
+ n = 42
+ name_print("n")
+  
+
+ You could add additional functionality, such as attribute lookup (e.g.  start.line ) or even full evaluation, but I'll leave that as an exercise. 
+
+ The only way to pass a name to a function without having to put it in quotes is to use  __getattr__  on an object.  So you could write something like this, but it would be very unusual syntax just to avoid using strings. 
+
+  from inspect import currentframe
+
+class NamePrint(object):
+
+    def __getattribute__(self, name):
+        frame = currentframe().f_back
+        locs, globs = frame.f_locals, frame.f_globals
+        value = locs[name] if name in locs else globs.get(name, "???")
+        print name, "=", value
+        del frame
+
+n = 42
+name_print = NamePrint()
+name_print.n
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44851799)
+ You can see which module a function has been defined in via the  __module__  attribute. https://docs.python.org/3/reference/datamodel.html: 
+
+ 
+   The name of the module the function was defined in, or None if unavailable. 
+ 
+
+ Example: 
+
+  >>> from re import compile
+>>> compile.__module__
+'re'
+>>> def foo():
+...     pass
+... 
+>>> foo.__module__
+'__main__'
+>>>
+  
+
+ https://docs.python.org/3/reference/datamodel.html#index-48 that classes have the same attribute as well: 
+
+ 
+    __module__  is the module name in which the class was defined. 
+ 
+
+  >>> from datetime import datetime
+>>> datetime.__module__
+'datetime'
+>>> class Foo:
+...     pass
+... 
+>>> Foo.__module__
+'__main__'
+>>> 
+  
+
+ You can also do this with builtin names such as  int  and  list . You can accesses them from the  builtins  module. 
+
+  >>> int.__module__
+'builtins'
+>>> list.__module__
+'builtins'
+>>> 
+  
+
+ 
+
+ 
+   I can use  int  and  list  without  from builtins import int, list . So how do  int  and  list  become available in my program? 
+ 
+
+ That is because  int  and  list  are builtin names. You don't have to explicitly import them for Python to be able to find them in the current namespace. You can see this for yourself in the https://github.com/python/cpython/blob/master/Python/ceval.c#L2294. As @user2357112 mentioned, builtin names are accessed when global lookup fails. Here's the relevant snippet: 
+
+  if (v == NULL) {
+    v = PyDict_GetItem(f->f_globals, name);
+    Py_XINCREF(v);
+    if (v == NULL) {
+        if (PyDict_CheckExact(f->f_builtins)) {
+            v = PyDict_GetItem(f->f_builtins, name);
+            if (v == NULL) {
+                format_exc_check_arg(
+                            PyExc_NameError,
+                            NAME_ERROR_MSG, name);
+                goto error;
+            }
+            Py_INCREF(v);
+        }
+        else {
+            v = PyObject_GetItem(f->f_builtins, name);
+            if (v == NULL) {
+                if (PyErr_ExceptionMatches(PyExc_KeyError))
+                    format_exc_check_arg(
+                                PyExc_NameError,
+                                NAME_ERROR_MSG, name);
+                goto error;
+            }
+        }
+    }
+}
+  
+
+ In the code above, CPython first searches for a name in the global scope. If that fails, then it falls back and attempts to get the name from a mapping of builtin names in the current frame object its executing. That's what  f->f_builtins  is. 
+
+ You can observe this mapping from the Python level using https://docs.python.org/3/library/sys.html#sys._getfram: 
+
+  >>> import sys
+>>> frame = sys._getframe()
+>>> 
+>>> frame.f_builtins['int']
+<class 'int'>
+>>> frame.f_builtins['list']
+<class 'list'>
+>>> 
+  
+
+  sys._getframe()  returns the frame at the top of the call stack. In this case, its the frame for the module scope. And as you can see from above, the  f_builtins  mapping for the frame contains both the  int  and  list  classes, so Python has automatically made those names available to you. In other words, it's "built" them into the scope; hence the term  "builtins" . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45068156)
+ 
+   The global statement has the same scope as a name binding operation in the same block. 
+ 
+
+ This says where the  global  statement applies. 
+
+ Basically, under normal conditions, when you do: 
+
+  foo = 1
+  
+
+ inside a function, it makes  foo  a locally scoped variable for that function; even if the name is only assigned at the end of the function, it's local from the beginning, it doesn't switch from global to local at the point of assignment. 
+
+ Similarly, if your function includes the line: 
+
+  global foo
+  
+
+ it makes  foo  global for the whole function, even if  global foo  is the last line in the function. 
+
+ The important part is that it doesn't matter where in the function you do it.  
+
+  def x():
+    print(y)
+    y = 1
+  
+
+ raises an  UnboundLocalError  (because assigning to  y  makes it local for the whole scope of the function, and you print it before giving it a value), doing: 
+
+  y = 0
+def x():
+    print(y)
+    y = 1
+    global y
+  
+
+ will print the global value of  y  (0 on the first call, 1 on the second) on the first line without error (rather than raising  UnboundLocalError  or something else) because  global  statements always apply for the whole function, both before and after where they actually appear, just like local variables are local for the whole scope of the function, even if they're only assigned at the end. Note that modern Python does raise a  SyntaxWarning  for using a global name before the associated  global  statement, so it's best to put  global  statements first for clarity and to avoid warnings. 
+
+ The part about nested scopes: 
+
+ 
+   If the nearest enclosing scope for a free variable contains a global statement, the free variable is treated as a global. 
+ 
+
+ covers a really unusual corner case with multiply nested scopes where an outer scope assigns to a local variable, a scope inside that one declares the name  global , and a scope inside that one uses (but doesn't assign) the name. The short definition is "If you're looking for a variable to read that's not in local scope, as you look through outer scopes for it, if it's a global in one of them, stop checking nested scopes and go straight to global scope". This one is easiest to show by example: 
+
+  foo = 1
+def outermost():
+    def middle():
+        global foo  # Stops scope checking, skips straight to global
+        def innermost():
+            print(foo)
+        return innermost
+    foo = 2  # Doesn't change global foo
+    return middle
+  
+
+ With this definition, doing  outermost()()()  will output  1 , because the scope lookup in  innermost  checks  middle , determines  foo  is global for the  middle  scope, and skips checking  outermost  going straight to the global  foo . 
+
+  
+
+  foo = 1
+def outermost():
+    def middle():
+        # No global declaration
+        def innermost():
+            print(foo)
+        return innermost
+    foo = 2  # Doesn't change global foo
+    return middle
+  
+
+ then the output would be  2 ; the  foo  lookup in  innermost  wouldn't find it locally, or in  middle 's scope, but it would find it in  outermost s scope and pull it from there. It's  extremely  unlikely you'd see a construction like this, but the language docs must be unambiguous when at all possible. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2906198)
+ Well, I believe it's either an implementation bug or an undocumented design decision. The crux of the issue is that a name-binding operation in the module-scope should bind to a global variable. The way it is achieved is that when in the module level, globals() IS locals() (try that one out in the interpreter), so when you do any name-binding, it assigns it, as usual, to the locals() dictionary, which is also the globals, hence a global variable is created. 
+
+ When you look up a variable, you first check your current locals, and if the name is not found, you recursively check locals of containing scopes for the variable name until you find the variable or reach the module-scope. If you reach that, you check the globals, which are supposed to be the module scope's locals. 
+
+  >>> exec(compile("import sys\nprint sys._getframe().f_code.co_name", "blah", "exec"), {}, {})
+<module>
+>>> exec("a = 1\nclass A(object):\n\tprint a\n", {}, {})
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<string>", line 2, in <module>
+  File "<string>", line 3, in A
+NameError: name 'a' is not defined
+>>> d = {}
+>>> exec("a = 1\nclass A(object):\n\tprint a\n", d,d)
+1
+  
+
+ This behavior is why inheritance worked (The name-lookup used code object's scope locals(), which indeed had A in it). 
+
+ In the end, it's an ugly hack in the CPython implementation, special-casing globals lookup. It also causes some nonsensical artifical situations - e.g.: 
+
+  >>> def f():
+...     global a
+...     a = 1
+...
+>>> f()
+>>> 'a' in locals()
+True
+  
+
+ Please note that this is all my inference based on messing with the interpreter while reading section 4.1 (Naming and binding) of the python language reference. While this isn't definitive (I haven't opened CPython's sources), I'm fairly sure I'm correct about the behavior. 
+
+
+

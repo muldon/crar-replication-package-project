@@ -1,0 +1,240 @@
+Query: Sorting datetime objects while ignoring the year?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2040062)
+ You can use  month  and  day  to create a value that can be used for sorting: 
+
+  birthdays.sort(key = lambda d: (d.month, d.day))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2040125)
+ If the dates are stored as strings—you say they aren't, although it looks like they are—you might use http://labix.org/python-dateutil's parser: 
+
+  >>> from dateutil.parser import parse
+>>> from pprint import pprint
+>>> bd = ['February 6, 1976','January 13, 1996','January 1, 1983']
+>>> bd = [parse(i) for i in bd]
+>>> pprint(bd)
+[datetime.datetime(1976, 2, 6, 0, 0), 
+ datetime.datetime(1996, 1, 13, 0, 0), 
+ datetime.datetime(1983, 1, 1, 0, 0)]
+>>> bd.sort(key = lambda d: (d.month, d.day)) # from sth's answer
+>>> pprint(bd)
+[datetime.datetime(1983, 1, 1, 0, 0),
+ datetime.datetime(1996, 1, 13, 0, 0),
+ datetime.datetime(1976, 2, 6, 0, 0)]
+  
+
+ If your dates are in different formats, you might give fuzzy parsing a shot: 
+
+  >>> bd = [parse(i,fuzzy=True) for i in bd] # replace line 4 above with this line
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44327188)
+ Your dates have no year, so the default, 1900, is used: 
+
+  >>> datetime.strptime('7-Mar 11:20:33', "%d-%b %H:%M:%S")
+datetime.datetime(1900, 3, 7, 11, 20, 33)
+  
+
+ 1900 is not a leap year, so the 29th of February 1900 doesn't exist and the exception is raised. 
+
+ If you must support parsing dates with leap days and no year, add in a year of your choosing as a string to the value to be parsed, like  '1904 ' , and parse out that extra number: 
+
+  >>> datetime.strptime('1904 29-Feb 02:11:10', "%Y %d-%b %H:%M:%S")
+datetime.datetime(1904, 2, 29, 2, 11, 10)
+  
+
+ Just add the year as a string when parsing: 
+
+  a.sort(key=lambda date: datetime.strptime('1904 ' + date, "%Y %d-%b %H:%M:%S"))
+  
+
+  
+
+  >>> sorted(a, key=lambda date: datetime.strptime('1904 ' + date, "%Y %d-%b %H:%M:%S"))
+['1-Jan 00:00:00', '29-Feb 02:11:10', '7-Mar 10:30:22', '7-Mar 11:20:33', '22-Mar 22:33:11', '25-Mar 03:04:05', '31-Mar 11:22:33']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39078261)
+ One simple way is to just convert the index to date, sort and then convert back to month-year. 
+
+  result.index = pd.to_datetime(result.index)
+result.sort_index(inplace=True)
+result.index = monthly_transpose.index.strftime('%B-%Y')
+  
+
+ When converting to date, pandas converts the month-year to the first date of each month nad hence the sorting is made possible. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28101722)
+  today = datetime.datetime.now()
+  
+
+ 1 Current year 
+
+  Order.objects.filter(created_at__year=today.year)
+  
+
+ 2 Current month 
+
+  Order.objects.filter(created_at__year=today.year, created_at__month=today.month)
+  
+
+ 3 Last month 
+
+  last_month = today.month - 1 if today.month>1 else 12
+last_month_year = today.year if today.month > last_month else today.year - 1
+
+Order.objects.filter(created_at__year=last_month_year, created_at__month=last_month)
+  
+
+ 4 Last year 
+
+  last_year = today.year - 1
+Order.objects.filter(created_at__year=last_year)
+  
+
+ 5 Single Query 
+
+ As last year + current year includes last month and current month, and all orders>= last_year includes current year, the query is super simple: 
+
+  Order.objects.filter(created_at__year__gte=last_year)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/6451804)
+ I'm assuming that you are using this to compare datetime values. To do that, please use the the http://docs.python.org/library/datetime.html#datetime.timedelta objects instead of reiniventing the wheel. 
+
+ Example: 
+
+  >>> from datetime import timedelta
+>>> from datetime import datetime as dt
+>>> d = dt.now()
+>>> year = timedelta(days=365)
+>>> tomorrow = d + timedelta(days=1)
+>>> tomorrow + year > d + year
+True
+  
+
+ If for some reason you truly  need  decimal years,  datetime  objects method  strftime()  can give you an integer representation of  day of the year  if asked for  %j  - if this is what you are looking for, see below for a simple sample (only on 1 day resolution): 
+
+  >>> from datetime import datetime
+>>> d = datetime(2007, 4, 14, 11, 42, 50)
+>>> (float(d.strftime("%j"))-1) / 366 + float(d.strftime("%Y"))
+2007.2814207650274
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34324094)
+ You can use the https://docs.djangoproject.com/en/1.9/ref/models/querysets/#month and https://docs.djangoproject.com/en/1.9/ref/models/querysets/#year lookups to limit the queryset to this month's objects. 
+
+  from datetime import date
+today = date.today()
+this_month_qs = Sample.objects.filter(
+    date__month=today.month,
+    date_year=today.year,
+)
+  
+
+ To find this weeks objects, you first need to find the date of this Monday. You can do this by finding today's day of the week (Monday = 0, Sunday = 6) using a date's  weekday()  method, and subtracting that many days from today. It's easy to calculate the last day of the week by adding 6 days, and then you can use  __range  to find this week's objects. 
+
+  from datetime import date, timedelta
+today = date.today()
+# Use today.isoweekday() if you want the week
+# to start on Sunday instead of Monday 
+first_day_of_week = date.today() - timedelta(today.weekday())
+end_date = first_day_of_week + timedelta(days=6)
+this_week_qs = Sample.objects.filter(date__range=[startdate, enddate])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42574531)
+ I think you need  month period  by converting http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DatetimeIndex.to_period.html and then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.value_counts.html, for sorting use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.sort_index.html: 
+
+  news_date = ['1997-10-31 18:00:00', '1997-10-31 18:00:00',
+           '1997-10-30 18:00:00', '1997-10-30 18:00:00',
+           '1997-10-30 18:00:00', '1997-10-30 18:00:00',
+           '1997-11-30 18:00:00', '1997-11-30 18:00:00',
+           '1997-12-30 18:00:00', '1997-12-30 18:00:00',
+           '2016-12-07 03:14:00', '2016-01-09 16:31:00',
+           '2016-12-10 19:02:00', '2016-01-11 09:41:00',
+           '2016-12-12 05:01:00', '2016-02-12 05:39:00',
+           '2016-12-12 06:44:00', '2016-12-12 08:11:00',
+           '2016-12-12 09:36:00', '2016-12-12 10:19:00']
+
+idx = pd.to_datetime(news_date)
+new = pd.Series(idx.to_period('m'))
+print (new)
+0    1997-10
+1    1997-10
+2    1997-10
+3    1997-10
+4    1997-10
+5    1997-10
+6    1997-11
+7    1997-11
+8    1997-12
+9    1997-12
+10   2016-12
+11   2016-01
+12   2016-12
+13   2016-01
+14   2016-12
+15   2016-02
+16   2016-12
+17   2016-12
+18   2016-12
+19   2016-12
+dtype: object
+  
+
+
+
+  df = new.value_counts().sort_index().reset_index()
+df.columns = ['Date','Count']
+df.Date = df.Date.dt.strftime('%Y-%m')
+print (df)
+      Date  Count
+0  1997-10      6
+1  1997-11      2
+2  1997-12      2
+3  2016-01      2
+4  2016-02      1
+5  2016-12      7
+  
+
+ Another possible solution is convert to  strings  first by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DatetimeIndex.strftime.html: 
+
+  new = pd.Series(idx.strftime('%Y-%m'))
+df = new.value_counts().sort_index().reset_index()
+df.columns = ['Date','Count']
+print (df)
+     Date  Count
+0  1997-10      6
+1  1997-11      2
+2  1997-12      2
+3  2016-01      2
+4  2016-02      1
+5  2016-12      7
+  
+
+
+

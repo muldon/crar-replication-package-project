@@ -1,0 +1,199 @@
+Query: Python check if all elements of a list are the same type
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13252359)
+ Using http://docs.python.org/2/library/functions.html#any, no need to traverse whole list. Just break as soon as object which is not  int  or  long  is found: 
+
+  >>> not any(not isinstance(y,(int,long)) for y in [1,2,3])
+True
+>>> not any(not isinstance(y,(int,long)) for y in [1,'a',2,3])
+False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22340911)
+ Python's list is an unhashable type, you can make tuples of them: 
+
+  >>> l1 = [[1,2,3], [2,3,4], [1,2]]
+>>> l2 = [[1,2], [1,2,3], [2,3,4]]
+>>> set(map(tuple, l1)) 
+set([(1, 2), (2, 3, 4), (1, 2, 3)])
+>>> set(map(tuple, l2))
+set([(1, 2), (2, 3, 4), (1, 2, 3)])
+
+>>> set(map(tuple, l1)) == set(map(tuple, l2))
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16367884)
+ Use http://docs.python.org/2/library/functions.html#isinstance to check for a specific type: 
+
+  >>> isinstance([], list)
+True
+  
+
+ Use http://docs.python.org/2/library/functions.html#all to test if  all  elements are of a certain type: 
+
+  all(isinstance(elem, list) for elem in list_of_lists)
+  
+
+  all()  short-circuits; if any of the tests returns  False , the loop is terminated and  False  is returned. Only if all but one element returns  True  does  all()  need to examine every element of the iterable. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29123492)
+ Combining some of the answers already given, using a combination of map(), type() and set() provides a imho rather readable answer. Assuming the limitation of not checking for type polymorphisms is ok. Also not the most computationally efficient answer, but it allows to easily check whether all elements are of the same type. 
+
+  # To check whether all elements in a list are integers
+set(map(type, [1,2,3])) == {int}
+# To check whether all elements are of the same type
+len(set(map(type, [1,2,3]))) == 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13486881)
+ Your last approach, comparing against  boost::python::api::object()  should work. However, it only checks if the element it actually  None . The extraction can still fail if the value is neither  None  nor a numeric type (a string for example). 
+
+ You should use  check()  to ensure that the conversion was successful (if it fails, the module will throw an exception if you use the value anyway): 
+
+  for( size_t i=0, len=boost::python::len(list); i<len; ++i ) {
+    boost::python::extract<double> value(list[i]);
+    if( !value.check() ) continue; // check if the conversion was successful
+    double d = value; // now you can use value as double
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7253572)
+ Artisom has your answer. In addtion, type checks are not very Pythonic. http://en.wikipedia.org/wiki/Duck_typing often is the way to go. In case your elements are numbers only, the following does the job too, without explicit type checks but behavior checks: 
+
+  def prob7(inlist): # flatten a list
+    outlist = []
+    for x in inlist:
+        try:
+            outlist += x
+        except TypeError:
+            outlist.append(x)
+    return outlist
+  
+
+ Note that string elements in this implementation would behave like nested lists. Anyway, just wanted to illustrate what it means to expect behavior, not types. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32018252)
+ You will need to sum the elements which are in the range, and check for the type.  The  type  check is needed since the ranges may have integers in between them  (eg: all floats between 1, 4). 
+
+  >>> lst = [1, 2.2, 3, 3.3, 3.4, 3.7, 4, 5.5, 6]
+>>> st, end = 3, 4
+>>> sum(st < x < end and type(x) == float for x in lst)
+3
+  
+
+ and between 1, 4: 
+
+  >>> st, end = 1, 4
+>>> sum(st < x < end and type(x) == float for x in lst)
+4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/13252348)
+ Try using http://docs.python.org/2/library/functions.html#all in conjunction with http://docs.python.org/2/library/functions.html#isinstance: 
+
+  all(isinstance(x, int) for x in lst)
+  
+
+ You can even check for multiple types with  isinstance  if that is desireable: 
+
+  all(isinstance(x, (int, long)) for x in lst)
+  
+
+ 
+
+ Not that this will pick up inherited classes as well.  e.g.: 
+
+  class MyInt(int):
+     pass
+
+print(isinstance(MyInt('3'),int)) #True
+  
+
+ If you  need  to restrict yourself to just integers, you could use  all(type(x) is int for x in lst) .  But that is a  VERY  rare scenario. 
+
+ 
+
+ A fun function you could write with this is one which would return the type of the first element in a sequence if all the other elements are the same type: 
+
+  def homogeneous_type(seq):
+    iseq = iter(seq)
+    first_type = type(next(iseq))
+    return first_type if all( (type(x) is first_type) for x in iseq ) else False
+  
+
+ This will work for any arbitrary iterable, but it will consume "iterators" in the process.  
+
+ Another fun function in the same vein which returns the set of common bases: 
+
+  import inspect
+def common_bases(seq):
+    iseq = iter(seq)
+    bases = set(inspect.getmro(type(next(iseq))))
+    for item in iseq:
+        bases = bases.intersection(inspect.getmro(type(item)))
+        if not bases:
+           break
+    return bases
+  
+
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/19614285)
+  Edited  
+
+ As far as I know, all lists are sortable, so if you want to know if a list is "sortable", the answer is yes, no mather what elements it has. 
+
+  class C:
+    def __init__(self):
+        self.a = 5
+        self.b = "asd"
+
+c = C()    
+d = True
+
+list1 = ["abc", "aad", c, 1, "b", 2, d]
+list1.sort()
+print list1
+>>> [<__main__.C instance at 0x0000000002B7DF08>, 1, True, 2, 'aad', 'abc', 'b']
+  
+
+ You could determine what types you consider "sortable" and implement a method to verify if all elements in the list are "sortable", something like this: 
+
+  def isSortable(list1):
+    types = [int, float, str]
+    res = True
+    for e in list1:
+        res = res and (type(e) in types)
+    return res
+
+print isSortable([1,2,3.0, "asd", [1,2,3]])
+  
+
+
+

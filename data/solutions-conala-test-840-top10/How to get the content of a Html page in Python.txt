@@ -1,0 +1,201 @@
+Query: How to get the content of a Html page in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2416841)
+ Parse the HTML with http://www.crummy.com/software/BeautifulSoup. 
+
+ To get all the text, without the tags, try: 
+
+  ''.join(soup.findAll(text=True))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47730866)
+ The page is rendered with JavaScript making more requests to fetch additional data. You can fetch the complete page with selenium. 
+
+  from bs4 import BeautifulSoup
+from selenium import webdriver
+driver = webdriver.Chrome()
+url = "https://shop.nordstrom.com/c/womens-dresses-shop?origin=topnav&cm_sp=Top%20Navigation-_-Women-_-Dresses&offset=11&page=3&top=72"
+driver.get(url)
+soup = BeautifulSoup(driver.page_source, 'html.parser')
+driver.quit()
+print(soup.prettify())
+  
+
+ For other solutions see my answer to https://stackoverflow.com/questions/45259232/scraping-google-finance-beautifulsoup/45259523#45259523 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40394255)
+ When you GET a page, you only download the page itself anyway. 
+
+  import requests
+
+url = 'https://stackoverflow.com/questions/40394209/python-requests-how-to-get-a-page-without-downloading-all-images'
+
+# This will yield only the HTML code
+response = requests.get(url)
+
+print(response.text)
+  
+
+ The page HTML contains references to images, but the GET request does not follow them. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35164148)
+ I'd use plain regex over xml tools in this case. . 
+
+  import re
+import requests
+
+url = 'http://sleepiq.sleepnumber.com/#/user/-9223372029758346943#@2'
+values = {'email-email': 'my@gmail.com', 'password-clear': 'Combination',
+          'password-password': 'mypassword'}
+
+page = requests.get(url, data=values, timeout=5)
+m = re.search(r'(\w*)(<div class="number">)(.*)(<\/div>)', page.content)
+# m = re.search(r'(\w*)(<title>)(.*)(<\/title>)', page.content)
+
+if m:
+    print(m.group(3))
+else:
+    print('Not found')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2417100)
+ You want to look at http://diveintopython.net/html_processing/index.html#dialect.divein because http://diveintopython.net/html_processing/introducing_sgmllib.html it does (almost)exactly what you want. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16619134)
+ Users add more content to the page (from previous dates) by clicking the  <div onclick="control.moreData()" id="moreLink">More...</div>  element at the bottom of the page.  
+
+ So to get your desired content, you could use Selenium to click the  id="moreLink"  element or execute some JavaScript to call  control.moreData();  in a loop.  
+
+ For example, if you want to get all content as far back as Friday, February 15, 2013 (it looks like a string of this format exists for every date, for loaded content) your python might look something like this: 
+
+  content = browser.page_source
+desired_content_is_loaded = false;
+while (desired_content_is_loaded == false):
+     if not "Friday, February 15, 2013" in content:
+          sel.run_script("control.moreData();")
+          content = browser.page_source
+     else:
+          desired_content_is_loaded = true;
+  
+
+ EDIT: 
+
+ If you disable JavaScript in your browser and reload the page, you will see that there is no "trends" content at all. What that tells me, is that the those items are loaded dynamically. Meaning, they are not part of the HTML document which is downloaded when you open the page. Selenium's .get() waits for the HTML document to load, but not for all JS to complete.  There's no telling if async JS will complete before or after any other event. . That would explain why you might sometimes get all, some, or none of that content when you call  browser.page_source  because it depends how fast async JS happens to be working at that moment. 
+
+ So, after opening the page, you might try waiting a few seconds before getting the source - giving the JS which loads the content time to complete. 
+
+  browser.get(googleURL)
+time.sleep(3)
+content = browser.page_source
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46022309)
+ In this case you have Javascript is not being triggered, thus it is not filling in the elements. I'd suggest you to use a webdriver such as Selenium, as exemplified in https://stackoverflow.com/questions/7861775/python-selenium-accessing-html-source. 
+
+ It will mimick a Browser and the Javascript will be executed. An example bellow. 
+
+  from selenium import webdriver
+browser = webdriver.Firefox()
+browser.get("http://www.fibalivestats.com/u/ACBS/333409/pbp.html")
+html_source = browser.page_source
+soup = BeautifulSoup(html_source, "html.parser")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/53100696)
+ Using requests with BeautifulSoup and Python 3:  
+
+  import requests 
+from bs4 import BeautifulSoup
+
+
+page = requests.get('http://www.website.com')
+bs = BeautifulSoup(page.content, features='lxml')
+for link in bs.findAll('a'):
+    print(link.get('href'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18883294)
+ This gets the header only from the server: 
+
+  import urllib2
+url = 'http://www.kernel.org/pub/linux/kernel/v3.0/testing/linux-3.7-rc6.tar.bz2'
+req = urllib2.Request(url)
+req.get_method = lambda: 'HEAD'
+response = urllib2.urlopen(req)
+content_type = response.headers.getheader('Content-Type')
+print(content_type)
+  
+
+  
+
+  application/x-bzip2
+  
+
+ From which you could conclude this is not HTML. You could use 
+
+  'html' in content_type
+  
+
+ to programmatically test if the content is HTML (or possibly XHTML).
+If you wanted to be even more sure the content is HTML you could download the contents and try to parse it with an HTML parser like http://lxml.de/ or http://www.crummy.com/software/BeautifulSoup/bs4. 
+
+ Beware of using  requests.get  like this: 
+
+  import requests
+r = requests.get(url)
+print(r.headers['content-type'])
+  
+
+ This takes a long time and my network monitor shows a sustained load leading me to believe this is downloading the entire file, not just the header. 
+
+  
+
+  import requests
+r = requests.head(url)
+print(r.headers['content-type'])
+  
+
+ gets the header only. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/49624030)
+ You can dump the current page's HTML content using the  WebDriver  property  page_source .  
+
+  
+
+  from selenium import webdriver
+driver = webdriver.Firefox()
+driver.get('https://yourfavoriteurl')
+if 'interested_string' in driver.page_source:
+    print('String matched!')
+  
+
+
+

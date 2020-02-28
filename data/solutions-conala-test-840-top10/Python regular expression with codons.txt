@@ -1,0 +1,569 @@
+Query: Python regular expression with codons
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23475149)
+ You don't even need that  codonsB  list.  A codon maps onto its anticodon complement 1:1. 
+
+  def anticodon(codon):
+    """returns the anticodon complement for a given codon"""
+    return ''.join(pairs[c] for c in codon)
+
+anticodon('AAG')
+Out[5]: 'TTC'
+  
+
+ You're free to check if each element in  codonsA  has an anticodon in  codonsB , if you need to make that check. 
+
+  all(anticodon(c) in codonsB for c in codonsA)
+Out[6]: True
+  
+
+ And the output I think you were originally looking for: 
+
+  for codon in codonsA:
+    print '{} : {}'.format(codon,anticodon(codon))
+
+AAG : TTC
+TAC : ATG
+CGG : GCC
+GAT : CTA
+TTG : AAC
+GTG : CAC
+CAT : GTA
+GGC : CCG
+ATT : TAA
+TCT : AGA
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11357647)
+  def codon2dec(x):
+  codons = ['aug', 'uuu', 'uuc', 'uua', 'uug', 'ucu', 'ucc', 'uca', 'ucg', 'uau', 'uac', 'uaa', 'ugu', 'ugc', 'uga', 'ugg', 'uuu', 'cuc', 'cua', 'cug', 'ccu', 'ccc', 'cca', 'ccg', 'cau', 'cac', 'caa', 'cag', 'cgu', 'cgc', 'cga', 'cgg', 'auu', 'auc', 'aua', 'acu', 'acc', 'aca', 'acg', 'aau', 'aac', 'aaa', 'aag', 'agu', 'agc', 'aga', 'agg', 'guu', 'guc', 'gua', 'gug', 'gcu', 'gcc', 'gca', 'gcg', 'gau', 'gac', 'gaa', 'gag', 'ggu', 'ggc', 'gga', 'ggg', 'uag' ]
+  if len(x)%3==0:
+      x=[''.join((x[i],x[i+1],x[i+2])) for i in range(0,len(x),3)]
+      try:
+          return sum(codons.index(y)*(64**(len(x)-1-i)) for i,y in enumerate(x))
+
+      except ValueError:
+          return 'invalid input'
+
+
+  else:
+      return 'invalid input'
+  
+
+  output:  
+
+  >>> codon2dec('cgagag')
+1978
+>>> codon2dec('ccgcag')
+1499
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9422950)
+ If you use Python 2.7 or above, you can use  collections.Counter  to count the amino acids.  First, split your base sequence into codons, then count the amino acids corresponding to each codon: 
+
+  base_seq = "atcgtgagt"
+codons = [base_seq[i:i + 3] for i in range(0, len(base_seq), 3)]
+amino_acid_counts = collections.Counter(aaDict[c] for c in codons)
+  
+
+ Note that the generator expression  (aaDict[c] for c in codons)  generates a sequence of amino acids, regardless by which codons they were encoded. 
+
+ If you use an earlier version of Python, you can also use a plain dictionary for counting: 
+
+  amino_acid_counts = dict.fromkeys(aaDict.values(), 0)
+for c in codons:
+    amino_acid_counts[aaDict[c]] += 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15301955)
+ Regular expressions are not always the best tool for the job when using Python. For the case you describe above, Python offers a much simpler, more readable, and more maintainable method: 
+
+  >>> s = "3 a 5 b"
+>>> '*'.join(s.split())
+'3*a*5*b'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/5778622)
+ 
+  a codon table containing ALL the 64 codons, even the non-degenarated ones (they constitute one element groups)  
+  counting the occurences of each codon's group at the same time that occurences of codons are counted during the iteration  
+  codon table comprising the names of coded amino acids -> a good display  
+ 
+
+ code: 
+
+  from collections import defaultdict
+
+# the first 600 nucleotides from GenBank: AAHX01097212.1
+adn = ("tcccccgcagcttcgggaacgtgcgggctcgggagggaggggcctggcgccgggcgcgcg"
+       "cctgcgccccaccccgccccaccctggcgggtctcgcgcgcccggcccgcctcctgtcaa"
+       "ccccagcgcggcggtcaggtggtccccagcccttggccccagcctccagcttcctggtcc"
+       "ctcgggctctgagtcctgtctccggcagatcgcctttctgattgttctcctgcgcagctg"
+       "gaggtgtatagcccctagccgagctatggtgcctcagcagatgtgaggaggtagtgggtc"
+       "aggataaacccgcgcactccataataacgtgccagggctcagtgacttgggtctgcatta")
+
+arn = adn.upper().replace('T','U')
+
+#RNA codon table from http://en.wikipedia.org/wiki/Genetic_code
+codon_table = ((('GCU', 'GCC', 'GCA', 'GCG'),  'Alanine'),
+               (('UUA', 'UUG', 'CUU', 'CUC', 'CUA', 'CUG'),  'Leucine'),
+               (('CGU', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'),  'Arginine'),
+               (('AAA', 'AAG'),  'Lysine'),
+               (('AAU', 'AAC'),  'Asparagine'),
+               (('AUG',),  'Methionine'),
+               (('GAU', 'GAC'),  'Aspartic acid' ),              
+               (('UUU', 'UUC'),  'Phenylalanine'),
+               (('UGU', 'UGC'),  'Cysteine'),
+               (('CCU', 'CCC', 'CCA', 'CCG'),  'Proline') ,
+               (('CAA', 'CAG'),  'Glutamine'),
+               (('UCU', 'UCC', 'UCA', 'UCG', 'AGU', 'AGC'),  'Serine'),
+               (('GAA', 'GAG'),  'Glutamic acid'),
+               (('ACU', 'ACC', 'ACA', 'ACG'),  'Threonine'),
+               (('GGU', 'GGC', 'GGA', 'GGG'),  'Glycine'),
+               (('UGG',),  'Tryptophane'),
+               (('CAU', 'CAC'),  'Histidine'),
+               (('UAU', 'UAC'),  'Tyrosine'),
+               (('AUU', 'AUC', 'AUA'),  'Isoleucine'),
+               (('GUU', 'GUC', 'GUA', 'GUG'),  'Valine'),
+               (('UAA', 'UGA', 'UAG'),  'STOP')            )
+
+siblings = dict( (cod, codgroup) for codgroup,aa in codon_table for cod in codgroup )
+
+cod_count, grp_count, freq = defaultdict(int), defaultdict(int), {}
+
+for cod in (arn[i:i+3] for i in xrange(0,len(arn),3)):
+    cod_count[cod] += 1
+    grp_count[siblings[cod]] += 1
+
+for cod in siblings.iterkeys(): # the keys of siblings are the 64 codons
+    if siblings[cod] in grp_count:
+        freq[cod] = float(cod_count[cod])/grp_count[siblings[cod]]
+    else:
+        freq[cod] = '-* Missing *-'
+
+
+display = '\n'.join(aa.rjust(13)+\
+                '\n'.join('%s  %-16s' % (cod.rjust(18 if i else 5),freq[cod])
+                          for i,cod in enumerate(codgrp))
+                for codgrp,aa in codon_table)
+
+
+# editing addition:
+
+def outputResults(filename,arn,codon_table,displ):
+
+    li = ['This file is named %s' % filename]
+
+    li.append('The sequence of ARN:\n%s' %\
+              '\n'.join(arn[i:i+42] for i in xrange(0,len(arn),42)))
+    li.append('Size of the sequence : '+str(len(arn)))
+
+    li.append('Codon_table:\n'+\
+              '\n'.join('%s : %s' % (u,v) for u,v in codon_table))
+
+    li.append('Frequency results :\n'+displ)
+
+    with open(filename,'w') as f:
+        f.writelines('\n\n'.join(li))
+
+
+outputResults('ARN_mem.txt',arn,codon_table,display)
+print display 
+  
+
+ . 
+
+ EDIT 
+
+ I've added a function outputResults() to show the manner to record data and results in a file 
+
+ The resulting file's content is: 
+
+  This file is named ARN_mem.txt
+
+The sequence of ARN:
+UCCCCCGCAGCUUCGGGAACGUGCGGGCUCGGGAGGGAGGGG
+CCUGGCGCCGGGCGCGCGCCUGCGCCCCACCCCGCCCCACCC
+UGGCGGGUCUCGCGCGCCCGGCCCGCCUCCUGUCAACCCCAG
+CGCGGCGGUCAGGUGGUCCCCAGCCCUUGGCCCCAGCCUCCA
+GCUUCCUGGUCCCUCGGGCUCUGAGUCCUGUCUCCGGCAGAU
+CGCCUUUCUGAUUGUUCUCCUGCGCAGCUGGAGGUGUAUAGC
+CCCUAGCCGAGCUAUGGUGCCUCAGCAGAUGUGAGGAGGUAG
+UGGGUCAGGAUAAACCCGCGCACUCCAUAAUAACGUGCCAGG
+GCUCAGUGACUUGGGUCUGCAUUA
+
+Size of the sequence : 360
+
+Codon_table:
+('GCU', 'GCC', 'GCA', 'GCG') : Alanine
+('UUA', 'UUG', 'CUU', 'CUC', 'CUA', 'CUG') : Leucine
+('CGU', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG') : Arginine
+('AAA', 'AAG') : Lysine
+('AAU', 'AAC') : Asparagine
+('AUG',) : Methionine
+('GAU', 'GAC') : Aspartic acid
+('UUU', 'UUC') : Phenylalanine
+('UGU', 'UGC') : Cysteine
+('CCU', 'CCC', 'CCA', 'CCG') : Proline
+('CAA', 'CAG') : Glutamine
+('UCU', 'UCC', 'UCA', 'UCG', 'AGU', 'AGC') : Serine
+('GAA', 'GAG') : Glutamic acid
+('ACU', 'ACC', 'ACA', 'ACG') : Threonine
+('GGU', 'GGC', 'GGA', 'GGG') : Glycine
+('UGG',) : Tryptophane
+('CAU', 'CAC') : Histidine
+('UAU', 'UAC') : Tyrosine
+('AUU', 'AUC', 'AUA') : Isoleucine
+('GUU', 'GUC', 'GUA', 'GUG') : Valine
+('UAA', 'UGA', 'UAG') : STOP
+
+Frequency results :
+      Alanine  GCU  0.1875          
+               GCC  0.375           
+               GCA  0.25            
+               GCG  0.1875          
+      Leucine  UUA  0.125           
+               UUG  0.0             
+               CUU  0.25            
+               CUC  0.375   
+etc.............
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53890025)
+ I can suggest to remap the  codons_table  in this way, so you can have direct access (print  codons_map  to see what I mean): 
+
+  codons_map = {}
+for k, v in codons_table.items():
+  for item in v:
+    codons_map[item] = k
+  
+
+ Then, as you did split the string by three: 
+
+  sequence = 'ACUGAUCUGAGACGUCAUCGUAGCAUCGU'
+seq_codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
+  
+
+ Finally iterate over the  seq_codons : 
+
+  peptide = []
+for item in seq_codons:
+  if len(item) == 3:
+    peptide.append(codons_map[item])
+
+print(peptide)
+#=> ['THR', 'ASP', 'LEU', 'ARG', 'ARG', 'HIS', 'ARG', 'SER', 'ILE']
+  
+
+  
+   
+
+  codons_map = { item: k for k, v in codons_table.items() for item in v }
+seq_codons = [sequence[i:i+3] for i in range(0, len(sequence), 3)]
+peptide = [ codons_map[item] for item in seq_codons if len(item) == 3 ]
+
+print(peptide)
+
+#=> ['THR', 'ASP', 'LEU', 'ARG', 'ARG', 'HIS', 'ARG', 'SER', 'ILE']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/5774160)
+ use defaultdict 
+
+  from collections import defaultdict
+
+mydict = defaultdict(int)
+
+for aa in mysecuence:
+    mydict[aa] +=1
+  
+
+ This works for aminoacids (proteins). 
+For codons, you should iterate on the sequence in 3 positions steps to get the keys of the defaultdict. For example: 
+
+  >>> mysec = "GAUCACTUGCCA"
+>>> a = [mysec[i:i+3] for i in range(0,len(mysec), 3)]
+>>> print a
+
+
+['GAU', 'CAC', 'TUG', 'CCA']
+  
+
+  EDIT:  If you want to calculate degeneration, you should prepare a dictionary relating each codon (key) with its degenerated codons (value, list of codons). To calculate the frecuency,
+from the defaultdict you can get the counts for each codon, then for each codon you calculate the sum of the counts of the degenerated codons read from the dictionary of codons indicated above. Then you can calculate the frecuency. 
+
+  EDIT 2: Here you have a real example:  
+
+  from collections import defaultdict
+
+#the first 600 nucleotides from GenBank: AAHX01097212.1
+rna = ("tcccccgcagcttcgggaacgtgcgggctcgggagggaggggcctggcgccgggcgcgcg"
+       "cctgcgccccaccccgccccaccctggcgggtctcgcgcgcccggcccgcctcctgtcaa"
+       "ccccagcgcggcggtcaggtggtccccagcccttggccccagcctccagcttcctggtcc"
+       "ctcgggctctgagtcctgtctccggcagatcgcctttctgattgttctcctgcgcagctg"
+       "gaggtgtatagcccctagccgagctatggtgcctcagcagatgtgaggaggtagtgggtc"
+       "aggataaacccgcgcactccataataacgtgccagggctcagtgacttgggtctgcatta")
+
+seq = rna.upper().replace('T', 'U')
+
+#RNA codon table from http://en.wikipedia.org/wiki/Genetic_code
+degenerated = (('GCU', 'GCC', 'GCA', 'GCG'),
+               ('UUA', 'UUG', 'CUU', 'CUC', 'CUA', 'CUG'),
+               ('CGU', 'CGC', 'CGA', 'CGG', 'AGA', 'AGG'),
+               ('AAA', 'AAG'), ('AAU', 'AAC'), ('GAU', 'GAC'),
+               ('UUU', 'UUC'), ('UGU', 'UGC'), ('CCU', 'CCC', 'CCA', 'CCG'),
+               ('CAA', 'CAG'), ('UCU', 'UCC', 'UCA', 'UCG', 'AGU', 'AGC'),
+               ('GAA', 'GAG'), ('ACU', 'ACC', 'ACA', 'ACG'),
+               ('GGU', 'GGC', 'GGA', 'GGG'), ('CAU', 'CAC'), ('UAU', 'UAC'),
+               ('AUU', 'AUC', 'AUA'), ('GUU', 'GUC', 'GUA', 'GUG'),
+               ('UAA', 'UGA', 'UAG'))
+
+#prepare the dictio of degenerated codons
+degen_dict = {}
+for codons in degenerated:
+    for codon in codons:
+        degen_dict[codon] = codons
+
+#query_codons
+max_seq = len(seq)
+query_codons = [seq[i:i+3] for i in range(0, max_seq, 3)]
+
+#prepare dictio of counts:
+counts = defaultdict(int)
+for codon in query_codons:
+    counts[codon] +=1
+
+#actual calculation of frecuencies
+data = {}
+for codon in query_codons:
+    if codon in  degen_dict:
+        totals = sum(counts[deg] for deg in degen_dict[codon])
+        frecuency = float(counts[codon]) / totals
+    else:
+        frecuency = 1.00
+
+    data[codon] = frecuency
+
+#print results
+for codon, frecuency in data.iteritems():
+    print "%s  -> %.2f" %(codon, frecuency)
+
+
+#produces:
+GUC  -> 0.57
+AUA  -> 1.00
+ACG  -> 0.50
+AAC  -> 1.00
+CCU  -> 0.25
+UAU  -> 1.00
+..........
+GCU  -> 0.19
+GAU  -> 1.00
+UAG  -> 0.33
+CUC  -> 0.38
+UUA  -> 0.13
+UGA  -> 0.33
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/20844245)
+ You can make a mapping of peptides to nucleotides with the addition of your missing character: 
+
+  codons = str.maketrans({'M' : 'ATG',
+                        'R' : 'CGT',
+                        ...,
+                        '-' : '---'}) # Your missing character
+
+peptide = 'M-R'
+result = peptide.translate(codons)
+  
+
+ and then translate the full sequence. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15502495)
+ I see a couple of problems with your  stop_codons  function.  First, your regex: 
+
+  (ATG)+?(?:TAA|TGA|TAG)
+  
+
+ As it is written, this is searching for repetitions of your start codon, followed by a stop codon.  Were your regex as it is written were to match, it would just return the start codons and nothing else.  If you want to find the first stop codon after a start codon, you can try: 
+
+  (?<=ATG)(?:[ACGT]{3})*(TAA|TGA|TAG)
+  
+
+ Second, it appears that if your regex matches the start codon, it will break the loops and return your list of  stop_codons , which assuming every sequence you pass into this function includes a start codon before a stop, would always result in an empty list being returned.  Hope this helps. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/5777164)
+ If your sequence is in the correct reading frame: 
+
+  >>> import collections
+>>> 
+>>> code = {     'ttt': 'F', 'tct': 'S', 'tat': 'Y', 'tgt': 'C',
+...              'ttc': 'F', 'tcc': 'S', 'tac': 'Y', 'tgc': 'C',
+...              'tta': 'L', 'tca': 'S', 'taa': '*', 'tga': '*',
+...              'ttg': 'L', 'tcg': 'S', 'tag': '*', 'tgg': 'W',
+...              'ctt': 'L', 'cct': 'P', 'cat': 'H', 'cgt': 'R',
+...              'ctc': 'L', 'ccc': 'P', 'cac': 'H', 'cgc': 'R',
+...              'cta': 'L', 'cca': 'P', 'caa': 'Q', 'cga': 'R',
+...              'ctg': 'L', 'ccg': 'P', 'cag': 'Q', 'cgg': 'R',
+...              'att': 'I', 'act': 'T', 'aat': 'N', 'agt': 'S',
+...              'atc': 'I', 'acc': 'T', 'aac': 'N', 'agc': 'S',
+...              'ata': 'I', 'aca': 'T', 'aaa': 'K', 'aga': 'R',
+...              'atg': 'M', 'acg': 'T', 'aag': 'K', 'agg': 'R',
+...              'gtt': 'V', 'gct': 'A', 'gat': 'D', 'ggt': 'G',
+...              'gtc': 'V', 'gcc': 'A', 'gac': 'D', 'ggc': 'G',
+...              'gta': 'V', 'gca': 'A', 'gaa': 'E', 'gga': 'G',
+...              'gtg': 'V', 'gcg': 'A', 'gag': 'E', 'ggg': 'G'
+...         }
+>>> def count_codons(cds):
+...     counts = collections.defaultdict(int)
+...     for i in range(0,len(cds),3):
+...        codon = cds[i:i+3]
+...        counts[codon] += 1
+...     return counts
+... 
+>>> def translate(cds, code):
+...     return "".join((code[cds[i:i+3]] for i in range(0, len(cds), 3)))
+... 
+>>> seq = 'ATGAAGAAA'
+>>> 
+>>> codon_counts = count_codons(seq.lower())
+>>> trans_seq = translate(seq.lower(), code)
+>>> 
+>>> [(codon, code[codon], float(codon_counts[codon])/trans_seq.count(code[codon])) for codon in codon_counts.keys()]
+[('atg', 'M', 1.0), ('aag', 'K', 0.5), ('aaa', 'K', 0.5)]
+>>> 
+  
+
+  other info:  
+
+ I think you are asking to find something called codon usage.  
+
+ There are tools online which allow you to find codon usage. This one also allows for offline use. 
+
+ http://www.bioinformatics.org/sms2/codon_usage.html 
+
+ and results (in this 'Fraction' is what you are asking for): 
+
+  Results for 9 residue sequence "sample sequence one" starting "ATGAAGAAA"
+AmAcid   Codon     Number        /1000     Fraction   .. 
+
+Ala      GCG         0.00         0.00         0.00 
+Ala      GCA         0.00         0.00         0.00 
+Ala      GCT         0.00         0.00         0.00 
+Ala      GCC         0.00         0.00         0.00 
+
+Cys      TGT         0.00         0.00         0.00 
+Cys      TGC         0.00         0.00         0.00 
+
+Asp      GAT         0.00         0.00         0.00 
+Asp      GAC         0.00         0.00         0.00 
+
+Glu      GAG         0.00         0.00         0.00 
+Glu      GAA         0.00         0.00         0.00 
+
+Phe      TTT         0.00         0.00         0.00 
+Phe      TTC         0.00         0.00         0.00 
+
+Gly      GGG         0.00         0.00         0.00 
+Gly      GGA         0.00         0.00         0.00 
+Gly      GGT         0.00         0.00         0.00 
+Gly      GGC         0.00         0.00         0.00 
+
+His      CAT         0.00         0.00         0.00 
+His      CAC         0.00         0.00         0.00 
+
+Ile      ATA         0.00         0.00         0.00 
+Ile      ATT         0.00         0.00         0.00 
+Ile      ATC         0.00         0.00         0.00 
+
+Lys      AAG         1.00       333.33         0.50 
+Lys      AAA         1.00       333.33         0.50 
+
+Leu      TTG         0.00         0.00         0.00 
+Leu      TTA         0.00         0.00         0.00 
+Leu      CTG         0.00         0.00         0.00 
+Leu      CTA         0.00         0.00         0.00 
+Leu      CTT         0.00         0.00         0.00 
+Leu      CTC         0.00         0.00         0.00 
+
+Met      ATG         1.00       333.33         1.00 
+
+Asn      AAT         0.00         0.00         0.00 
+Asn      AAC         0.00         0.00         0.00 
+
+Pro      CCG         0.00         0.00         0.00 
+Pro      CCA         0.00         0.00         0.00 
+Pro      CCT         0.00         0.00         0.00 
+Pro      CCC         0.00         0.00         0.00 
+
+Gln      CAG         0.00         0.00         0.00 
+Gln      CAA         0.00         0.00         0.00 
+
+Arg      AGG         0.00         0.00         0.00 
+Arg      AGA         0.00         0.00         0.00 
+Arg      CGG         0.00         0.00         0.00 
+Arg      CGA         0.00         0.00         0.00 
+Arg      CGT         0.00         0.00         0.00 
+Arg      CGC         0.00         0.00         0.00 
+
+Ser      AGT         0.00         0.00         0.00 
+Ser      AGC         0.00         0.00         0.00 
+Ser      TCG         0.00         0.00         0.00 
+Ser      TCA         0.00         0.00         0.00 
+Ser      TCT         0.00         0.00         0.00 
+Ser      TCC         0.00         0.00         0.00 
+
+Thr      ACG         0.00         0.00         0.00 
+Thr      ACA         0.00         0.00         0.00 
+Thr      ACT         0.00         0.00         0.00 
+Thr      ACC         0.00         0.00         0.00 
+
+Val      GTG         0.00         0.00         0.00 
+Val      GTA         0.00         0.00         0.00 
+Val      GTT         0.00         0.00         0.00 
+Val      GTC         0.00         0.00         0.00 
+
+Trp      TGG         0.00         0.00         0.00 
+
+Tyr      TAT         0.00         0.00         0.00 
+Tyr      TAC         0.00         0.00         0.00 
+
+End      TGA         0.00         0.00         0.00 
+End      TAG         0.00         0.00         0.00 
+End      TAA         0.00         0.00         0.00 
+  
+
+ cusp is the codon usage tool from EMBOSS which also may be worth taking a look at. 
+
+ You may want to checkout BioPython for working with biological sequences. I believe they have a codon usage module. 
+
+
+

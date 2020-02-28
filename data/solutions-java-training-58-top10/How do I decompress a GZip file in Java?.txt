@@ -1,0 +1,483 @@
+Query: How do I decompress a GZip file in Java?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/902912)
+ a) Zip is an archive format, while gzip is not. So an entry iterator does not make much sense unless (for example) your gz-files are compressed tar files.  
+
+  File outFile = new File(infile.getParent(), infile.getName().replaceAll("\\.gz$", ""));
+  
+
+ b) Do you only want to uncompress the files? If not you may be ok with using GZIPInputStream and read the files directly, i.e. without intermediate decompression. 
+
+ . Let's say you really  only  want to uncompress the files. If so, you could probably use this: 
+
+  public static File unGzip(File infile, boolean deleteGzipfileOnSuccess) throws IOException {
+    GZIPInputStream gin = new GZIPInputStream(new FileInputStream(infile));
+    FileOutputStream fos = null;
+    try {
+        File outFile = new File(infile.getParent(), infile.getName().replaceAll("\\.gz$", ""));
+        fos = new FileOutputStream(outFile);
+        byte[] buf = new byte[100000];
+        int len;
+        while ((len = gin.read(buf)) > 0) {
+            fos.write(buf, 0, len);
+        }
+
+        fos.close();
+        if (deleteGzipfileOnSuccess) {
+            infile.delete();
+        }
+        return outFile; 
+    } finally {
+        if (gin != null) {
+            gin.close();    
+        }
+        if (fos != null) {
+            fos.close();    
+        }
+    }       
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/10992451)
+ Try a  GZIPOutputStream  for zipping the String: 
+
+  ByteArrayOutputStream out = new ByteArrayOutputStream();
+Writer writer = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(out)));
+writer.write(string);
+byte[] zipped = out.toByteArray();
+  
+
+  
+
+  ByteArrayInputStream in = new ByteArrayInputStream(zipped);
+BufferedReader reader = new BufferedReader(new InputStreamReader(new GZIPInputStream(in)));
+string = reader.readLine();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41476316)
+ Root Cause Discussion</h3>
+
+ It turns out that InputStreams can vary quite a bit.  .. For example ByteArrayInputStream .available() returns the number of bytes remaining in the InputStream. However, HTTPInputStream .available() returns the number of bytes available for reading before a blocking IO request needs to be made to refill the buffer. (See the Java Docs for more info) 
+
+ The problem is that GZIPInputStream uses the output of .available() to determine if there might be an additional GZIP file available in the InputStream after it finishes decompressing a complete GZIP file. Here is line 231 from OpenJDK source file http://hg.openjdk.java.net/jdk8u/jdk8u/jdk/file/0e4fc29a5ce4/src/share/classes/java/util/zip/GZIPInputStream.java method readTrailer().  
+
+     if (this.in.available() > 0 || n > 26) {
+  
+
+ If the HTTPInputStream read buffer empties right at the boundary of two concatenated GZIP files GZIPInputStream calls .available(), which responds with a 0 as it would need to go out to the network to refill the buffer, and so GZIPInputStream treats the file as complete and closes prematurely. 
+
+  .wet archives are hundreds of megabytes of small concatenated GZIP files and so eventually the HTTPInputStream buffer will empty right at the end of one of the concatenated GZIP files and GZIPInputStream will close prematurely. This explains the problem demonstrated in the question. 
+
+ Solution and Work Around</h3>
+
+ This https://gist.github.com/jeffharwell/2e8785a0ec8acc8539901e841d595394 contains a patch to jdk8u152-b00 revision 12039 and two jtreg tests that remove the (in my humble opinion) incorrect reliance on .available(). 
+
+ If you cannot patch the JDK a work around is to make sure that available() always returns > 0 which forces GZIPInputStream to always check for another GZIP file in the stream. Unfortunately HTTPInputStream is private so you cannot subclass it directly, instead extend InputStream and wrap the HTTPInputStream. The below code demonstrates this work around. 
+
+ Demonstration Code and Output</h3>
+
+ Here is the output showing that when the HTTPInputStream is wrapped as discussed GZIPInputStream will produces identical results when reading the concatenated GZIP from a file and directly from HTTP. 
+
+  Testing URL https://commoncrawl.s3.amazonaws.com/crawl-data/CC-MAIN-2016-50/segments/1480698540409.8/wet/CC-MAIN-20161202170900-00009-ip-10-31-129-80.ec2.internal.warc.wet.gz
+Testing HTTP Input Stream direct to GZIPInputStream
+Testing saving to file before decompression
+Read 448974935 bytes from HTTP->GZIP
+Read 448974935 bytes from HTTP->file->GZIP
+Output from HTTP->GZIP saved to file testfile0.wet
+------
+Testing URL https://commoncrawl.s3.amazonaws.com/crawl-data/CC-MAIN-2016-50/segments/1480698540409.8/wet/CC-MAIN-20161202170900-00040-ip-10-31-129-80.ec2.internal.warc.wet.gz
+Testing HTTP Input Stream direct to GZIPInputStream
+Testing saving to file before decompression
+Read 451171329 bytes from HTTP->GZIP
+Read 451171329 bytes from HTTP->file->GZIP
+Output from HTTP->GZIP saved to file testfile40.wet
+------
+Testing URL https://commoncrawl.s3.amazonaws.com/crawl-data/CC-MAIN-2016-50/segments/1480698541142.66/wet/CC-MAIN-20161202170901-00500-ip-10-31-129-80.ec2.internal.warc.wet.gz
+Testing HTTP Input Stream direct to GZIPInputStream
+Testing saving to file before decompression
+Read 453183600 bytes from HTTP->GZIP
+Read 453183600 bytes from HTTP->file->GZIP
+Output from HTTP->GZIP saved to file testfile500.wet
+  
+
+ Here is the demonstration code from the question modified with an InputStream wrapper. 
+
+  import java.net.*;
+import java.io.*;
+import java.util.zip.GZIPInputStream;
+import java.nio.channels.*;
+
+public class GZIPTest {
+    // Here is a wrapper class that wraps an InputStream
+    // but always returns > 0 when .available() is called.
+    // This will cause GZIPInputStream to always make another 
+    // call to the InputStream to check for an additional 
+    // concatenated GZIP file in the stream.
+    public static class AvailableInputStream extends InputStream {
+        private InputStream is;
+
+        AvailableInputStream(InputStream inputstream) {
+            is = inputstream;
+        }
+
+        public int read() throws IOException {
+            return(is.read());
+        }
+
+        public int read(byte[] b) throws IOException {
+            return(is.read(b));
+        }
+
+        public int read(byte[] b, int off, int len) throws IOException {
+            return(is.read(b, off, len));
+        }
+
+        public void close() throws IOException {
+            is.close();
+        }
+
+        public int available() throws IOException {
+            // Always say that we have 1 more byte in the
+            // buffer, even when we don't
+            int a = is.available();
+            if (a == 0) {
+                return(1);
+            } else {
+                return(a);
+            }
+        }
+    }
+
+
+
+    public static void main(String[] args) throws Exception {
+        // Our three test files from CommonCrawl
+        URL url0 = new URL("https://commoncrawl.s3.amazonaws.com/crawl-data/CC-MAIN-2016-50/segments/1480698540409.8/wet/CC-MAIN-20161202170900-00009-ip-10-31-129-80.ec2.internal.warc.wet.gz");
+        URL url40 = new URL("https://commoncrawl.s3.amazonaws.com/crawl-data/CC-MAIN-2016-50/segments/1480698540409.8/wet/CC-MAIN-20161202170900-00040-ip-10-31-129-80.ec2.internal.warc.wet.gz");
+        URL url500 = new URL("https://commoncrawl.s3.amazonaws.com/crawl-data/CC-MAIN-2016-50/segments/1480698541142.66/wet/CC-MAIN-20161202170901-00500-ip-10-31-129-80.ec2.internal.warc.wet.gz");
+
+        /*
+         * Test the URLs and display the results
+         */
+        test(url0, "testfile0.wet");
+        System.out.println("------");
+        test(url40, "testfile40.wet");
+        System.out.println("------");
+        test(url500, "testfile500.wet");
+    }
+
+    public static void test(URL url, String testGZFileName) throws Exception {
+        System.out.println("Testing URL "+url.toString());
+
+        // First directly wrap the HTTP inputStream with GZIPInputStream
+        // and count the number of bytes we read
+        // Go ahead and save the extracted stream to a file for further inspection
+        System.out.println("Testing HTTP Input Stream direct to GZIPInputStream");
+        int bytesFromGZIPDirect = 0;
+        URLConnection urlConnection = url.openConnection();
+        // Wrap the HTTPInputStream in our AvailableHttpInputStream
+        AvailableInputStream ais = new AvailableInputStream(urlConnection.getInputStream());
+        GZIPInputStream gzipishttp = new GZIPInputStream(ais);
+        FileOutputStream directGZIPOutStream = new FileOutputStream("./"+testGZFileName);
+        int buffersize = 1024;
+        byte[] buffer = new byte[buffersize];
+        int bytesRead = -1;
+        while ((bytesRead = gzipishttp.read(buffer, 0, buffersize)) != -1) {
+            bytesFromGZIPDirect += bytesRead;
+            directGZIPOutStream.write(buffer, 0, bytesRead); // save to file for further inspection
+        }
+        gzipishttp.close();
+        directGZIPOutStream.close();
+
+        // Save the GZIPed file locally
+        System.out.println("Testing saving to file before decompression");
+        ReadableByteChannel rbc = Channels.newChannel(url.openStream());
+        FileOutputStream outputStream = new FileOutputStream("./test.wet.gz");
+        outputStream.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+
+        // Now decompress the local file and count the number of bytes
+        int bytesFromGZIPFile = 0;
+        GZIPInputStream gzipis = new GZIPInputStream(new FileInputStream("./test.wet.gz"));
+
+        buffer = new byte[1024];
+        while((bytesRead = gzipis.read(buffer, 0, 1024)) != -1) {
+            bytesFromGZIPFile += bytesRead;
+        }
+        gzipis.close();
+
+        // The Results
+        System.out.println("Read "+bytesFromGZIPDirect+" bytes from HTTP->GZIP");
+        System.out.println("Read "+bytesFromGZIPFile+" bytes from HTTP->file->GZIP");
+        System.out.println("Output from HTTP->GZIP saved to file "+testGZFileName);
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41969703)
+ Here is an easy way to do it with gzip: 
+
+ Python code: 
+
+  import gzip
+content = "the quick brown fox"
+with gzip.open('fox.txt.gz', 'wb') as f:
+    f.write(content)
+  
+
+ Clojure code: 
+
+  (with-open [in (java.util.zip.GZIPInputStream.
+                (clojure.java.io/input-stream
+                 "fox.txt.gz"))]
+  (println "result:" (slurp in)))
+
+;=>  result: the quick brown fox
+  
+
+ Keep in mind that "gzip" is an algorithm and a format, and does not mean you need to use the "gzip" command-line tool. 
+
+ Please note that the input to Clojure doesn't have to be a file. You could send the gzip compressed data as raw bytes over a socket and still decompress it on the Clojure side. Full details at:  https://clojuredocs.org/clojure.java.io/input-stream 
+
+ Update 
+
+ If you need to use the pure  zlib  format instead of  gzip , the result is very similar: 
+
+ Python code: 
+
+  import zlib
+fp = open( 'balloon.txt.z', 'wb' )
+fp.write( zlib.compress( 'the big red baloon' ))
+fp.close()
+  
+
+ Clojure code: 
+
+  (with-open [in (java.util.zip.InflaterInputStream.
+                (clojure.java.io/input-stream
+                 "balloon.txt.z"))]
+  (println "result:" (slurp in)))
+
+;=> result: the big red baloon
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14936055)
+ I've tested your code by compressing and decompressing a simple TXT file. The code is  broken , since the compressed file, when uncompressed, is different from the original one. 
+
+ Take for granted that the code is broken  at least  in the  getBytesFromFile  function. Its logic is tricky and troublesome, since it only allows files up to length 1064 and the check (throwing  IOException  when a longer file is read) does not work at all. The file gets read only partially and no exception is thrown. 
+
+ What you are trying to achieve (file compression/decompression) can be done this way. I've tested it and it works, you just need http://commons.apache.org/io/index.html. 
+
+  import java.io.*;
+import java.util.zip.*;
+import org.apache.commons.io.IOUtils; // <-- get this from http://commons.apache.org/io/index.html
+
+public class CompressionTest2 {
+
+    public static void main(String[] args) throws IOException {
+        File input = new File("input.txt");
+        File output = new File("output.bin");
+        Compression.compress(input, output);
+        File input2 = new File("input2.txt");
+        Compression.decompress(output, input2);
+        // At this point, input.txt and input2.txt should be equal
+    }
+
+}
+
+class Compression {
+
+    public static void compress(File input, File output) throws IOException {
+        FileInputStream fis = new FileInputStream(input);
+        FileOutputStream fos = new FileOutputStream(output);
+        GZIPOutputStream gzipStream = new GZIPOutputStream(fos);
+        IOUtils.copy(fis, gzipStream);
+        gzipStream.close();
+        fis.close();
+        fos.close();
+    }
+
+    public static void decompress(File input, File output) throws IOException {
+        FileInputStream fis = new FileInputStream(input);
+        FileOutputStream fos = new FileOutputStream(output);
+        GZIPInputStream gzipStream = new GZIPInputStream(fis);
+        IOUtils.copy(gzipStream, fos);
+        gzipStream.close();
+        fis.close();
+        fos.close();
+    }
+
+}
+  
+
+ This code doesn't come from "credible and/or official sources" but at least it works. :) 
+
+ Moreover, in order to get more answers, adjust the title stating your real problem: your compressed files don't decompress the right way. There is no 'video' stuff here.   .mp4  file is no achievement (compression ratio will likely be around 99.99%). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39564473)
+ String outStr = out.toString("UTF-8"); 
+This "out" is ziped byte stream,encode it to String then decode it from String will be lose some bytes.This maybe a bug of java.
+To Resolve it,you can encode bytes to String in compress() to return, such as : 
+
+  String infoBase64Encode = new String(Base64.encodeBase64(out.toByteArray()))
+  
+
+ decode String to bytes in decompress() to return, such as : 
+
+  String infoBase64Decode = Base64.decodeBase64(decryptAESinfo)
+  
+
+ complete code as follows: 
+
+  public static String compress(String str) throws IOException { 
+           if (str == null || str.length() == 0) { 
+               return str; 
+           } 
+           System.out.println("String length : " + str.length()); 
+           ByteArrayOutputStream out = new ByteArrayOutputStream(); 
+           GZIPOutputStream gzip = new GZIPOutputStream(out); 
+           gzip.write(str.getBytes()); 
+           gzip.close(); 
+           String outStr = new String(Base64.encodeBase64(out.toByteArray()));
+           System.out.println("Output String lenght : " + outStr.length()); 
+           System.out.println("Output : " + outStr.toString()); 
+           return outStr; 
+    } 
+
+    public static String decompress(String str) throws IOException { 
+           if (str == null || str.length() == 0) { 
+              return str; 
+           } 
+           System.out.println("Input String length : " + str.length()); 
+           GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(Base64.decodeBase64(str))); 
+           String outStr = ""; 
+           ByteArrayOutputStream out = new ByteArrayOutputStream();
+           byte[] buffer = new byte[256];
+           int n;
+           while ((n = gis.read(buffer)) >= 0) {
+               out.write(buffer, 0, n);
+           }
+           System.out.println("Output String lenght : " + outStr.length()); 
+           return new String(out.toByteArray()); 
+    } 
+
+    public static void main(String[] args) throws IOException { 
+           String string = "my data"; 
+           System.out.println("after compress:"); 
+           String compressed = compress(string); 
+           System.out.println(compressed); 
+           System.out.println("after decompress:"); 
+           String decomp = decompress(compressed); 
+           System.out.println(decomp); 
+    } 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19086500)
+ The server may be compressing the pdf.  You can use this code, stolen from https://stackoverflow.com/questions/4818468/how-to-check-if-inputstream-is-gzipped to detect and decompress the response from the server, 
+
+  InputStream is = driver.getCurrentUrl().openStream();
+try {
+   InputStream decoded = decompressStream(is);
+   FileOutputStream output = new FileOutputStream(
+       new File("C:\\Users\\myDocs\\myfolder\\myFile.pdf"));
+   try {
+       IOUtils.copy(decoded, output);
+   }
+   finally {
+       output.close();
+   }
+} finally {
+   is.close();
+}
+
+public static InputStream decompressStream(InputStream input) {
+     PushBackInputStream pb = new PushBackInputStream( input, 2 ); //we need a pushbackstream to look ahead
+     byte [] signature = new byte[2];
+     pb.read( signature ); //read the signature
+     pb.unread( signature ); //push back the signature to the stream
+     if( signature[ 0 ] == (byte) 0x1f && signature[ 1 ] == (byte) 0x8b ) //check if matches standard gzip maguc number
+       return new GZIPInputStream( pb );
+     else 
+       return pb;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49456052)
+ Based on the following APIs : 
+https://docs.oracle.com/javase/8/docs/api/java/util/Base64.Decoder.html and https://docs.oracle.com/javase/8/docs/api/index.html?java/util/zip/GZIPInputStream.html (look at the wrap method on the former and the constructors on the latter),  the decompress method can be overloaded as follows:  
+
+  private String decompress(InputStream compressedStream) {
+  InputStream decodingStream = Base64.getDecoder().wrap(compressedStream);
+  String result = null;
+  GZIPInputStream zip = null;
+  try {
+    zip = new GZIPInputStream(decodingStream);
+    result = IOUtils.toString(zip);
+  } catch (IOException e) {
+    e.printStackTrace();
+  } finally {
+    IOUtils.closeQuietly(zip);
+  }
+  return result;
+}
+  
+
+ And finally, the changes to saveS3toFilesystem are as follows :  
+
+  private void saveS3toFilesystem(String filename, String bucketName, String localFilename) {
+  S3Object obj = s3.getObject(bucketName, filename);
+  InputStream in = obj.getObjectContent();
+  // decoding the inputstream via decode into a string, which is then
+  // used in order to create an inputstream of decoded data
+  InputStream decodedStream = 
+     new ByteArrayInputStream(decompress(in).getBytes(StandardCharsets.UTF_8));
+  try {
+    Files.createDirectories(Paths.get(localFilename.replace(this.FILE_EXTENSION, "")));
+    Files.copy(decodedStream, Paths.get(localFilename));
+    this.logger.log("Input file has been placed in local filesystem for ITMS to pick up: " + localFilename + "\n");
+  } catch (IOException err) {
+    this.logger.log("There was a problem saving the file to " + localFilename);
+    err.printStackTrace();
+  } finally {
+    try {
+      in.close();
+    } catch (IOException err) {
+      err.printStackTrace();
+    }
+  }
+  return;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21399907)
+ Since  fcontents  contains your gzipped data it should be a  byte[]  and not a  String ? 
+
+ I recommend using http://commons.apache.org/proper/commons-io/javadocs/api-2.4/org/apache/commons/io/IOUtils.html for reading the file into a byte array as reading it into a string will most likely corrupt your data. 
+
+
+

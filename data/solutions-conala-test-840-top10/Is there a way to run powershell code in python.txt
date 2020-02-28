@@ -1,0 +1,189 @@
+Query: Is there a way to run powershell code in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38083047)
+ If you Want to embed PowerShell script in exe, vc++ is probably the way to go. 
+
+ You can use  system  function in  <stdlib>  to run commands in cmd 
+
+ here is the code: 
+
+  #include "stdafx.h"
+#include <stdlib.h>
+using namespace std;
+
+int main()
+{
+    system("@powershell -NoProfile -ExecutionPolicy Bypass <your PSScript path>");
+    return 0;
+}
+  
+
+ but this code will require you have the  ps1  file on your local box. 
+
+ 
+
+ my suggestion is to run if from the remote. host you  ps1  file on GitHub or gist 
+
+  #include "stdafx.h"
+#include <stdlib.h>
+using namespace std;
+
+int main()
+{
+    system("@powershell -NoProfile -ExecutionPolicy Bypass -command (new-object net.webclient).downloadstring('<url to your script>")');
+    return 0;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38082342)
+ Just start powershell.exe (untested) 
+
+  os.system("powershell.exe", "script.ps1")
+  
+
+ You may need an additional parameters to specify path and execution policy. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/47096326)
+ Arguably the best approach is to use  powershell.exe -Command  rather than writing the PowerShell command to a file: 
+
+  pscommand = 'Invoke-Command ...'
+process = subprocess.Popen(['powershell.exe', '-NoProfile', '-Command', '"&{' + pscommand + '}"'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  
+
+ Make sure double quotes in the  pscommand  string are properly escaped. 
+
+ Note that  shell=True  is required only in certain edge cases, and should not be used in your scenario. From the https://docs.python.org/2/library/subprocess.html#subprocess.Popen: 
+
+ 
+   On Windows with  shell=True , the   COMSPEC   environment variable specifies the default shell. The only time you need to specify  shell=True  on Windows is when the command you wish to execute is built into the shell (e.g.  dir  or  copy ). You do not need  shell=True  to run a batch file or console-based executable. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25333589)
+ 
+  Make sure you can run powershell scripts (it is disabled by default). . http://technet.microsoft.com/en-us/library/ee176949.aspx 
+
+  Set-ExecutionPolicy RemoteSigned
+   
+  Run this python script on your powershell script  helloworld.py : 
+
+  # -*- coding: iso-8859-1 -*-
+import subprocess, sys
+
+p = subprocess.Popen(["powershell.exe", 
+              "C:\\Users\\USER\\Desktop\\helloworld.ps1"], 
+              stdout=sys.stdout)
+p.communicate()
+   
+ 
+
+ This code is based on python3.4 (or any 3.x series interpreter), though it should work on python2.x series as well. 
+
+  C:\Users\MacEwin\Desktop>python helloworld.py
+Hello World
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47341806)
+ You could use separate processes to run scripts 
+
+ https://docs.python.org/3/library/subprocess.html#subprocess.Popen 
+
+  import subprocess
+for fileName in files:
+    subprocess.Popen(['./{}.py'.format(fileName)])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34203551)
+ I had trouble with a similar task, but I was able to solve it.  
+
+ First my example code: 
+
+  import subprocess
+
+args = ["powershell.exe", "-Command", r"-"]
+process = subprocess.Popen(args, stdin = subprocess.PIPE, stdout =   subprocess.PIPE)
+
+process.stdin.write(b"$data = Get-ChildItem C:\\temp\r\n")
+process.stdin.write(b"Write-Host 'Finished 1st command'\r\n")
+process.stdin.write(b"$data | Export-Clixml -Path c:\\temp\state.xml\r\n")
+process.stdin.write(b"Write-Host 'Finished 2nd command'\r\n")
+
+output = process.communicate()[0]
+
+print(output.decode("utf-8"))
+print("done")
+  
+
+ The main issue was the correct argument list  args . It is required to start the powershell with the  -Command -flag, followed by "-" as indicated by Jan-Philipp. 
+
+ Another mystery was the end-of-line character that is required to get the stuff executed.  \r\n  works quite well. 
+
+ Getting the output of the Powershell is still an issue. But if you don't care about realtime, you can collect the output after finishing all executions by calling 
+
+  output = process.communicate()[0]
+  
+
+ However, the active Powershell will be terminated afterwards. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52890366)
+ Or just simply type 'py' instead of 'python' in the PowerShell and hit enter. 
+
+ https://i.stack.imgur.com/PuNlG.jpg 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46102237)
+ Use  | tee  (On windows platform, use Powershell): 
+
+  import subprocess
+
+# Run command in powershell and redirect it by | tee to a file named out.txt 
+result = subprocess.Popen(['powershell', command, '|', 'tee', 'out.txt'])
+
+# Get standard output
+f = open('out.txt')
+out = f.read()
+f.close()
+  
+
+ By this way, the screen will display the output on PowerShell terminal and the output will also be stored in  out . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21945457)
+ I don't have Python 2.7 installed, but in Python 3.3 calling  Popen  with  stdout  set to  sys.stdout  worked just fine. Not before I had escaped the backslashes in the path, though. 
+
+  >>> <b>import subprocess</b>
+>>> <b>import sys</b>
+>>> <b>p = subprocess.Popen(['powershell.exe', 'C:\\Temp\\test.ps1'], stdout=sys.stdout)</b>
+>>> Hello World
+_  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33770378)
+ Download the code in the python format (.py), open up PowerShell (comes with Windows 10), find your way to the directory you downloaded the .py format code to using the  cd [X]  command (where X is the directory), then type  python3 X  with X being whatever you saved the .. 
+
+
+

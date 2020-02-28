@@ -1,0 +1,342 @@
+Query: How to store data frame using PANDAS, Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24894235)
+ Here's an example 
+
+  In [8]: pd.__version__
+Out[8]: '0.14.1'
+
+In [9]: np.__version__
+Out[9]: '1.8.1'
+
+In [10]: import sys
+
+In [11]: sys.version
+Out[11]: '2.7.3 (default, Jan  7 2013, 09:17:50) \n[GCC 4.4.5]'
+
+In [4]: df = DataFrame(np.arange(9).reshape(9,-1),index=pd.MultiIndex.from_product([list('abc'),date_range('20140721',periods=3)],names=['symbol','date']),columns=['value'])
+
+In [5]: df
+Out[5]: 
+                   value
+symbol date             
+a      2014-07-21      0
+       2014-07-22      1
+       2014-07-23      2
+b      2014-07-21      3
+       2014-07-22      4
+       2014-07-23      5
+c      2014-07-21      6
+       2014-07-22      7
+       2014-07-23      8
+
+In [6]: df.to_hdf('test.h5','df',mode='w',format='table')
+
+In [7]: pd.read_hdf('test.h5','df',where='date=20140722')
+Out[7]: 
+                   value
+symbol date             
+a      2014-07-22      1
+b      2014-07-22      4
+c      2014-07-22      7
+
+In [12]: pd.read_hdf('test.h5','df',where='symbol="a"')
+Out[12]: 
+                   value
+symbol date             
+a      2014-07-21      0
+       2014-07-22      1
+       2014-07-23      2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31221428)
+ I should first say, that I do not see any reason for you to mix python and R. 
+
+ If you have your analysis already in R, you can directly read your TXT file into R data frame 
+
+  df = read.csv("myfile.txt")
+head(df)  # to display the first few rows of your data frame
+  
+
+ Your 1st, 2nd and 5th columns will be converted to factors (you can change it if you desired). 
+
+ If you want python, you can read your file into pandas DataFrame. 
+
+  import pandas as pd
+df = pd.read_csv("myfile.txt")
+df.head()  # to display the first few rows of your data frame
+  
+
+ If this is not a solution for your question, please indicate what do you want beyond this? 
+
+ There is a http://rpy.sourceforge.net/ package which allows you to use R code in python. It requires extra python programming code anyway.  
+
+ As to importing pandas data frame into R: I would save it into CSV file or other format (save as "save on hard disk") and then open in R. But CSV file is what you initially get, so no point for you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39920926)
+ Your configuration (Python 2.7, Pandas 0.18.1, Seaborn 0.7.1) should certainly be able to handle utf-8. Even if the font used in the plot doesn't support these unicode characters, the heatmap should still be displayed. Here is a test case: 
+
+<pre class="lang-py prettyprint-override"> import pandas as pd
+import seaborn as sns
+
+df = pd.DataFrame(
+        {'Fruit': ['Apple', 'Banana', 'Orange', 'Kiwi'] * 2,
+        'Store': [u'Kr\xf6ger'] * 4 + [u'F\u0254\u0254d Li\u01ebn'] * 4,
+        'Stock': [6, 1, 3, 4, 1, 7, 7, 9]})
+
+sns.heatmap(df.pivot("Fruit", "Store", "Stock"))
+  
+
+ The problem, therefore, is somewhere in your data frame  df2 . Your comment states that  df2  is created by reshaping another data frame, probably also by something like  pivot()  or  crosstab() .  
+
+ Let's assume that this original data frame contains the columns  Store  and  Fruit , and that it was read from  your file like so, i.e. with default encoding: 
+
+  raw = pd.read_csv('data.csv')
+  
+
+ For testing, this is the content of that file  data.csv : 
+
+<pre class="lang-none prettyprint-override"> Store,Fruit,Stock
+Kröger,Apple,6
+Kröger,Banana,1
+Kröger,Orange,3
+Kröger,Kiwi,4
+Fɔɔd Liǫn,Apple,1
+Fɔɔd Liǫn,Banana,7
+Fɔɔd Liǫn,Orange,7
+Fɔɔd Liǫn,Kiwi,9
+  
+
+ Now, in order to fix the encoding of columns  Store  and  Fruit  so that they contain valid Unicode strings, use the https://docs.python.org/2/library/stdtypes.html#str.decode string method, like so: 
+
+  raw["Store"] = raw["Store"].apply(lambda x: x.decode("utf-8"))
+raw["Fruit"] = raw["Fruit"].apply(lambda x: x.decode("utf-8"))
+  
+
+ Now,  heatmap()  should work happily with the data frame: 
+
+  sns.heatmap(raw.pivot("Fruit", "Store", "Stock"))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45554326)
+ You can wrap the Data Frame data args in square brackets to maintain the  np.array  in each cell: 
+
+  one_d_array = np.array([1,2,3])
+two_d_array = one_d_array*one_d_array[:,np.newaxis]
+two_d_array
+
+array([[1, 2, 3],
+       [2, 4, 6],
+       [3, 6, 9]])
+
+
+pd.DataFrame([
+    [one_d_array],
+    [two_d_array] ])
+
+                                   0
+0                          [1, 2, 3]
+1  [[1, 2, 3], [2, 4, 6], [3, 6, 9]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38918732)
+ It's difficult to give you a good answer to this rather generic question. 
+
+ It's not clear how are you going to use (read) your HDF5 files - do you want to select data conditionally (using  where  parameter)? 
+
+ fir of all you need to open a store object: 
+
+  store = pd.HDFStore('/path/to/filename.h5')
+  
+
+ now you can write (or append) to the store (i'm using here  blosc  compression - it's pretty fast and efficient), beside that i will use  data_columns  parameter in order to specify the columns that must be indexed (so you can use these columns in the  where  parameter later when you will read your HDF5 file): 
+
+  for f in files:
+    #read or process each file in/into a separate `df`
+    store.append('df_identifier_AKA_key', df, data_columns=[list_of_indexed_cols], complevel=5, complib='blosc')
+
+store.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18729889)
+ Here is the way to do it in 0.12. In 0.13, where can be an indexer (e.g. an array of locations, so this is much easier, see (Selecting using a where mask)[http://pandas.pydata.org/pandas-docs/dev/io.html#advanced-queries], then 2nd example down. 
+
+  In [2]: df = DataFrame(dict(A=list(range(5)),B=list(range(5))))
+
+In [3]: df
+Out[3]: 
+   A  B
+0  0  0
+1  1  1
+2  2  2
+3  3  3
+4  4  4
+
+In [4]: store = pd.HDFStore('test.h5',mode='w')
+
+In [5]: store.append('df',df)
+  
+
+ Select and return a coordinate object (just a wrapped location array) according to some where 
+
+  In [6]: c = store.select_as_coordinates('df', ['index<3'])
+  
+
+ Where accepts the Coordinate objects (and you can use them with any table, here would be  your 'df_action' table) 
+
+  In [7]: store.select('df', where=c)
+Out[7]: 
+   A  B
+0  0  0
+1  1  1
+2  2  2
+
+In [8]: c
+Out[8]: <pandas.io.pytables.Coordinates at 0x4669590>
+
+In [9]: c.values
+Out[9]: array([0, 1, 2])
+  
+
+ If you want to manipulate this, then just assign the positions you want to the Coordinate object before passing to  select . (As I said above, this 'hack' is going away in 0.13, and you don't need this intermediate object) 
+
+  In [8]: c.values = np.array([0,1])
+
+In [9]: store.select('df', where=c)
+Out[9]: 
+   A  B
+0  0  0
+1  1  1
+
+store.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51617126)
+ Using  to_dict  with  'r'  
+
+  df['New c']=df[['C','D']].to_dict('r')
+df
+Out[580]: 
+          A         B         C         D  \
+0  0.578095 -1.985742 -0.269517 -0.180319   
+1 -0.618431 -0.937284  0.556290 -1.416877   
+2  1.695109  0.122219  0.182450  0.411448   
+3  0.228466  0.268943 -1.249488  3.227840   
+4  0.005990 -0.805618 -1.941092 -0.146649   
+5 -1.116451 -0.649854  1.272314  1.422760   
+                                        New c  
+0            {'C': -0.269517, 'D': -0.180319}  
+1              {'C': 0.55629, 'D': -1.416877}  
+2               {'C': 0.18245, 'D': 0.411448}  
+3              {'C': -1.249488, 'D': 3.22784}  
+4  {'C': -1.9410919999999998, 'D': -0.146649}  
+5               {'C': 1.272314, 'D': 1.42276}  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28129429)
+ Jeff has completely the right answer. I found a couple gotchas that I wanted to share and it won't fit in a comment - please consider this just a long form additional comment :) 
+
+ (Pytables Versions)
+If you get missing attribute or method errors when trying to write the hdf file you may want to try updating your PyTables version. Pandas (as of this writing) leverages Pytables and I found at least one pairing of versions that threw some odd errors until I updated Pytables and reloaded. 
+
+ (Data types)
+This may be fixed in Python 3 but in 2.7x the to_hdf has problems with unicode, with mixed data type columns, and with NaN values in floating point. Below is an example utility function to clean up a DataFrame in preparation for writing to_hdf that fixed all those problems for me. Note that this replaces NaN with zero, which was appropriate for my application but you may want to adjust that: 
+
+ <div class="snippet" data-lang="js" data-hide="false">
+<div class="snippet-code">
+<pre class="snippet-code-html lang-html prettyprint-override"> def clean_cols_for_hdf(data):
+    types = data.apply(lambda x: pd.lib.infer_dtype(x.values))
+    for col in types[types=='mixed'].index:
+        data[col] = .data[col].astype(str)
+    data[<your appropriate columns here>].fillna(0,inplace=True)
+    return data  
+</div>
+</div>
+ 
+
+ Some of this just extends one of Jeff's comments as well. Jeff is awesome, please excuse the added answer but I wanted to chip in some details that fixed things for me.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53745902)
+ You could store the data as a pandas dataframe and sort it as indicated on the pandas documentation:
+http://pandas.pydata.org/pandas-docs/version/0.19/generated/pandas.DataFrame.sort.html 
+
+ As an example on the website, the exemplary pandas data frame  result  is sorted as follows (where  df  is the unsorted data frame): 
+
+  import pandas as pd
+result = df.sort(['A', 'B'], ascending=[1, 0])
+  
+
+ Then you can use the pandas Excel Writer and convert the dataframe to an Excel Sheet. Further information is indicated on the pandas documentation: https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_excel.html 
+
+ The exemplary pandas data frame  result  is written into an Excel sheet using the following syntax: 
+
+  writer = pd.ExcelWriter('output.xlsx')
+result.to_excel(writer,'Sheet1')
+writer.save()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54502343)
+ If you are ok using pandas, store the data in a dataframe (name  df  for example) and use : 
+
+  pd.crosstab(df['id'],df['type']).rename_axis(None,axis=1)
+  
+
+ Example below: 
+
+  import pandas as pd
+d={'id': {0: 13, 1: 13, 2: 2, 3: 34, 4: 34, 5: 34},
+'type': {0: 'A', 1: 'B', 2: 'A', 3: 'C', 4: 'A', 5: 'B'}}
+df=pd.DataFrame(d)
+print(df)
+
+   id type
+0  13    A
+1  13    B
+2   2    A
+3  34    C
+4  34    A
+5  34    B
+  
+
+ Using https://pandas.pydata.org/pandas-docs/version/0.23.4/generated/pandas.crosstab.html 
+
+  df_new = pd.crosstab(df['id'],df['type']).rename_axis(None,axis=1).add_prefix('type@')
+print(df_new)
+
+     type@A  type@B  type@C
+id                        
+2        1       0       0
+13       1       1       0
+34       1       1       1
+  
+
+
+

@@ -1,0 +1,358 @@
+Query: Finding consecutive segments in a pandas data frame
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52274392)
+  
+
+  df = df[df['y'] > 0.5]
+  
+
+ Spot new segments: 
+
+  df['is_new_segment'] = df.reset_index()['index'].diff() > 0.15
+  
+
+ Number segments: 
+
+  df['segment'] = df['is_new_segment'].cumsum()
+  
+
+ Group by segment and apply your function (here  mean  for instance): 
+
+  df.groupby('segment')['z'].mean()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/51524450)
+  
+
+  df.T.apply(lambda x:  x[x.groupby(x.isnull().cumsum()).transform('count')>4].dropna().tail(5).values).T
+
+     0    1    2    3    4
+0  3.0  7.0  1.0  9.0  2.0
+1  3.0  1.0  0.0  4.0  1.0
+2  2.0  1.0  3.0  5.0  0.0
+3  4.0  5.0  3.0  1.0  2.0
+  
+
+  
+
+  df.apply(lambda x: pd.Series(x[x.groupby(x.isnull().cumsum()).transform('count')>4].dropna().tail(5).values), axis=1)
+  
+
+ Output: 
+
+       0    1    2    3    4
+0  3.0  7.0  1.0  9.0  2.0
+1  3.0  1.0  0.0  4.0  1.0
+2  2.0  1.0  3.0  5.0  0.0
+3  4.0  5.0  3.0  1.0  2.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34846247)
+  diff  should give the desired result: 
+
+  >>> df.diff()
+count_a  count_b
+2015-01-01      NaN      NaN
+2015-01-02    38465      NaN
+2015-01-03    36714      NaN
+2015-01-04    35137      NaN
+2015-01-05    35864      NaN
+....
+2015-02-07   142390    25552
+2015-02-08   126768    22835
+2015-02-09   122324    21485
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40332389)
+ You can use numpy's https://docs.scipy.org/doc/numpy/reference/generated/numpy.reshape.html function: 
+
+  result_list = [i for i in range(50)]
+pd.DataFrame(np.reshape(result_list, (10, 5), order='F'))
+Out: 
+   0   1   2   3   4
+0  0  10  20  30  40
+1  1  11  21  31  41
+2  2  12  22  32  42
+3  3  13  23  33  43
+4  4  14  24  34  44
+5  5  15  25  35  45
+6  6  16  26  36  46
+7  7  17  27  37  47
+8  8  18  28  38  48
+9  9  19  29  39  49
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14359211)
+ You could use np.diff() to test where a segment starts/ends and iterate over those results. . 
+
+  a = np.array([3,3,3,3,3,4,4,4,4,4,1,1,1,1,4,4,12,12,12])
+
+prev = 0
+splits = np.append(np.where(np.diff(a) != 0)[0],len(a)+1)+1
+
+for split in splits:
+    print np.arange(1,a.size+1,1)[prev:split]
+    prev = split
+  
+
+  
+
+  [1 2 3 4 5]
+[ 6  7  8  9 10]
+[11 12 13 14]
+[15 16]
+[17 18 19]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14360423)
+  
+
+  df.reset_index().groupby('A')['index'].apply(np.array)
+  
+
+ Code for example: 
+
+  In [1]: import numpy as np
+
+In [2]: from pandas import *
+
+In [3]: df = DataFrame([3]*4+[4]*4+[1]*4, columns=['A'])
+In [4]: df
+Out[4]:
+    A
+0   3
+1   3
+2   3
+3   3
+4   4
+5   4
+6   4
+7   4
+8   1
+9   1
+10  1
+11  1
+
+In [5]: df.reset_index().groupby('A')['index'].apply(np.array)
+Out[5]:
+A
+1    [8, 9, 10, 11]
+3      [0, 1, 2, 3]
+4      [4, 5, 6, 7]
+  
+
+ You can also directly access the information from the groupby object: 
+
+  In [1]: grp = df.groupby('A')
+
+In [2]: grp.indices
+Out[2]:
+{1L: array([ 8,  9, 10, 11], dtype=int64),
+ 3L: array([0, 1, 2, 3], dtype=int64),
+ 4L: array([4, 5, 6, 7], dtype=int64)}
+
+In [3]: grp.indices[3]
+Out[3]: array([0, 1, 2, 3], dtype=int64)
+  
+
+ To address the situation that DSM mentioned you could do something like: 
+
+  In [1]: df['block'] = (df.A.shift(1) != df.A).astype(int).cumsum()
+
+In [2]: df
+Out[2]:
+    A  block
+0   3      1
+1   3      1
+2   3      1
+3   3      1
+4   4      2
+5   4      2
+6   4      2
+7   4      2
+8   1      3
+9   1      3
+10  1      3
+11  1      3
+12  3      4
+13  3      4
+14  3      4
+15  3      4
+  
+
+ Now groupby both columns and apply the lambda function: 
+
+  In [77]: df.reset_index().groupby(['A','block'])['index'].apply(np.array)
+Out[77]:
+A  block
+1  3          [8, 9, 10, 11]
+3  1            [0, 1, 2, 3]
+   4        [12, 13, 14, 15]
+4  2            [4, 5, 6, 7]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54379851)
+ I think you can do a simple loop over the Engagement groups. 
+
+ Sample Data</h3>
+
+  import numpy as np
+import pandas as pd
+from scipy import stats
+
+np.random.seed(123)
+df = pd.DataFrame({'Engagement Score': np.random.choice(list('abcde'), 1000),
+                   'Performance': np.random.normal(0,1,1000)})
+  
+
+ Code</h3>
+
+  # Get all of the subgroup averages and counts
+d = {'mean': 'sub_average', 'size': 'sub_bookings'}
+df_res = df.groupby('Engagement Score').Performance.agg(['mean', 'size']).rename(columns=d)
+
+# Add overall values
+df_res['overall_avg'] = df.Performance.mean()
+df_res['overall_bookings'] = len(df)
+
+# T-test of each subgroup against everything not in that subgroup. 
+for grp in df['Engagement Score'].unique():
+    # mask to separate the groups
+    m = df['Engagement Score'] == grp 
+    # Decide whether you want to assume equal variances. equal_var=True by default.
+    t,p = stats.ttest_ind(df.loc[m, 'Performance'], df.loc[~m, 'Performance'])
+    df_res.loc[grp, 't-stat'] = t
+    df_res.loc[grp, 'p-value'] = p
+  
+
+ Output  df_res :</h3>
+
+                    sub_average  sub_bookings  overall_avg  overall_bookings    t_stat   p-value
+Engagement Score                                                                              
+a                   -0.024469           203     -0.03042              1000  0.094585  0.924663
+b                   -0.053663           206     -0.03042              1000 -0.372866  0.709328
+c                    0.080888           179     -0.03042              1000  1.638958  0.101537
+d                   -0.127941           224     -0.03042              1000 -1.652303  0.098787
+e                   -0.001161           188     -0.03042              1000  0.443412  0.657564
+  
+
+ As expected, nothing is significant since it all came from the same normal distribution.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45723440)
+  
+
+  df.loc[0] = df[:2].apply(lambda x: ' | '.join(x.astype(str)))
+df = df.drop(1).reset_index()
+df
+  
+
+ Output: 
+
+     index             1              2             3
+0      0  2010 | First  2011 | Second  2012 | Third
+1      2           98%            99%           99%
+2      3           77%            87%           77%
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45395328)
+ Numpy</h3>
+
+ To rearrange the time series into the 10 segments, you can simply use  np.reshape . 
+
+ Example data of shape  (XYZAB, timepoints) : 
+
+  a = np.random.randint(0,10,(5,1000))
+print a.shape
+>> (5L, 1000L)
+  
+
+ Reshaping into the ten segments, resulting in  (XYZAB, segments, timepoints) : 
+
+  b = np.reshape(a,(5,10,100))
+print b.shape
+>> (5L, 10L, 100L)
+  
+
+ At this point, it may not be desirable to create what you call 'channels', as you would triplicate parts of your data (A and B) without really making it easier to access that data. You could access e.g.  XAB  simply like this: 
+
+  xab = b[(0,3,4),:,:]
+  
+
+ If you absolutely need the channels as individual copies, you can simply get them like this: 
+
+  c = np.array([b[(0,3,4),:,:],
+              b[(1,3,4),:,:],
+              b[(2,3,4),:,:]])
+print c.shape
+>> (3L, 3L, 10L, 100L)
+  
+
+ Which results in an array of shape  (channel,column,segment,timepoints) , where  column  refers to the original column names (e.g.  (X,A,B)  for channel  0 ). 
+
+ Pandas</h3>
+
+ Just saw the  pandas  tag on your question, so... 
+
+  df = pd.DataFrame(a.T, columns=list('XYZAB'))
+  
+
+ Split into segments of 100 time points as a list of dfs: 
+
+  segments = []
+for group, segment in df.groupby(np.arange(len(df)) // 100):
+    segments.append(segment)
+  
+
+ Or, even better, just create a new column that indicates which segment each row belongs to: 
+
+  df['segment'] = df.apply(lambda x : x.name // 100, axis=1)
+  
+
+ At this point it's probably again best not to triplicate your data and instead use the df as it is. You can easily apply operations per time segment using  df.groupby(['segment']) , while selecting columns of interest by standard column selection, e.g. 
+
+  df.groupby(['segment'])['X','A','B'].mean()
+  
+
+ to get the per-segment mean of columns X, A and B. 
+
+ Of course you can create e.g. a list or dict of 'channels' in this way, if you really need it.  
+
+  channels = {'XAB':df[['segment','X','A','B']],
+            'YAB':df[['segment','Y','A','B']],
+            'ZAB':df[['segment','Z','A','B']]}
+  
+
+ And you can make this into a pandas  Panel : 
+
+  pnl = pd.Panel(channels)
+  
+
+ The best data structure to use depends on your particular use-case, but in general I would avoid using Panels and stick with either the 2D  df  or the 3D array (i.e.  b ). 
+
+
+

@@ -1,0 +1,208 @@
+Query: pandas dataframe groupby datetime month
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35054830)
+ IIUC you lost  year  information, but you can set it after http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.groupby.html by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.map.html with custom  year  with  months  and  days  from  index : 
+
+  import datetime
+
+df = df.groupby([df.index.month, df.index.day]).mean()
+print df
+           val1       val2
+1 1   74.257690   5.813471
+  2   74.257690   5.813471
+  3   74.257690   5.813471
+  4   75.467485   5.813471
+  5   76.991745   9.074598
+  6   76.991745   9.074598
+  7   76.991745   9.074598
+  8   77.306209  12.335725
+  9   77.306209  12.335725
+  10  77.306209  12.335725
+
+df['Date'] = df.index.map(lambda x: datetime.date(2000, x[0], x[1]))
+print df.set_index('Date')
+                 val1       val2
+Date                            
+2000-01-01  74.257690   5.813471
+2000-01-02  74.257690   5.813471
+2000-01-03  74.257690   5.813471
+2000-01-04  75.467485   5.813471
+2000-01-05  76.991745   9.074598
+2000-01-06  76.991745   9.074598
+2000-01-07  76.991745   9.074598
+2000-01-08  77.306209  12.335725
+2000-01-09  77.306209  12.335725
+2000-01-10  77.306209  12.335725
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/46409055)
+ By using  groupby  
+
+  df.groupby([df.A.dt.month,df.B.dt.month]).C.sum()
+
+Out[954]: 
+A  B
+1  1    0.456078
+2  2    2.104569
+   4    0.706771
+3  4    0.113648
+   8    0.567020
+Name: C, dtype: float64
+  
+
+ Note: By using this , make sure A and B are datetime format If not , do following code before  groupby  
+
+  df.A=pd.to_datetime(df.A)
+df.B=pd.to_datetime(df.B) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52758369)
+ Slightly alternative solution to @jpp's but outputting a  YearMonth  string: 
+
+  df['YearMonth'] = pd.to_datetime(df['Date']).apply(lambda x: '{year}-{month}'.format(year=x.year, month=x.month))
+
+res = df.groupby('YearMonth')['Values'].sum()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32062056)
+ You can use a  TimeGrouper  to groupby month: 
+
+  In [11]: df
+Out[11]:
+                   A         B         C         D
+2000-01-03  1.991135  0.045306 -0.657898  0.311375
+2000-01-04  0.690848  1.862244  0.709432 -2.080355
+2000-01-05  0.602610 -0.205035  1.248848  0.192274
+2000-02-01 -0.108412  0.188484 -0.568542  0.335969
+2000-02-02  0.855690 -0.283225  1.471867  0.309235
+2000-02-03 -0.266090  0.684080  0.187856  1.734062
+
+In [12]: g = df.groupby(pd.TimeGrouper("M"))
+  
+
+ Now you can iterate through the GroupBy for each month: 
+
+  In [13]: for (month_start, sub_df) in g:
+   ....:     print(sub_df)
+   ....:
+                   A         B         C         D
+2000-01-03  1.991135  0.045306 -0.657898  0.311375
+2000-01-04  0.690848  1.862244  0.709432 -2.080355
+2000-01-05  0.602610 -0.205035  1.248848  0.192274
+                   A         B         C         D
+2000-02-01 -0.108412  0.188484 -0.568542  0.335969
+2000-02-02  0.855690 -0.283225  1.471867  0.309235
+2000-02-03 -0.266090  0.684080  0.187856  1.734062
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/48356232)
+  (update: 2018)  
+
+ Note that  pd.Timegrouper  is depreciated and will be removed. Use instead: 
+
+   df.groupby(pd.Grouper(freq='M'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29703133)
+ When you did the groupby on date, you converted the index from a Timestamp to a datetime.date. 
+
+  >>> type(df.index[0])
+pandas.tslib.Timestamp
+
+>>> type(by_date.index[0])
+datetime.date
+  
+
+ If you convert the index to Periods, you can groupby easily. 
+
+  df.index = pd.DatetimeIndex(by_date.index).to_period('M')
+>>> df.groupby(df.index).value.sum()
+2007-01-01    2.313915
+2007-02-01    0.769883
+2008-01-01    2.012760
+2008-02-01    0.294140
+Name: value, dtype: float64
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22308647)
+ If you're doing timeseries work, I recommend using a DatetimeIndex. In this example, you can use a TimeGrouper to group by month (which groups by year-month, like in a resample): 
+
+  In [11]: g = df.groupby(pd.TimeGrouper('M'))
+
+In [12]: g['n'].cumsum()
+Out[12]: 
+Date
+2014-02-27     4
+2014-02-28     9
+2014-03-01     1
+2014-03-02     7
+2014-03-03    14
+dtype: int64
+
+In [13]: df['csn'] = g['n'].cumsum()
+  
+
+ Note: If you're not already using a DatetimeIndex, pass over the  to_datetime  function and set the index: 
+
+  df['Date'] = pd.to_datetime(df['Date'])
+df.set_index('Date', inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44908576)
+ Try a groupby using a pandas https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Grouper.html:   
+
+  df = pd.DataFrame({'date':['6/2/2017','5/23/2017','5/20/2017','6/22/2017','6/21/2017'],'Revenue':[100,200,300,400,500]})
+df.date = pd.to_datetime(df.date)
+dg = df.groupby(pd.Grouper(key='date', freq='1M')).sum() # groupby each 1 month
+dg.index = dg.index.strftime('%B')
+
+     Revenue
+ May    500
+June    1000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/22824972)
+ month and year are attributes of a DatetimeIndex, so you can do: 
+
+  df.groupby([df.index.year, df.index.month])
+  
+
+ It sounds like you could be after a http://pandas.pydata.org/pandas-docs/version/0.13.1/generated/pandas.DataFrame.resample.html: 
+
+  df.resample('M')  # default how='mean'
+  
+
+ You can group by month (and year) more concisely using TimeGrouper (IIRC this is how resamples are done internally): 
+
+  df.groupby(pd.TimeGrouper('M'))
+  
+
+  You'll have to wait 'til pandas 0.14 to combine this with other columns.  
+
+
+

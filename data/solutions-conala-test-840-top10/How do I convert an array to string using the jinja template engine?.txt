@@ -1,0 +1,189 @@
+Query: How do I convert an array to string using the jinja template engine?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13002926)
+ You can use regular python in jinja tags.  an obvious choice for some simple cases is  str.join : 
+
+  >>> jinja2.Template(r'{{ " ".join(bar) }}').render(bar='baz')
+u'b a z'.
+  
+
+ You can also iterate over sequences in jinja with a  for  block: 
+
+  >>> jinja2.Template(r'{% for quux in bar %}{{ quux }} {% endfor %}').render(bar='baz')
+u'b a z '
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13003841)
+ Actually you are almost there, for join with space, just put it like this: 
+
+  {{ tags|join(' ') }}
+  
+
+ see the http://jinja.pocoo.org/docs/templates/#join for more details 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32052733)
+ Mixed Django and Jinja2 Template:  Environment: Django 1.8 + Jinja2 . 
+
+ I have some legacy Django templates and it's not so easy to rewrite them all at once to Jinja2, so add this custom  {% jinja_include "some_template.jinja" %}  tag to  my_custom_tags.py : 
+
+  from django.template.loader import get_template
+from django import template
+register = template.Library()
+
+@register.simple_tag(takes_context=True)
+def jinja_include(context, filename):
+    template = get_template(filename)
+    return template.render(context.flatten())
+  
+
+ Call it like this from your Django template: 
+
+  {% load my_custom_tags %}
+{% jinja_include "some_template.jinja" %}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/23195355)
+ Filters are used with the http://jinja.pocoo.org/docs/templates/#filters: 
+
+  {% elif  student.department|upper != "MATHS DEPARTMENT" %}
+    Maths department
+{% endif %}
+  
+
+ or you can use the https://docs.python.org/2/library/stdtypes.html#str.upper: 
+
+  {% elif  student.department.upper() != "MATHS DEPARTMENT" %}
+    Maths department
+{% endif %}
+  
+
+ Jinja syntax is Python- like , not actual Python.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/23195675)
+ And you can use: Filter like this 
+
+  {% filter upper %}
+    UPPERCASE
+{% endfilter %}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/20957490)
+   
+
+  JINJA_ENVIRONMENT = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(
+        [os.path.dirname(os.path.dirname(__file__)),
+         os.path.dirname(os.path.dirname(__file__)) + "/subfolder1"]))
+  
+
+  
+
+  {% extends "base.html" %}
+  
+
+ according this:
+http://jinja.pocoo.org/docs/api/#basics (class jinja2.FileSystemLoader(searchpath, encoding='utf-8')) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20957427)
+ more clearly: 
+
+  from jinja2 import Environment, FileSystemLoader
+env = Environment(loader=FileSystemLoader('templates'))
+  
+
+ The folder  templates  is now the template's root: 
+
+  template = env.get_template('content.html') # /templates/content.html
+self.response.write(template.render())
+  
+
+ or using subfolders: 
+
+  template = env.get_template('folder/content.html')
+self.response.write(template.render())
+  
+
+ in content.html: 
+
+  {% extends "base.html" %}        # /templates/base.html
+{% extends "folder/base.html" %} # /templates/folder/base.html
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/13781652)
+ In webapp2, you can get the host part of a request and pass it as argument in a jinja template as follows:  
+
+  class YourHandler(webapp2.RequestHandler):
+  def get(self):
+    params = {'url':self.request.host}
+    template = jinja_environment.get_template('your_template.html')
+    self.response.write(template.render(params))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32254354)
+ Jinja2 does not have an outbox solution to combine both the list transversely but you can leverage the python built-in  zip  to create a list of tuples of individual lists and pass it to jinja template engine.
+You also need to re-write your jinja2 loop, such that it can read through a list of tuples  
+
+ Template invocation 
+
+  return render_template("sales.html", seller_cash=zip(sellers, seller_cash)
+  
+
+ Jinja2 Loop 
+
+  {% for seller, amount in seller_cash %}
+    {{seller}}: {{amount}} 
+{% endfor %}
+  
+
+ Alternatively, you can the jinja2.Environment global namespace, to make the python  zip  built-in available to jinja2 
+
+  >>> env = jinja2.Environment()
+>>> env.globals.update(zip=zip)
+>>> tmpl = """{% for seller, amount in zip(sellers, cash) %}
+    {{seller}}: {{amount}} 
+{% endfor %}"""
+>>> env.from_string(tmpl).render(sellers=seller, cash=cash)
+u'\n    Bob: 12 \n\n    Joe: 25 \n\n    Tim: 67 \n'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31950944)
+  {% set score = [] %}
+{% for num in number %}
+    {% if score.append(num) %}{% endif %}
+{% endfor %}
+Average score: 
+{{ score | sum / score | count }}
+  
+
+ http://jinja.pocoo.org/docs/dev/templates/ 
+
+
+

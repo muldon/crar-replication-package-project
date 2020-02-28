@@ -1,0 +1,223 @@
+Query: Detecting non-ascii characters in unicode string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16866463)
+ 
+   The ultimate goal here is to compile a list of characters in the data
+  that cannot encode to ascii. 
+ 
+
+ The most efficient method I can think of would be to use http://docs.python.org/2/library/re.html#re.sub to strip out any valid ASCII characters, which should leave you with a string containing all the non-ASCII characters. 
+
+ This will just strip out the printable characters... 
+
+  >>> import re
+>>> print re.sub('[ -~]', '', u'£100 is worth more than €100')
+£€
+  
+
+ ...or if you want to include the non-printable characters, use this... 
+
+  >>> print re.sub('[\x00-\x7f]', '', u'£100 is worth more than €100')
+£€
+  
+
+ To eliminate the dupes, just create a  set()  of the returned string... 
+
+  >>> print set(re.sub('[\x00-\x7f]', '', u'£€£€'))
+set([u'\xa3', u'\u20ac'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48181543)
+ The string  '\x01'  is a single character, which is variously represented as ctrl-A, ASCII SOH, or Unicode https://www.fileformat.info/info/unicode/char/0001/index.htm<sup>1</sup>.  In a Python string, this character is  represented by  the sequence  \xHH  where  HH  is the two-digit hexadecimal character code. Similarly  '\x41'  is just another way to represent the string  'A'  which contains the single character https://www.fileformat.info/info/unicode/char/0041/index.htm. 
+
+ If you want to replace characters whose hex-escape representation starts with a zero, that's the regular expression character range  [\x00-\x0f]  (though this particular range seems rather haphazard -- if you are  actually  trying to remove nonprintable characters, or control characters, or some other well-defined group, you need to specifically  ask  about that particular range, or perhaps rather just google it). 
+
+ You don't really need a regex for that, though: 
+
+  string = ''.join([x if ord(x) > 15 else ' ' for x in string])
+  
+
+ 
+
+ <sup>1</sup> Unicode is of course strictly speaking a superset of ASCII. In Python 3, all strings are Unicode strings anyway. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32771961)
+ .  I'm dealing with unicode HTML content that was stuffed in a python exception (see http://bugs.python.org/issue2517) 
+
+  def detect_encoding(bytes_str):
+  for enc, boms in \
+      ('utf-8-sig',(codecs.BOM_UTF8,)),\
+      ('utf-16',(codecs.BOM_UTF16_LE,codecs.BOM_UTF16_BE)),\
+      ('utf-32',(codecs.BOM_UTF32_LE,codecs.BOM_UTF32_BE)):
+    if (any(bytes_str.startswith(bom) for bom in boms): return enc
+  return 'utf-8' # default
+
+def safe_exc_to_str(exc):
+  try:
+    return str(exc)
+  except UnicodeEncodeError:
+    return unicode(exc).encode(detect_encoding(exc.content))
+  
+
+ Alternatively, this much simpler code is able to delete non-ascii characters without much fuss: 
+
+  def just_ascii(str):
+  return unicode(str).encode('ascii', 'ignore')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2759009)
+  re.sub(r'[^\x00-\x7F]', '_', theString)
+  
+
+ This will work if theString is unicode, or a string in an encoding where ASCII occupies values 0 to 0x7F (latin-1, UTF-8, etc.). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3704793)
+ If all you want to do is degrade accented characters to their non-accented equivalent: 
+
+  >>> import unicodedata
+>>> unicodedata.normalize('NFKD', u"m\u00fasica").encode('ascii', 'ignore')
+'musica'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1211102)
+ You can use encode to ASCII if you don't need to translate the non-ASCII characters: 
+
+  >>> a=u"aaaàçççñññ"
+>>> type(a)
+<type 'unicode'>
+>>> a.encode('ascii','ignore')
+'aaa'
+>>> a.encode('ascii','replace')
+'aaa???????'
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/1006463)
+ Use Unicode strings: 
+
+  # coding: cp1252
+print u"é".capitalize()
+# Prints É
+  
+
+ If all you have is an 8-bit string, decode it into Unicode first: 
+
+  # coding: cp1252
+print "é".decode('cp1252').capitalize()
+# Prints É
+  
+
+ If you then need it as an 8-bit string again, encode it: 
+
+  # coding: cp1252
+print "é".decode('cp1252').capitalize().encode('cp1252')
+# Prints É (assuming your terminal is happy to receive cp1252)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2758987)
+  Updated for Python 3:  
+
+  >>> 'Tannh‰user'.encode().decode('ascii', 'replace').replace(u'\ufffd', '_')
+'Tannh___user'
+  
+
+ First we create byte string using  encode()  - it uses UTF-8 codec by default. If you have byte string then of course skip this encode step.
+Then we convert it to "normal" string using the ascii codec. 
+
+ This uses the property of UTF-8 that all non-ascii characters are encoded as sequence of bytes with value >= 0x80. 
+
+ 
+
+  Original answer – for Python 2:  
+
+ How to do it using built-in  str.decode  method: 
+
+  >>> 'Tannh‰user'.decode('ascii', 'replace').replace(u'\ufffd', '_')
+u'Tannh___user'
+  
+
+ (You get  unicode  string, so convert it to  str  if you need.) 
+
+ You can also convert  unicode  to  str , so one non-ASCII character is replaced by ASCII one. But the problem is that  unicode.encode  with  replace  translates non-ASCII characters into  '?' , so you don't know if the question mark was there already before; see solution from Ignacio Vazquez-Abrams. 
+
+ 
+
+ Another way, using  ord()  and comparing value of each character if it fits in ASCII range (0-127) - this works for  unicode  strings and for  str  in utf-8, latin and some other encodings: 
+
+  >>> s = 'Tannh‰user' # or u'Tannh‰user' in Python 2
+>>> 
+>>> ''.join(c if ord(c) < 128 else '_' for c in s)
+'Tannh_user'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4736440)
+  .encode  is for converting a Unicode string ( unicode  in 2.x,  str  in 3.x) to a a byte string ( str  in 2.x,  bytes  in 3.x). 
+
+ In 2.x, it's legal to call  .encode  on a  str  object.  Python implicitly decodes the string to Unicode first:  s.encode(e)  works as if you had written  s.decode(sys.getdefaultencoding()).encode(e) . 
+
+ The problem is that the default encoding is "ascii", and your string contains non-ASCII characters.  You can solve this by explicitly specifying the correct encoding. 
+
+  >>> '\xAF \xBE'.decode('ISO-8859-1').encode('UTF-8')
+'\xc2\xaf \xc2\xbe'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/20079244)
+ For  character  processing, use Unicode strings: 
+
+  PythonWin 3.3.0 (v3.3.0:bd8afb90ebf2, Sep 29 2012, 10:57:17) [MSC v.1600 64 bit (AMD64)] on win32.
+>>> s='ABC马克def'
+>>> import re
+>>> re.sub(r'[^\x00-\x7f]',r' ',s)   # Each char is a Unicode codepoint.
+'ABC  def'
+>>> b = s.encode('utf8')
+>>> re.sub(rb'[^\x00-\x7f]',rb' ',b) # Each char is a 3-byte UTF-8 sequence.
+b'ABC      def'
+  
+
+ But note you will still have a problem if your string contains decomposed Unicode characters (separate character and combining accent marks, for example): 
+
+  >>> s = 'mañana'
+>>> len(s)
+6
+>>> import unicodedata as ud
+>>> n=ud.normalize('NFD',s)
+>>> n
+'mañana'
+>>> len(n)
+7
+>>> re.sub(r'[^\x00-\x7f]',r' ',s) # single codepoint
+'ma ana'
+>>> re.sub(r'[^\x00-\x7f]',r' ',n) # only combining mark replaced
+'man ana'
+  
+
+
+

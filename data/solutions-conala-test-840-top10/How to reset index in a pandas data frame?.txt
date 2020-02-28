@@ -1,0 +1,216 @@
+Query: How to reset index in a pandas data frame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20491748)
+ https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html is what you're looking for. If you don't want it saved as a column, then do: 
+
+  df = df.reset_index(drop=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49120915)
+   
+
+  df.groupby('version')[['duration']].quantile(.25)
+  
+
+ Or, with  to_frame : 
+
+  df.groupby('version')['duration'].quantile(.25).to_frame()
+  
+
+ Or, with  reset_index  (this brings the index out as a column): 
+
+  df.groupby('version')[['duration']].quantile(.25).reset_index()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50735638)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.wide_to_long.html: 
+
+  df = pd.wide_to_long(df.reset_index(), stubnames=['x', 'value_x'], i='index', j='a')
+
+print (df)
+         x  value_x
+index a            
+0     1  a        1
+1     1  a        3
+2     1  b        5
+0     2  b        2
+1     2  c        4
+2     2  c        6
+  
+
+ And then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.unstack.html with some data cleaning: 
+
+  df = (df.reset_index(level=1, drop=True)
+        .set_index('x', append=True)['value_x']
+        .unstack(fill_value=0)
+        .rename_axis(None)
+        .rename_axis(None, axis=1))
+print (df)
+   a  b  c
+0  1  2  0
+1  3  0  4
+2  0  5  6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/38902076)
+ You can achieve this by  stack ing the frame to produce a series of all the values, we then want to convert this back to a df using  to_frame  and then  reset_index  to drop the index levels and then transpose using  .T : 
+
+  In [2]:
+df = pd.DataFrame(np.random.randn(4,3), columns=list('abc'))
+df
+
+Out[2]:
+          a         b         c
+0 -1.744219 -2.475923  1.794151
+1  0.952148 -0.783606  0.784224
+2  0.386506 -0.242355 -0.799157
+3 -0.547648 -0.139976 -0.717316
+
+In [3]:
+df.stack().to_frame().reset_index(drop=True).T
+
+Out[3]:
+         0         1         2         3         4         5         6   \
+0 -1.744219 -2.475923  1.794151  0.952148 -0.783606  0.784224  0.386506   
+
+         7         8         9         10        11  
+0 -0.242355 -0.799157 -0.547648 -0.139976 -0.717316  
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50088247)
+ IIUC, you need  reset_index  at the first so we can include the index value in the  agg  part   
+
+  df.reset_index().groupby('city').agg({'score':'count','index':'first'})
+Out[404]: 
+      index  score
+city              
+a         0      3
+b         1      1
+c         2      1
+d         3      1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49074286)
+ Use a combination of https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html and https://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.repeat.html 
+
+  test.loc[test.index.repeat(test.times)]
+
+  id  times
+0  a      2
+0  a      2
+1  b      3
+1  b      3
+1  b      3
+2  c      1
+3  d      5
+3  d      5
+3  d      5
+3  d      5
+3  d      5
+  
+
+ 
+
+ To mimic your exact output, use  reset_index  
+
+  test.loc[test.index.repeat(test.times)].reset_index(drop=True)
+
+   id  times
+0   a      2
+1   a      2
+2   b      3
+3   b      3
+4   b      3
+5   c      1
+6   d      5
+7   d      5
+8   d      5
+9   d      5
+10  d      5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52238085)
+ Can also chain  reset.index  
+
+  df.T.reset_index().T.reset_index(drop=True)
+
+    0   1
+0   a   b
+1   1   4
+2   2   5
+3   3   6
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44102459)
+ With stack and reset index: 
+
+  df = pd.DataFrame(arr).stack().rename_axis(['y', 'x']).reset_index(name='val')
+df
+
+Out: 
+   y  x  val
+0  0  0    1
+1  0  1    2
+2  0  2    3
+3  1  0    4
+4  1  1    5
+5  1  2    6
+6  2  0    7
+7  2  1    8
+8  2  2    9
+  
+
+  
+
+  df.sort_values(['x', 'y'])[['x', 'y', 'val']].reset_index(drop=True)
+Out: 
+   x  y  val
+0  0  0    1
+1  0  1    4
+2  0  2    7
+3  1  0    2
+4  1  1    5
+5  1  2    8
+6  2  0    3
+7  2  1    6
+8  2  2    9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51399232)
+ The index can be temporarily reset for the call: 
+
+  df.reset_index().columns.tolist()
+  
+
+ If an empty index name is not to appear in the list, do the  reset_index()  conditionally: 
+
+  (df.reset_index() if df.index.name else df).columns.tolist()
+  
+
+
+

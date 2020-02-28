@@ -1,0 +1,287 @@
+Query: How to get a max string length in nested lists
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/25454278)
+ I presume you want all your output aligned based on the longest string in all your sublists: 
+
+  x = [['aaa', 'bb','ccc'], ['ophkn','h','aa']]
+
+max(len(s) for y in x for s in y) # find length of longest string
+
+for x, y, z in x:
+    print ("{0:<{1}} {2:<{3}} {4}".format(x, mx,y,mx ,z))
+aaa   bb    ccc
+ophkn h     aa
+  
+
+ You can use https://docs.python.org/2.7/library/string.html#format-specification-mini-language to align your text based on the longest length string. 
+
+ Not tested too much but seems to work for arbitrary  length rows: 
+
+  x = [['aaa', 'bb','ccc',"guido"], ['ophkn','h','aa',"van"],["foo","bar","foobar","rossum"]]
+
+mx = max(len(s) for y in x for s in y)
+
+d = {"m":mx} # to pass as key because you can only have only named arguments after *exp
+for ele in x:
+    print("".join("{:<{mx}} "*len(ele)).format(mx=d["m"],*tuple(ele)))
+
+aaa    bb     ccc    guido  
+ophkn  h      aa     van    
+foo    bar    foobar rossum 
+  
+
+ We need to use a  dict  to pass  in the  max length/mx , as we cannot have args  after  *tuple(ele) , so we cannot use  index numbers like in the first example as  we would get only the first two substrings printed. 
+
+ Using  {:<{mx}}  allows us to make the nested  {}  the align parameter.  
+
+  "".join("{:<{mx}} "*len(ele)  creates as many formatting  {}  as needed for the length of the row.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/39373664)
+ You've done the  length of the maximum word .  This gives the wrong answer because words are ordered https://en.wikipedia.org/wiki/Lexicographical_order: 
+
+  >>> 'oranges' > 'cherries'
+True
+  
+
+ What you probably wanted is the  maximum of the lengths of words : 
+
+  max(len(word) for word in i)
+  
+
+  
+
+  len(max(i, key=len))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52959367)
+ If your nested lists always have only one string at the first index (as in your example), then you sort your list of lists by max value using  max()  on a slice of each nested list excluding the first item. Then, just slice the final output based on the number of "top" results you want. Following is an example of getting the "top" 3 lists with max values. 
+
+  list_of_lists = [['a',1,19,5],['b',2,4,6],['c',22,5,9],['d',12,19,20]]
+
+# sort nested lists descending based on max value contained
+sorted_list = sorted(list_of_lists, key=lambda x: max(x[1:]), reverse=True)
+
+# slice first 3 lists (to get the "top" 3 max values)
+sliced_list = sorted_list[:3]
+
+print(sliced_list)  
+# OUTPUT
+# [['c', 22, 5, 9], ['d', 12, 19, 20], ['a', 1, 19, 5]]
+  
+
+ You could turn it into a simple function to get the top "x" number of nested lists (the loop after the function is purely to print something similar to your example). 
+
+  def max_lists(data, num):
+    results = sorted(data, key=lambda x: max(x[1:]), reverse=True)
+    return results[:num]
+
+list_of_lists = [['a',1,19,5],['b',2,4,6],['c',22,5,9],['d',12,19,20]]
+
+top_three = max_lists(list_of_lists, 3)
+
+print(top_three)                     
+for x in top_three:
+    print(f'max value: {max(x[1:])} list: {x}')
+
+# OUTPUT
+# [['c', 22, 5, 9], ['d', 12, 19, 20], ['a', 1, 19, 5]]
+# max value: 22 list: ['c', 22, 5, 9]
+# max value: 20 list: ['d', 12, 19, 20]
+# max value: 19 list: ['a', 1, 19, 5]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/35757215)
+  
+
+  def nested_list(l):
+    if type(l) is not list:
+        return 0
+
+    lens = [len(l)]
+
+    for x in l:
+        lens.append(nested_list(x))
+    return max(lens)
+  
+
+ ... and if you want to be more Pythonic and duck-type it ... 
+
+  def nested_list(l):
+    try:
+        lens = [len(l)]
+    except TypeError:
+        return 0
+
+    for x in l:
+        lens.append(nested_list(x))
+    return max(lens)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43821984)
+ First, extract all the strings of interest with a list comprehension: 
+
+  xs = [v[index] for v in d.values()]
+  
+
+ Next, take max over the lens of the strings: 
+
+  print(max(map(len, xs)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/41614430)
+ Formats can be nested: 
+
+  longest = len(max(l))
+for col1, col2, col3 in zip(l[::3],l[1::3],l[2::3]):
+    print('{:^{len}}|{:^{len}}|{:^{len}}'.format(col1,col2,col3, len=longest))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45255050)
+ We can use  nested list comprehension  with two  zip(..  
+
+  [ [ '%s%s'%zi for zi in zip(*z ] for z in zip(list1,list2 ]
+  
+
+ This will generate: 
+
+  >>> list1= [['a','b','c'],['d','e']]
+>>> list2= [[1,2,3],[4,5]]
+>>> [ [ '%s%s'%zi for zi in zip(*z ] for z in zip(list1,list2 ]
+[['a1', 'b2', 'c3'], ['d4', 'e5']]
+  
+
+ The outer loop thus iterates over the two lists  list1  and  list2  in parallel and constructs tuples we assign to  z . For each of these tuples, we perform a second  zip  call  zip(*z  to construct tuples of the two subelements. For each of these subelements, we then contruct a string with  '%s%s'%zi . 
+
+ Or you can cast it explicitly to a string, like: 
+
+  [ [ ''.join(map(str,zi for zi in zip(*z ] for z in zip(list1,list2 ]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30173063)
+ I'd use a https://docs.python.org/3/library/collections.html#collections.Counter to collect lengths, then accumulate the sums: 
+
+  from collections import Counter
+
+lengths = Counter(len(v) for v in userIdDict.values())
+total = 0
+accumulated = {}
+for length in range(max(lengths), -1, -1):
+    count = lengths.get(length, 0)
+    total += count
+    accumulated[length] = total
+  
+
+ So this collects counts for each length, then builds a dictionary with accumulative lengths. This is a O(N) algorithm; you loop over all values once, then add on some smaller straight loops (for  max()  and the accumulation loop): 
+
+  >>> from collections import Counter
+>>> import random
+>>> testdata = {''.join(random.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(5)): [None] * random.randint(1, 10) for _ in range(100)}
+>>> lengths = Counter(len(v) for v in testdata.values())
+>>> lengths
+Counter({8: 14, 7: 13, 2: 11, 3: 10, 4: 9, 5: 9, 9: 9, 10: 9, 1: 8, 6: 8})
+>>> total = 0
+>>> accumulated = {}
+>>> for length in range(max(lengths), -1, -1):
+...     count = lengths.get(length, 0)
+...     total += count
+...     accumulated[length] = total
+... 
+>>> accumulated
+{0: 100, 1: 100, 2: 92, 3: 81, 4: 71, 5: 62, 6: 53, 7: 45, 8: 32, 9: 18, 10: 9}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43821975)
+ You need to use a generator expression to extract the right index: 
+
+  longest_string = len(max((row[index] for row in d.values()), key=len))
+  
+
+ If all you need is the length, not the string itself, you may as well get the length in the generator expression: 
+
+  highest_length = max(len(row[index]) for row in d.values())
+  
+
+  
+
+  >>> index = 1
+>>> d = {'foo': ['abc', 'defg'],
+...      'bar': ['hij', 'klmno']}
+>>> max((row[index] for row in d.values()), key=len)
+'klmno'
+>>> max(len(row[index]) for row in d.values())
+5
+  
+
+ You can't escape having to iterate over all values in the dictionary however. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48638541)
+ Ok, lets go through it line by line. Personally I don't think  map  is very idiomatic in Python so I would write this: 
+
+  maxLen = max(map(len, myList))
+  
+
+  
+
+  max_len = max(len(item) for item in my_list)
+  
+
+ The second version is almost plain English: let  max_len  be the maximum value among the length of each item in  my_list . 
+
+ The best way to understand something in Python is just fire up the REPL and try it. So if you have  my_list  as a list of lists: 
+
+  my_list = [[1], [1, 2], [1, 2, 3]]
+  
+
+ The above will get you the length of the largest item: 3 
+
+ Now you want to make every item the same size.  One way is to append  None  items to it. For each item in the list, you test if the length of the item is smaller then the largest item in the list and it is almost plain English: 
+
+  for item in list:                # for each item in the list
+    while len(item) < max_len:   # while the item length is smaller than 3
+        item.append(None)        # append None to the item
+  
+
+ You may want to do a bit of premature optimization and call  extend  once instead of calling  append  several times because you think performance will be better this way (but you can't really tell it unless you have profiled both solutions): 
+
+  for item in list:
+    if len(item) < max_len:
+        item.extend([None] * (max_len - len(item)))
+  
+
+  In Python,  list + list  concatenates two copies of list, and  list * 3  is the same as  list + list + list . So in the first iteration of the for loop,  item  is  [1] ,  len(item)  is 1 and  max_len - len(item)  is  3 - 1 . Finally,  [None] * 2  is  [None, None]  so after the call to  extend  the first item will be  [1, None, None] . Same thing for the second item, its length is 2, 3 minus 2 is one and it will end up as  [1, 2, None] . The 3rd item has the same length as  max_len  (3) so the if condition is false. The result will be: 
+
+  [[1, None, None], [1, 2, None], [1, 2, 3]]
+  
+
+ All lists in the list of lists now have the same size, 3. For the sake of completion, for such a small list the  extend  version is less than 1  microsecond faster than the  append  one so barely worth the trouble (1.64 µs versus 1.7 µs in Python 3.6 running on my Mac). 
+
+
+

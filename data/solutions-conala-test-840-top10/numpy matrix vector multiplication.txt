@@ -1,0 +1,249 @@
+Query: numpy matrix vector multiplication
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/28578391)
+ Normal matrix multiplication works as long as the vectors have the right shape.  Remember that  *  in Numpy is  elementwise multiplication , and matrix multiplication is available with  numpy.dot()  (or with the  @  operator, in Python 3.5) 
+
+  >>> numpy.dot(numpy.array([[1], [2]]), numpy.array([[3, 4]]))
+array([[3, 4],
+       [6, 8]])
+  
+
+ This is called an "outer product."  You can get it using plain vectors using  numpy.outer() : 
+
+  >>> numpy.outer(numpy.array([1, 2]), numpy.array([3, 4]))
+array([[3, 4],
+       [6, 8]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16170453)
+ To define a matrix in  numpy , you have several choices: 
+
+ 
+  numpy.zeros  defines a matrix filled with zeros. 
+  numpy.ones  defines a matrix filled with ones. 
+  numpy.array  defines a matrix based on something else (a list, for example) 
+  numpy.empty  defines a matrix without assigning values to it (so it contains what currently is in memory a the place it was allocated). 
+ 
+
+ All those functions use as first argument a tuple with the dimensions of the matrix. This is why parenthesis are doubled. 
+
+ With  numpy , you can use any usual operator (+, -, * /, **), which are performed elementwise. 
+
+ To perform matrix multiplication, you need to use  numpy.dot  function. 
+
+  
+
+  n = 10
+matrix = numpy.zeros((n,n))
+vector =  numpy.ones(n) / n
+newvector = numpy.dot(matrix.T, vector)
+ans = newvector - vector
+  
+
+ But I suppose that  matrix  should be something else than a matrix of zeros, or the transpose operation isn't needed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5069435)
+ It will be more convenient to use a two-dimensional  numpy.array  than a  numpy.matrix  in this case. 
+
+  start_matrix = numpy.array([[1,2,3],[4,5,6]])
+weights = numpy.array([0.5,-1])
+final_vector = (start_matrix.T * weights).sum(axis=1)
+# array([-3.5, -4. , -4.5])
+  
+
+ The multiplication operator  *  does the right thing here due to NumPy's broadcasting rules. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51191109)
+ Actually yes, there is a way using numpy. Use  numpy.where : 
+
+  import numpy as np
+
+A = np.array([[1,1,0],[0,1,1],[0,0,1]])
+B = np.array(['a','b','c'])
+
+R = np.where(A,B,'')
+
+print(R)
+[['a' 'b' '']
+ ['' 'b' 'c']
+ ['' '' 'c']]
+
+R.astype(object).sum(axis=1)
+['ab', 'bc', 'c']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32365485)
+  
+
+  np.dot(p, g.T)
+  
+
+ which multiplies the points by the transpose of the rotation matrix. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21563036)
+ Simplest solution 
+
+ Use  numpy.dot  or  a.dot(b) . See the documentation http://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html. 
+
+  >>> a = np.array([[ 5, 1 ,3], 
+                  [ 1, 1 ,1], 
+                  [ 1, 2 ,1]])
+>>> b = np.array([1, 2, 3])
+>>> print a.dot(b)
+array([16, 6, 8])
+  
+
+ This occurs because numpy arrays are not matrices, and the standard operations  *, +, -, /  work element-wise on arrays.  Instead, you could try using http://docs.scipy.org/doc/numpy/reference/generated/numpy.matrix.html, and  *  will be treated like matrix multiplication.  
+
+ 
+
+ Other Solutions 
+
+ Also know there are other options: 
+
+ 
+  As noted below, if using python3.5+ the  @  operator works as you'd expect: 
+
+  >>> print(a @ b)
+array([16, 6, 8])
+   
+  If you want overkill, you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.einsum.html#numpy.einsum.  The documentation will give you a flavor for how it works, but honestly, I didn't fully understand how to use it until reading https://stackoverflow.com/a/33641428/1634191 and just playing around with it on my own. 
+
+  >>> np.einsum('ji,i->j', a, b)
+array([16, 6, 8])
+   
+  As of mid 2016 (numpy 1.10.1), you can try the experimental https://docs.scipy.org/doc/numpy/reference/generated/numpy.matmul.html#numpy-matmul, which works like  numpy.dot  with two major exceptions: no scalar multiplication but it works with stacks of matrices.  
+
+  >>> np.matmul(a, b)
+array([16, 6, 8])
+   
+  https://docs.scipy.org/doc/numpy/reference/generated/numpy.inner.html functions the same way as  numpy.dot   for matrix-vector multiplication but behaves differently  for matrix-matrix and tensor multiplication (see Wikipedia regarding the differences between https://en.wikipedia.org/wiki/Inner_product_space in general or https://stackoverflow.com/questions/11033573/difference-between-numpy-dot-and-inner regarding numpy's implementations). 
+
+  >>> np.inner(a, b)
+array([16, 6, 8])
+
+# Beware using for matrix-matrix multiplication though!
+>>> b = a.T
+>>> np.dot(a, b)
+array([[35,  9, 10],
+       [ 9,  3,  4],
+       [10,  4,  6]])
+>>> np.inner(a, b) 
+array([[29, 12, 19],
+       [ 7,  4,  5],
+       [ 8,  5,  6]])
+   
+ 
+
+ 
+
+ Rarer options for edge cases 
+
+ 
+  If you have tensors (arrays of dimension greater than or equal to one), you can use https://docs.scipy.org/doc/numpy/reference/generated/numpy.tensordot.html#numpy.tensordot with the optional argument  axes=1 : 
+
+  >>> np.tensordot(a, b, axes=1)
+array([16,  6,  8])
+   
+   Don't use https://docs.scipy.org/doc/numpy/reference/generated/numpy.vdot.html#numpy.vdot  if you have a matrix of complex numbers, as the matrix will be flattened to a 1D array, then it will try to find the complex conjugate dot product between your flattened matrix and vector (which will fail due to a size mismatch  n*m  vs  n ).  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/22949986)
+ If you want an inner product then use  numpy.dot(x,x)  for outer product use  numpy.outer(x,x)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/22053783)
+ The difference between  (R,)  and  (1,R)  is literally the number of indices that you need to use.   ones((1,R))  is a 2-D array that happens to have only one row.   ones(R)  is a vector.  Generally if it doesn't make sense for the variable to have more than one row/column, you should be using a vector, not a matrix with a singleton dimension. 
+
+ For your specific case, there are a couple of options: 
+
+ 1) Just make the second argument a vector.  The following works fine: 
+
+      np.dot(M[:,0], np.ones(R))
+  
+
+ 2) If you want matlab like matrix operations, use the class  matrix  instead of  ndarray .  All matricies are forced into being 2-D arrays, and operator  *  does matrix multiplication instead of element-wise (so you don't need dot).  In my experience, this is more trouble that it is worth, but it may be nice if you are used to matlab. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/24564003)
+  dot  is matrix multiplication, but  *  does something else. 
+
+ We have two arrays: 
+
+ 
+  X , shape (97,2) 
+  y , shape (2,1) 
+ 
+
+ With Numpy arrays, the operation 
+
+  X * y
+  
+
+ is done element-wise, but one or both of the values can be expanded in one or more dimensions to make them compatible. This operation are called broadcasting. Dimensions where size is 1 or which are missing can be used in broadcasting. 
+
+ In the example above the dimensions are incompatible, because: 
+
+  97   2
+ 2   1
+  
+
+ Here there are conflicting numbers in the first dimension (97 and 2). That is what the ValueError above is complaining about. The second dimension would be ok, as number 1 does not conflict with anything. 
+
+ For more information on broadcasting rules: http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html 
+
+ (Please note that if  X  and  y  are of type  numpy.matrix , then asterisk can be used as matrix multiplication. My recommendation is to keep away from  numpy.matrix , it tends to complicate more than simplify things.) 
+
+ Your arrays should be fine with  numpy.dot ; if you get an error on  numpy.dot , you must have some other bug. If the shapes are wrong for  numpy.dot , you get a different exception: 
+
+  ValueError: matrices are not aligned
+  
+
+ If you still get this error, please post a minimal example of the problem. An example multiplication with arrays shaped like yours succeeds: 
+
+  In [1]: import numpy
+
+In [2]: numpy.dot(numpy.ones([97, 2]), numpy.ones([2, 1])).shape
+Out[2]: (97, 1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54659647)
+ You can use np.diag: 
+
+  In [11]: np.diag(w.T.dot(cov.dot(w)))
+Out[11]: array([0.50736352, 0.32627761, 0.45469128, 0.52260723, 0.35602578])
+
+In [12]: r
+Out[12]:
+[0.5073635209626383, 0.32627761097042857, 0.45469128089985883,
+ 0.5226072271864487, 0.3560257793239626]
+  
+
+
+

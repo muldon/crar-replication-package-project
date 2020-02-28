@@ -1,0 +1,240 @@
+Query: Pandas: How can I use the apply() function for a single column?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34962518)
+ For a single column better to use  map() , like this: 
+
+  df = pd.DataFrame([{'a': 15, 'b': 15, 'c': 5}, {'a': 20, 'b': 10, 'c': 7}, {'a': 25, 'b': 30, 'c': 9}])
+
+    a   b  c
+0  15  15  5
+1  20  10  7
+2  25  30  9
+
+
+
+df['a'] = df['a'].map(lambda a: a / 2.)
+
+      a   b  c
+0   7.5  15  5
+1  10.0  10  7
+2  12.5  30  9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42370228)
+ Use a lambda function, e.g. 
+
+  lambda x: ', '.join([f(x) for f in [foo, bar, baz] if f(x)])
+  
+
+ in the call to apply. Full example: 
+
+  In : dfs['new_col'] = dfs['col'].apply(lambda x: ', '.join([f(x) for f in [foo, bar, baz] if f(x)]))
+
+In : dfs
+Out: 
+                                                 col     new_col
+0  The quick hi brown fox hi jumps over the lazy dog        TRUE
+1  The quick hi brown fox bye jumps over the lazy...  TRUE, TRUE
+2  The NO quick brown fox ok jumps bye over the l...  TRUE, TRUE
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42370139)
+ You can use  apply  with  list comprehension  where filter  None  values: 
+
+  dfs['new_col'] = dfs['col'].apply(lambda x: (', '.join([x for x in 
+                                            [foo(x), bar(x), baz(x)] if x != None])))
+print (dfs)
+                                                 col     new_col
+0  The quick hi brown fox hi jumps over the lazy dog        TRUE
+1  The quick hi brown fox bye jumps over the lazy...  TRUE, TRUE
+2  The NO quick brown fox ok jumps bye over the l...  TRUE, TRUE
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34962199)
+ Given a sample dataframe  df  as: 
+
+  a,b
+1,2
+2,3
+3,4
+4,5
+  
+
+  
+
+  df['a'] = df['a'].apply(lambda x: x + 1)
+  
+
+ that returns: 
+
+     a  b
+0  2  2
+1  3  3
+2  4  4
+3  5  5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/42370133)
+ Why not lump all functions into one giant function? 
+
+  def oneGaintFunc(col):    
+    def foo(col):
+        if 'hi' in col:
+            return 'TRUE'
+
+    def bar(col):
+        if 'bye' in col:
+            return 'TRUE'
+
+    def baz(col):
+        if 'ok' in col:
+            return 'TRUE'
+
+    a = foo(col)
+    b = bar(col)
+    c = baz(col)
+    return '{} {} {}'.format(a, b, c)
+
+df['new_col'] = df['col'].apply(oneGiantFunc)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/34962592)
+ You don't need a function at all. You can work on a whole column directly. 
+
+ Example data: 
+
+  >>> df = pd.DataFrame({'a': [100, 1000], 'b': [200, 2000], 'c': [300, 3000]})
+>>> df
+
+      a     b     c
+0   100   200   300
+1  1000  2000  3000
+  
+
+ Half all the values in column  a : 
+
+  >>> df.a = df.a / 2
+>>> df
+
+     a     b     c
+0   50   200   300
+1  500  2000  3000
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51406205)
+ Don't use  apply , as the other answer suggests. You should instead extract these columns as new DataFrames and perform vectorized arithmetic on them. 
+
+  i = pd.DataFrame(df['pos'].tolist())
+j = pd.DataFrame(df['log'].tolist())
+  
+
+ ...Or you could also use numpy arrays to do the same thing: 
+
+  i = np.array(df['pos'].tolist())
+j = np.array(df['log'].tolist())
+  
+
+  
+
+  df['result'] = (i - 1000 * j).tolist()
+  
+
+ As a side note, please consider separating each column of lists/iterables into multiple columns with a single scalar value. Performance matters, and with columns of objects, you end up killing performance unless you use trickery (like in this post), or else use the slow loopy apply functions that do not scale at all. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30389243)
+ I nmally use  apply  f this kind of thing; it's basically the DataFrame version of map (the axis parameter lets you decide whether to apply your function to rows  columns): 
+
+  df.apply(lambda row: row.a*row.b*row.c, axis =1)
+  
+
+   
+
+  df.apply(np.prod, axis=1)
+
+0     8
+1    30
+2    72
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12393965)
+ One workaround I can think of would be converting the Python function to  numpy.ufunc  with http://docs.scipy.org/doc/numpy/reference/generated/numpy.frompyfunc.html#numpy.frompyfunc: 
+
+  numpy.frompyfunc((lambda x: x[0:2]), 1, 1)
+  
+
+ and use this in  apply : 
+
+  In [50]: dfrm_test
+Out[50]:
+     A
+0  the
+1  the
+2  the
+3  the
+4  the
+5  the
+6  the
+7  the
+8  the
+9  the
+
+In [51]: dfrm_test["A"].apply(np.frompyfunc((lambda x: x[0:2]), 1, 1))
+Out[51]:
+0    th
+1    th
+2    th
+3    th
+4    th
+5    th
+6    th
+7    th
+8    th
+9    th
+Name: A
+
+In [52]: pandas.version.version
+Out[52]: '0.7.3'
+
+In [53]: dfrm_test["A"].apply(lambda x: x[0:2])
+Out[53]:
+0    the
+1    the
+Name: A
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54356066)
+ Rather than using Series.apply you can use DataFrame.apply: 
+
+  df['Translated'] = df.apply(lambda x: TextBlob(str(x.Text)).translate(from_lang=x.Language, to='en'), axis=1)
+  
+
+
+

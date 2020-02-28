@@ -1,0 +1,124 @@
+Query: How do I convert Properties into Map?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17331580)
+ I did a sample test using  Map.Entry  
+
+  Properties systemProperties = System.getProperties();
+for(Entry<Object, Object> x : systemProperties.entrySet()) {
+    System.out.println(x.getKey() + " " + x.getValue());
+}
+  
+
+ For your case, you can use this to store it in your  Map<String, String> : 
+
+  Map<String, String> mapProperties = new HashMap<String, String>();
+Properties systemProperties = System.getProperties();
+for(Entry<Object, Object> x : systemProperties.entrySet()) {
+    mapProperties.put((String)x.getKey(), (String)x.getValue());
+}
+
+for(Entry<String, String> x : mapProperties.entrySet()) {
+    System.out.println(x.getKey() + " " + x.getValue());
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45207827)
+ You can use  groupingBy  instead of  toMap : 
+
+  Map<String, Set<A>> sysUidToAMap =  
+    mySet.stream()
+         .collect(Collectors.groupingBy(A::getSystemID,
+                                        Collectors.toSet()));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27724276)
+ Since eproperties is sort of not maintained and commons configuration has a dependency on logging (which ironically means you can't use it to configure logging) I use this code snippet which only requires  commons-lang(3)  to load interpolated properties: 
+
+  @SuppressWarnings("serial")
+public static Map<String,String> loadPropertiesMap(InputStream s) throws IOException {
+    final Map<String, String> ordered = new LinkedHashMap<String, String>();
+    //Hack to use properties class to parse but our map for preserved order
+    Properties bp = new Properties() {
+        @Override
+        public synchronized Object put(Object key, Object value) {
+            ordered.put((String)key, (String)value);
+            return super.put(key, value);
+        }
+    };
+    bp.load(s);
+    final Map<String,String> resolved = new LinkedHashMap<String, String>(ordered.size());
+    StrSubstitutor sub = new StrSubstitutor(new StrLookup<String>() {
+        @Override
+        public String lookup(String key) {
+            String value = resolved.get(key);
+            if (value == null)
+                return System.getProperty(key);
+            return value;
+        }
+    });
+    for (String k : ordered.keySet()) {
+        String value = sub.replace(ordered.get(k));
+        resolved.put(k, value);
+    }
+    return resolved;
+}
+  
+
+  Input : 
+
+  blah=${user.dir}
+one=1
+two=2
+five=5
+fifteen=${one}${five}
+twoonefive=${two}${fifteen}
+six=6
+  
+
+  Output : 
+
+  blah=/current/working/dir
+one=1
+two=2
+five=5
+fifteen=15
+twoonefive=215
+six=6
+  
+
+ Obviously you can convert the  Map<String,String>  back to a  Properties  object if you need it. I resolve based on previously declared properties and system properties but you could obviously adjust that in the  StrSubstitutor.lookup . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50247701)
+ You can use Java 8  Stream s: 
+
+  List<Object> list =  map.values().stream()
+                         .flatMap(ArrayList::stream)
+                         .collect(Collectors.toList());
+  
+
+ Without  Stream s, you'll have to iterate over the elements of your first  List  and call  arrayList.addAll()  for each of them separately. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30227991)
+ You get Map.Entry as the return type of Properties.entrySet(). 
+
+  for (Map.Entry entry: properties.entrySet(
+{
+   hMap.put((String)entry.getKey(),  (String)entry.getValue());
+}
+  
+
+
+

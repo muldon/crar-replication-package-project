@@ -1,0 +1,206 @@
+Query: Calculating difference between two rows in Python / Pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38352312)
+ Assuming your dataframe is df, try the following: 
+
+  sub_df = df[df.groupby('Date')['A'].transform(lambda x: x.index[-1])==df.index]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13115473)
+ I think you want to do something like this: 
+
+  In [26]: data
+Out[26]: 
+           Date   Close  Adj Close
+251  2011-01-03  147.48     143.25
+250  2011-01-04  147.64     143.41
+249  2011-01-05  147.05     142.83
+248  2011-01-06  148.66     144.40
+247  2011-01-07  147.93     143.69
+
+In [27]: data.set_index('Date').diff()
+Out[27]: 
+            Close  Adj Close
+Date                        
+2011-01-03    NaN        NaN
+2011-01-04   0.16       0.16
+2011-01-05  -0.59      -0.58
+2011-01-06   1.61       1.57
+2011-01-07  -0.73      -0.71
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38352962)
+ I'd use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.drop_duplicates.html function: 
+
+  In [262]: df.drop_duplicates(subset=['A','B'])
+Out[262]:
+             Date   A   B
+0  20160713070000  20  21
+1  20160713070100  20  23
+3  20160713070128  21  24
+4  20160713070134  23  24
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54940167)
+ You can groupby using  df.index // 2 : 
+
+  In [11]: df.index // 2
+Out[11]: Int64Index([0, 0, 1, 1, 2, 2, 3, 3], dtype='int64')
+
+In [12]: df.groupby(df.index // 2).mean()
+Out[12]:
+        cor        est       rms        apr      mjd
+0  0.055390  80.375390  0.016405  80.320000  57754.5
+1  0.064000  80.339000  0.017610  80.275000  57755.5
+2 -0.003595  80.201400  0.017170  80.204995  57756.5
+3  0.089375  79.624355  0.017910  79.534980  57757.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46731773)
+ Lets use groupby cumcount: 
+
+  a1['count'] = a1.groupby(['A','B']).cumcount()
+a2['count'] = a2.groupby(['A','B']).cumcount()
+  
+
+  Option 1  - merge and query  
+
+  df = (pd.merge(a1,a2, indicator=True, how='left')
+        .query("_merge != 'both'")
+        .drop(['_merge','count'], 1))
+  
+
+  Option 2  - With index difference after merging i.e  
+
+  i = a1.index.difference(a1.merge(a2,on=['A','B','count']).index)
+df = a1.loc[i].drop('count',1)
+  
+
+  Option 3  - Completing @ John Zwinck's approach 
+
+  df =pd.DataFrame(pd.Index(a1).difference(pd.Index(a2)).tolist(),columns=a2.columns).drop(['count'],1)
+  
+
+ Output :  
+
+ 
+  A  B
+3  4  d
+4  5  e
+6  4  d
+7  2  b
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47577370)
+ Transform min and subtract  C  
+
+  df['new'] = (df.groupby('B')['C'].transform('min')-df['C']).replace(0,1)
+
+   B  C  A  new
+0  0  1  1    1
+1  0  2 -1   -1
+2  0  3 -2   -2
+3  1  4  1    1
+4  1  5 -1   -1
+  
+
+ Edit based on updated dataframe : 
+
+  g = df.groupby('B')
+diff = g['C'].transform('min') - df['C']
+df['new'] = diff.where(diff!=0,np.nan)
+df['new'] = df['new'].fillna(df['new'].abs().groupby(df['B']).transform('min'))
+
+  B    C    A  new
+0  0  1.2  1.7  1.7
+1  0  2.9 -1.7 -1.7
+2  0  3.0 -1.8 -1.8
+3  1  4.1  1.4  1.4
+4  1  5.5 -1.4 -1.4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47825928)
+ Here's another method with  groupby  +  transform  -  
+
+  v = df.groupby('Id').Day.transform('last') - df.Day
+df['Length'] = v.mask(v == 0)  # or v.mask(df.Status.eq('End'))
+
+df
+
+    Id  Day Status  Length
+0  111    1  Start     4.0
+1  111    5    End     NaN
+2  222    2  Begin     5.0
+3  222    7    End     NaN
+4  333    1  Start     6.0
+5  333    3  Begin     4.0
+6  333    7    End     NaN
+  
+
+ 
+
+    
+
+  df = pd.concat([df] * 1000000, ignore_index=True)
+
+# apply + iloc
+%timeit df.groupby('Id').Day.apply(lambda x : x.iloc[-1]-x).replace(0,np.nan)
+1 loop, best of 3: 1.49 s per loop
+
+# transform + mask 
+%%timeit
+v = df.groupby('Id').Day.transform('last') - df.Day
+df['Length'] = v.mask(v == 0)
+
+1 loop, best of 3: 294 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12612233)
+ The easiest way is to manually convert your numbers to Python ints first: 
+
+  d = abs(int(a) - int(b))
+  
+
+ Python ints can't overflow (unless the memory is full). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49969894)
+ Let's use  
+
+  df.assign(diff=df.groupby('Label')['Date'].diff()).dropna()
+  
+
+ Output: 
+
+                   Date  Label            diff
+2 2017-03-22 22:10:23     20 0 days 06:53:38
+4 2017-03-24 10:11:13     20 1 days 12:00:50
+5 2017-03-25 14:02:54     20 1 days 03:51:41
+  
+
+
+

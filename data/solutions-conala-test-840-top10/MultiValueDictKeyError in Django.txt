@@ -1,0 +1,238 @@
+Query: MultiValueDictKeyError in Django
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23531090)
+ Sure, you are not passing  username  as a  GET  parameter while getting the  http://127.0.0.1:8000/StartPage/  page. 
+
+ Try this and observe username printed:  http://127.0.0.1:8000/StartPage?username=test . 
+
+ Use https://docs.python.org/2/library/stdtypes.html#dict.get and avoid  MultiValueDictKeyError  errors: 
+
+  request.GET.get('username', '') 
+  
+
+ See also: 
+
+ 
+ https://stackoverflow.com/questions/3500859/django-request-get 
+ https://stackoverflow.com/questions/11336548/django-taking-values-from-post-request 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19798731)
+ Answer: update admin template. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5895670)
+ Use the MultiValueDict's  get  method. This is also present on standard dicts and is a way to fetch a value while providing a default if it does not exist. 
+
+  is_private = request.POST.get('is_private', False)
+  
+
+  
+
+  my_var = dict.get(<key>, <default>)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30407390)
+  x.__getitem__(y) == x[y]
+  
+
+ so if  y  is not in  GET  response python raises  KeyErr  
+
+ Use  get()  method instead of direct access, it returns  None  ( whatever you set by  default  kwarg) instead of  KeyErr  
+
+  zoom = request.GET.get('zoom')
+  
+
+  
+
+  query = request.GET 
+zoom = query.get('zoom')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30696103)
+  
+
+  def add_post(request):
+    entry_title = request.POST["title"]
+    return HttpResponse('Hello %s' % entry_title)
+  
+
+  
+
+  def add_post(request):
+    entry_title = request.POST.get("title", "Guest (or whatever)")
+    return HttpResponse('Hello %s' % entry_title)
+  
+
+ and it won't throw a  KeyError , but you should look at using Django's forms rather than pulling values directly from the POST data. 
+
+ Alternatively, you can keep your existing code and simply check for the exception: 
+
+  def add_post(request):
+    try:
+        entry_title = request.POST["title"]
+    except KeyError:
+        entry_title = "Guest"
+    return HttpResponse('Hello %s' % entry_title)
+  
+
+ but this is what  .get()  does internally already. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28124916)
+ For Django <= 1.7.3, also make sure, that the primary key field of your inline model is an AutoField: 
+
+  wrong:  
+
+  class Car(models.Model):
+    id = IntegerField(primary_key=True)
+  
+
+    
+
+  class Car(models.Model):
+    id = AutoField(primary_key=True)
+  
+
+ Seehttps://code.djangoproject.com/ticket/15665
+<a href="https://code.djangoproject.com/ticket/15665"https://code.djangoproject.com/ticket/15665  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46868463)
+ It because  i_id  doesn't declare in the template, you should change; 
+
+  <input type='hidden' name='{{ i.id }}'/>
+  
+
+  
+
+  <input type='hidden' name="i_id" value='{{ i.id }}'/>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5895652)
+ Choose what is best for you: 
+
+ 1 
+
+  is_private = request.POST.get('is_private', False);
+  
+
+ If  is_private  key is present in request.POST the  is_private  variable will be equal to it, if not, then it will be equal to False. 
+
+ 2 
+
+  if 'is_private' in request.POST:
+    is_private = request.POST['is_private']
+else:
+    is_private = False
+  
+
+ 3 
+
+  from django.utils.datastructures import MultiValueDictKeyError
+try:
+    is_private = request.POST['is_private']
+except MultiValueDictKeyError:
+    is_private = False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14128835)
+ This is a generic example of the solution I found to my problem: 
+
+ In the  forms.py  file: 
+
+  class MyForm(ModelForm):
+    class Meta:
+        model = MyModel
+        fields = ('description',)
+  
+
+ In the  views.py  file: 
+
+  FormSet = modelformset_factory(MyModel, form=MyForm, extra=0)
+if request.method == 'POST':
+    formset = FormSet(request.POST, request.FILES)
+    # Your validation and rest of the 'POST' code
+else:
+    query = MyModel.objects.filter(condition)
+    paginator = Paginator(query, 10) # Show 10 forms per page
+    page = request.GET.get('page')
+    try:
+        objects = paginator.page(page)
+    except PageNotAnInteger:
+        objects = paginator.page(1)
+    except EmptyPage:
+        objects = paginator.page(paginator.num_pages)
+    page_query = query.filter(id__in=[object.id for object in objects])
+    formset = FormSet(queryset=page_query)
+    context = {'objects': objects, 'formset': formset}
+    return render_to_response('template.html', context,
+                              context_instance=RequestContext(request))
+  
+
+ You need to create the formset with the objects in the present page, otherwise, when you try to do  formset = FormSet(request.POST, request.FILES)  in the POST method, Django raises a MultiValueDictKeyError error. 
+
+ In the  template.html  file: 
+
+  {% if objects %}
+    <form action="" method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        {% for form in formset.forms %}
+            {{ form.id }}
+            <!-- Display each form -->
+            {{ form.as_p }}
+        {% endfor %}
+        <input type="submit" value="Save" />
+    </form>
+
+    <div class="pagination">
+        <span class="step-links">
+            {% if objects.has_previous %}
+                ?page={{ objects.previous_page_number }}
+            {% endif %}
+
+            <span class="current">
+                Page {{ objects.number }} of {{ objects.paginator.num_pages }}
+            </span>
+
+            {% if objects.has_next %}
+                ?page={{ objects.next_page_number }}
+            {% endif %}
+        </span>
+    </div>
+{% else %}
+     There are no objects. 
+{% endif %}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/34052011)
+ If you are already on a newer version of django and still get this, make sure your non-AutoField PK has "editable=False" in the model definition. 
+
+
+

@@ -1,0 +1,179 @@
+Query: Python MySQL Parameterized Queries
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40070500)
+ The error you get is from mysql when it tries to execute the query. The query parameters passed to  cursor.execute()  need to be a tuple, you're passing a single value. To create a tuple with a single element you need to add a comma after the element: 
+
+  cursor.execute("SELECT * FROM automatedReports WHERE pythonFunctionName = %s", (function_name,))
+  
+
+ Otherwise  mysql.connector  doesn't escape anything and leaves the literal  %s  in the query. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29395479)
+ Make your query  parameterized : 
+
+  dbu.cursor.execute("""
+    SELECT 
+        id, company_name, backup_started, backup_finished 
+    FROM 
+        Clients 
+    WHERE 
+        backup_started > %s""", (today12pm, ))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/32271923)
+ found it here: 
+
+ http://dev.mysql.com/doc/connector-python/en/connector-python-example-cursor-transaction.html 
+
+ the same would be for querying too.. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10986040)
+ The oursql documentation says it uses http://packages.python.org/oursql/tutorial.html#executing-queries which I don't think is compatible with this style of formatting. You are looking for a DB API that supports "pyformat". (See http://www.python.org/dev/peps/pep-0249/ under "paramstyle".) 
+
+ My experience is with http://mysql-python.sourceforge.net/MySQLdb.html, which does support the "pyformat" paramstyle, where your query could be written: 
+
+  c.execute("""SELECT * FROM records WHERE id = %(id)s""", {"id": 2})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37793806)
+ You need to parameterize the whole field value for the  JSON_EXTRACT() : 
+
+  cur.execute("""
+   SELECT root_symbol 
+   FROM markets 
+   WHERE JSON_EXTRACT(metadata, %s) = %s""", ('$.currency', "USD"))
+
+cur.execute("""
+   SELECT root_symbol 
+   FROM markets 
+   WHERE JSON_EXTRACT(metadata, %s) = %s""", ('$.tick_size', 0.25))
+  
+
+ Note the absence of quotes around the placeholders - the database driver would put it automatically if needed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/47790233)
+ You're trying to use string formatting to build an SQL query. Don't do that, use parameterized queries. If you do that, you don't add quotes around the placeholders, the database connector will handle escaping of the parameters for you. Just pass the arguments as a tuple: 
+
+  sql = """ select t.txid, t.from_address, t.to_address,t.value, t.timestamp, t.conformations, t.spent_flag,t.spent_txid  from 
+transaction_details t where t.to_address =(select distinct  a.address from
+ address_master a  inner join  panel_user p  on a.user = p.user and a.user = %s """)
+cursor.execute(sql, (user,))
+res = cursor.fetchall()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50167289)
+ Instead of using the  Execute  method of filling in the table name, use basic python string primitives construct the string for the  DROP  statement.  This way you won't get extra quotes around the table name.  (Such would give you a syntax error.)   
+
+  cursorDrop.execute(query2)
+  
+
+ Another issue:  You need to do the equivalent of  USE db_name  after connecting and before performing the DROPs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1947993)
+ Most languages provide a way to do generic parameterized statements, Python is no different.  When a parameterized query is used databases that support preparing statements will automatically do so. 
+
+ In python a parameterized query looks like this: 
+
+  cursor.execute("SELECT FROM tablename WHERE fieldname = %s", [value])
+  
+
+ The specific style of parameterization may be different depending on your driver, you can import your db module and then do a  print yourmodule.paramstyle . 
+
+ From http://www.python.org/dev/peps/pep-0249/: 
+
+ 
+   paramstyle 
+
+         String constant stating the type of parameter marker
+       formatting expected by the interface. Possible values are
+       [2]:
+
+           'qmark'         Question mark style, 
+                           e.g. '...WHERE name=?'
+           'numeric'       Numeric, positional style, 
+                           e.g. '...WHERE name=:1'
+           'named'         Named style, 
+                           e.g. '...WHERE name=:name'
+           'format'        ANSI C printf format codes, 
+                           e.g. '...WHERE name=%s'
+           'pyformat'      Python extended format codes, 
+                           e.g. '...WHERE name=%(name)s'
+  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50168068)
+ In MySQL, schema objects, unlike SQL parameters, have a different quotation rule, the quote mark for schema object is the backtick (`): 
+
+ 
+   An identifier may be quoted or unquoted. If an identifier contains special characters or is a reserved word, you must quote it whenever you refer to it. (Exception: A reserved word that follows a period in a qualified name must be an identifier, so it need not be quoted.) Reserved words are listed at Section 9.3, “Keywords and Reserved Words”. 
+  
+   ... 
+  
+   The identifier quote character is the backtick (`): 
+ 
+
+ you could modify your code like this: 
+
+  query2 = "DROP TABLE IF EXISTS `%s`" 
+...
+    cursorDrop.execute(query2 % tableName)
+  
+
+ see more on https://dev.mysql.com/doc/refman/5.5/en/identifiers.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9686339)
+ You cannot parameterized table name, so you have to sanitize it yourself and use string substitution in the query instead. 
+
+ To  sanitize  a table name in a query with multiple parameters: 
+
+  query = "SELECT * FROM %s WHERE columnName = %s" % (tableName,'%s')
+print(query)
+  
+
+ At this point, query will display as: 
+
+  SELECT * FROM tableName WHERE columName = %s
+  
+
+ Once you've constructed your cursor, use the parameterized condition: 
+
+  cursor.execute(query,(columnValue,))
+  
+
+ The actual query that mySQL will read in then is: 
+
+  SELECT * FROM tableName WHERE columnName = columnValue
+  
+
+ If you try to pass in a table name without sanitizing it, you'll get a syntax error. 
+
+
+

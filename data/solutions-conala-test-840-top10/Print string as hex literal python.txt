@@ -1,0 +1,221 @@
+Query: Print string as hex literal python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/21957776)
+ For a cross-version compatible solution, use http://docs.python.org/2/library/binascii#binascii.hexlify: 
+
+  >>> import binascii
+>>> x = '\x01\x41\x42\x43'
+>>> print x
+ABC
+>>> repr(x)
+"'\\x01ABC'"
+>>> print binascii.hexlify(x)
+01414243
+  
+
+   .encode('hex')  is a misuse of  encode  and has been removed in Python 3: 
+
+  Python 3.3.1
+Type "help", "copyright", "credits" or "license" for more information.
+>>> '\x01\x41\x42\x43'.encode('hex')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+LookupError: unknown encoding: hex
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53541572)
+  "\u{}"  throws that error because the string representation  \u nnnn   is not supposed to work with variables; it's a  literal, immediate value . Much like you cannot do  x = 't'; print ('a\{}b'.format(x))  and expect a tab between  a  and  b . 
+
+ To print any Unicode character, either enter its literal code immediately into the string itself: 
+
+   print ('Hello \u2665 world')
+  
+
+ result: 
+
+  Hello ♥ world
+  
+
+ – do note that you don't need the  u  prefix on the string itself; that's a Python 2.x'ism –, or, if you want to provide the character value in a variable: 
+
+  print ('Hello {:c} world'.format(0x2665))
+  
+
+ where (1) the  :c  forces a  character representation  of the value, and (2) you need to indicate that the value itself is in hex. (As the string representation  \u nnnn   is  always  in hex.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30502003)
+ You are confusing  literal syntax  and the value it produces. You cannot produce a value and expect it to be treated as a literal, the same way that producing a string with  '1' + '0'  does not make the integer  10 . 
+
+ Use the https://docs.python.org/2/library/functions.html#unichr to convert an integer to a Unicode character, or use the  unicode_escape  codec to decode a bytestring containing Python literal syntax to a Unicode string: 
+
+  >>> unichr(0x2599)
+u'\u2599'
+>>> print unichr(0x2599)
+▙
+>>> print '\\u2599'
+\u2599
+>>> print '\\u2599'.decode('unicode_escape')
+▙
+  
+
+ You are also missing the crucial detail that the  \uhhhh  syntax uses  hexadecimal  numbers.  2500  decimal is  9C4  in hexadecimal, and  2500  in hexadecimal is 9472 in decimal. 
+
+ To produce your range of values then, you want to use the  0xhhhh  Python literal notation to produce a sequence between 0x2500 hex and 0x2600 hex: 
+
+  for codepoint in range(0x2500, 0x2600):
+    print unichr(codepoint)
+  
+
+ as that's easier to read and understand when using Unicode codepoints. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13261120)
+    
+
+  >>> a='\x05\x03\x87'
+>>> print a
+?
+>>> print (a)
+'\x05\x03\x87'
+  
+
+  EDIT  
+
+ Sven makes the point that the OP might want  every  character dumped in hex, even the printable ones, in which case, the best solution I can think of is: 
+
+  >>> print ''.join(map(lambda c:'\\x%02x'%c, map(ord, a)))
+\x05\x03\x87
+  
+
+  ADDITIONAL EDIT  
+
+ Four years later, it occurs to me that this might be both faster and more readable: 
+
+  >>> print ''.join(map(lambda c:'\\x%02x'% ord(c), a))
+  
+
+  
+
+  >>> print ''.join([ '\\x%02x'% ord(c) for c in a ])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13266407)
+ You can derive your own subclass of  str  that behaves & prints the way you desire, yet can be used almost anywhere a regular string could be and has all the same built-in methods.  
+
+ As you can see, the example prints the hex values of  all  the characters it contains, whether they're printable normally or not -- something which could be done differently if you wanted, of course. 
+
+  class HexStr(str):
+    def __repr__(self):
+        return "'" + ''.join('\\x{:02x}'.format(ord(ch)) for ch in self) + "'"
+    __str__ = __repr__
+
+a = HexStr('abc\x05\x03\x87')
+print a
+print str(a)
+print repr(a)
+  
+
+ Output: 
+
+<pre class="lang-none prettyprint-override"> '\x61\x62\x63\x05\x03\x87'
+'\x61\x62\x63\x05\x03\x87'
+'\x61\x62\x63\x05\x03\x87'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14335682)
+  \20  is an escape sequence that refers to the  DLE  ASCII character whose decimal value is 16 ( 20  in octal,  10  in hexadecimal). Such a character is printed as the  \x10  hex escape by the  repr  function of strings. 
+
+ To specify a literal  \20 , either double the backslash ( "\\20" ) or use a raw string ( r"\20" ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/30943361)
+ Try specifying that the int is in base 16: 
+
+  >>> int("0x3f", 16)
+63
+  
+
+ You could also use  ast.literal_eval , which should be able to read any string that could be used as an integer literal. You don't even have to specify a base for this one, as long as the  0x  prefix is present. 
+
+  >>> import ast
+>>> #hexadecimal
+>>> ast.literal_eval("0x3f")
+63
+>>> #binary
+>>> ast.literal_eval("0b01010")
+10
+>>> #octal
+>>> ast.literal_eval("0712")
+458
+>>> #decimal
+>>> ast.literal_eval("42")
+42
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/10218221)
+ The  0x  is literal representation of hex numbers. And  L  at the end means it is a  Long  integer. 
+
+ If you just want a hex representation of the number as a string without  0x  and  L , you can use string formatting with  %x . 
+
+  >>> a = 44199528911754184119951207843369973680110397
+>>> hex(a)
+'0x1fb62bdc9e54b041e61857943271b44aafb3dL'
+>>> b = '%x' % a
+>>> b
+'1fb62bdc9e54b041e61857943271b44aafb3d'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20858558)
+ Your string has the character you want in it. Python is simply displaying it with a hexadecimal escape for clarity;  \xa6  in a string literal means a byte with hex value A6, rather than a literal backslash, x, a, and 6. If you print the string: 
+
+  print files[0]
+  
+
+ it should display as a box-drawing character, at least on your system. Byte A6 might be something else on a different computer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/22315658)
+ When you say  \x{0} , Python escapes  x  and thinks that the next two characters will be hexa-decimal characters, but they are actually not. Refer the table http://docs.python.org/2/reference/lexical_analysis.html#string-literals. 
+
+ 
+  \xhh  Character with hex value hh (4,5)
+  
+  
+   4 . Unlike in Standard C, exactly two hex digits are required. 
+  
+   5 . In a string literal, hexadecimal and octal escapes denote the byte with the given value; it is not necessary that the byte encodes a character in the source character set. In a Unicode literal, these escapes denote a Unicode character with the given value. 
+ 
+
+ So, you have to escape  \  in  \x , like this 
+
+  print "\\x{0}".format(a)
+# \xff
+  
+
+
+

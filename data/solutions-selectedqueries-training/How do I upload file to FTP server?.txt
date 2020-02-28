@@ -1,0 +1,243 @@
+Query: How do I upload file to FTP server?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7203100)
+ Solution from http://royvandewater.com/2010/10/uploading-a-file-to-ftp-with-android/  
+
+  import org.apache.commons.net.ftp.FTPClient;
+
+
+
+FTPClient ftpClient = new FTPClient();
+
+try {
+    ftpClient.connect(InetAddress.getByName(SERVER));
+    ftpClient.login(USERNAME, PASSWORD);
+    ftpClient.changeWorkingDirectory(PATH);
+
+    if (ftpClient.getReplyString().contains("250")) {
+        ftpClient.setFileType(org.apache.commons.net.ftp.FTP.BINARY_FILE_TYPE);
+        BufferedInputStream buffIn = null;
+        buffIn = new BufferedInputStream(new FileInputStream(FULL_PATH_TO_LOCAL_FILE));
+        ftpClient.enterLocalPassiveMode();
+        ProgressInputStream progressInput = new ProgressInputStream(buffIn, progressHandler);
+
+        boolean result = ftpClient.storeFile(localAsset.getFileName(), progressInput);
+        buffIn.close();
+        ftpClient.logout();
+        ftpClient.disconnect();
+    }
+
+} catch (SocketException e) {
+    Log.e(SorensonApplication.TAG, e.getStackTrace().toString());
+} catch (UnknownHostException e) {
+    Log.e(SorensonApplication.TAG, e.getStackTrace().toString());
+} catch (IOException e) {
+    Log.e(SorensonApplication.TAG, e.getStackTrace().toString());
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3972882)
+ The problem is that you try to upload the file to a directory. You should rather specifiy the  destination filename , not the  destination directory . 
+
+ Does it work when you try the same in another FTP client? 
+
+  [Update]  
+
+ Here is some (untested, since I don't have an FTP server) code that does the error handling better and in a shorter form. 
+
+  package so3972768;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FtpUpload {
+
+  private static void check(FTPClient ftp, String cmd, boolean succeeded) throws IOException {
+    if (!succeeded) {
+      throw new IOException("FTP error: " + ftp.getReplyString());
+    }
+  }
+
+  private static String today() {
+    return new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+  }
+
+  public void uploadfile(String server, String username, String Password, String sourcePath, String destDir) throws IOException {
+
+    FTPClient ftp = new FTPClient();
+    ftp.connect(server);
+    try {
+      check(ftp, "login", ftp.login(username, Password));
+
+      System.out.println("Connected to " + server + ".");
+
+      InputStream input = new FileInputStream(sourcePath);
+      try {
+        String destination = destDir;
+        if (destination.endsWith("/")) {
+          destination += today() + "-" + new File(sourcePath).getName();
+        }
+        check(ftp, "store", ftp.storeFile(destination, input));
+        System.out.println("Stored " + sourcePath + " to " + destination + ".");
+      } finally {
+        input.close();
+      }
+
+      check(ftp, "logout", ftp.logout());
+
+    } finally {
+      ftp.disconnect();
+    }
+  }
+
+  public static void main(String[] args) throws IOException {
+    FtpUpload upload = new FtpUpload();
+    upload.uploadfile("192.168.0.210", "muruganp", "vm4snk", "/home/media/Desktop/FTP Upload/data.doc", "/fileserver/filesbackup/Emac/");
+  }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11555318)
+ By using commons-net-3.0.jar provided by Apache you can communicate with Server with FTP. 
+
+ FTPUtils Class is having core methods like connect,disconnect,upload and download methods.
+and FTPMain having main method to upload file. 
+
+  
+
+  package com.ftpclient.test;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FTPUtils {
+    public static void ftpConnect(FTPClient ftpclient, String host, String username, String password) throws IOException {
+        System.out.println("FTPUtils :: Logging in FTP..");
+        try{
+            ftpclient.connect(host);
+            if (!ftpclient.login(username, password)) {
+                throw new IOException("Supplied wrong credentials to FTP Server");
+            }
+
+            if (ftpclient.getReplyCode() != 0) {
+                System.out.println(ftpclient.getReplyString());
+            }
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP Client is not able to Connect to host");
+            throw new IOException("FTP Client is not able to Connect to host");
+        }
+        System.out.println("FTPUtils :: FTP Login Successful..");
+    }
+
+    /**
+     * disconnect to FTP server
+     * 
+     * @param ftpclient is Object which is having details of FTP server like IP, user name and password
+     * @throws IOException throws Exception
+     */
+    public static void ftpDisConnect(FTPClient ftpclient) throws IOException {
+        System.out.println("FTPUtils :: FTP Logging out..");
+        ftpclient.logout();
+        ftpclient.disconnect();
+        System.out.println("FTPUtils :: FTP Disconnected Successfully..");
+    }
+
+    /**
+     * download's file from source path to destination path by using FTP Client.
+     * 
+     * @param ftpclient is Object which is having details of FTP server like IP, user name and password
+     * @param sourcePath is String from where to download's file
+     * @param destinationPath is String to where to download's file.
+     * @return boolean true if download's with out any fail else false
+     * @throws IOException will throw any problem with file system
+     */
+    public static boolean downloadFile(FTPClient ftpclient, String sourcePath, String destinationPath) throws IOException {
+        System.out.println("FTPUtils :: RemoteFile download starts ..FTP SOURCE " + sourcePath + " DESTINATION " + destinationPath);
+        FileOutputStream fos = null;
+        boolean result = false;
+        try{            
+            ftpclient.setFileTransferMode(FTP.BINARY_FILE_TYPE);
+            ftpclient.setFileType(FTP.BINARY_FILE_TYPE);
+            File fDestination = new File(destinationPath);
+            fos = new FileOutputStream(fDestination);
+            result = ftpclient.retrieveFile(sourcePath, fos);
+            if (result) {
+                System.out.println("FTPUtils :: RemoteFile download Completed..FTP " + sourcePath);
+            }
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP is not able to Download the files from host");
+            throw new IOException("FTP is not able to Download the files from host");
+        }finally{
+            fos.close();
+        }
+        return result;
+    }
+
+    /**
+     * @param ftpclient
+     * @param sourcePath
+     * @param destinationPath
+     * @throws IOException
+     */
+    public static void uploadFile(FTPClient ftpclient, String sourcePath, String destinationPath) throws IOException {
+        FileInputStream fis = null;
+        try {
+            //
+            // Create an InputStream of the file to be uploaded
+            //
+            fis = new FileInputStream(sourcePath);
+
+            //
+            // Store file to server
+            //
+            ftpclient.storeFile(destinationPath, fis);
+        }catch(IOException ioe){
+            ioe.printStackTrace();
+            System.out.println("FTP is not able to upload the files from host");
+            throw new IOException("FTP is not able to upload the files from host");
+        }finally{
+            fis.close();
+        }
+    }
+}
+  
+
+  
+
+  import java.io.IOException;
+import org.apache.commons.net.ftp.FTPClient;
+
+public class FTPMain {
+    public static void main(String[] str){
+        FTPClient ftpclient = new FTPClient();
+        try {
+            FTPUtils.ftpConnect(ftpclient, "ipaddress", "username", "password");
+            FTPUtils.uploadFile(ftpclient, "sourcePath", "destinationPath");
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+}
+  
+
+
+

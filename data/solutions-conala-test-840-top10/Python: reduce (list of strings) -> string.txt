@@ -1,0 +1,260 @@
+Query: Python: reduce (list of strings) -> string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/47064036)
+ Think about your reduce operation: 
+
+  (len((len('cat') + len('dog')))+ len('hat'))
+  
+
+ You will end up calling  len  on an  int .  
+
+  sum(map(len, ['cat','dog','hat']))
+  
+
+ And stop re-inventing the wheel and using  reduce  for  sum . 
+
+ Note also, using  sum  (which is equivalent to  reduce(lambda x,y: x+y, ...)  is going to have  terrible  performance for strings, i.e. O(n^2). Instead, use  ''.join(sequence_of_strings)  
+
+ Indeed, the interpreter will yell at you if you even try! 
+
+  >>> sum(['a','b','c'], '')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: sum() can't sum strings [use ''.join(seq) instead]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/26164528)
+ Use  str.upper() : 
+
+  >>> 'How are you?'.upper()
+'HOW ARE YOU?'
+  
+
+ Regarding your question "I can't figure out how to put them back together from the list into strings", use  str.join : 
+
+  >>> lis = ['H', 'O', 'W', ' ', 'A', 'R', 'E', ' ', 'Y', 'O', 'U', '?']
+>>> ''.join(lis)
+'HOW ARE YOU?'
+  
+
+ If you want to use  reduce , you need to give it an initial value of  ''  and give it a function that takes two arguments and reduces them to a single result: 
+
+  >>> reduce(lambda s,t:s + t, lis, '')
+'HOW ARE YOU?'
+  
+
+  reduce  without  lambda : 
+
+  >>> import operator
+>>> reduce(operator.add, lis, '')
+'HOW ARE YOU?'
+  
+
+  important note :  Using  reduce  to build a string is  very inefficient  because it creates a new string after each addition.  The performance for even medium length strings would be excessive. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41068073)
+ Using only math (no conversions to or from strings), you can use the  reduce  function ( functools.reduce  in Python 3) 
+
+  b = reduce(lambda total, d: 10*total + d, x, 0)
+  
+
+ This makes use of Horner's rule, which factors the polynomial representing the number to reduce the number of multiplications. For example, 
+
+  1357 = 1*10*10*10 + 3*10*10 + 5*10 + 7     # 6 multiplications
+     = ((1*10 + 3)*10 + 5)*10 + 7          # 3 multiplications
+  
+
+ As a result, this is faster than computing powers of 10 or creating a string and converting the result to an integer. 
+
+  >>> timeit.timeit('reduce(lambda t,d: 10*t+d, x, 0)', 'from functools import reduce; x=[1,3,5,7]')
+0.7217515400843695
+>>> timeit.timeit('int("".join(map(str, [1,3,5,7])))')
+1.425914661027491
+>>> timeit.timeit('sum(d * 10**i for i, d in enumerate(x[::-1]))', 'x=[1,3,5,7]')
+1.897974518011324
+  
+
+ 
+
+ In fairness, string conversion is faster once the number of digits gets larger. 
+
+  >>> import timeit
+
+# 30 digits
+>>> setup='from functools import reduce; x=[5, 2, 6, 8, 4, 6, 6, 4, 8, 0, 3, 1, 7, 6, 8, 2, 9, 9, 9, 5, 4, 5, 5, 4, 3, 6, 9, 2, 2, 1]' 
+>>> print(timeit.timeit('reduce(lambda t,d: 10*t+d, x, 0)', setup))
+6.520374411018565
+>>> print(timeit.timeit('int("".join(map(str, x)))', setup))
+6.797425839002244
+>>> print(timeit.timeit('sum(d * 10**i for i, d in enumerate(x[::-1]))', setup))
+19.430233853985555
+
+# 60 digits
+>>> setup='from functools import reduce; x=2*[5, 2, 6, 8, 4, 6, 6, 4, 8, 0, 3, 1, 7, 6, 8, 2, 9, 9, 9, 5, 4, 5, 5, 4, 3, 6, 9, 2, 2, 1]' 
+>>> print(timeit.timeit('reduce(lambda t,d: 10*t+d, x, 0)', setup))
+13.648188541992567
+>>> print(timeit.timeit('int("".join(map(str, x)))', setup))
+12.864593736943789
+>>> print(timeit.timeit('sum(d * 10**i for i, d in enumerate(x[::-1]))', setup))
+44.141602706047706
+
+# 120 digits!
+>>> setup='from functools import reduce; x=4*[5, 2, 6, 8, 4, 6, 6, 4, 8, 0, 3, 1, 7, 6, 8, 2, 9, 9, 9, 5, 4, 5, 5, 4, 3, 6, 9, 2, 2, 1]' 
+>>> print(timeit.timeit('reduce(lambda t,d: 10*t+d, x, 0)', setup))
+28.364255172084086
+>>> print(timeit.timeit('int("".join(map(str, x)))', setup))
+25.184791765059344
+>>> print(timeit.timeit('sum(d * 10**i for i, d in enumerate(x[::-1]))', setup))
+99.88558598596137
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9712547)
+ You're multiplying string '2' by int 3 which gives string '222'... then string '222' by int 4, which gives string '222222222222'. 
+
+ You need to convert x to an integer: 
+
+  print reduce(lambda x,  y: int(x)*int(y),  ['2',  '3',  '4'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37546819)
+ Got two ideas, one with list comprehentions: 
+
+  print [int(j) for i in somedata for j in list(str(i)) ]
+  
+
+ Something new (from comments), string is already iterable, so it would be: 
+
+  print [int(j) for i in somedata for j in str(i) ]
+  
+
+ second with opertations on strings and list comprehentions: 
+
+  print [int(i) for i in list(''.join(str(somedata)[1:-1].replace(', ','')))]
+  
+
+ output for both: 
+
+  [1, 1, 2, 1, 2, 3, 1, 2, 3, 4, 1, 2, 3, 4, 5]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9712576)
+  
+
+  reduce(lambda x,  y: x*int(y),  ['2',  '3',  '4'], 1)
+  
+
+ Notice that I'm passing a third parameter to  reduce , indicating that the operation should be initialized in  1 , the multiplicative identity. In this way, you only need to convert  y , the  current  value to  int , and not  x , the  accumulated  value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53537776)
+ We can also use the python inbuilt functionality of reduce:- 
+
+ 
+   from functools import reduce 
+  
+   sentence = ['this','is','a','sentence'] 
+  
+   out_str=str(reduce(lambda x,y:x+"-"+y,sentence)) 
+  
+   print(out_str) 
+ 
+
+ I hope this helps :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/51776659)
+ The problem is that your inner most reduce function, the one acting on your sublists, is always turning the second argument to  _ : 
+
+  lambda a, b: strxo(a) + strxo(b)
+  
+
+ So, on the last element of that reduce,  b  is  __ , which gets turned into  _ ! 
+
+ You want to  map   strxo  onto everything first,  and then  reduce using concatenation. 
+
+ So you want something like this: 
+
+  reduce(lambda x, y: x + "\n" + y, map(lambda l: reduce(lambda a, b: a + b, map(strxo, l)), board))
+  
+
+ Note, I removed the unecessary call to  list . 
+
+ But more importantly,  stop using  reduce  and the concatenation operator to join strings!  
+
+ It is unnecessarily verbose, and it is inefficient to boot (it will have quadratic time complexity). 
+
+ Instead, use: 
+
+  joinstr = ''.join
+  
+
+ Which is a perfectly fine function. Functional programming doesn't mean "use map and reduce everywhere possible". 
+
+ So, here's some good functional programming: 
+
+  joinstr = ''.join
+join_newline = '\n'.join
+
+def board_str(board):
+    return join_newline(map(lambda l: joinstr(map(strxo,l)), board))
+  
+
+ Better yet, you should just use  list comprehensions , which are  eminently  functional constructs (Python stole them from Haskell, btw). It is frequently more readable than  map  +  lambda : 
+
+  def board_string(board):
+    return join_newline([joinstr(map(strxo, l)) for l in board])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/9712548)
+  >>> reduce(lambda x,  y: x*int(y),  ['2',  '3',  '4'])
+'222222222222'
+  
+
+ Okay, here is what happens: 
+
+ In the first reduce step, the following calculation is done:  '2' * 3 . As the first operand is a string, it simply gets repeated  3  times. So you end up with  '222' . 
+
+ In the second reduce step, that value is multiplied by 4:  '222' * 4 . Again, the string is repeated four times which results in  '222222222222'  which is exactly the result you got. 
+
+ You could avoid this by either converting  x  to an int as well (calling  int(x) ), or by mapping the list elements using an integer conversion in the first place (I actually think that’s more elegant): 
+
+  >>> reduce(lambda x, y: x * y, map(int, ['2', '3', '4']))
+24
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33413197)
+ Just for completeness, another solution using https://docs.python.org/3/library/itertools.html#itertools.groupby: 
+
+  >>> s = "STRR hello HLLJ"
+>>> [''.join(g) for k, g in itertools.groupby(s, key=str.isupper) if k]
+['STRR', 'HLLJ']
+  
+
+
+

@@ -1,0 +1,250 @@
+Query: How to convert a date string to different format
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/44133956)
+ Here is how you can guess the format of a date string: 
+
+  import datetime
+
+def guess_date(string):
+    for fmt in ["%Y/%m/%d", "%d-%m-%Y", "%Y%m%d"]:
+        try:
+            return datetime.datetime.strptime(string, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(string)
+  
+
+  
+
+  samples = "2017/5/23", "22-04-2015", "20150504"
+
+for sample in samples:
+    print(guess_date(sample))
+  
+
+  
+
+  2017-05-23
+2015-04-22
+2015-05-04
+  
+
+ Use  d.strftime("%Y%m%d")  to choose your desired format: 
+
+  for sample in samples:
+    d = guess_date(sample)
+    print(d.strftime("%Y%m%d"))
+  
+
+ You can also use http://dateutil.readthedocs.io/en/stable/parser.html to parse a date in any format. 
+
+ See example: 
+
+  >>> from dateutil.parser import *
+>>> now = parse("Sat Oct 11 17:13:46 UTC 2003")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/52882616)
+ You can use try-except for this. 
+
+  def convert_timestamp(date_timestamp, output_format="%Y-%m-%d"):
+    ALLOWED_STRING_FORMATS=[
+        "%Y-%m-%d %H:%M:%S %Z",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+    ]
+
+    for format in ALLOWED_STRING_FORMATS:
+        try: 
+            d = datetime.strptime(date_timestamp,format):
+            return d.strftime(output_format)
+        except ValueError:
+            pass
+    try:
+        # unix epoch timestamp
+        epoch = int(date_timestamp) / 1000
+        return datetime.fromtimestamp(epoch).strftime(output_format)
+    except ValueError:
+        raise ValueError('The timestamp did not match any of the allowed formats')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9597396)
+ You can convert the current time like this 
+
+  t=datetime.fromtimestamp(time.time())
+t.strftime('%Y-%m-%d')
+'2012-03-07'
+  
+
+ To convert a date in string to different formats. 
+
+  import datetime,time
+
+def createDateObject(str_date,strFormat="%Y-%m-%d"):    
+    timeStamp = time.mktime(time.strptime(str_date,strFormat))
+    return datetime.datetime.fromtimestamp(timeStamp)
+
+def FormatDate(objectDate,strFormat="%Y-%m-%d"):
+    return objectDate.strftime(strFormat)
+
+Usage
+=====
+o=createDateObject('2013-03-03')
+print FormatDate(o,'%d-%m-%Y')
+
+Output 03-03-2013
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21890604)
+ If you can live with 01 for January instead of 1, then try... 
+
+  d = datetime.datetime.strptime("2013-1-25", '%Y-%m-%d')
+print datetime.date.strftime(d, "%m/%d/%y")
+  
+
+ You can check the http://docs.python.org/2/library/datetime.html?highlight=strftime#strftime-and-strptime-behavior for other formatting directives. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20035328)
+ To convert the string into a date object: 
+
+  from datetime import date, datetime
+
+date_string = "01/12/2011"
+date_object = date(*map(int, reversed(date_string.split("/"))))
+assert date_object == datetime.strptime(date_string, "%d/%m/%Y").date()
+  
+
+ The way to convert the date object into POSIX timestamp depends on timezone. From https://stackoverflow.com/a/8778548/4279: 
+
+ 
+  date object represents midnight in UTC 
+
+  import calendar
+
+timestamp1 = calendar.timegm(utc_date.timetuple())
+timestamp2 = (utc_date.toordinal() - date(1970, 1, 1).toordinal()) * 24*60*60
+assert timestamp1 == timestamp2
+   
+  date object represents midnight in local time 
+
+  import time
+
+timestamp3 = time.mktime(local_date.timetuple())
+assert timestamp3 != timestamp1 or (time.gmtime() == time.localtime())
+   
+ 
+
+ The timestamps are different unless midnight in UTC and in local time is the same time instance. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16102056)
+ The answer depends also on your input date timezone. If your date is a local date, then you can use mktime() like katrielalex said - only I don't see why he used datetime instead of this shorter version: 
+
+  >>> time.mktime(time.strptime('01/12/2011', "%d/%m/%Y"))
+1322694000.0
+  
+
+ But observe that my result is different than his, as I am probably in a different TZ (and the result is timezone-free UNIX timestamp) 
+
+ Now if the input date is already in UTC, than I believe the right solution is: 
+
+  >>> calendar.timegm(time.strptime('01/12/2011', '%d/%m/%Y'))
+1322697600
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39114393)
+ suppose you write a function 
+
+  def convert_date(s):
+    if len(s) == 4:
+        return s
+    elif len(s) < 7:
+        return s[: -4].zfill(2) + '/' + s[-4: ]
+    else:
+        return s[: -6].zfill(2) + '/' + s[-6: -4].zfill(2) + '/' + s[-4]
+  
+
+ Then if your dates are in  df.dates , you can use 
+
+  >>> df.dates.apply(convert_date)                                   
+0    31/06/2
+1    07/2005
+2    01/2005
+3       2012
+Name: dates, dtype: object
+  
+
+ Note that this converts a string in one form to a string in a different form, meaning you can't really manipulate dates further. If you want to do that, I'd suggest you amend the preceding function to use the appropriate  datetime.datetime.strptime  for the format matching the length of the string. It could look something like this: 
+
+  def convert_date(s):
+    if len(s) == 4:
+        return datetime.datetime.strptime('%Y')
+    elif len(s) < 8:
+        return datetime.datetime.strptime('%m%Y')
+    else:
+        return datetime.datetime.strptime('%d%m%Y')
+  
+
+ Note that your first date (with the 31 days) seems illegal, though. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4615451)
+ Using https://github.com/bear/parsedatetime, you could parse all three date formats into  datetime.datetime  objects without having to code the logic yourself: 
+
+  import parsedatetime.parsedatetime as pdt
+import parsedatetime.parsedatetime_consts as pdc
+import datetime
+c = pdc.Constants()
+p = pdt.Calendar(c)
+for text in ('january 6, 2011', '4 days ago', '12 hours ago'):
+    date=datetime.datetime(*p.parse(text)[0][:6])
+    # print(date.isoformat())
+    # 2011-01-06T09:00:18
+    # 2011-01-02T09:00:18
+    # 2011-01-05T21:00:18
+    print(date.strftime('%Y%m%dT%H%M%S'))
+    # 20110106T090208
+    # 20110102T090208
+    # 20110105T210208
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46941813)
+ No need  apply  by using  pd.to_datetime  
+
+  pd.to_datetime(df_combined['VisitDate'],errors='coerce',format='%d-%b-%Y').fillna('')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46941514)
+ You probably just need to assign the result back to the column itself: 
+
+  df_combined['VisitDate'] = df_combined['VisitDate'].apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d').strftime('%d-%b-%Y') if x != "" else "")
+  
+
+
+

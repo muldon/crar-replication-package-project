@@ -1,0 +1,263 @@
+Query: How do I get MAC address of a host?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1282932)
+ You can get  your own  MAC address via: 
+
+  Enumeration<NetworkInterface> it = NetworkInterface.getNetworkInterfaces();
+while ( it.hasMoreElements() ) {
+    byte[] macAddress = it.nextElement().getHardwareAddress();
+}
+  
+
+ There is definitely no way you can get the MAC address of another host via vanilla java. You'd have to use Process execution or a native library to do it. 
+
+ If you control the other machines, you can let them query their own MAC and send it back across a TCP/IP channel, but I'm guessing that's not what you want. For more details, see jqno's answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40347087)
+ You can get mac addr of remote host calling function  getMacAddrHost("192.168.1.xx") . It's maybe not the greatest solution but it works great. Note this works only inside the LAN.  
+
+  public static String getMacAddrHost(String host) throws IOException, InterruptedException {
+        //
+        boolean ok = ping3(host);
+        //
+        if (ok) {
+            InetAddress address = InetAddress.getByName(host);
+            String ip = address.getHostAddress();
+            return run_program_with_catching_output("arp -a " + ip);
+        }
+        //
+        return null;
+        //
+    }
+
+
+ public static boolean ping3(String host) throws IOException, InterruptedException {
+        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+
+        ProcessBuilder processBuilder = new ProcessBuilder("ping", isWindows ? "-n" : "-c", "1", host);
+        Process proc = processBuilder.start();
+
+        int returnVal = proc.waitFor();
+        return returnVal == 0;
+    }
+
+    public static String run_program_with_catching_output(String param) throws IOException {
+        Process p = Runtime.getRuntime().exec(param);
+        BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
+        String line;
+        while ((line = input.readLine()) != null) {
+            if (!line.trim().equals("")) {
+                // keep only the process name
+                line = line.substring(1);
+                String mac = extractMacAddr(line);
+                if (mac.isEmpty() == false) {
+                    return mac;
+                }
+            }
+
+        }
+        return null;
+    }
+
+    public static String extractMacAddr(String str) {
+        String arr[] = str.split("   ");
+        for (String string : arr) {
+            if (string.trim().length() == 17) {
+                return string.trim().toUpperCase();
+            }
+        }
+        return "";
+    }
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1274843)
+ Java provides no direct way to query the MAC address of a host in your network, as this is abstracted away by Java's socket libraries. 
+
+ In a way, this makes sense, because the MAC address of a host actually says very little. There is no such thing as "the" MAC address of a host. 
+
+ 
+ Many hosts will have several NICs, all with a separate MAC address, with which they can connect to the network. The computer I'm on at the moment has a wired ethernet adapter, a WiFi adapter, and a Firewire adapter, and they all have their own MAC address. This means that there is no definitive MAC address for a host. 
+ If the host is on a different subnet, ARP will actually give you the MAC address for the last router your packet passed through, instead of the MAC address of the host you're scanning. 
+ 
+
+ Put both of these issues together, and that means that one host may have many different MAC addresses (if it has more than one NIC), and one MAC address may represent many different hosts (if traffic passes through a router). 
+
+ Assuming you know all this and you still need to get the MAC address of a host, the only way to do that in Java is by "going native": 
+
+ 
+ Native to the client that runs your program:
+
+ 
+ You could launch an ARP command-line tool and parse its output. 
+ You could use some sort of JNI call. I'm not too familiar with JNI, though, so I can't help you with that. 
+ Write a separate, small native app that you can access from Java via Telnet or some such protocol, and which will run the ARP command for you. 
+  
+ Native to the host that you want to scan:
+
+ 
+ You could use SNMP, as some of the other answers to this thread suggest. I defer to these answers for making that work for you. SNMP is a great protocol, but be aware that SNMP's OIDs can be both platform-dependent and vendor-dependent. OIDs that work for Windows don't always work for Linux and vice versa. 
+ If you know that your host runs Windows, you could use http://msdn.microsoft.com/en-us/library/aa394582%28VS.85%29.aspx. The http://msdn.microsoft.com/en-us/library/aa394216%28VS.85%29.aspx class holds the information you want, but be aware that this returns  all  of the hosts NICs, even the ones Windows makes up. Also, it requires administrator credentials to the host you are scanning. Google will tell you how to connect to WMI from Java. 
+ If you know your host runs OS X, you might be able to SSH into the machine and parse the output of the  system_profile  command. 
+ For Linux, a tool similar to OS X's  system_profile  probably exists. 
+  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43351918)
+ you can use  NetworkInterface.getHardwareAddress . You can get the list of all network cards with  NetworkInterface.getNetworkInterfaces() . 
+
+ you can use this code for knowing MAC Address. 
+
+  InetAddress address = InetAddress.getLocalHost();
+NetworkInterface nwi = NetworkInterface.getByInetAddress(address);
+byte mac[] = nwi.getHardwareAddress();
+System.out.println(mac);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/14109851)
+ Try this  it should work in both Linux and windows      
+
+  public static void main(String[] args) {
+
+    String command = "/sbin/ifconfig";
+
+    String sOsName = System.getProperty("os.name");
+    if (sOsName.startsWith("Windows")) {
+        command = "ipconfig";
+    } else {
+
+        if ((sOsName.startsWith("Linux")) || (sOsName.startsWith("Mac"))
+                || (sOsName.startsWith("HP-UX"))) {
+            command = "/sbin/ifconfig";
+        } else {
+            System.out.println("The current operating system '" + sOsName
+                    + "' is not supported.");
+        }
+    }
+
+    Pattern p = Pattern
+            .compile("([a-fA-F0-9]{1,2}(-|:)){5}[a-fA-F0-9]{1,2}");
+    try {
+        Process pa = Runtime.getRuntime().exec(command);
+        pa.waitFor();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(
+                pa.getInputStream()));
+
+        String line;
+        Matcher m;
+        while ((line = reader.readLine()) != null) {
+
+            m = p.matcher(line);
+
+            if (!m.find())
+                continue;
+            line = m.group();
+            break;
+
+        }
+        System.out.println(line);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/10962221)
+ Here is an example from http://www.mkyong.com/java/how-to-get-mac-address-in-java/ web site on how to get the MAC address in Java: 
+
+  package com.mkyong;
+
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+
+public class app{
+
+   public static void main(String[] args){
+
+    InetAddress ip;
+    try {
+
+        ip = InetAddress.getLocalHost();
+        System.out.println("Current IP address : " + ip.getHostAddress());
+
+        NetworkInterface network = NetworkInterface.getByInetAddress(ip);
+
+        byte[] mac = network.getHardwareAddress();
+
+        System.out.print("Current MAC address : ");
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < mac.length; i++) {
+            sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? "-" : ""));        
+        }
+        System.out.println(sb.toString());
+
+    } catch (UnknownHostException e) {
+
+        e.printStackTrace();
+
+    } catch (SocketException e){
+
+        e.printStackTrace();
+
+    }
+
+   }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7372213)
+ You can use the mac address of the system, each system has unique mac address. 
+
+  /*
+* Get NetworkInterface for the current host and then read the
+* hardware address.
+*/
+
+NetworkInterface ni = NetworkInterface.getByInetAddress(address);
+
+    if (ni != null) {
+        byte[] mac = ni.getHardwareAddress();
+        if (mac != null) {
+
+        /*
+        * Extract each array of mac address and convert it to hexa with the
+        * following format 08-00-27-DC-4A-9E.
+        */
+        for (int i = 0; i < mac.length; i++) {
+            System.out.format("%02X%s", mac[i], (i < mac.length - 1) ? "-" : "");
+            }
+        } else {
+        System.out.println("Address doesn't exist or is not accessible.");
+        }
+    } else {
+
+        System.out.println("Network Interface for the specified address is not found.");
+
+    }
+  
+
+
+

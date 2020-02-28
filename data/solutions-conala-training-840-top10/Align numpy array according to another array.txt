@@ -1,0 +1,310 @@
+Query: Align numpy array according to another array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41923948)
+  Approach #1 :  One approach with https://docs.scipy.org/doc/numpy/reference/generated/numpy.in1d.html, assuming no duplicates in  a  - 
+
+  a[np.in1d(a,b)]
+  
+
+ Better sample case with elements in  a  disturbed such that its not sorted for the common elements to present a variety case - 
+
+  In [103]: a
+Out[103]: array([ 4, 12,  6,  5,  8,  7, 10,  2])
+
+In [104]: b
+Out[104]: array([10,  6,  2, 12])
+
+In [105]: a[np.in1d(a,b)]
+Out[105]: array([12,  6, 10,  2])
+  
+
+ 
+
+  Approach #2 :  One approach with https://docs.scipy.org/doc/numpy-1.10.0/reference/generated/numpy.searchsorted.html - 
+
+  sidx = a.argsort()
+out = a[np.sort(sidx[np.searchsorted(a,b,sorter=sidx)])]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29368466)
+ It is a bit crude, but why not implement a while loop?
+    import numpy as np
+    import pandas as pd 
+
+  # assuming you are shifting s2 to the left
+# cut off at 800 s
+s1 = s1[s1.index>=800]
+s2 = s2[s2.index>=800]
+
+while s2.index[s2==s2.min()]>s1.index[s1==s1.min()]:
+    s2 = s2[801:]
+    s2.index = np.arange(800,800 + s2.shape[0])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31681995)
+ First you can get the unique keys then create a dict view of arrays and use a list comprehension to create the desire out put : 
+
+  >>> all_keys=np.unique(np.array((array1,array2)).T[0])
+>>> dict1=dict(array1)
+>>> dict2=dict(array2)
+
+>>> array1=np.array([[i,dict1.get(i,0)] for i in all_keys])
+>>> array1
+array([['amet', '1'],
+       ['dolor', '5'],
+       ['scripsit', '0'],
+       ['sit', '3']], 
+      dtype='|S8')
+>>> array2=np.array([[i,dict2.get(i,0)] for i in all_keys])
+>>> array2
+array([['amet', '1'],
+       ['dolor', '0'],
+       ['scripsit', '10'],
+       ['sit', '1']], 
+      dtype='|S8')
+  
+
+  Note  :This approach will produce new arrays with same order. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/44463130)
+ The other answers just don't do it for me. The benefit of using  plt.bar  over  plt.hist  is that bar can use  align='center' : 
+
+  import numpy as np
+import matplotlib.pyplot as plt
+
+arr = np.array([ 0.,  2.,  0.,  0.,  0.,  0.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  2.,  0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  1.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  1.,  1.,
+        0.,  0.,  0.,  0.,  2.,  0.,  3.,  1.,  0.,  0.,  2.,  2.,  0.,
+        0.,  0.,  0.,  0.,  0.,  0.,  0.,  1.,  1.,  0.,  0.,  0.,  0.,
+        0.,  0.,  2.,  0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,  0.,  3.,  1.,  0.,  0.,  0.,  0.,  0.,  0.,
+        0.,  0.,  1.,  0.,  0.,  0.,  1.,  2.,  2.])
+
+labels, counts = np.unique(arr, return_counts=True)
+plt.bar(labels, counts, align='center')
+plt.gca().set_xticks(labels)
+plt.show()
+  
+
+ https://i.stack.imgur.com/2kacI.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26514944)
+ You can specify the alignment requirement in the dtype. 
+
+  In [9]: a = np.zeros(4, dtype= np.dtype([('x', '<f8'), ('y', '<i4')], align=False))
+
+In [10]: a.data
+Out[10]: <read-write buffer for 0x2f94440, size 48, offset 0 at 0x2f8caf0>
+
+In [11]: a = np.zeros(4, dtype=np.dtype([('x', '<f8'), ('y', '<i4')], align=True))
+In [12]: a.data
+Out[12]: <read-write buffer for 0x2f94030, size 64, offset 0 at 0x2f8c5b0>
+  
+
+ Note the difference in size. For structured types, the alignment flag was misleading in previous versions of Numpy, the requirement is now 16 bytes for strings and structured types in order to make things work correctly on SPARC. Julian Taylor gives a more extended explanation at http://article.gmane.org/gmane.comp.python.numeric.general/59123 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31600443)
+ You can do it without str.format:  
+
+  np.savetxt('test_file_name.txt', combined, fmt="%-12s")
+  
+
+ Output: 
+
+  str123456789 1           
+str2         2458734750  
+str3         3           
+  
+
+  -  is left aligned and  12  is the width. You need to specify a width as long or longer than the longest element in your array.  
+
+ To explain your own attempt, you are centering the data with  ^  with a minimum width of 12 characters but that will not align each column. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33846417)
+ If the labels of equal values are contiguous, as in your example, then you may use https://docs.scipy.org/doc/numpy/reference/generated/numpy.ufunc.reduceat.html: 
+
+  >>> lab
+array([2, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 1])
+>>> idx = np.r_[0, 1 + np.where(lab[1:] != lab[:-1])[0]]
+>>> np.add.reduceat(arr, idx)
+array([[110,   7,   5, 117],   # 2
+       [  0,   0,   0,   0],   # 3
+       [  0,   0,   0,   0],   # 0
+       [ 13,   2,   0,  11]])  # 1
+  
+
+ if they are not contiguous, then use https://docs.scipy.org/doc/numpy/reference/generated/numpy.argsort.html to align the array and labels such that labels of the same values are next to each other: 
+
+  >>> i = np.argsort(lab)
+>>> lab, arr = lab[i], arr[i, :] # aligns array and labels such that labels
+>>> lab                          # are sorted and equal labels are contiguous
+array([0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 3, 3])
+>>> idx = np.r_[0, 1 + np.where(lab[1:] != lab[:-1])[0]]
+>>> np.add.reduceat(arr, idx)
+array([[  0,   0,   0,   0],  # 0
+       [ 13,   2,   0,  11],  # 1
+       [110,   7,   5, 117],  # 2
+       [  0,   0,   0,   0]]) # 3
+  
+
+ or alternatively use http://pandas.pydata.org/pandas-docs/stable/groupby.html: 
+
+  >>> pd.DataFrame(arr).groupby(lab).sum().values
+array([[  0,   0,   0,   0],
+       [ 13,   2,   0,  11],
+       [110,   7,   5, 117],
+       [  0,   0,   0,   0]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35268341)
+ You are scaling  M  along  axis=2  with the elements from  w , which is a  1D  array. So, you need to extend  w  to a 2D array with http://docs.scipy.org/doc/numpy/reference/arrays.indexing.html#numpy.newaxis, which will align the axes  between  extended version of w  with  M . Then,  perform element-wise multiplication between these two arrays to bring in http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html for a vectorized solution, like so - 
+
+  M *= w[:,None]
+  
+
+ If  axis=2  of  M  has a length that is more than the number of elements in  w , you need to select a range along  axis=2  in  M  before multiplying, like so - 
+
+  M[...,np.arange(w.size),:] *= w[:,None]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/51538320)
+ I believe need assign to filtered  DataFrame  with converting to numpy array by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.values.html for avoid align indices: 
+
+  df = pd.DataFrame({'A': [1,2,3,4,3,2,1,4,1,2]})
+print (df)
+   A
+0  1
+1  2
+2  3
+3  4
+4  3
+5  2
+6  1
+7  4
+8  1
+9  2
+
+i = 2
+j = 7
+df.iloc[i:j] = df.iloc[i:j].sort_values(by='A').values
+print (df)
+   A
+0  1
+1  2
+2  1
+3  2
+4  3
+5  3
+6  4
+7  4
+8  1
+9  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/44684060)
+ Solution using  numpy Mask arrays  output aligned Timeseries( _ts1 ,  _ts2 ). 
+The Result are 3 Pairs and  only  Pairs with Distance 1 can be used to align the Timeseries therfore Threshold=1. 
+
+  def compute_diffs(threshold):
+    dtype = [('diff', int), ('ts1', int), ('ts2', int), ('threshold', int)]
+    diffs = np.empty((ts1.shape[0], ts2.shape[0]), dtype=dtype)
+    pairs = np.ma.make_mask_none(diffs.shape)
+
+    for i1, t1 in enumerate(ts1):
+        for i2, t2 in enumerate(ts2):
+            diffs[i1, i2] = (abs(t1 - t2), i1, i2, abs(i1-i2))
+
+        d1 = diffs[i1][diffs[i1]['threshold'] == threshold]
+        if d1.size == 1:
+            (diff, y, x, t) = d1[0]
+            pairs[y, x] = True
+    return diffs, pairs
+  
+
+ 
+
+  def align_timeseries(diffs):
+    def _sync(ts, ts1, ts2, i1, i2, ii):
+        while i1 < i2:
+            ts1[ii] = ts[i1]; i1 +=1
+            ts2[ii] = DTNULL
+            ii += 1
+        return ii, i1
+
+    _ts1 = np.array([DTNULL]*9)
+    _ts2 = np.copy(_ts1)
+    ii = _i1 = _i2 = 0
+
+    for n, (diff, i1, i2, t) in enumerate(np.sort(diffs, order='ts1')):
+        ii, _i1 = _sync(ts1, _ts1, _ts2, _i1, i1, ii)
+        ii, _i2 = _sync(ts2, _ts2, _ts1, _i2, i2, ii)
+
+        if _i1 == i1:
+            _ts1[ii] = ts1[i1]; _i1 += 1
+            _ts2[ii] = ts2[i2]; _i2 += 1
+            ii += 1
+
+    ii, _i1 = _sync(ts1, _ts1, _ts2, _i1, ts1.size, ii)
+    return _ts1, _ts2
+  
+
+ 
+
+ main: 
+
+  diffs, pairs = compute_diffs(threshold=1)
+print('diffs[pairs]:{}'.format(diffs[pairs]))
+_ts1, _ts2 = align_timeseries(diffs[pairs])
+pprint(ts1, ts2, _ts1, _ts2)
+  
+
+ 
+    Output : 
+
+  diffs[pairs]:[(15820, 0, 1) ( 5703, 4, 2) ( 1290, 5, 4)]
+           ts1                  ts2                    _ts1          diff          _ts2
+0: 2011-07-21 12:07:01  2011-07-21 07:39:21     ---- -- -- -- -- --  ----   2011-07-21 07:39:21
+1: 2011-07-21 12:08:02  2011-07-21 07:43:21     2011-07-21 12:07:01 15820   2011-07-21 07:43:21
+2: 2011-07-21 12:27:05  2011-07-21 16:03:53     2011-07-21 12:08:02  ----   ---- -- -- -- -- --
+3: 2011-07-21 12:29:05  2011-07-21 16:04:54     2011-07-21 12:27:05  ----   ---- -- -- -- -- --
+4: 2011-07-21 14:28:50  2011-07-21 22:47:45     2011-07-21 12:29:05  ----   ---- -- -- -- -- --
+5: 2011-07-21 23:09:15  ---- -- -- -- -- --     2011-07-21 14:28:50  5703   2011-07-21 16:03:53
+6: 2011-07-21 23:10:14  ---- -- -- -- -- --     ---- -- -- -- -- --  ----   2011-07-21 16:04:54
+7: ---- -- -- -- -- --  ---- -- -- -- -- --     2011-07-21 23:09:15  1290   2011-07-21 22:47:45
+8: ---- -- -- -- -- --  ---- -- -- -- -- --     2011-07-21 23:10:14  ----   ---- -- -- -- -- --
+  
+ 
+
+   Tested with Python: 3.4.2   
+
+
+

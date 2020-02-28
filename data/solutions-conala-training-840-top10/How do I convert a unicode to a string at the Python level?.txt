@@ -1,0 +1,255 @@
+Query: How do I convert a unicode to a string at the Python level?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2783119)
+  .encode('utf8')  or whatever encoding you need. 
+
+ See http://docs.python.org/library/stdtypes.html#str.encode 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2786059)
+ If you have  u'Andr\xc3\xa9' , that is a Unicode string that was decoded from a byte string with the wrong encoding.  The correct encoding is UTF-8.  To convert it back to a byte string so you can decode it correctly, you can use the trick you discovered.  The first 256 code points of Unicode are a 1:1 mapping with ISO-8859-1 (alias  latin1 ) encoding.   
+
+  >>> u'Andr\xc3\xa9'.encode('latin1')
+'Andr\xc3\xa9'
+  
+
+ Now it is a byte string that can be decoded correctly with  utf8 : 
+
+  >>> 'Andr\xc3\xa9'.decode('utf8')
+u'Andr\xe9'
+>>> print 'Andr\xc3\xa9'.decode('utf8')
+André
+  
+
+  
+
+  >>> print u'Andr\xc3\xa9'.encode('latin1').decode('utf8')
+André
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46822451)
+ You can try to encode the msg convert it to string for Python 2, e.g. 
+
+  from sys import version_info
+
+if version_info.major == 2:
+    raise ValueError(msg.encode('utf-8'))
+elif version_info.major == 3:
+    raise ValueError(msg)
+else:
+    raise YourException("not supported Python version")
+  
+
+ Upate: Below is the workaround without importing any package if you only use  from __future__ import unicode_literals  without https://github.com/PythonCharmers/python-future package: 
+
+  if isinstance(msg, str):
+   raise ValueError(msg)
+else:
+   raise ValueError(msg.encode('utf-8'))
+  
+
+ Wait for patch from Python code level(e.g. six, future package) is nearly impossible as the problematic code is in C code level in https://github.com/python/cpython/blob/2.7/Python/pythonrun.c#L1314, it seems like  PyObject_Str(value)  execution for unicode string returned null 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2783179)
+ You seem to have gotten your encodings muddled up. It seems likely that what you really want is  u'Andr\xe9'  which is equivalent to  'André' . 
+
+ But what you have seems to be a UTF-8 encoding that has been incorrectly decoded. You can fix it by converting the unicode string to an ordinary string. I'm not sure what the best way is, but this seems to work: 
+
+  >>> ''.join(chr(ord(c)) for c in u'Andr\xc3\xa9')
+'Andr\xc3\xa9'
+  
+
+ Then decode it correctly: 
+
+  >>> ''.join(chr(ord(c)) for c in u'Andr\xc3\xa9').decode('utf8')
+u'Andr\xe9'    
+  
+
+ Now it is in the correct format. 
+
+ However instead of doing this, if possible you should try to work out why the data has been incorrectly encoded in the first place, and fix that problem there. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2783310)
+ The OP is not converting to ascii nor utf-8. That's why the suggested  encode  methods won't work.  
+
+  v = u'Andr\xc3\xa9'
+s = ''.join(map(lambda x: chr(ord(x)),v))
+  
+
+ The  chr(ord(x))  business gets the numeric value of the unicode character (which better fit in one byte for your application), and the  ''.join  call is an idiom that  converts a list of ints back to an ordinary string. No doubt there is a more elegant way. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9644115)
+ Always  encode  from unicode to bytes. 
+In this direction,  you get to choose the encoding .   
+
+  >>> u"你好".encode("utf8")
+'\xe4\xbd\xa0\xe5\xa5\xbd'
+>>> print _
+你好
+  
+
+ The other way is to decode from bytes to unicode. 
+In this direction,  you have to know what the encoding is . 
+
+  >>> bytes = '\xe4\xbd\xa0\xe5\xa5\xbd'
+>>> print bytes
+你好
+>>> bytes.decode('utf-8')
+u'\u4f60\u597d'
+>>> print _
+你好
+  
+
+ This point can't be stressed enough.  If you want to avoid playing unicode "whack-a-mole", it's important to understand what's happening at the data level.  Here it is explained another way: 
+
+ 
+ A unicode object is decoded already, you never want to call  decode  on it. 
+ A bytestring object is encoded already, you never want to call  encode  on it. 
+ 
+
+   .encode  on a byte string, Python 2 first tries to implicitly convert it to text (a  unicode  object).    .decode  on a unicode string, Python 2 implicitly tries to convert it to bytes (a  str  object).   
+
+ These implicit conversions are why you can get  Unicode   Decode   Error  when you've called   encode  .  It's because encoding usually accepts a parameter of type  unicode ; when receiving a  str  parameter, there's an implicit decoding into an object of type  unicode  before re-encoding it with another encoding.  This conversion chooses a default 'ascii' decoder<sup>†</sup>, giving you the decoding error inside an encoder. 
+
+ In fact, in Python 3 the methods  str.decode  and  bytes.encode  don't even exist.  Their removal was a [controversial] attempt to avoid this common confusion. 
+
+ <sup>†</sup> <sub>...or whatever coding  sys.getdefaultencoding()  mentions; usually this is 'ascii'</sub> 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2788599)
+ You asked (in a comment) """That is what's puzzling me. How did it go from it original accented to what it is now? When you say double encoding with utf8 and latin1, is that a total of 3 encodings(2 utf8 + 1 latin1)? What's the order of the encode from the original state to the current one?""" 
+
+ In the answer by Mark Byers, he says """what you have seems to be a UTF-8 encoding that has been incorrectly decoded""". You have accepted his answer.  OK, here's the blow-by-blow description: 
+
+ Note: All strings will be displayed using (implicitly)  repr() .  unicodedata.name()  will be used to verify the contents. That way, variations in console encoding cannot confuse interpretation of the strings. 
+
+ Initial state: you have a unicode object that you have named u1. It contains e-acute: 
+
+  >>> u1 = u'\xe9'
+>>> import unicodedata as ucd
+>>> ucd.name(u1)
+'LATIN SMALL LETTER E WITH ACUTE'
+  
+
+ You encode u1 as UTF-8 and name the result s: 
+
+  >>> s = u1.encode('utf8')
+>>> s
+'\xc3\xa9'
+  
+
+ You decode s using latin1 -- INCORRECTLY; s was encoded using utf8, NOT latin1. The result is meaningless rubbish. 
+
+  >>> u2 = s.decode('latin1')
+>>> u2
+u'\xc3\xa9'
+>>> ucd.name(u2[0]); ucd.name(u2[1])
+'LATIN CAPITAL LETTER A WITH TILDE'
+'COPYRIGHT SIGN'
+>>>
+  
+
+ Please understand:  unicode_object.encode('x').decode('y)  when x != y is normally [see note below] a nonsense; it will raise an exception if you are lucky; if you are unlucky it will silently create gibberish. Also please understand that silently creating gibberish is not a bug -- there is no general way that Python (or any other language) can detect that a nonsense has been committed. This applies particularly when latin1 is involved, because all 256 codepoints map 1 to 1 with the first 256 Unicode codepoints, so it is impossible to get a UnicodeDecodeError from str_object.decode('latin1'). 
+
+ Of course, abnormally (one hopes that it's abnormal) you may need to reverse out such a nonsense by doing  gibberish_unicode_object.encode('y').decode('x')  as suggested in various answers to your question. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6273618)
+ http://www.diveintopython3.net/strings.html makes a clear distinction between the types: 
+
+ 
+  str  =  '...'  literals = a sequence of Unicode characters (UTF-16 or UTF-32, depending on how Python was compiled) 
+  bytes  =  b'...'  literals = a sequence of octets (integers between 0 and 255) 
+ 
+
+ If you're familiar with Java or C#, think of  str  as  String  and  bytes  as  byte[] .  If you're familiar with SQL, think of  str  as  NVARCHAR  and  bytes  as  BINARY  or  BLOB .  If you're familiar with the Windows registry, think of  str  as  REG_SZ  and  bytes  as  REG_BINARY .  If you're familiar with C(++), then forget everything you've learned about  char  and strings, because  A CHARACTER IS NOT A BYTE .  That idea is long obsolete. 
+
+ You use  str  when you want to represent text. 
+
+  print('שלום עולם')
+  
+
+ You use  bytes  when you want to represent low-level binary data like structs. 
+
+  NaN = struct.unpack('>d', b'\xff\xf8\x00\x00\x00\x00\x00\x00')[0]
+  
+
+ You can http://en.wikipedia.org/wiki/Character_encoding a  str  to a  bytes  object. 
+
+  >>> '\uFEFF'.encode('UTF-8')
+b'\xef\xbb\xbf'
+  
+
+ And you can decode a  bytes  into a  str . 
+
+  >>> b'\xE2\x82\xAC'.decode('UTF-8')
+'€'
+  
+
+ But you can't freely mix the two types. 
+
+  >>> b'\xEF\xBB\xBF' + 'Text with a UTF-8 BOM'
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: can't concat bytes to str
+  
+
+ The  b'...'  notation is somewhat confusing in that it allows the bytes 0x01-0x7F to be specified with ASCII characters instead of hex numbers. 
+
+  >>> b'A' == b'\x41'
+True
+  
+
+ But I must emphasize,  a character is not a byte . 
+
+  >>> 'A' == b'A'
+False
+  
+
+ In Python 2.x 
+
+ Pre-3.0 versions of Python lacked this kind of distinction between text and binary data.  Instead, there was: 
+
+ 
+  unicode  =  u'...'  literals = sequence of Unicode characters = 3.x  str  
+  str  =  '...'  literals = sequences of confounded bytes/characters
+
+ 
+ Usually text, encoded in some unspecified encoding. 
+ But also used to represent binary data like  struct.pack  output. 
+  
+ 
+
+ In order to ease the 2.x-to-3.x transition, the  b'...'  literal syntax was backported to Python 2.6, in order to allow distinguishing binary strings (which should be  bytes  in 3.x) from text strings (which should be  str  in 3.x).  The  b  prefix does nothing in 2.x, but tells the  2to3  script not to convert it to a Unicode string in 3.x. 
+
+ So yes,  b'...'  literals in Python have the same purpose that they do in PHP. 
+
+ 
+   Also, just out of curiosity, are there
+  more symbols than the b and u that do
+  other things? 
+ 
+
+ The  r  prefix creates a raw string (e.g.,  r'\t'  is a backslash +  t  instead of a tab), and triple quotes  '''...'''  or  """..."""  allow multi-line string literals. 
+
+
+

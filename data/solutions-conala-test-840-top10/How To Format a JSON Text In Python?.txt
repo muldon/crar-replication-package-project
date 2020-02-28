@@ -1,0 +1,255 @@
+Query: How To Format a JSON Text In Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39156392)
+ If you're using Python 2, I actually think json can do what you need. You can dump and load json while decoding and encoding it with  string-escape : 
+
+  import json
+
+config_dict = {
+    'text': 'first line\nsecond line',
+}
+
+config_str = json.dumps(config_dict).decode('string-escape')
+print config_str
+
+config_dict = json.loads(config_str.encode('string-escape'))
+print config_dict
+  
+
+  Output : 
+
+  {"text": "first line
+second line"}
+
+{u'text': u'first line\nsecond line'}
+  
+
+ So, you can use the decoded string to edit your JSON, newlines included, and when reading it, just encode with string-escape to get the dictionary back. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33169622)
+ It is apples vs. oranges comparison: JSON is a data format (a string), Python dictionary is a data structure (in-memory object). 
+
+ If you need to exchange data between different (perhaps even non-Python) processes then you could use JSON format to  serialize  your Python dictionary. 
+
+ The text representation of a dictionary looks like (but it is not) json format: 
+
+  >>> print(dict(zip('abc', range(3))))
+{'a': 0, 'b': 1, 'c': 2}
+  
+
+ Text representation (a string) of an object is not the object itself (even string objects and their text representations are different things e.g.,  "\n"  is a single newline character but obviously its text representation is several characters). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42300234)
+ If the format is always like that, one way is to use  json.loads : 
+
+  >>> s = "[1,2,3,4]"
+>>> import json
+>>> json.loads(s)
+[1, 2, 3, 4]
+  
+
+ This has the advantage that you can use any space between the commas, you can use floats and ints in the text, and so on. 
+
+ So, in your case you could do this: 
+
+  import json
+
+def get_data():
+    with open("random_array.txt", "r") as f:
+        return json.load(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9314985)
+ I highly discourage using  eval  though. It may result in security issues if you don't have full control on the input file. Just import your dictionary and save them by using the  json  or  pickle  module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26193914)
+ The fastest way to do this is probably to load the text file as-is and do your processing to select desired fields on the resulting RDD. This parallelizes that work across the cluster and will scale more efficiently than doing any preprocessing on a single machine. 
+
+ For JSON (or even XML), I don't think you need a custom input format. Since PySpark executes within a Python environment, you can use functions regularly available to you in Python to deserialize the JSON and extract the fields you want. 
+
+ For example: 
+
+  import json
+
+raw = sc.textFile("/path/to/file.json")
+deserialized = raw.map(lambda x: json.loads(x))
+desired_fields = deserialized.map(lambda x: x['key1'])
+  
+
+  desired_fields  is now an RDD of all the values under  key1  in the original JSON file. 
+
+ You can use this pattern to extract a combination of fields, split them by whitespace, or whatever. 
+
+  desired_fields = deserialized.map(lambda x: (x['key1'] + x['key2']).split(' '))
+  
+
+ And if this gets too complicated, you can replace the  lambda  with a regular Python function that does all the preprocessing you want and just call  deserialized.map(my_preprocessing_func) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/15024865)
+ It looks like json,  but missing a few important parts. compare with below,  missing a few ","'s .  Is it copy paste of new.txt or some manual format error? 
+
+  {
+    "String2": {
+        "Value2": {
+            "Three": "cc1", 
+            "Two": "bb1", 
+            "One": "aa1"
+        }, 
+        "Value1": {
+            "Three": "c1", 
+            "Two": "b1", 
+            "One": "a1"
+        }
+    }, 
+    "String1": {
+        "Value2": {
+            "Three": "cc", 
+            "Two": "bb", 
+            "One": "aa"
+        }, 
+        "Value1": {
+            "Three": "c", 
+            "Two": "b", 
+            "One": "a"
+        }
+    }
+}
+  
+
+ If it should be json, it's pretty easy to handle with python: 
+
+  import json
+with open('new.txt') as f:
+    myjson = json.loads(f.read())
+print myjson['String2']['Value2']['One']
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/39660656)
+  some_text = '{brackets}'
+  
+
+ 
+ The OP's method 
+ 
+
+  some_text = some_text.replace("{", "{{").replace("}", "}}")  
+
+<ol start="2">
+  Regular expressions  
+  From Shadowranger on https://stackoverflow.com/questions/9161355/format-a-string-that-has-extra-curly-braces-in-it ( Python 3.x only )  
+ 
+
+  unformatter = str.maketrans({'{': '{{', '}': '}}'})  
+
+  some_text = some_text.translate(unformatter)  
+
+ Result:  {{brackets}}  
+
+ 
+
+ Not sure how to preempt these "possible extensions of formatting syntax in further versions of Python", so for now it seems escaping https://en.wikipedia.org/wiki/Bracket#Curly_brackets is your only concern.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/1096575)
+ You can't do it once they're in JSON format - JSON is just text. You need to combine them in Python first: 
+
+  data = { 'obj1' : obj1, 'obj2' : obj2 }
+json.dumps(data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48657168)
+ With a bit of string manipulation you can convert like: 
+
+ Code:</h3>
+
+  def my_convert(a_string):
+    convert = a_string.replace(
+        ': ', '": "').replace(
+        '}', '"}').replace(
+        ', ', '", "').replace(
+        '{', '{"')
+
+    return json.loads(convert)
+  
+
+ Test Code:</h3>
+
+  import json
+data = '{message: Successfully sent data for processing, ' \
+       'execId: d03c96hg-4098-47b9-9e4b-3cb2c}'
+
+print(my_convert(data))
+  
+
+ Results:</h3>
+
+  {'message': 'Successfully sent data for processing', 'execId': 'd03c96hg-4098-47b9-9e4b-3cb2c'}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29991188)
+ Well, they are part of serialization algorithm and you shouldn't care much about it. Having a readable json-like representation is not expected in your case. 
+
+ Quoting official https://docs.python.org/3/library/pickle.html documentation on that: 
+
+ 
+   There are fundamental differences between the pickle protocols and
+  JSON (JavaScript Object Notation): 
+  
+   
+   JSON is a text serialization format (it outputs unicode text, although most of the time it is then encoded to utf-8), while pickle
+  is a  binary serialization format ; 
+   JSON is human-readable, while  pickle is not ; 
+   JSON is interoperable and widely used outside of the Python ecosystem, while pickle is Python-specific; 
+   JSON, by default, can only represent a subset of the Python built-in types, and no custom classes; pickle can represent an
+  extremely large number of Python types (many of them automatically, by
+  clever usage of Python’s introspection facilities; complex cases can
+  be tackled by implementing specific object APIs). 
+   
+ 
+
+ Moreover, you have probably a bug in your code - you are pickling string representation of dict instead of dict itself. 
+
+ Correct code would look as following: 
+
+  import pickle
+a = {"test": "test1", "hello": "world", 541: 123}
+with open("test.txt", "wb") as f:
+    pickle.dump(a, f)
+
+with open("test.txt", "rb") as f:
+    loaded = pickle.load(f)
+    print(loaded)
+    assert loaded == a
+  
+
+
+

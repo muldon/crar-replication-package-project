@@ -1,0 +1,318 @@
+Query: Python JSON serialize a Decimal object
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1960649)
+ How about subclassing  json.JSONEncoder ? 
+
+  class DecimalEncoder(json.JSONEncoder):
+    def _iterencode(self, o, markers=None):
+        if isinstance(o, decimal.Decimal):
+            # wanted a simple yield str(o) in the next line,
+            # but that would mean a yield on the line with super(...),
+            # which wouldn't work (see my comment below), so...
+            return (str(o) for o in [o])
+        return super(DecimalEncoder, self)._iterencode(o, markers)
+  
+
+ Then use it like so: 
+
+  json.dumps({'x': decimal.Decimal('5.5')}, cls=DecimalEncoder)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3148376)
+ https://github.com/simplejson/simplejson and higher has native support for Decimal type: 
+
+  >>> json.dumps(Decimal('3.9'), use_decimal=True)
+'3.9'
+  
+
+ Note that  use_decimal  is  True  by default: 
+
+  def dumps(obj, skipkeys=False, ensure_ascii=True, check_circular=True,
+    allow_nan=True, cls=None, indent=None, separators=None,
+    encoding='utf-8', default=None, use_decimal=True,
+    namedtuple_as_object=True, tuple_as_array=True,
+    bigint_as_string=False, sort_keys=False, item_sort_key=None,
+    for_json=False, ignore_nan=False, **kw):
+  
+
+  
+
+  >>> json.dumps(Decimal('3.9'))
+'3.9'
+  
+
+ Hopefully, this feature will be included in standard library. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28269980)
+ This is what I have, extracted from our class 
+
+  class CommonJSONEncoder(json.JSONEncoder):
+
+    """
+    Common JSON Encoder
+    json.dumps(myString, cls=CommonJSONEncoder)
+    """
+
+    def default(self, obj):
+
+        if isinstance(obj, decimal.Decimal):
+            return {'type{decimal}': str(obj)}
+
+class CommonJSONDecoder(json.JSONDecoder):
+
+    """
+    Common JSON Encoder
+    json.loads(myString, cls=CommonJSONEncoder)
+    """
+
+    @classmethod
+    def object_hook(cls, obj):
+        for key in obj:
+            if isinstance(key, six.string_types):
+                if 'type{decimal}' == key:
+                    try:
+                        return decimal.Decimal(obj[key])
+                    except:
+                        pass
+
+    def __init__(self, **kwargs):
+        kwargs['object_hook'] = self.object_hook
+        super(CommonJSONDecoder, self).__init__(**kwargs)
+  
+
+ Which passes unittest: 
+
+  def test_encode_and_decode_decimal(self):
+    obj = Decimal('1.11')
+    result = json.dumps(obj, cls=CommonJSONEncoder)
+    self.assertTrue('type{decimal}' in result)
+    new_obj = json.loads(result, cls=CommonJSONDecoder)
+    self.assertEqual(new_obj, obj)
+
+    obj = {'test': Decimal('1.11')}
+    result = json.dumps(obj, cls=CommonJSONEncoder)
+    self.assertTrue('type{decimal}' in result)
+    new_obj = json.loads(result, cls=CommonJSONDecoder)
+    self.assertEqual(new_obj, obj)
+
+    obj = {'test': {'abc': Decimal('1.11')}}
+    result = json.dumps(obj, cls=CommonJSONEncoder)
+    self.assertTrue('type{decimal}' in result)
+    new_obj = json.loads(result, cls=CommonJSONDecoder)
+    self.assertEqual(new_obj, obj)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1960553)
+  3.9  can not be exactly represented in IEEE floats, it will always come as  3.8999999999999999 , e.g. try   print repr(3.9) , you can read more about it here:   
+
+ http://en.wikipedia.org/wiki/Floating_point 
+http://docs.sun.com/source/806-3568/ncg_goldberg.html   
+
+ So if you don't want float, only option you have to send it as string, and to allow automatic conversion of decimal objects to JSON, do something like this: 
+
+  import decimal
+from django.utils import simplejson
+
+def json_encode_decimal(obj):
+    if isinstance(obj, decimal.Decimal):
+        return str(obj)
+    raise TypeError(repr(obj) + " is not JSON serializable")
+
+d = decimal.Decimal('3.5')
+print simplejson.dumps([d], default=json_encode_decimal)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53752866)
+ I wanted to  serialize  Decimal to JSON, and also  deserialize  it back to actual Decimal class objects in a dictionary elsewhere. 
+
+ Here is my sample program which works for me (Python 3.6): 
+
+  import json
+from decimal import Decimal
+import decimal
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return {'__Decimal__': str(obj)}
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
+
+def as_Decimal(dct):
+    if '__Decimal__' in dct:
+        return decimal.Decimal(dct['__Decimal__'])
+    return dct
+
+
+sample_dict = {
+        "sample1": Decimal("100"), 
+        "sample2": [ Decimal("2.0"), Decimal("2.1") ],
+        "sample3": Decimal("3.1415"),
+        "other": "hello!"
+    }
+print("1. sample_dict is:\n{0}\n".format(sample_dict))
+
+sample_dict_encoded_as_json_string = json.dumps(sample_dict, cls=DecimalEncoder)
+print("2. sample_dict_encoded_as_json_string is:\n{0}\n".format(sample_dict_encoded_as_json_string))
+
+sample_dict_recreated = json.loads(sample_dict_encoded_as_json_string, object_hook=as_Decimal)
+print("3. sample_dict_recreated is:\n{0}\n".format(sample_dict_recreated))
+  
+
+ And here is the output: 
+
+  1. sample_dict is:
+{'sample1': Decimal('100'), 'sample2': [Decimal('2.0'), Decimal('2.1')], 'sample3': Decimal('3.1415'), 'other': 'hello!'}
+
+2. sample_dict_encoded_as_json_string is:
+{"sample1": {"__Decimal__": "100"}, "sample2": [{"__Decimal__": "2.0"}, {"__Decimal__": "2.1"}], "sample3": {"__Decimal__": "3.1415"}, "other": "hello!"}
+
+3. sample_dict_recreated is:
+{'sample1': Decimal('100'), 'sample2': [Decimal('2.0'), Decimal('2.1')], 'sample3': Decimal('3.1415'), 'other': 'hello!'}
+  
+
+ Hope this helps! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50707902)
+ It is not the most pretty but if you insist on using json we can create a custom decoder and have our encoder specify the type when handling decimal data. 
+
+  class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return {
+                "_type": "decimal",
+                "value": str(obj)
+            }
+        return super(DecimalEncoder, self).default(obj)
+  
+
+ The code above adds the decimal type as a flag for our decoder as well as encoding the decimal as a string to keep precision. 
+
+  class DecimalDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, obj):
+        if '_type' not in obj:
+            return obj
+        type = obj['_type']
+        if type == 'decimal':
+            return decimal.Decimal(obj['value'])
+        return obj
+  
+
+ The decoder checks for our decimal type flag and if so uses the decimal constructor. For all other instances it uses default decoding 
+
+  input = { 'prc' : decimal.Decimal('999999.99990000005')}
+encoded = json.dumps(input, cls=DecimalEncoder)
+decoded = json.loads(encoded, cls=DecimalDecoder)
+  
+
+ The final result should take our input, encode it, and decode the result as a decimal object. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31203425)
+ Use a override  default : 
+
+  import json
+from decimal import Decimal
+
+def default(obj):
+    if isinstance(obj, Decimal):
+        return str(obj)
+    raise TypeError("Object of type '%s' is not JSON serializable" % type(obj).__name__)
+
+json.dumps(testlist, default=default)
+  
+
+ Or just do  str  on  Decimal  object:   
+
+  for row in res:
+    testlist.append (str(row[0]))
+json.dumps(testlist)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/8274307)
+ I tried switching from simplejson to builtin json for GAE 2.7, and had issues with the decimal. If default returned str(o) there were quotes (because _iterencode calls _iterencode on the results of default), and float(o) would remove trailing 0. 
+
+ If default returns an object of a class that inherits from float (or anything that calls repr without additional formatting) and has a custom __repr__ method, it seems to work like I want it to. 
+
+  import json
+from decimal import Decimal
+
+class fakefloat(float):
+    def __init__(self, value):
+        self._value = value
+    def __repr__(self):
+        return str(self._value)
+
+def defaultencode(o):
+    if isinstance(o, Decimal):
+        # Subclass float with custom repr?
+        return fakefloat(o)
+    raise TypeError(repr(o) + " is not JSON serializable")
+
+json.dumps([10.20, "10.20", Decimal('10.20')], default=defaultencode)
+'[10.2, "10.20", 10.20]'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50463856)
+  The native option is missing so I'll add it for the next guy/gall that looks for it.  
+
+ Starting on Django 1.7.x there is a built-in  DjangoJSONEncoder  that you can get it from  django.core.serializers.json . 
+
+  import json
+from django.core.serializers.json import DjangoJSONEncoder
+from django.forms.models import model_to_dict
+
+model_instance = YourModel.object.first()
+model_dict = model_to_dict(model_instance)
+
+json.dumps(model_dict, cls=DjangoJSONEncoder)
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/4019897)
+ What you can do is extend the JSONDecoder class to provide a custom serializer for the Decimal type, similar to the example in this document: http://docs.python.org/py3k/library/json.html 
+
+  >>> import json
+>>> class DecimalEncoder(json.JSONEncoder):
+...     def default(self, obj):
+...         if isinstance(obj, Decimal):
+...             return "%.2f" % obj
+...         return json.JSONEncoder.default(self, obj)
+...
+  
+
+ That's a nonworking example of how to do it, hopefully a good starting point for you. 
+
+
+

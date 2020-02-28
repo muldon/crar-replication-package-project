@@ -1,0 +1,155 @@
+Query: Convert unicode codepoint to UTF8 hex in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15181783)
+ here's a complete solution: 
+
+  >>> ''.join(['{0:x}'.format(ord(x)) for x in unichr(int('FD9B', 16)).encode('utf-8')]).upper()
+'EFB69B'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/867880)
+ Use the built-in function  http://docs.python.org/library/functions.html#unichr  to convert the number to character, then encode that: 
+
+  >>> unichr(int('fd9b', 16)).encode('utf-8')
+'\xef\xb6\x9b'
+  
+
+ This is the string itself. If you want the string as ASCII hex, you'd need to walk through and convert each character  c  to hex, using  hex(ord(c))  or similar. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/870567)
+ If the input string length is a multiple of 4 (i.e. your unicode code points are UCS-2 encoded), then try this: 
+
+  import struct
+
+def unihex2utf8hex(arg):
+    count= len(arg)//4
+    uniarr= struct.unpack('!%dH' % count, arg.decode('hex'))
+    return u''.join(map(unichr, uniarr)).encode('utf-8').encode('hex')
+
+>>> unihex2utf8hex('fd9b')
+'efb69b'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15295213)
+ To convert literal hex to Unicode: 
+
+  >>> h = '16 03 01 00 e3 01'
+>>> h.replace(' ','').decode('hex')
+'\x16\x03\x01\x00\xe3\x01'
+>>> h.replace(' ','').decode('hex').decode('utf8')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "c:\Python27\lib\encodings\utf_8.py", line 16, in decode
+    return codecs.utf_8_decode(input, errors, True)
+UnicodeDecodeError: 'utf8' codec can't decode byte 0xe3 in position 4: unexpected end of data
+>>>
+  
+
+ If the hex were actual utf8, you'd end up with a Unicode string: 
+
+  >>> h = 'c3 a1'
+>>> u = h.replace(' ','').decode('hex').decode('utf8')
+>>> u
+u'\xe1'
+>>> print u
+á
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43882988)
+ In python 3,  chr  takes unicode codepoints, not  utf-8 .  U+C380  is in the Hangul range. Instead you can use  bytearray  for the decode 
+
+  >>> bytearray((0xc3, 0x80)).decode('utf-8')
+'À'
+  
+
+ There are other methods also, like  struct  or  ctypes . Anything that assembles native bytes and converts them to  bytes  will do. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43883001)
+ Unicode is a character set while UTF-8 is a encoding which is a algorithm to encode code point from Unicode to bytes in machine level and vice versa. 
+
+ The code point  0xc380  is  쎀  in the standard of Unicode. 
+
+ The bytes  0xc380  is  À  when you decode it use UTF-8 encoding. 
+
+  >>> s = "쎀"
+>>> hex(ord(s))
+'0xc380'
+>>> b = bytes.fromhex("C3 80")
+>>> b
+b'\xc3\x80'
+>>> b.decode("utf8")
+'À'
+>>> bytes((0xc3, 0x80)).decode("utf8")
+'À'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/10633854)
+  
+
+  chr(255)
+  
+
+ In python2, that gives you a character with binary value 255. If you print that to a terminal that uses UTF8, it will show up as  ?  (or similar) because the terminal doesn't know what to do with it. To convert that to it's unicode codepoint, you can  decode  it: 
+
+  chr(255).decode('latin1')
+  
+
+ In python3,  chr(255)  already gives you the unicode charcter  'LATIN SMALL LETTER Y WITH DIAERESIS' . 
+
+ you could also do the same in python2 using 
+
+  unichr(255)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34696076)
+ That's the correct UTF-8  byte  encoding of U+00DE and it takes two bytes to represent it ( \xc3  and  \x9e ), but you need to decode it to Unicode to see the Unicode codepoint: 
+
+  >>> ' \xc3\x9e '.decode('utf8')
+u' \xde '
+  
+
+ The above is a Unicode string showing the correct Unicode codepoint.  Printing it on UTF-8 console: 
+
+  >>> print ' \xc3\x9e '.decode('utf8')
+ Þ 
+  
+
+ If you use the wrong encoding to decode you get different Unicode codepoints. In this case U+00C3 and U+017E.   \xc3  is an  escape code  in a Unicode string for Unicode codepoints < U+0100 whereas  \u017E  is one for codepoints < U+10000: 
+
+  >>> ' \xc3\x9e '.decode('cp1252')
+u' \xc3\u017e '
+>>> print ' \xc3\x9e '.decode('cp1252')
+ Ãž 
+  
+
+ Recommended reading: 
+
+ 
+ http://www.joelonsoftware.com/articles/Unicode.html 
+ http://nedbatchelder.com/text/unipain.html 
+ 
+
+
+

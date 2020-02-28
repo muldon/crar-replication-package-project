@@ -1,0 +1,319 @@
+Query: How to read stdin to a 2d python array of integers?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/8192426)
+ Several approaches to accomplish this are available. Below are a few of the possibilities. 
+
+ Using an  array  
+
+ From a list 
+
+ Replace the last line of code in the question with the following. 
+
+  a.fromlist([int(val) for val in stdin.read().split()])
+  
+
+  
+
+  >>> a
+array('i', [1, 2, 3, 4, 5, 6])
+  
+
+ Con: does not preserve 2d structure (see comments). 
+
+ From a generator 
+
+  Note: this option is incorporated from comments by eryksun.  
+
+ A more efficient way to do this is to use a generator instead of the list. Replace the last two lines of the code in the question with: 
+
+  a = array('i', (int(val) for row in stdin for val in row.split()))
+  
+
+ This produces the same result as the option above, but avoids creating the intermediate list. 
+
+ Using a NumPy array 
+
+ If you want the preserve the 2d structure, you could use a NumPy array. Here's the whole example: 
+
+  from StringIO import StringIO
+import numpy as np
+
+# fake stdin
+stdin = StringIO("""1 2
+3 4
+5 6""")
+
+a = np.loadtxt(stdin, dtype=np.int)
+  
+
+  
+
+  >>> a
+array([[1, 2],
+       [3, 4],
+       [5, 6]])
+  
+
+ Using standard lists 
+
+ It is not clear from the question if a Python list is acceptable. If it is, one way to accomplish the goal is replace the last two lines of the code in the question with the following. 
+
+  a = [map(int, row.split()) for row in stdin]
+  
+
+  
+
+  >>> a
+[[1, 2], [3, 4], [5, 6]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8192459)
+ I've never used array.array, so I had to do some digging around. 
+
+ The answer is in the error message -  
+
+  ValueError: string length not a multiple of item size  
+
+ How do you determine the item size?  Well it depends on the type you initialized it with.  In your case you initialized it with  i  which is a signed int.    Ask your python interpreter.. 
+
+  >>> a.itemsize
+4
+  
+
+ The value above provides insight into the problem.  Your string is only 11 bytes wide.  11 isn't a multiple of 4.  But increasing the length of the string will not give you an array of {1,2,3,4,5,6}... I'm not sure what it would give you.    Well, read the docstring below...  (It's late, so I highlighted the important part, in case you're getting sleepy, like me!) 
+
+ array.fromfile(f, n)
+Read n items ( as machine values ) from the file object f and append them to the end of the array. If less than n items are available, EOFError is raised, but the items that were available are still inserted into the array. f must be a real built-in file object; something else with a read() method won’t do. 
+
+ array.fromstring reads data in the same manner as array.fromfile.  .  .  So, to do what you want to do, you need to use the struct module.  Check out the code below. 
+
+  import struct
+a = array.array('i')
+binary_string = struct.pack('iiii', 1, 2, 3, 4)
+a.fromstring(binary_string)
+  
+
+ The code snippet above loads the array with tlhe values 1, 2, 3, 4; like we expect. 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/50264792)
+ Use  sys.stdin.read  to control how many characters you're reading at a time: 
+
+  import sys
+a = sys.stdin.read(32)
+assert len(a) <= 32
+  
+
+ The assertion will never fire. 
+
+ Note: Be aware you may be cutting some integers off when specifying a size. For example if you do  read(4)  on input  12 3456  you may get  3  as the second number when it's actually  3456 . 
+
+ Also pay attention to performance issues. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/30406597)
+ To do that you should be able to discriminate between strings that can represent integers and strings that cannot. An example is: 
+
+  def foo(s):
+    try:
+        return int(s)
+    except ValueError:
+        return s
+  
+
+ Then you can normally use  map : 
+
+  map(foo, sys.stdin.readline().split())
+  
+
+  
+
+  abcdef 110
+  
+
+  
+
+  ['abcdef', 110]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2285295)
+ In Python 2: 
+
+  lst = map(int, raw_input().split())
+  
+
+  raw_input()  reads a whole line from the input (stopping at the  \n ) as a string.
+ .split()  creates a list of strings by splitting the input into words.
+ map(int, ...)  creates integers from those words. 
+
+ In Python 3  raw_input  has been renamed to  input  and  map  returns an iterator rather than a list, so a couple of changes need to be made: 
+
+  lst = list(map(int, input().split()))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2701498)
+ This works perfectly for me: 
+
+  #include <iostream>
+
+int main()
+{
+    int num;
+    std::cin >> num;
+
+    char* data = new char[num];
+    for (int i = 0; i < num; ++i)
+        std::cin >> data[i];
+
+    // test output / spit it back out
+    for (int i = 0; i < num; ++i)
+        std::cout << data[i] << std::endl;
+
+    return 0;
+}
+  
+
+ python: 
+
+  In [9]: from subprocess import Popen, PIPE
+In [10]: a = Popen('./a.out', stdin=PIPE, stdout=PIPE)
+In [11]: a.stdin.write("2\nab")
+In [12]: a.stdout.read()
+Out[12]: 'a\nb\n'
+  
+
+ Note that I added a delimiter (\n) between the number of bytes to write, this is the safest if you do not want your c++ cin to fail on sending something like 3,1,2,3 which would concatenate to 3123, expecting so many arguments. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44643064)
+ In Python 2.7 
+
+ 
+  To get integers or floats as inputs you can use the key word 'input'
+Example: temp=input("Give your value")
+Here temp only takes a float or int  
+  There is another command raw_input() any value that raw input is given it converts it to string and assigns the value
+Example:temp=raw_input("Give your value")
+Here temp is of string type  
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/25211889)
+  arr=([ [1, 2, 3], [ 4, 5, 6], [ 7, 8, 9] ])  is a  python list ,not a  numpy array . 
+
+ You reassign  arr  with   arr=([ [1, 2, 3], [ 4, 5, 6], [ 7, 8, 9] ])  to a list. 
+
+ Make it a numpy array: 
+
+  In [37]: arr  = numpy.array([ [1, 2, 3], [ 4, 5, 6], [ 7, 8, 9] ])
+
+In [38]: arr
+Out[38]: 
+array([[1, 2, 3],
+       [4, 5, 6],
+       [7, 8, 9]])
+
+In [39]: (arr[1:2, 1])
+Out[39]: array([5])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/49986516)
+ In a PY3 (ipython) session with numpy 1.14, and a file written as UTF8 with BOM (in Linux): 
+
+  In [166]: np.genfromtxt('stack49969840.txt', delimiter=',', dtype=None,encoding='utf8')
+Out[166]: 
+array([['\ufeff0812', 'EP2463', 'R', 'FEIGE'],
+       ['0812', 'EP2466', 'R', 'FEIGE'],
+       ['0816', 'EP2462', 'R', 'FEIGE'],
+       ['0816', 'EP2460', 'R', 'FEIGE']], dtype='<U6')
+
+In [167]: np.genfromtxt('stack49969840.txt', delimiter=',', dtype=None,encoding='utf-8-sig')
+Out[167]: 
+array([(812, 'EP2463', 'R', 'FEIGE'), (812, 'EP2466', 'R', 'FEIGE'),
+       (816, 'EP2462', 'R', 'FEIGE'), (816, 'EP2460', 'R', 'FEIGE')],
+      dtype=[('f0', '<i8'), ('f1', '<U6'), ('f2', '<U1'), ('f3', '<U5')])
+  
+
+ With  dtype=None , and ignoring the BOM, this array is 1d with a structured (compound) dtype.  That is, it deduces that the first column can be read as integers. 
+
+ Loading as string, gives a 2d string dtype (here unicode, but it could be bytestring): 
+
+  In [169]: np.genfromtxt('stack49969840.txt', delimiter=',', dtype=str,encoding='utf-8-sig')
+Out[169]: 
+array([['0812', 'EP2463', 'R', 'FEIGE'],
+       ['0812', 'EP2466', 'R', 'FEIGE'],
+       ['0816', 'EP2462', 'R', 'FEIGE'],
+       ['0816', 'EP2460', 'R', 'FEIGE']], dtype='<U6')
+  
+
+ The same file, read in binary mode is: 
+
+  In [8]: open('stack49969840.txt',mode='rb').read()
+Out[8]: b'\xef\xbb\xbf0812,EP2463,R,FEIGE\n0812,EP2466,R,FEIGE\n0816,EP2462,R,FEIGE\n0816,EP2460,R,FEIGE\n'
+  
+
+ with your extra string: 
+
+ Your extra string is  
+
+  In [168]: print('\xef\xbb\xbf')
+ï»¿
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48715868)
+ For a vectorised approach try  numpy : 
+
+  import numpy as np
+
+arr= [[ 1.681, 1.365, 0.105, 0.109, 0.50],
+      [ 1.681, 1.365, 0.105, 0.109, 0.51],
+      [ 1.681, 1.365, 0.105, 0.109, 0.52],
+      [ 1.681, 1.365, 0.105, 0.109, 0.53],
+      [ 1.681, 1.365, 0.105, 0.109, 0.54],
+      [ 1.681, 1.365, 0.105, 0.109, 0.55],
+      [ 1.681, 1.365, 0.105, 0.109, 0.56],
+      [ 1.681, 1.365, 0.105, 0.109, 0.57],
+      [ 1.681, 1.365, 0.105, 0.109, 0.58],
+      [ 1.681, 1.365, 0.105, 0.109, 0.59],
+      [ 1.681, 1.365, 0.105, 0.109, 0.60]]
+
+arr = np.array(arr)
+search = np.array([0.50, 0.55, 0.60])
+
+arr[np.in1d(arr[:,-1], search)]
+
+# array([[ 1.681,  1.365,  0.105,  0.109,  0.5  ],
+#        [ 1.681,  1.365,  0.105,  0.109,  0.55 ],
+#        [ 1.681,  1.365,  0.105,  0.109,  0.6  ]])
+  
+
+ I expect this to be more efficient for larger arrays. 
+
+
+

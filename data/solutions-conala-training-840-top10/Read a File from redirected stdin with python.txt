@@ -1,0 +1,157 @@
+Query: Read a File from redirected stdin with python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27323692)
+ Why are you even looking at the data: 
+
+  result = sys.stdin.read()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/27318189)
+ Instead of breaking, you just want to  continue  to the next line. The iterator will stop automatically when it reaches the end of the file. 
+
+  import sys
+result = ""
+for line in sys.stdin:
+    stripped = line.strip()
+    if not stripped:
+        continue
+    result += stripped
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30622749)
+ This is because before the Process is started,  stdin  is closed. Otherwise it could happen that both the parent and child process (or multiple child processes) try to read from the same stdin, which is a bad idea. 
+
+ In the child process  sys.stdin  is actually redirected to  /dev/null : 
+
+  from multiprocessing import Process
+import sys
+
+def test(*args):
+    print(args)
+    print(sys.stdin, sys.stdin.fileno())
+
+if __name__ == '__main__':
+    p = Process(target=test, args=(sys.stdin,))
+    p.start()
+    p.join()
+  
+
+ should print something similar to this: 
+
+<pre class="lang-none prettyprint-override"> (<closed file '<stdin>', mode 'r' at 0x7f3b4564b0c0>,)
+(<open file '/dev/null', mode 'r' at 0x7f3b43a9e0c0>, 3)
+  
+
+ The passed argument here is a reference to a closed file object, trying to use it will raise the error you've seen. 
+
+ You could get around this by using https://docs.python.org/2/library/os.html#os.dup on  sys.stdin.fileno()  in the parent and pass the returned copy of the file descriptor to the child as argument, where you can then use https://docs.python.org/2/library/os.html#os.fdopen to work with it. 
+
+ The cleaner solution would probably be to read the input in the parent process and https://docs.python.org/2/library/multiprocessing.html#exchanging-objects-between-processes using a https://docs.python.org/2/library/multiprocessing.html#multiprocessing.Queue. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/31583238)
+ Connect  cmd 's standard output to  tee 's stdin: 
+
+  # cmd = ['/bin/echo', 'blah blah']
+tee = subprocess.Popen(['/usr/bin/tee', 'outfile.log'], stdin=subprocess.PIPE)
+subprocess.call(cmd, stdout=tee.stdin)
+tee.stdin.close()
+  
+
+  UPDATE  For systems that does not have  tee , read the output of the command and write it into stdout, and the log file: 
+
+  proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                        universal_newlines=True)
+
+with open('outfile.log', 'w') as f:
+    while True:
+        data = proc.stdout.read(1024)
+        if not data:
+            break
+        sys.stdout.write(data)
+        f.write(data)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/28673339)
+ Expanding on https://stackoverflow.com/a/2374507/321973: 
+
+  if sys.platform == "win32":
+    import msvcrt
+    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+    msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/9589320)
+ As others have mentioned, probably your condition  line == '\n'  never holds true. The proper solution would be to use a loop like: 
+
+  for line in sys.stdin:
+  stripped = line.strip()
+  if not stripped: break
+  lines.append(stripped)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/46445955)
+ When  stdin  is redirected, it needs to reopen the terminal to be able to read from it, e.g.: 
+
+  from __future__ import print_function
+
+import os
+
+def main():
+    tty = os.open("/dev/tty", os.O_RDONLY)
+    while True:
+        r = os.read(tty, 1024)
+        if not r: # Wait for Ctrl-D.
+            break
+        print("----", r)
+
+if __name__ == "__main__":
+    main()
+  
+
+ And run it like the following to test it: 
+
+  python t.py < /dev/null
+  
+
+ Note that the terminal may be unavailable. For example, if the command is run through a ssh session without allocating a terminal as  ssh -T ... command . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28672750)
+ You will need to tell Python to open  stdin  and  stdout  in binary mode. You can do this with the  -u  option.  
+
+  python -u cat.py < binaryfile > supposed_copy
+  
+
+ Note that this will make  stdin  and  stdout  unbuffered. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6218963)
+ See this bug, looks like raw_input writes its prompt to stderr. 
+
+ http://bugs.python.org/issue1927 
+
+
+

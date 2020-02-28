@@ -1,0 +1,295 @@
+Query: Generating an MD5 checksum of a file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3431838)
+ You can use http://docs.python.org/library/hashlib.html 
+
+ Note that sometimes you won't be able to fit the whole file in memory. In that case, you'll have to read chunks of 4096 bytes sequentially and feed them to the Md5 function: 
+
+  def md5(fname):
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+  
+
+  Note:   hash_md5.hexdigest()  will return the  hex string  representation for the digest, if you just need the packed bytes use  return hash_md5.digest() , so you don't have to convert back. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24847616)
+ You may try to check https://docs.python.org/2/library/hashlib.html 
+
+  import hashlib
+[(fname, hashlib.md5(open(fname, 'rb').read()).digest()) for fname in fnamelst]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34919942)
+ So I made it :) This way one hash sum is generated for a file list. 
+
+  hash_obj = hashlib.md5(open(flist[0], 'rb').read())
+for fname in flist[1:]:
+    hash_obj.update(open(fname, 'rb').read())
+checksum = hash_obj.digest()
+  
+
+ Thank you PM 2Ring for your input! 
+
+ Note that md5 has been cracked so use it only for non security critical purposes. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/52611814)
+ . There's no need to treat the first element specially. 
+
+  def calculate_checksum(filenames):
+    hash = hashlib.md5()
+    for fn in filenames:
+        if os.path.isfile(fn):
+            hash.update(open(fn, "rb").read())
+    return hash.digest()
+  
+
+ (You can remove the  os.path.isfile()  if you like.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3431835)
+ There is a way that's pretty memory  inefficient . 
+
+ single file: 
+
+  import hashlib
+def file_as_bytes(file):
+    with file:
+        return file.read()
+
+print hashlib.md5(file_as_bytes(open(full_path, 'rb'))).hexdigest()
+  
+
+ list of files: 
+
+  [(fname, hashlib.md5(file_as_bytes(open(fname, 'rb'))).digest()) for fname in fnamelst]
+  
+
+ Recall though, that https://en.wikipedia.org/wiki/MD5#Collision_vulnerabilities and should not be used for any purpose since vulnerability analysis can be really tricky, and analyzing any possible future use your code might be put to for security issues is impossible. IMHO, it should be flat out removed from the library so everybody who uses it is forced to update.  
+
+  [(fname, hashlib.sha256(file_as_bytes(open(fname, 'rb'))).digest()) for fname in fnamelst]
+  
+
+ If you only want 128 bits worth of digest you can do  .digest()[:16] . 
+
+ This will give you a list of tuples, each tuple containing the name of its file and its hash. 
+
+ Again I strongly question your use of MD5. You should be at least using SHA1, and given https://en.wikipedia.org/wiki/SHA-1#SHAttered_%E2%80%93_first_public_collision, probably not even that. Some people think that as long as you're not using MD5 for 'cryptographic' purposes, you're fine. But stuff has a tendency to end up being broader in scope than you initially expect, and your casual vulnerability analysis may prove completely flawed. It's best to just get in the habit of using the right algorithm out of the gate. It's just typing a different bunch of letters is all. . 
+
+ Here is a way that is more complex, but  memory efficient : 
+
+  import hashlib
+
+def hash_bytestr_iter(bytesiter, hasher, ashexstr=False):
+    for block in bytesiter:
+        hasher.update(block)
+    return hasher.hexdigest() if ashexstr else hasher.digest()
+
+def file_as_blockiter(afile, blocksize=65536):
+    with afile:
+        block = afile.read(blocksize)
+        while len(block) > 0:
+            yield block
+            block = afile.read(blocksize)
+
+
+[(fname, hash_bytestr_iter(file_as_blockiter(open(fname, 'rb')), hashlib.md5()))
+    for fname in fnamelst]
+  
+
+ And, again, since MD5 is broken and should not really ever be used anymore: 
+
+  [(fname, hash_bytestr_iter(file_as_blockiter(open(fname, 'rb')), hashlib.sha256()))
+    for fname in fnamelst]
+  
+
+ Again, you can put  [:16]  after the call to  hash_bytestr_iter(...)  if you only want 128 bits worth of digest. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28191368)
+ hashlib with  md5  might be of your interest. 
+
+  import hashlib
+hashlib.md5("Nobody inspects the spammish repetition").hexdigest()
+  
+
+ output:  
+
+  bb649c83dd1ea5c9d9dec9a18df0ffe9
+  
+
+ Constructors for hash algorithms that are always present in this module are  md5(), sha1(), sha224(), sha256(), sha384(), and sha512() . 
+
+ If you want more condensed result, then you may try  sha  series 
+
+ output for  sha224 : 
+
+  'a4337bc45a8fc544c03f52dc550cd6e1e87021bc896588bd79e901e2'
+  
+
+ For more details : https://docs.python.org/2/library/hashlib.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/24847608)
+ 
+   Why are the checksums teh same? 
+ 
+
+ Because you are computing a hash of the same contents  test.txt . 
+
+ Here is a general purpose tool ( a clone of the widely available  md5sum  CLI tool available on many Linux and UNIX platforms ) that scales well with large files. 
+
+  md5sum.py:  
+
+  #!/usr/bin/env python
+
+"""Tool to compuete md5 sums of files"""
+
+import sys
+from hashlib import md5
+
+
+def md5sum(filename):
+    hash = md5()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(128 * hash.block_size), b""):
+            hash.update(chunk)
+    return hash.hexdigest()
+
+
+def main():
+    if len(sys.argv) < 2:
+        print "Usage: md5sum <filename>"
+        raise SystemExit(1)
+
+    print md5sum(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()
+  
+
+ Liberally borrowed from: https://bitbucket.org/prologic/tools/src/tip/md5sum 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5719504)
+ The problem seems to be that your base-64-encoding the file data, changing the structure of the binary data, in php I  belive  that it does not base_64 encode the file. 
+
+  
+
+  def md5_file(filename):
+    //MD5 Object
+    crc = hashlib.md5()
+    //File Pointer Object
+    fp = open(filename, 'rb')
+
+    //Loop the File to update the hash checksum
+    for i in fp:
+        crc.update(i)
+
+    //Close the resource
+    fp.close()
+
+    //Return the hash
+    return crc.hexdigest()
+  
+
+ and within PHP use  md5_file  and see if that works accordingly. 
+
+ python taken from: http://www.php2python.com/wiki/function.md5-file/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/16876405)
+ In regards to your error and what's missing in your code. m is name which was not defined for getmd5() function. No offence, I know you are a beginner, but your code is all over the place. Let's look at your issues one by one :) First off, you are not using hashlib.md5.hexdigest() method correctly. Please find explanation on haslib functions http://docs.python.org/3.3/library/hashlib.html. The correct way to return md5 for provided <b>string</b> is to do something like this: 
+
+  >>> import hashlib
+>>> hashlib.md5("filename.exe").hexdigest()
+'2a53375ff139d9837e93a38a279d63e5'
+  
+
+ However, you have bigger problem here. You are calculating MD5 on a <b>file name string</b>, where in reality MD5 is calculated based on file <b>contents</b>. You will need to basically read file contents and pipe it though md5. My next example is not very efficient, but something like that: 
+
+  >>> import hashlib
+>>> hashlib.md5(open('filename.exe','rb').read()).hexdigest()
+'d41d8cd98f00b204e9800998ecf8427e'
+  
+
+ As you can clearly see second MD5 hash is totally different from the first one. The reason for that is that we are pushing contents of the file through, not just file name. A simple solution could be something like that: 
+
+  # Import hashlib library (md5 method is part of it)
+import hashlib    
+
+# File to check
+file_name = 'filename.exe'      
+
+# Correct original md5 goes here
+original_md5 = '5d41402abc4b2a76b9719d911017c592'  
+
+# Open,close, read file and calculate MD5 on its contents 
+with open(file_name) as file_to_check:
+    # read contents of the file
+    data = file_to_check.read()    
+    # pipe contents of the file through
+    md5_returned = hashlib.md5(data).hexdigest()
+
+# Finally compare original MD5 with freshly calculated
+if orginal_md5 == md5_returned:
+    print "MD5 verified."
+else:
+    print "MD5 verification failed!."
+  
+
+ Please look at the post <b>https://stackoverflow.com/questions/3431825/python-generating-a-md5-checksum-of-a-file</b> it explains in detail couple of ways how it can be achieved efficiently. 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/24481880)
+ You're probably running 32-bit python and trying to load more than 4 gb into the process. You can either try running the code in 64-bit python, or refactor the following md5 code in your double_hash function: 
+
+  fileData = open(self.path).read()
+checksum1 = hashlib.md5(fileData).hexdigest()
+checksum2 = hashlib.md5(fileData).hexdigest() # Why calculate this twice?
+  
+
+  
+
+  read_size = 1024 # You can make this bigger
+checksum1 = hashlib.md5()
+with open(self.path, 'rb') as f:
+    data = f.read(read_size)
+    while data:
+        checksum1.update(data)
+        data = f.read(read_size)
+checksum1 = checksum1.hexdigest()
+#continue using checksum1
+  
+
+ Generating the md5 this way will avoid loading the whole file into memory. 
+
+
+

@@ -1,0 +1,318 @@
+Query: django filter with list of values
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9304968)
+ From the https://docs.djangoproject.com/en/dev/topics/db/queries/#the-pk-lookup-shortcut: 
+
+  Blog.objects.filter(pk__in=[1, 4, 7])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/48833878)
+ From the https://docs.djangoproject.com/en/2.0/ref/models/querysets/#in-bulk: 
+
+  Blog.objects.in_bulk([1])
+{1: <Blog: Beatles Blog>}
+
+Blog.objects.in_bulk([1, 2])
+{1: <Blog: Beatles Blog>, 2: <Blog: Cheddar Talk>}
+
+Blog.objects.in_bulk([])
+{}
+
+Blog.objects.in_bulk()
+{1: <Blog: Beatles Blog>, 2: <Blog: Cheddar Talk>, 3: <Blog: Django Weblog>}
+
+Blog.objects.in_bulk(['beatles_blog'], field_name='slug')
+{'beatles_blog': <Blog: Beatles Blog>}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/33168938)
+ Firstly I try to explain the working of django admin filters. When you want to filter your queryset in admin page django looks for all registered filters. If you set value for filter django filter queryset with this value. If you set more than one filter django filter your queryset twice, this equal to queryset = queryset.filter(param1=1).filter(param2=2) or in SQL: SELECT ... WHERE param1=1 AND param2=2. It because you can't do it with standard django's filters. But you can write your own filter like this: 
+
+  from django.contrib.admin import SimpleListFilter
+from django.db.models import Q
+from functools import reduce
+import operator
+from django.core.exceptions import FieldError
+
+
+class ORListFilter(SimpleListFilter):
+title = ''
+parameter_name = ''
+search_field = ('',)
+
+def queryset(self, request, queryset):
+    filters = request.GET.copy()
+    try: #for search
+        search_field_value = filters.pop('q')[0]
+        query_params = [Q((key, search_field_value)) for key in self.search_field]
+        try:
+            queryset = queryset.filter(reduce(operator.or_, query_params))
+        except FieldError:
+            pass
+    except KeyError:
+        pass
+    try:
+        query_params = [Q((key, value)) for key, value in filters.dict().items()]
+        queryset = queryset.filter(reduce(operator.or_, query_params))
+    except TypeError:
+        pass
+    return queryset
+
+def lookups(self, request, model_admin):
+    qs = model_admin.get_queryset(request)
+    parameters = qs.all().values(self.parameter_name).distinct()
+    for parameter in parameters:
+        value = dict(parameter).pop(self.parameter_name, None)
+        if value:
+            yield (value, value)
+        else:
+            yield (None, 'NULL')
+
+class Field1Filter(ORListFilter):
+    title = 'title'
+    parameter_name = 'field1'
+    search_field = ('search1', 'search2')
+
+
+class Field2Filter(ORListFilter):
+    title = 'title'
+    parameter_name = 'field2'
+    search_field = ('search1', 'search2')
+  
+
+ And register it in admin: 
+
+  search_fields = ('search1', 'search2')
+list_filter = (Field1Filter, Field2Filter)
+  
+
+ It doesn't work with standard django's filters and all values in list_filter must inherited from ORListFilter class. Also it doesn't work with datetime filters, but you can add this ability. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/41230820)
+ The main problem is that you need a filter that understands how to operate on multiple values. There are basically two options: 
+
+ 
+ Use  MultipleChoiceFilter  (not recommended for this instance) 
+ Write a custom filter class 
+ 
+
+  Using  MultipleChoiceFilter   
+
+<pre class="lang-py prettyprint-override"> class BookmarkFilter(django_filters.FilterSet):
+    title__contains = django_filters.MultipleChoiceFilter(
+        name='title',
+        lookup_expr='contains',
+        conjoined=True,  # uses AND instead of OR
+        choices=[???],
+    )
+
+    class Meta:
+        ...
+  
+
+ While this retains your desired syntax, the problem is that you have to construct a list of choices. I'm not sure if you can simplify/reduce the possible choices, but off the cuff it seems like you would need to fetch all titles from the database, split the titles into distinct words, then create a set to remove duplicates. This seems like it would be expensive/slow depending on how many records you have.  
+
+  Custom  Filter   
+
+ Alternatively, you can create a custom filter class - something like the following: 
+
+<pre class="lang-py prettyprint-override"> class MultiValueCharFilter(filters.BaseCSVFilter, filters.CharFilter):
+    def filter(self, qs, value):
+        # value is either a list or an 'empty' value
+        values = value or []
+
+        for value in values:
+            qs = super(MultiValueCharFilter, self).filter(qs, value)
+
+        return qs
+
+
+class BookmarkFilter(django_filters.FilterSet):
+    title__contains = MultiValueCharFilter(name='title', lookup_expr='contains')
+
+    class Meta:
+        ...
+  
+
+ Usage (notice that the values are comma-separated): 
+
+  GET /api/bookmarks/?title__contains=word1,word2
+  
+
+  
+
+
+
+  qs.filter(title__contains='word1').filter(title__contains='word2')
+  
+
+ The syntax is changed a bit, but the CSV-based filter doesn't need to construct an unnecessary set of choices.  
+
+ Note that it isn't really possible to support the  ?title__contains=word1&title__contains=word2  syntax as the widget can't render a suitable html input. You would either need to use  SelectMultiple  (which again, requires choices), or use javascript on the client to add/remove additional text inputs with the same  name  attribute. 
+
+ 
+
+ Without going into too much detail, filters and filtersets are just an extension of Django's forms.  
+
+ 
+ A  Filter  has a form  Field , which in turn has a  Widget . 
+ A  FilterSet  is composed of  Filter s.  
+ A  FilterSet  generates an inner form based on its filters' fields. 
+ 
+
+ Responsibilities of each filter component: 
+
+ 
+ The widget retrieves the raw value from the  data  https://docs.djangoproject.com/en/1.10/ref/request-response/#django.http.QueryDict.  
+ The field validates the raw value.  
+ The filter constructs the  filter()  call to the queryset, using the validated value.  
+ 
+
+ In order to apply multiple values for the same filter, you would need a filter, field, and widget that understand how to operate on multiple values.  
+
+ 
+
+ The custom filter achieves this by mixing in  BaseCSVFilter , which in turn mixes in a "comma-separation => list" functionality into the composed field and widget classes.  
+
+ I'd recommend looking at the source code for the CSV mixins, but in short: 
+
+ 
+ The https://github.com/carltongibson/django-filter/blob/1.0.1/django_filters/widgets.py#L142-L170 splits the incoming value into a list of values. 
+ The https://github.com/carltongibson/django-filter/blob/1.0.1/django_filters/widgets.py#L142-L170 validates the entire list of values by validating individual values on the 'main' field class (such as  CharField  or  IntegerField ). The field also derives the mixed in widget.  
+ The https://github.com/carltongibson/django-filter/blob/1.0.1/django_filters/filters.py#L519-L561 simply derives the mixed in field class. 
+ 
+
+ The CSV filter was intended to be used with  in  and  range  lookups, which accept a list of values. In this case,  contains  expects a single value. The  filter()  method fixes this by iterating over the values and chaining together individual  filter calls.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/20280733)
+ Make list from objectQuerySet: 
+
+  data_ready_for_json = list( ConventionCard.objects.filter(ownerUser = user).values('fileName','id') )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/25094050)
+ This one is for dynamic pk list: 
+
+  pk_list = qs.values_list('pk', flat=True)  # i.e [] or [1, 2, 3]
+
+if len(pk_list) == 0:
+    Article.objects.none()
+
+else:
+    q = None
+    for pk in pk_list:
+        if q is None:
+            q = Q(pk=pk)
+        else:
+            q = q | Q(pk=pk)
+
+    Article.objects.filter(q)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/852481)
+ You could chain your queries as follows: 
+
+  values = [1,2,3]
+
+# Turn list of values into list of Q objects
+queries = [Q(pk=value) for value in values]
+
+# Take one Q object from the list
+query = queries.pop()
+
+# Or the Q object with the ones remaining in the list
+for item in queries:
+    query |= item
+
+# Query the model
+Article.objects.filter(query)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/8752383)
+ This should do what you are looking for: 
+
+  MyObject.objects.filter(name='Mike').values_list('address', flat=True)
+  
+
+ What you were missing was the https://docs.djangoproject.com/en/dev/ref/models/querysets/#values-list keyword. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14657864)
+ 
+   But a  get  is more efficient than a  filter .  
+ 
+
+ This is simply not true.   .get(…)  will generate  exactly  the same SQL as a  .filter(…) . 
+
+  
+
+  SomeModel.objects.filter(pk=1)[0:1].values_list('title', flat=True)
+  
+
+ Will do what you want, and will have exactly the same performance characteristics as  .get(…)  (actually, it will be a bit faster, because  .get(…)  checks to see if more than one row would be returned…): 
+
+ 
+In [4]: import logging
+
+In [5]: l = logging.getLogger("django.db")
+
+In [6]: l.setLevel(logging.DEBUG)
+
+In [7]: User.objects.filter(id=1)[0:1].values_list()
+DEBUG:django.db.backends:(0.006) SELECT "auth_user"."id", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."password", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."is_superuser", "auth_user"."last_login", "auth_user"."date_joined" FROM "auth_user" WHERE "auth_user"."id" = 1  LIMIT 1; args=(1,)
+Out[7]: [(1, u'admin', u'dmin', u'User', u'admin@example.com', u'sha1$bf3bc$daa1fb58a8a41e15c730ae86bc0faf4c01fdd3a1', True, True, True, datetime.datetime(2013, 1, 8, 21, 15, 51, 855527), datetime.datetime(2012, 1, 10, 15, 13, 55))]
+
+In [8]: User.objects.get(id=1)
+DEBUG:django.db.backends:(0.001) SELECT "auth_user"."id", "auth_user"."username", "auth_user"."first_name", "auth_user"."last_name", "auth_user"."email", "auth_user"."password", "auth_user"."is_staff", "auth_user"."is_active", "auth_user"."is_superuser", "auth_user"."last_login", "auth_user"."date_joined" FROM "auth_user" WHERE "auth_user"."id" = 1 ; args=(1,)
+Out[8]: <User: admin>
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/11334230)
+ You can create an  isinstance  filter in the view or a helper module: 
+
+  from django.template.defaultfilters import register
+
+@register.filter(name="isinstance")
+def isinstance_filter(val, instance_type):
+    return isinstance(val, eval(instance_type))
+  
+
+  
+
+  {% load isinstance %}
+{% if some_value|isinstance:"list" %}
+  // iterate over list
+{% else %}
+  // use string
+{% endif %}
+  
+
+
+

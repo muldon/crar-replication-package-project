@@ -1,0 +1,217 @@
+Query: Sort a list of strings based on regular expression match or something similar
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1082435)
+  hope this helps. 
+
+  def k(line):
+    v = line.partition("%")[2]
+    v = v[0] if v else 'z' # here z stands for the max value
+    return v
+print ''.join(sorted(open('data.txt', 'rb'), key = k))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/28997356)
+ You can use  sorted  function with a proper  key  and use  re.split  : 
+
+  >>> import re
+>>> sorted(records,key=lambda x:int(re.split(r'[-/]',x)[1].strip()))
+['John Smith - 900 / 2000',
+ 'Bob Foo - 1000 / 2000', 
+ 'Bob Foo - 1300 / 2000', 
+ 'Bob Foo - 1600 / 2000']
+  
+
+ The  sorted  function sort your list based on its key function, and your key split your elements with  re.split  with function as following : 
+
+  re.split(r'[-/]',x)
+  
+
+ the pattern  [-/]  split your string based on  -  or  / . 
+
+ for example : 
+
+  >>> re.split(r'[-/]',"Bob Foo - 1600 / 2000")
+['Bob Foo ', ' 1600 ', ' 2000']
+  
+
+ and then you need to  strip()  to remove the leading and trailing spaces. then convert to int and sort your list based on that value!  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1082447)
+ Here is a quick-and-dirty approach. Without knowing more about the requirements of your sort, I can't know if this satisfies your need.  
+
+ Assume that your list is held in ' listoflines ': 
+
+  listoflines.sort( key=lambda x: x[x.find('%'):] )
+  
+
+ Note that this will sort all lines without a '%' character by their final character. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50810732)
+ If you want to sort digit strings based on their values you should use their integer value because strings are sorted literally which means that for example the string  10  is smaller than  2 . 
+
+ The  sorted()  function accepts a key function that you can use to tell  sorted  how sorts your items. In this case we can use regular expression to find the latest number in your file names and use its integer value to sort the items. 
+
+  In [18]: import re
+
+In [19]: def keyfunc(item):
+    ...:     return int(re.search(r'-(\d+)[^-]*$', item).group(1))
+    ...: 
+    ...: 
+
+In [20]: sorted(list_of_dwg, key=keyfunc)
+Out[20]: 
+['\\\\pc_name\\AHL-4604-0002-1_FRONT COVER.dwg',
+ '\\\\pc_name\\AHL-4604-0002-2_MASTER LIST.dwg',
+ '\\\\pc_name\\AHL-4604-0002-3_LEGEND LIST.dwg',
+ '\\\\pc_name\\AHL-4604-0002-4.dwg',
+ '\\\\pc_name\\AHL-4604-0002-10.dwg',
+ '\\\\pc_name\\AHL-4604-0002-11A.dwg']
+  
+
+ As you can see, in  keyfunc  we assumed that there is always a match for our regex without handling any possible exception and/or taking other factors into account for sorting. A proper way for handling these kinds of cases is to use a  try-except  in order to handle different exceptions in a proper way. 
+
+ As an example, let's say that we want to sort the items just literally as default, in cases that our regular expression can't find the expected integer at the end of the file name. In that case, the code will return  AttributeError  because  re.search()  will return None and None object doesn't have the  group()  attribute. We can handle this situation simply as following: 
+
+  In [21]: def keyfunc(item):
+    ...:     try:
+    ...:         return int(re.search(r'-(\d+)[^-]*$', item).group(1))
+    ...:     except AttributeError:
+    ...:         return item
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3033289)
+ There are two ways to approach this: 
+
+ 
+  Define your own sorting function cmp(x, y), where x and y are strings, and you return 1 if the second one is greater than the first, -1 if the first is greater, and 0 if they're the same. Then pass this function as the "cmp" argument to the built-in sort() function.  
+  Convert all of the strings into a format where the "natural" sorting order is exactly what you want. For example you could just zero-pad them like "Season 03, Episode 07". Then you can sort them using sort().  
+ 
+
+ Either way, I'd suggest using a simple regular expression to get the season and episode out of the string, something like: 
+
+  m = re.match('Season ([0-9]+), Episode ([0-9]+): .*', s)
+(season, episode) = (int(m.group(1)), int(m.group(2)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37273445)
+ You indeed have to use the https://docs.python.org/3/library/re.html module, but also the  key  parameter of the https://docs.python.org/3/library/functions.html#sorted method. 
+
+  reg = re.compile('\w*?(\d+)\\n')
+lst.sort(key=lambda s: int(reg.match(s).group(1)))
+  
+
+ It works fine using  findall()  as you did too: 
+
+  reg = re.compile('\d+')
+lst.sort(key=lambda s: int(reg.findall(s)[0]))
+  
+
+ Note that I https://docs.python.org/3/library/re.html#re.compile the regular expression so it is computed once and for all rather than for each element in the list. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53615596)
+ Isolate first element, no way around that. 
+
+ Then, on the rest of the list, use a sort key which returns a couple: 
+
+ 
+ first priority a boolean to indicate it matches the regex or not (negated so it appears first) 
+ second priority the element itself to tiebreak matching/non matching elements 
+ 
+
+ like this: 
+
+  import re
+
+cols = ['ID', 'MP', 'FC', 'Dest_MP', 'Dest_FC', 'Origin_MP', 'Origin_FC']
+
+new_cols = [cols[0]] + sorted(cols[1:],key=lambda x : (not bool(re.search("^FC|FC$",x)),x))
+  
+
+ result: 
+
+  ['ID', 'Dest_FC', 'FC', 'Origin_FC', 'Dest_MP', 'MP', 'Origin_MP']
+  
+
+ if you want  FC  to appear first, add a third value to the returned key. Let's choose the length of the strings (not clear what you really want to see as a tiebreaker 
+
+  key=lambda x : (not bool(re.search("^FC|FC$",x)),len(x),x)
+  
+
+ result is now: 
+
+  ['ID', 'FC', 'Dest_FC', 'Origin_FC', 'MP', 'Dest_MP', 'Origin_MP']
+  
+
+ note that  sort  is stable, so maybe you don't need a tiebreaker at all: 
+
+  new_cols = [cols[0]] + sorted(cols[1:],key=lambda x : not bool(re.search("^FC|FC$",x)))
+  
+
+ result: 
+
+  ['ID', 'FC', 'Dest_FC', 'Origin_FC', 'MP', 'Dest_MP', 'Origin_MP']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52743500)
+ You could do something like this: 
+
+  import re
+
+a = ['v-01-001', 'v-01-002', 'v-02-001', 'v-02-002', 'v-02-003', 'v-03-001']
+pattern = re.compile('v-02-(\d{3})$')
+print([m.group(1) for m in map(pattern.match, a) if m])
+  
+
+  Output  
+
+  ['001', '002', '003']
+  
+
+ Also you could use  finditer : 
+
+  print([m.group(1) for ms in map(pattern.finditer, a) for m in ms])
+  
+
+  Output  
+
+  ['001', '002', '003']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6750279)
+ You can create one regular expression, which will match, when any of the terms is found: 
+
+  >>> s, t = "A kiwi, please.", "Strawberry anyone?"
+>>> import re
+>>> pattern = re.compile('apple|banana|peach|plum|pineapple|kiwi', re.IGNORECASE)
+>>> pattern.search(s)
+<_sre.SRE_Match object at 0x10046d4a8>
+>>> pattern.search(t) # won't find anything
+  
+
+
+

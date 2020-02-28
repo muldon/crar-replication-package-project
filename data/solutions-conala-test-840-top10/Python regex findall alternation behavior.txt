@@ -1,0 +1,198 @@
+Query: Python regex findall alternation behavior
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31465078)
+ As mentioned in document : 
+
+ 
+   This means that once A matches, B will not be tested further, even if it would produce a longer overall match. 
+ 
+
+ So in this case regex engine doesn't match the  \d  because your string stars with  (  and not  \d  so it will match the second case that is  \(\d,\d\) . But if your string stared with  \d  it would match  \d  : 
+
+  >>> re.findall('\d|\d,\d\)', '6,7)')
+['6', '7']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/47928122)
+ You can make use of regex alternation and capturing groups in  findall : 
+
+  >>> test_str = ("Parameter: A\n"
+...     "%Parameter: B\n"
+...     "  %  Parameter: C\n"
+...     " Parameter: D %the best parameter")
+>>>
+>>> print filter(None, re.findall(r'%\s*Parameter|(Parameter.*)', test_str))
+['Parameter: A', 'Parameter: D %the best parameter']
+  
+
+ Matches that you want to discard should appear before the last capturing group match in an alternation. 
+
+ https://regex101.com/r/3e7m6A/1 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/903567)
+ Use  (?:)  to get rid of the unnamed group: 
+
+  r"(?:(?P<a>1)=(?P<b>2))|(?P<c>3)"
+  
+
+ From the documentation of http://docs.python.org/library/re.html: 
+
+ 
+   (?:...) A non-grouping version of
+  regular parentheses. Matches whatever
+  regular expression is inside the
+  parentheses, but the substring matched
+  by the group cannot be retrieved after
+  performing a match or referenced later
+  in the pattern. 
+ 
+
+ By the way, the alternation operator  |  has very low precedence in order to make parentheses unnecessary in cases like yours. You can drop the extra parentheses in your regex and it will continue to work as expected: 
+
+  r"(?P<a>1)=(?P<b>2)|(?P<c>3)"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28219412)
+ Use capturing group. 
+
+  re.findall(r'\n([^|]*)\|', string)
+  
+
+  [^|]*  matches any character but not of a  |  symbol, zero or more times. By default  re.findall  prints the characters which are present inside the capturing group. So it prints out the in-between characters.   |  is a special meta character in regex which acts like an alternation operator. To match a literal  |  symbol, you must need to escape it in your regex. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52407305)
+    
+
+  r"#define [A-Z,_]*\([^()]+\)"
+  
+
+ The negated character class  [^()]  matches any char but  (  and  )  (including newlines) and the  +  quantifier makes the regex engine match 1 or more consecutive occurrences of them. 
+
+  Root cause  
+
+ The  (?.  inside a regex pattern (when there are other subpatterns to follow) causes too much expansion operations (it is a lazy pattern, and we can only talk about backtracking with greedy modifiers) that freezes the regex engine. The main problem with this alternation group is that  .  can match what  \s  matches. When alternations in a group can match at the same location, it is always a bottleneck as once one alternative fails, the other is tried and goes on trying many more times if the group is quantified (as here). 
+
+   .  with a  DOTALL  modifier or  [\s\S]  instead when it is required to only apply this behavior for a part of the pattern (in Python  re , the https//stackoverflow.com/questions/33312175/matching-any-character-including-newlines-in-a-python-regex-subexpression-not-g/33312193#33312193 is very helpful as https//stackoverflow.com/questions/28353897/how-to-use-inline-regex-modifier-in-python).  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/30051573)
+ In order to capture  ${...} , you need to remove  ?:  to turn  non-capturing  groups into  capturing  ones. . Also  [_a-zA-Z0-9]  is equal to  \w , thus we can shorten your regex a bit: 
+
+  (?P<Alternation1>
+ \$\{(?P<braced>[_a-zA-Z][a-zA-Z0-9]*(?::[_a-zA-Z]\w*)+)
+ \}
+ )
+ |
+ (?P<Alternation2>
+  \$(?P<named>[_a-zA-Z][a-zA-Z0-9]*(?::[_a-zA-Z]\w*)+
+ )
+)
+  
+
+ Have a look at the https://regex101.com/r/uR4hJ9/3. This regex requires the use of  x  option (and  g  options on regex101.com to show all matches, in Python, you'd use  findall  or  finditer ). 
+
+ More information about https://stackoverflow.com/questions/3512471/non-capturing-group is available on SO and at http://www.regular-expressions.info/brackets.html. 
+
+ To just get all matches in Python, you can use  finditer  like this: 
+
+  import re
+p = re.compile(ur'''(?P<Alternation1>
+     \$\{(?P<braced>[_a-zA-Z][a-zA-Z0-9]*(?::[_a-zA-Z]\w*)+)
+     \}
+     )
+     |
+     (?P<Alternation2>
+      \$(?P<named>[_a-zA-Z][a-zA-Z0-9]*(?::[_a-zA-Z]\w*)+
+     )
+    )
+''', re.VERBOSE)
+test_str = u"asdasd $asd:sd + ${asd123:asd} $HOME $$asd"
+
+print [x for x in re.findall(p, test_str)]
+  
+
+ See https://ideone.com/4oWguB 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31499116)
+  findall  returns the captured groups, stated in the https://docs.python.org/2/library/re.html#re.findall: 
+
+ 
+   If one or more groups are present in the pattern, return a list of groups; this will be a list of tuples if the pattern has more than one group.  Empty matches are included in the result unless they touch the beginning of another match . 
+ 
+
+ You want to use alternation inside of one capturing group, and I would write this as: 
+
+  >>> test = '348249432'
+>>> re.findall("(20[0-9]{7}|3[0-9]{8})", test)
+['348249432']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45241337)
+ khelwood has explained why findall() behaves this way. If you want to catch the whole match without changing the regex, use 
+
+  exp.group(0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/14182462)
+ Let's take a look at our output using  re.DEBUG . 
+
+  branch 
+  literal 40 
+  subpattern 1 
+    min_repeat 0 65535 
+      any None 
+  literal 41 
+or
+  in 
+    category category_word
+  
+
+ Ouch, there's only one  subpattern  in there but  re.findall  only pulls out  subpattern s if one exists! 
+
+  a = re.findall(r'\((.*?)\)|(.)', '(zyx)bc',re.DEBUG); a
+[('zyx', ''), ('', 'b'), ('', 'c')]
+branch 
+  literal 40 
+  subpattern 1 
+    min_repeat 0 65535 
+      any None 
+  literal 41 
+or
+  subpattern 2 
+    any None
+  
+
+ . :) 
+
+ Now we just have to make this into the format you want. 
+
+  [i[0] if i[0] != '' else i[1] for i in a]
+['zyx', 'b', 'c']
+  
+
+
+

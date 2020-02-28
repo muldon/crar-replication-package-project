@@ -1,0 +1,291 @@
+Query: how do I halt execution in a python script?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3376542)
+ http://docs.python.org/library/sys.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3376543)
+ There's  exit  function in  sys  module ( http://docs.python.org/library/sys.html ): 
+
+  import sys
+sys.exit( 0 ) # 0 will be passed to OS
+  
+
+  
+
+  raise SystemExit
+  
+
+ or any other exception that won't be caught. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3376541)
+ You can use return inside the main function in you have one, but this isn't guaranteed to quit the script if there is more code after your call to main. 
+
+ The simplest that nearly always works is http://docs.python.org/library/sys.html#sys.exit: 
+
+  import sys
+sys.exit()
+  
+
+ Other possibilities: 
+
+ 
+ Raise an error which isn't caught. 
+ Let the execution point reach the end of the script. 
+ If you are in a thread other than the main thread use http://docs.python.org/library/thread.html#thread.interrupt_main. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/28413383)
+ Define your own exception, 
+
+  class HaltException(Exception): pass
+  
+
+ and wrap the script in 
+
+  try:
+    # script goes here
+
+    # when you want to stop,
+    raise HaltException("Somebody stop me!")
+
+except HaltException as h:
+    print(h)
+    # now what?
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35290138)
+ I generally use https://docs.python.org/3.6/library/pdb.html instead of a more fancy debugger but that's a matter of taste. It is the default python debugger that you can run to step through your code from the command line. 
+
+ To use pdb in your script, import it at the point where you want to start stepping through, I think for this script the most interesting point would be in  add (): 
+
+      def __add__(self,Other):
+        import pdb
+        pdb.set_trace()
+        Output = MyClass()
+        Output.Input = self.Input + Other.Input
+        return Output
+  
+
+ Now, if you run the script, execution will halt at the point where you have set the trace. You will be presented with a CLI, where you can step through the code and print out any information you find interesting. 
+
+  > print(Output.input)
+> s                   # for (s)tep
+> print(Other.input)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39007009)
+ Here is what I've found to work -- staying in the interpreter, while stopping a script. 
+
+  # ------------------------------------------------------------------
+# Reset so get full traceback next time you run the script and a "real"
+# exception occurs
+if hasattr (sys, 'tracebacklimit'):
+    del sys.tracebacklimit
+
+# ------------------------------------------------------------------
+# Raise this class for "soft halt" with minimum traceback.
+class Stop (Exception):
+    def __init__ (self):
+        sys.tracebacklimit = 0
+
+# ==================================================================
+# ... script here ...
+if something_I_want_to_halt_on:
+    raise Stop ()
+
+# ... script continues ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38611426)
+ Call  t2.join()  before exiting your program. This waits for the navigation thread to terminate, before execution continues. 
+
+ Edit: 
+
+ Your navigation thread terminates immediately because you are not waiting for the child process to exit. This should solve the issue: 
+
+  process=subprocess.Popen('python navigationScript.py', \
+                        shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+process.wait()
+  
+
+ This will halt the thread until the subprocess is done. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35750948)
+ Install https://www.safaribooksonline.com/blog/2014/11/18/intro-python-debugger/. Afterwards you can just use 
+
+  import ipdb
+ipdb.set_trace()
+  
+
+ And debug straight from the console.
+You can also use pdb which comes https://docs.python.org/3.4/library/pdb.html: 
+
+  import pdb
+pdb.set_trace()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/40438514)
+ You could raise an exception in  stop  which will halt execution of  counter  and search for the closest exception handler (which you set in the  while True  loop). 
+
+ That is, create a custom exception: 
+
+  class SigIntException(BaseException): pass
+  
+
+ Raise it in  stop : 
+
+  def stop(signal, frame):
+    print("You pressed ctrl-c")
+    raise SigIntException
+  
+
+ and catch it in your  while  loop: 
+
+  while True:
+    if(input("Do you want to count? ")=="yes"):
+        try:        
+            counter()
+        except SigIntException:
+            pass
+  
+
+ and it behaves the way you need it to. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48405555)
+ It is possible to use Python standard testing tools, such as https://docs.python.org/3.6/library/doctest.html or https://docs.python.org/3.6/library/unittest.html, directly in the notebook. 
+
+ Doctest 
+
+ A notebook cell with a function and a test case in a docstring: 
+
+<pre class="lang-py prettyprint-override"> def add(a, b):
+    '''
+    This is a test:
+    >>> add(2, 2)
+    5
+    '''
+    return a + b
+  
+
+ A notebook cell (the last one in the notebook) that runs all test cases in the docstrings: 
+
+  import doctest
+doctest.testmod(verbose=True)
+  
+
+ Output: 
+
+<pre class="lang-none prettyprint-override"> Trying:
+    add(2, 2)
+Expecting:
+    5
+**********************************************************************
+File "__main__", line 4, in __main__.add
+Failed example:
+    add(2, 2)
+Expected:
+    5
+Got:
+    4
+1 items had no tests:
+    __main__
+**********************************************************************
+1 items had failures:
+   1 of   1 in __main__.add
+1 tests in 2 items.
+0 passed and 1 failed.
+***Test Failed*** 1 failures.
+  
+
+ Unittest 
+
+ A notebook cell with a function: 
+
+<pre class="lang-py prettyprint-override"> def add(a, b):
+    return a + b
+  
+
+ A notebook cell (the last one in the notebook) that contains a test case. The last line in the cell runs the test case when the cell is executed: 
+
+<pre class="lang-py prettyprint-override"> import unittest
+
+class TestNotebook(unittest.TestCase):
+
+    def test_add(self):
+        self.assertEqual(add(2, 2), 5)
+
+
+unittest.main(argv=[''], verbosity=2, exit=False)
+  
+
+ Output: 
+
+<pre class="lang-none prettyprint-override"> test_add (__main__.TestNotebook) ... FAIL
+
+======================================================================
+FAIL: test_add (__main__.TestNotebook)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<ipython-input-15-4409ad9ffaea>", line 6, in test_add
+    self.assertEqual(add(2, 2), 5)
+AssertionError: 4 != 5
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+  
+
+ Debugging a Failed Test 
+
+ While debugging a failed test, it is often useful to halt the test case execution at some point and run a debugger. For this, insert the following code just before the line at which you want the execution to halt: 
+
+<pre class="lang-py prettyprint-override"> import pdb; pdb.set_trace()
+  
+
+ For example: 
+
+<pre class="lang-py prettyprint-override"> def add(a, b):
+    '''
+    This is the test:
+    >>> add(2, 2)
+    5
+    '''
+    import pdb; pdb.set_trace()
+    return a + b
+  
+
+ For this example, the next time you run the doctest, the execution will halt just before  the return statement and the https://docs.python.org/3/library/pdb.html (pdb) will start. You will get a pdb prompt directly in the notebook, which will allow you to inspect the values of  a  and  b , step over lines, etc. 
+
+ I created a https://gist.github.com/SergiyKolesnikov/f94d91b947051ab5d2ba1aa30e25f050#file-test_and_debug-ipynb with the techniques I have just described. 
+
+
+

@@ -1,0 +1,290 @@
+Query: How to grab one random item from a database in Django/postgreSQL?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/9354516)
+ Selecting a random element from a list of all database objects isn't a goog solution as retrieving all elements of the database can have a big impact on performance, neither is using     order_by('?')  as mentioned in the https://docs.djangoproject.com/en/dev/ref/models/querysets/#order-by. 
+
+ The best solution should be to retrieve an element with a random index: 
+
+  import random
+
+random_idx = random.randint(0, Model.objects.count() - 1)
+random_obj = Model.objects.all()[random_idx]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9354465)
+ Aamir's solution will select all objects before discarding all but one. This is extremely wasteful and, besides, this sort of calculation should be done in the database. 
+
+  model.objects.all().order_by('?')[0]
+  
+
+ Read more here: https://docs.djangoproject.com/en/dev/ref/models/querysets/#order-by 
+
+  Edit : lazerscience's answer is indeed faster, as shown https://gist.github.com/1868909.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22816927)
+ The second bit of code is correct, but can be slower, because in SQL that generates an  ORDER BY RANDOM()  clause that shuffles the entire set of results, and then takes a  LIMIT  based on that. 
+
+ The first bit of code still has to evaluate the entire set of results. E.g., what if your random_idx is near the last possible index? 
+
+ A better approach is to pick a random ID from your database, and choose that (which is a primary key lookup, so it's fast). We can't assume that our every  id  between  1  and  MAX(id)  is available, in the case that you've deleted something. So following is an approximation that works out well: 
+
+  import random
+
+# grab the max id in the database
+max_id = A.objects.order_by('-id')[0].id
+
+# grab a random possible id. we don't know if this id does exist in the database, though
+random_id = random.randint(1, max_id + 1)
+
+# return an object with that id, or the first object with an id greater than that one
+# this is a fast lookup, because your primary key probably has a RANGE index.
+random_object = A.objects.filter(id__gte=random_id)[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20081554)
+ The easiest way is to do the random number generation in javascript at the client end... 
+
+ Tell the client what the highest number row is, then the client page keeps track of which ids it has requested (just a simple js array).  Then when the "request next random page" button is clicked, it generates a new random number less than the highest valid row id, and providing that the number isn't in its list of previously viewed items, it will send a request for that item. 
+
+ This way, you (on the server) only have to have 2 database accessing views: 
+
+ 
+ main page (which gives the js, and the highest valid row id) 
+ display an item (by id)  
+ 
+
+ You don't have any complex session tracking, and the user's browser is only having to keep track of a simple list of numbers, which even if they personally view several thousand  different items is still only going to be a meg or two of memory. 
+
+ For performance reasons, you can even pre-fetch the next item as soon as the current item loads, so that it displays instantly and loads the next one in the background while they're looking at it.  .load() is your friend  ) 
+
+ If you expect a large number of items to be removed from the database (so that the highest number is not helpful), then you can instead generate a list of random ids, send that, and then request them one at a time.  Pre-generate the random list, as it were. 
+
+ Hope this helps!  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47946916)
+ .  django.db.backends.postgresql_psycopg2  used in django <1.8 and it was renamed in django 1.9 to  django.db.backends.postgresql .
+From docs:  
+
+ 
+   Changed in Django 1.9: 
+  
+   The django.db.backends.postgresql backend is named
+  django.db.backends.postgresql_psycopg2 in older releases. For
+  backwards compatibility, the old name still works in newer versions. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/52881467)
+ In your settings.py edit this code (f multiple databases) 
+
+  DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'django',
+        'USER': 'postgres',
+        'PASSWORD': '12345678',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    },
+    'connection_other_db': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'mi_db',
+        'USER': 'root',
+        'PASSWORD': 'root',
+        'HOST': 'localhost',
+        'PORT': '3306',
+    }
+}
+  
+
+  Apply migrations command:  
+
+  F default database  
+
+  $ ./manage.py migrate
+  
+
+  F other database (connection_other_db)  
+
+  $ ./manage.py migrate --database=connection_other_db
+  
+
+  In you views, 
+ F using ORM, use this:  
+
+  Mi_Model.objects.using('connection_other_db').all() # F mysql database
+Mi_Model.objects.all() # F default database (postgresql)
+  
+
+  F create object:  
+
+  s = Mi_Model()
+s._state.adding = False
+s._state.db = 'connection_other_db'
+s.field_1 = 'A value'
+s.save()
+  
+
+    
+
+  s = Mi_Model.objects.using('connection_other_db').create(
+   field_1='A value'
+   # ....
+)
+  
+
+  F use transactions:  
+
+  with transaction.atomic(using='connection_other_db'):
+   # Your code here
+  
+
+  F use curss  
+
+  with connections['connection_other_db'].curs() as curs:
+   curs.execute('your query')
+  
+
+ Django documentation:
+https://docs.djangoproject.com/es/2.1/topics/db/multi-db/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/19083978)
+ Even though Rho's answer seems very good I thought I'd share how I got scrapy working with Django Models (aka Django ORM)   without  a full blown Django project since the question only states the use of a "Django database". Also I do not use DjangoItem.  
+
+ The following works with Scrapy 0.18.2 and Django 1.5.2. My scrapy project is called scrapping in the following. 
+
+ 
+  Add the following to your scrapy  settings.py  file 
+
+  from django.conf import settings as d_settings
+d_settings.configure(
+    DATABASES={
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'db_name',
+            'USER': 'db_user',
+            'PASSWORD': 'my_password',
+            'HOST': 'localhost',  
+            'PORT': '',
+        }},
+    INSTALLED_APPS=(
+        'scrapping',
+    )
+)
+   
+  Create a  manage.py  file in the same folder as your  scrapy.cfg :
+This file is not needed when you run the spider itself but is super convenient for setting up the database.  
+
+  #!/usr/bin/env python
+import os
+import sys
+
+if __name__ == "__main__":
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scrapping.settings")
+
+    from django.core.management import execute_from_command_line
+
+    execute_from_command_line(sys.argv)
+  
+
+ That's the entire content of  manage.py  and is pretty much exactly the stock  manage.py  file you get after running  django-admin startproject myweb  but the 4th line points to your scrapy settings file. 
+Admittedly, using  DJANGO_SETTINGS_MODULE  and  settings.configure  seems a bit odd but it works for the one  manage.py  commands I need:  $ python ./manage.py syncdb .  
+  Your  models.py 
+Your models.py should be placed in your scrapy project folder (ie.  scrapping.models´).
+After creating that file you should be able to run you $ python ./manage.py syncdb`.  
+
+  from django.db import models
+
+class MyModel(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    url = models.URLField(max_length=255, unique=True)
+   
+  Your  items.py  and  pipeline.py :
+I used to use DjangoItem as descriped in Rho's answer but I ran into trouble with it when running many crawls in parallel with scrapyd and using Postgresql. The exception  max_locks_per_transaction  was thrown at some point breaking all the running crawls. Furthermore, I did not figure out how to properly roll back a failed  item.save()  in the pipeline. Long story short, I ended up not using DjangoItem at all which solved all my problems. Here is how:
+ items.py : 
+
+  from scrapy.item import Item, Field
+
+class MyItem(Item):
+    title = Field()
+    description = Field()
+    url = Field()
+  
+
+ Note that the fields need to have the same name as in the model if you want to unpack them conveniently as in the next step! 
+ pipelines.py : 
+
+  from django.db import transaction
+from models import MyModel
+class Django_pipeline(object):
+    def process_item(self, item, spider):
+        with transaction.commit_on_success():
+            scraps = MyModel(**item)
+            scraps.save()
+        return item
+  
+
+ As mentioned above, if you named all your item fields like you did in your  models.py  file you can use  **item  to unpack all the fields when creating your MyModel object.   
+ 
+
+ That's it! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/2298298)
+ http://initd.org/psycopg/docs/usage.html#thread-safety 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2989178)
+ Maybe creating a middleware solves your problem. Put your new middleware "maintenancemiddleware" as the FIRST item of your settings.middleware tuple. 
+
+  # code not tested, only for demonstration.
+# maintenancemiddleware.py
+from django.conf.settings import MAINTENANCE
+
+class MaintenanceMiddleware(object):
+    def process_request(self, request):
+        if MAINTENANCE:
+           # redirect to a static url (like /media/maintenancemode.html)
+  
+
+ Further info: http://docs.djangoproject.com/en/1.2/topics/http/middleware/#topics-http-middleware 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/54164396)
+ According to the https://docs.djangoproject.com/en/2.1/releases/1.9/: 
+
+ 
+   The PostgreSQL backend (django.db.backends.postgresql_psycopg2) is
+  also available as django.db.backends.postgresql. The old name will
+  continue to be available for backwards compatibility. 
+ 
+
+ Actually, this question is already solved https://stackoverflow.com/questions/47946856/what-is-the-difference-between-postgres-and-postgresql-psycopg2-as-a-database-en. 
+
+
+

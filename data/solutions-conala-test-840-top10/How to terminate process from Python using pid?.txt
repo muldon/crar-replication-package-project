@@ -1,0 +1,167 @@
+Query: How to terminate process from Python using pid?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31048354)
+  shell=True  starts a new shell process.  proc.pid  is the pid of that shell process.  kill -9  kills the shell process making the grandchild python process into an orphan. 
+
+ If the grandchild python script can spawn its own child processes and you want to kill the whole process tree then see https://stackoverflow.com/q/4789837/4279: 
+
+  #!/usr/bin/env python
+import os
+import signal
+import subprocess
+
+proc = subprocess.Popen("python script.py", shell=True, preexec_fn=os.setsid) 
+# ...
+os.killpg(proc.pid, signal.SIGTERM)
+  
+
+ If  script.py  does not spawn any processes then use https://stackoverflow.com/a/31040013/4279: drop  shell=True , use a list argument, and call  proc.terminate()  or  proc.kill()  -- the latter always works eventually: 
+
+  #!/usr/bin/env python
+import subprocess
+
+proc = subprocess.Popen(["python", "script.py"]) 
+# ...
+proc.terminate()
+  
+
+ If you want to run your parent script from a different directory; you might need https://stackoverflow.com/a/22881871/4279. 
+
+ Consider importing the python module and running its functions, using its object (perhaps via  multiprocessing ) instead of running it as a script. Here's https://stackoverflow.com/a/30165768/4279. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53534032)
+ what i feel like we could use: 
+
+  import os
+import signal
+import subprocess
+p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+
+os.killpg(os.getpgid(pro.pid), signal.SIGINT)
+  
+
+ this will not kill all your task but the process with the p.pid 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/46365149)
+  os.getpid()
+  
+
+ and  
+
+ https://stackoverflow.com/questions/17856928/how-to-terminate-process-from-python-using-pid 
+
+ was the answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20218672)
+  os.system  return exit code. It does not provide pid of the child process. 
+
+ Use http://docs.python.org/3/library/subprocess.html module. 
+
+  import subprocess
+import time
+argument = '...'
+proc = subprocess.Popen(['python', 'bar.py', argument], shell=True)
+time.sleep(3) # <-- There's no time.wait, but time.sleep.
+pid = proc.pid # <--- access `pid` attribute to get the pid of the child process.
+  
+
+ To terminate the process, you can use http://docs.python.org/3/library/subprocess.html#subprocess.Popen.terminate method or http://docs.python.org/3/library/subprocess.html#subprocess.Popen.kill. (No need to use external  kill  program) 
+
+  proc.terminate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3054875)
+ You could get your own PID (Process Identifier) through  
+
+  import os
+os.getpid()
+  
+
+ and to kill a process in Unix 
+
+  import os, signal
+os.kill(5383, signal.SIGKILL)
+  
+
+ to kill in Windows use 
+
+  import subprocess as s
+def killProcess(pid):
+    s.Popen('taskkill /F /PID {0}'.format(pid), shell=True)
+  
+
+ You can send the PID to the other programm or you could search in the process-list to find the name of the other script and kill it with the above script. 
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/37345299)
+ I'd recommend using https://pythonhosted.org/psutil/, specifically <a href="https://pythonhosted.org/psutil/#psutil.process_iter".process_iter() : 
+
+  >>> # get all PIDs
+>>> psutil.pids()
+[0, 4, 472, 648, 756, ...]
+>>> # but for iteration you should use process_iter()
+>>> for proc in psutil.process_iter():
+>>>     try:
+>>>         if pinfo.name() == "omxplayer":
+>>>             pinfo.terminate()
+>>>     except psutil.NoSuchProcess:
+>>>         pass
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36391683)
+ The  pid  attribute of the  subprocess.Popen  object contains its PID, but if you need to terminate the subprocess then you should just use the  terminate()  method. 
+
+ You should consider using pyao or pygst/gst-python instead though, if you need finer control over audio. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/25664346)
+ Capture the PID of your process, and then kill it as needed. For example: 
+
+  import os
+import signal
+
+pid = os.spawnlp(os.P_NOWAIT, 'echo foo')
+os.kill(pid, signal.SIGTERM)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2961690)
+ You can use http://docs.python.org/library/subprocess.html?highlight=subprocess.popen#subprocess.Popen to start the other process, and save the resulting http://docs.python.org/library/subprocess.html?highlight=subprocess.popen#popen-objects.  With methods on that object, you can check if the process still alive, wait for it to finish, terminate it, kill it -- all without any risk of pid-based confusion!  As a plus, this is also a more cross-platform approach, though you may not care specifically in this case. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1064370)
+ You call os.kill on the process pid. 
+
+  os.kill(process.pid, signal.SIGKILL)
+  
+
+ You're OK because you're on on Linux.  Windows users are out of luck. 
+
+
+

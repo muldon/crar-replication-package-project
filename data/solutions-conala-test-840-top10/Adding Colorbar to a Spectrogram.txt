@@ -1,0 +1,246 @@
+Query: Adding Colorbar to a Spectrogram
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42446233)
+ That was easier than expected. I didn't realize colorbar has a plottable is in  plt.colorbar().  
+
+  cb = plt.colorbar()
+cb..plot(0.5, mean, 'w.') # my data is between 0 and 1
+cb..plot([0, 1], [rms]*2, 'w') # my data is between 0 and 1
+# Note: would need to scale mean/rms to be between 0 and 1
+  
+
+ Looks like the x-is is (0, 1) and y-is <strike>(dataMin, dataM)</strike> (0, 1). 
+
+ https://i.stack.imgur.com/2NpnC.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13961560)
+ You need to add levels parameter to contourf: 
+
+  ax = plt.contourf(xi, yi, zi, N=20, norm=norm, 
+        cmap=cmap,levels=np.linspace(zi.min(),zi.max(),1000))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36167155)
+ Solved it, with help from https://github.com/obspy/obspy/issues/1086. It doesn't show decibels yet but the primary issue was getting the colorbar: 
+
+  from obspy.imaging.spectrogram import spectrogram
+fig = plt.figure()
+ax1 = fig.add_axes([0.1, 0.75, 0.7, 0.2]) #[left bottom width height]
+ax2 = fig.add_axes([0.1, 0.1, 0.7, 0.60], sharex=ax1)
+ax3 = fig.add_axes([0.83, 0.1, 0.03, 0.6])
+
+#make time vector
+t = np.arange(spl1[0].stats.npts) / spl1[0].stats.sampling_rate
+
+#plot waveform (top subfigure)    
+ax1.plot(t, spl1[0].data, 'k')
+
+#plot spectrogram (bottom subfigure)
+spl2 = spl1[0]
+fig = spl2.spectrogram(show=False, axes=ax2)
+mappable = ax2.images[0]
+plt.colorbar(mappable=mappable, cax=ax3)
+  
+
+ https://i.stack.imgur.com/p7P41.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/5495912)
+ This produces a colorbar (though possibly not the one you need): 
+
+ Replace this line: 
+
+  ax.scatter(xs, ys, zs, c=cs, marker=m)
+  
+
+  
+
+  p = ax.scatter(xs, ys, zs, c=cs, marker=m)
+  
+
+ then use 
+
+  fig.colorbar(p)
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41473084)
+ Here is an example of colorbar based on one of the answers in https://stackoverflow.com/questions/13784201/matplotlib-2-subplots-1-colorbar. The parameter  pad  in  fig.colorbar  is used to specify the space between the plots and the colorbar, and  aspect  is used to specify the aspect ratio between the height and width of the colorbar. Specgram outputs the image as the 4th output parameter, so I'm using that for the colorbar. 
+
+  fig,axs = matplotlib.pyplot.subplots(ncols=1, nrows=2 )
+N=1000; fs=10e3
+x = np.sin(np.arange(N))+np.random.random(N)
+spectrum, freqs, t, im = axs[1].specgram(x,Fs=fs,
+                    cmap=matplotlib.cm.inferno,noverlap=255)
+axs[0].plot(np.arange(0,N)/fs,x,'-');
+axs[0].set_xlim(t[0],t[-1]);axs[1].set_xlim(t[0],t[-1])
+axcb = fig.colorbar(im, ax=axs.ravel().tolist(), pad=0.04, aspect = 30)
+  
+
+ https://i.stack.imgur.com/ZhuP2.png 
+
+ It is important to notice that when  fig.colorbar  function is called using the  ax  parameter, the original plots will be resized to make room for the  colorbar . If it is only applied to one of the plots, only that axis will be resized.  
+
+  fig,axs = matplotlib.pyplot.subplots(ncols=1, nrows=2 )
+N=1000; fs=10e3
+x = np.sin(np.arange(N))+np.random.random(N)
+spectrum, freqs, t, im = axs[1].specgram(x,Fs=fs,
+                    cmap=matplotlib.cm.inferno,noverlap=255)
+axs[0].plot(np.arange(0,N)/fs,x,'-')
+axs[0].set_xlim(t[0],t[-1]);axs[1].set_xlim(t[0],t[-1])
+axcb = fig.colorbar(im, ax=axs[1], pad=0.04, aspect = 30)
+  
+
+ <a href="https://i.stack.imgur.com/OcFCJ.png"  
+
+ Below it is shown a way of controlling the resizing of your original axes in order to make room for a colorbar using  fig.colorbar  with the  cax  parameter that will not resize further your original plots. This approach requires to manually make some room for your colorbar specifying the  right  parameter inside the function  fig.subplots_adjust  : 
+
+  fig,axs = matplotlib.pyplot.subplots(ncols=1, nrows=2 )
+N=1000; fs=10e3
+x = np.sin(np.arange(N))+np.random.random(N)
+spectrum, freqs, t, im = axs[1].specgram(x,Fs=fs,
+                    cmap=matplotlib.cm.inferno,noverlap=255)
+axs[0].plot(np.arange(0,N)/fs,x,'-')
+axs[0].set_xlim(t[0],t[-1]);axs[1].set_xlim(t[0],t[-1])
+fig.subplots_adjust(right=0.85)  # making some room for cbar
+# getting the lower left (x0,y0) and upper right (x1,y1) corners:
+[[x10,y10],[x11,y11]] = axs[1].get_position().get_points()
+pad = 0.01; width = 0.02
+cbar_ax = fig.add_axes([x11+pad, y10, width, y11-y10])
+axcb = fig.colorbar(im, cax=cbar_ax)
+  
+
+ <a href="https://i.stack.imgur.com/ajCRc.png"  
+
+ And doing the same to span two rows by reading coordinates of the original two plots: 
+
+  fig,axs = matplotlib.pyplot.subplots(ncols=1, nrows=2 )
+N=1000; fs=10e3
+x = np.sin(np.arange(N))+np.random.random(N)
+spectrum, freqs, t, im = axs[1].specgram(x,Fs=fs,
+                    cmap=matplotlib.cm.inferno,noverlap=255)
+axs[0].plot(np.arange(0,N)/fs,x,'-')
+axs[0].set_xlim(t[0],t[-1]);axs[1].set_xlim(t[0],t[-1])
+fig.subplots_adjust(right=0.85)  # making some room for cbar
+# getting the lower left (x0,y0) and upper right (x1,y1) corners:
+[[x00,y00],[x01,y01]] = axs[0].get_position().get_points()
+[[x10,y10],[x11,y11]] = axs[1].get_position().get_points()
+pad = 0.01; width = 0.02
+cbar_ax = fig.add_axes([x11+pad, y10, width, y01-y10])
+axcb = fig.colorbar(im, cax=cbar_ax)
+  
+
+ <a href="https://i.stack.imgur.com/uCgZ3.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13961710)
+ The number of levels in the colormap will be the same number of levels in the contour. Your problem is that you cannot pass  N  as keyword to  contourf , it's being ignored.  
+
+  ax = plt.contourf(xi, yi, zi, 50, norm=norm, cmap=cmap)
+plt.colorbar(ax)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45469151)
+ Here is a solution for creating the background: 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+a=np.random.rand(10,10)
+
+fig=plt.figure()
+ax=fig.add_axes([0,0,1,1])
+im=ax.imshow(a)
+
+cbbox = inset_axes(ax, '15%', '90%', loc = 7)
+[cbbox.spines[k].set_visible(False) for k in cbbox.spines]
+cbbox.tick_params(axis='both', left='off', top='off', right='off', bottom='off', labelleft='off', labeltop='off', labelright='off', labelbottom='off')
+cbbox.set_facecolor([1,1,1,0.7])
+
+cbaxes = inset_axes(cbbox, '30%', '95%', loc = 6)
+
+cb=fig.colorbar(im,cax=cbaxes) #make colorbar
+
+fig.show()
+  
+
+ https://i.stack.imgur.com/aFFVo.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/35664261)
+ I don't know why the colorbar does not adjust, but you can achieve what you want by changing your call to  imshow  like so 
+
+  dat = np.linspace(0.1, 0.9, 4) * np.ones((4,1))
+fig, ax = plt.subplots()
+cax = ax.imshow(dat, interpolation='none', vmin=0, vmax=1)
+cbar = fig.colorbar(cax)
+plt.show()
+  
+
+ Note the additional  vmin  and  vmax  arguments. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2644255)
+ Note: I am using python 2.6.2. The same error was raised with your code and the following modification solved the problem. 
+
+ I read the following colorbar example: http://matplotlib.sourceforge.net/examples/pylab_examples/colorbar_tick_labelling_demo.html 
+
+  from matplotlib import pylab as pl
+import numpy as np
+
+data = np.random.rand(6,6)
+fig = pl.figure(1)
+fig.clf()
+ax = fig.add_subplot(1,1,1)
+img = ax.imshow(data, interpolation='nearest', vmin=0.5, vmax=0.99)
+fig.colorbar(img)
+
+pl.show()
+  
+
+ Not sure why your example didn't work. I'm not that familiar with matplotlib. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23091382)
+ It is because you first example, you are using  ax.polormesh , not  pyplot.polotmesh  (namespace imported by  pylab ), when you call  colorbar()  (actually  plt.colorbar() ), it lost track of which mappable and which ax it should make colorbar to. 
+
+ Therefore adding these lines will make it work: 
+
+  import matplotlib.pyplot as plt
+fct()
+ax=plt.gca() #get the current axes
+PCM=ax.get_children()[2] #get the mappable, the 1st and the 2nd are the x and y axes
+plt.colorbar(PCM, ax=ax) 
+  
+
+   
+
+ Now you mentioned that your actual plot is a much more complex one. You want to make sure it is the  ax.get_children()[2]  or you can pick the it by look for a  matplotlib.collections.QuadMesh  instance. 
+
+
+

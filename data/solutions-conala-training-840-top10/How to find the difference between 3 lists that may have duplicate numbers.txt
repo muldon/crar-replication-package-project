@@ -1,0 +1,272 @@
+Query: How to find the difference between 3 lists that may have duplicate numbers
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33435582)
+ Since you seem to care about the number of times an item is found in both lists, you need to either remove matched items from the list you're comparing with: 
+
+  comp = n2[:]  # make a copy
+for x in n1:
+    if x not in comp:
+        print x
+    else:
+        comp.remove(x)
+# output: 3
+  
+
+ or use a http://docs.python.org/2/library/collections.html#collections.Counter 
+
+  from collections import Counter
+print Counter(n1) - Counter(n2)
+# output: Counter({3: 1})
+  
+
+ which tells you which items in  n1  are not in  n2  or can be found more often in  n1  than in  n2 . 
+
+ So, for example: 
+
+  >>> Counter([1,2,2,2,3]) - Counter([1,2])
+Counter({2: 2, 3: 1})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40167739)
+ Since the numbers are between 1 and  n  and you have been told there is only one duplicate, you can use difference between the sum of the numbers in the array and the sum of numbers from 1 to  n  to get the duplicate. 
+
+  def findDuplicate(l):
+    n = len(l) - 1                     # Get n as length of list - 1
+    return sum(l) - (n * (n + 1) / 2)  # n*(n+1)/2 is the sum of integers from 1 to n
+  
+
+ So the duplicate is the sum of the list - n*(n+1)/2 
+
+ Of course, this doesn't generalize to finding duplicates for any list. For that case, you need to use @Jalepeno112 's answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44529266)
+ I have a feeling that many people will come here for multiset differences (e.g.:  [1, 1, 1, 2, 2, 2, 3, 3] - [1, 2, 2] == [1, 1, 2, 3, 3] ), so I'll post that answer here too: 
+
+  import collections
+
+def multiset_difference(a, b):
+    """Compute a - b of two multisets a and b"""
+    a = collections.Counter(a)
+    b = collections.Counter(b)
+
+    difference = a - b
+    return difference  # Remove this line if you want it as a list
+
+    as_list = []
+    for item, count in difference.items():
+        as_list.extend([item] * count)
+    return as_list
+
+def ordered_multiset_difference(a, b):
+    """As above, but preserves order and is O(ab) worst case"""
+    difference = list(a)
+    depleted = set()  # Values that aren't in difference to prevent searching the list again
+    for i in b:
+        if i not in depleted:
+            try:
+                difference.remove(i)
+            except ValueError:
+                depleted.add(i)
+    return difference
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19814611)
+ May be you can try this too, 
+
+  >>> x = [[1,1],[2,2],[1,1],[2,2],[3,3],[4,4],[4,4]]
+>>> z = []
+>>> for i in x:
+>>>    if i not in z:
+>>>        z.append(i)
+>>>
+>>> z
+[[1, 1], [2, 2], [3, 3], [4, 4]] 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/7172970)
+  
+
+  >>> x = [0,5,10,15,20]
+>>> xdiff = [x[n]-x[n-1] for n in range(1,len(x))]
+>>> xdiff
+[5, 5, 5, 5]
+>>> all([xdiff[0] == xdiff[n] for n in range(1,len(xdiff))])
+True
+  
+
+ It's a little easier, and probably faster, if you use NumPy: 
+
+  >>> import numpy as np
+>>> xdiff = np.diff(x)
+>>> np.all(xdiff[0] == xdiff)
+True
+  
+
+ But both of these create two extra lists (or arrays, in the case of NumPy) which may gobble up your available memory if you have millions of numbers. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23000949)
+ Supposing the list may be long and the numbers may repeat, consider using the http://www.grantjenks.com/docs/sortedcontainers/sortedlist.html type from the http://www.grantjenks.com/docs/sortedcontainers/. The SortedList type will automatically maintain the tuples in order by number and allow for fast searching. 
+
+ For example: 
+
+  from sortedcontainers import SortedList
+sl = SortedList([(1,"juca"),(22,"james"),(53,"xuxa"),(44,"delicia")])
+
+# Get the index of 53:
+
+index = sl.bisect((53,))
+
+# With the index, get the tuple:
+
+tup = sl[index]
+  
+
+ This will work a lot faster than the list comprehension suggestion by doing a binary search. The dictionary suggestion will be faster still but won't work if there could be duplicate numbers with different strings. 
+
+ If there are duplicate numbers with different strings then you need to take one more step: 
+
+  end = sl.bisect((53 + 1,))
+
+results = sl[index:end]
+  
+
+ By bisecting for 54, we will find the end index for our slice. This will be significantly faster on long lists as compared with the accepted answer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44529130)
+ If the order is  not  important, you could use a  Counter  (see the https://docs.python.org/3.4/library/collections.html#collections.Counter module of the standard library): 
+
+  from collections import Counter
+
+l1 = [1,2,5,3,3,4,9,8,2]
+l2 = [1,1,3,2,4,8,9]
+
+c1 = Counter(l1) # Counter({2: 2, 3: 2, 1: 1, 5: 1, 4: 1, 9: 1, 8: 1})
+c2 = Counter(l2) # Counter({1: 2, 3: 1, 2: 1, 4: 1, 8: 1, 9: 1})
+
+diff1 = list((c1-c2).keys()) # [2, 5, 3]
+diff2 = list((c2-c1).keys()) # [1]
+  
+
+ This is fairly general and works with strings, too: 
+
+  ...
+l1 = ['foo', 'foo', 'bar']
+l2 = ['foo', 'bar', 'bar', 'baz']
+...
+# diff1 == ['foo']
+# diff2 == ['bar', 'baz']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6889740)
+  l1 = [68, 31, 93, 35,10]
+l2 = [93, 0, 22, 10, 99, 33, 21,9]
+
+l1 + [x for x in l2 if not x in l1]
+# [68, 31, 93, 35, 10, 0, 22, 99, 33, 21, 9]
+
+[x for x in l1 if not x in l2]
+# [68, 31, 35]
+  
+
+ EDIT: for long lists, you don't want to do all those list lookups. Here are two other recipes: 
+
+ union: 
+
+  from collections import OrderedDict
+OrderedDict().fromkeys(l1+l2).keys()
+# [68, 31, 93, 35, 10, 0, 22, 99, 33, 21, 9]
+  
+
+ difference: 
+
+  s = set(l2)
+[x for x in l1 if not x in s]
+# [68, 31, 35]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/8841649)
+ How about using the http://en.wikipedia.org/wiki/Euclidean_distance? 
+
+ In a list comprehension: 
+
+  def distance(lista, listb):
+    return sum( (b - a) ** 2 for a,b in zip(lista, listb) ) ** .5
+  
+
+  
+
+  def distance(lista, listb):
+    runsum = 0.0
+    for a, b in zip(lista, listb):
+        # square the distance of each
+        #  then add them back into the sum
+        runsum += (b - a) ** 2  
+
+    # square root it
+    return runsum **.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/52006938)
+ My approach involves running through pairs of consecutive numbers and examine the gaps between them, just like everybody else's. The difference here is in the use of  iter()  to create two iterables from one list.  
+
+  # Given:
+l = [26.051, 26.084, 26.117, 26.15, 26.183, 31.146, 31.183, 34.477, 34.51, 34.543]
+gap = 0.033
+
+# Make two iterables (think: virtual lists) from one list
+previous_sequence, current_sequence = iter(l), iter(l)
+
+# Initialize the groups while advancing current_sequence by 1
+# element at the same time
+groups = [[next(current_sequence)]]
+
+# Iterate through pairs of numbers
+for previous, current in zip(previous_sequence, current_sequence):
+    if abs(previous - current) > gap:
+        # Large gap, we create a new empty sublist
+        groups.append([])
+
+    # Keep appending to the last sublist
+    groups[-1].append(current)
+
+print(groups)
+  
+
+ A few notes 
+
+ 
+ My solution looks long, but if you subtract all the comments, blank likes, and the last print statement, it is only 6 lines 
+ It is efficient because I did not actually duplicate the list 
+ An empty list (empty  l ) will generate a  StopIteration  exception, so please ensure the list is not empty 
+ 
+
+
+

@@ -1,0 +1,258 @@
+Query: how to reverse a priority queue in Python without using classes?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/26441285)
+ The common pattern is to insert the data, as a tuple, along with the priority. So, you can simply change the  put  like this 
+
+  q.put((-n ,n))
+  
+
+ So, when the tuples are compared, if the numbers are 9, 1, 4 and 5, they will be compared like this (-9, 9), (-1, 1), (-4, 4) and (-5, 5). Since,  -9  is the smallest of all, it will be retrieved first and then -5 and then -4 and then -1. 
+
+  Example:  
+
+  from Queue import PriorityQueue
+numbers, Q = [9, 1, 4, 5], PriorityQueue()
+for number in numbers:
+    Q.put((-number, number))
+
+while not Q.empty():
+    print Q.get()
+  
+
+  Output  
+
+  (-9, 9)
+(-5, 5)
+(-4, 4)
+(-1, 1)
+  
+
+ To get only the actual value, just print only the second element, like this 
+
+  while not Q.empty():
+    print Q.get()[1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/25294831)
+ You can modify the comparison method of your  Element  class to reverse the order: 
+
+  def __cmp__(self, other):
+  return -cmp(self.degree, other.degree)
+  
+
+ Negating the return of  cmp  reverses the queue, because  __cmp__  returns positive, negative or zero depending on the result of the comparison: 
+
+  cmp(a, b) <  0: a <  b
+cmp(a, b) >  0: a >  b
+cmp(a, b) == 0: a == b
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48256279)
+ Why not use a  PriorityQueue  object? You can store  (priority,key)  tuples. One easy solution to make a max-heap would be to make  priority  be the opposite of  key : 
+
+  from Queue import PriorityQueue
+pq = PriorityQueue()
+for i in range(10): # add 0-9 with priority = -key
+    pq.put((-i,i))
+print(pq.get()[1]) # 9
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25825214)
+  queue.PriorityQueue  is actually implemented using a  list , and the  put / get  methods use https://docs.python.org/2/library/heapq.html#heapq.heappush/https://docs.python.org/2/library/heapq.html#heapq.heappop to maintain the priority ordering inside that  list . So, if you wanted to, you could just iterate over the internal list, which is contained in the  queue  attribute: 
+
+  >>> from queue import PriorityQueue
+>>> q = PriorityQueue()
+>>> q.put((5, "a"))
+>>> q.put((3, "b"))
+>>> q.put((25, "c"))
+>>> q.put((2, "d"))
+>>> print(q.queue)
+[(2, 'd'), (3, 'b'), (25, 'c'), (5, 'a')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15124115)
+ Use a negative priority instead, no need to subtract from  sys.maxint . 
+
+  queue.put((-priority, item))
+  
+
+ An item with priority -10 will be returned before items with priority -5, for example. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53623278)
+ You can only use  methods  of a referent through a proxy. Since  PriorityQueue().queue  is not a method, but an instance attribute, you need to provide a method which can return the value of this attribute.
+The example below opts for a generalized  get_attribute  method with subclassing  PriorityQueue . 
+
+  # Python 3.7.1
+from queue import PriorityQueue
+from multiprocessing.managers import SyncManager
+from multiprocessing import Process
+
+
+SENTINEL = None
+
+
+class MyPriorityQueue(PriorityQueue):
+    def get_attribute(self, name):
+        return getattr(self, name)
+
+
+class MyManager(SyncManager):
+    pass
+
+
+def get_manager():
+    MyManager.register("PriorityQueue", MyPriorityQueue)
+    m = MyManager()
+    m.start()
+    return m
+
+
+def f(q):
+    for item in iter(lambda: q.get()[1], SENTINEL):
+        print(item)
+    print(f'queue: {q.get_attribute("queue")}')
+
+
+if __name__ == '__main__':
+
+    m = get_manager()
+    pq = m.PriorityQueue()
+
+    tasks = enumerate([f'item_{i}' for i in range(5)] + [SENTINEL])
+
+    for task in tasks:
+        pq.put(task)
+
+    print(f'queue: {pq.get_attribute("queue")}')
+    print(f'maxsize: {pq.get_attribute("maxsize")}')
+
+    p = Process(target=f, args=(pq,))
+    p.start()
+    p.join()
+  
+
+ Example Output: 
+
+  queue: [(0, 'item_0'), (1, 'item_1'), (2, 'item_2'), (3, 'item_3'), (4, 'item_4'), (5, None)]
+maxsize: 0
+item_0
+item_1
+item_2
+item_3
+item_4
+queue: []
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9288155)
+ If a is a PriorityQueue object, You can use a.queue[0] to get the next item: 
+
+  from Queue import PriorityQueue
+
+a = PriorityQueue()
+
+a.put((10, "a"))
+a.put((4, "b"))
+a.put((3,"c"))
+
+print a.queue
+print a.get()
+print a.queue
+print a.get()
+print a.queue
+  
+
+ output is : 
+
+  [(3, 'c'), (10, 'a'), (4, 'b')]
+(3, 'c')
+[(4, 'b'), (10, 'a')]
+(4, 'b')
+[(10, 'a')]
+  
+
+ but be careful about multi thread access. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/29458809)
+ Module Queue has been renamed queue starting with Python3 to better reflect the fact that there are several queue classes (lifo, fifo, priority) in the module.
+so please make the changes while using this example    
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1354373)
+ While this isn't an answer, maybe it can help you develop an multiprocessing queue.  
+
+ Here's a simple  priority queue  class I wrote using Python's  Array : 
+
+  class PriorityQueue():
+    """A basic priority queue that dequeues items with the smallest priority number."""
+    def __init__(self):
+        """Initializes the queue with no items in it."""
+        self.array = []
+        self.count = 0
+
+    def enqueue(self, item, priority):
+        """Adds an item to the queue."""
+        self.array.append([item, priority])
+        self.count += 1
+
+    def dequeue(self):
+        """Removes the highest priority item (smallest priority number) from the queue."""
+        max = -1
+        dq = 0
+        if(self.count > 0):
+            self.count -= 1
+
+            for i in range(len(self.array)):
+                if self.array[i][1] != None and self.array[i][1] > max:
+                    max = self.array[i][1]
+
+            if max == -1:
+                return self.array.pop(0)
+            else:
+                for i in range(len(self.array)):
+                    if self.array[i][1] != None and self.array[i][1] <= max:
+                        max = self.array[i][1]
+                        dq = i
+                return self.array.pop(dq)
+
+    def requeue(self, item, newPrio):
+        """Changes specified item's priority."""
+        for i in range(len(self.array)):
+            if self.array[i][0] == item:
+                self.array[i][1] = newPrio
+                break
+
+    def returnArray(self):
+        """Returns array representation of the queue."""
+        return self.array
+
+    def __len__(self):
+        """Returnes the length of the queue."""
+        return self.count
+  
+
+
+

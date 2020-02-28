@@ -1,0 +1,219 @@
+Query: Get Number Of Entries In Zip File
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33910505)
+ 
+   I use method size(). 
+ 
+
+ That is the issue.  size()  returns the number of  all  entries in the zip file. To count the number of entries without directories, you need to iterate the entries and check whether its a directory or not: 
+
+  ...
+int count = 0;
+Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
+while (zipEntries.hasMoreElements()) {
+    ZipEntry entry = zipEntries.nextElement();
+    if (!entry.isDirectory()) {
+       count++;
+    }
+}
+...
+  
+
+ See also 
+
+ 
+ https://docs.oracle.com/javase/8/docs/api/java/util/zip/ZipFile.html#entries 
+ https://docs.oracle.com/javase/8/docs/api/java/util/zip/ZipEntry.html#isDirectory 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33910507)
+ You can use the  entries()  method to get an  Enumeration  of the  ZipEntry -s in the zip-file, and check each one to see if it  isDirectory() : 
+
+  int countRegularFiles(final ZipFile zipFile) {
+    final Enumeration<? extends ZipEntry> entries = zipFile.entries();
+    int numRegularFiles = 0;
+    while (entries.hasMoreElements()) {
+        if (! entries.nextElement().isDirectory()) {
+            ++numRegularFiles;
+        }
+    }
+    return numRegularFiles;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43307432)
+   .entries()  and check each  ZipEntry s name: 
+
+  ZipFile zipFile = new ZipFile("???.zip");
+
+int count = 0;
+
+Enumeration<? extends ZipEntry> entries = zipFile.entries();
+while (entries.hasMoreElements()) {
+    ZipEntry entry = entries.nextElement();
+    if (entry.getName().contains("idle")) count++;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29331429)
+ The right way to iterate a zip file 
+
+  final ZipFile file = new ZipFile( FILE_NAME );
+try
+{
+final Enumeration<? extends ZipEntry> entries = file.entries();
+while ( entries.hasMoreElements() )
+{
+    final ZipEntry entry = entries.nextElement();
+    System.out.println( entry.getName() );
+    //use entry input stream:
+    readInputStream( file.getInputStream( entry ) )
+}
+}
+finally
+{
+file.close();
+}
+
+private static int readInputStream( final InputStream is ) throws IOException {
+final byte[] buf = new byte[ 8192 ];
+int read = 0;
+int cntRead;
+while ( ( cntRead = is.read( buf, 0, buf.length ) ) >=0  )
+{
+    read += cntRead;
+}
+return read;
+}
+  
+
+ Zip file consists of several entries, each of them has a field containing the number of bytes in the current entry. So, it is easy to iterate all zip file entries without actual data decompression. java.util.zip.ZipFile accepts a file/file name and uses random access to jump between file positions. java.util.zip.ZipInputStream, on the other hand, is working with streams, so it is unable to freely jump. That’s why it has to read and decompress all zip data in order to reach EOF for each entry and read the next entry header. 
+
+  If you already have a zip file in your file system – use ZipFile to process it regardless of your task. As a bonus, you can access zip entries either sequentially or randomly (with rather small performance penalty). On the other hand, if you are processing a stream, you’ll need to process all entries sequentially using ZipInputStream. 
+
+ Here is an example. A zip archive (total file size = 1.6Gb) containing three 0.6Gb entries was iterated in 0.05 sec using ZipFile and in 18 sec using ZipInputStream. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/46218287)
+ Here is the code that can read and print the .java files in zip files:: 
+
+ You can also get the file and its content using this code. 
+
+  import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Enumeration;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+
+import org.apache.commons.io.IOUtils;
+
+public class test {
+    public static void main(String[] args) throws IOException {
+        ZipFile zipFile = new ZipFile("test.zip");
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        System.out.println(entries);
+
+        while(entries.hasMoreElements()){
+            ZipEntry entry = entries.nextElement();
+            System.out.println(entry.getName());
+            if(entry.getName().contains("java")){
+                InputStream stream = zipFile.getInputStream(entry);
+                System.out.println(IOUtils.toString(stream, StandardCharsets.UTF_8));
+            }
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13095853)
+  ZipFile.entries()  returns an enumeration of extended  ZipEntry  types but is not confined to  ZipEntry  itself so you need to use: 
+
+  Enumeration<? extends ZipEntry> entries = zip_file.entries();
+  
+
+ This allows for other types such as  JarEntry  objects to be used in  ZipEntry  Enumerations. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11468238)
+ Use  java.util.zip.ZipFile  class and, specifically, its  entries  method. 
+
+ You'll have something like this: 
+
+  ZipFile zipFile = new ZipFile("testfile.zip");
+Enumeration zipEntries = zipFile.entries();
+String fname;
+while (zipEntries.hasMoreElements()) {
+    fname = ((ZipEntry)zipEntries.nextElement()).getName();
+    ...
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52024022)
+ I'm working with zip files which Java's ZipFile class isn't able to handle. Java 8 apparently can't handle compression method 12 (bzip2 I believe). After trying a number of methods including zip4j (which also fails with these particular files due to another issue), I had success with  Apache's commons-compress  which supports http://commons.apache.org/proper/commons-compress/zip.html#encryption. 
+
+  Note that the ZipFile class below is not the one from java.util.zip.  
+
+ It's actually  org.apache.commons.compress.archivers.zip.ZipFile  so be careful with the imports. 
+
+  try (ZipFile zipFile = new ZipFile(archiveFile)) {
+    Enumeration<ZipArchiveEntry> entries = zipFile.getEntries();
+    while (entries.hasMoreElements()) {
+        ZipArchiveEntry entry = entries.nextElement();
+        File entryDestination = new File(destination, entry.getName());
+        if (entry.isDirectory()) {
+            entryDestination.mkdirs();
+        } else {
+            entryDestination.getParentFile().mkdirs();
+            try (InputStream in = zipFile.getInputStream(entry); OutputStream out = new FileOutputStream(entryDestination)) {
+                IOUtils.copy(in, out);
+            }
+        }
+    }
+} catch (IOException ex) {
+    log.debug("Error unzipping archive file: " + archiveFile, ex);
+}
+  
+
+   
+
+  compile 'org.apache.commons:commons-compress:1.18'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6797957)
+ Use  ZipFile  API, There is a  size  method that returns the number of  ZipEntries  in the  ZipFile . You can read from assets folder. 
+
+ example: 
+
+  int zipEntriesCount(String path) throws IOException {
+
+     ZipFile zf= new ZipFile(path);
+     return zf.size();
+}
+  
+
+
+

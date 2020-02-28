@@ -1,0 +1,227 @@
+Query: Django - How to sort queryset by number of character in a field
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39885624)
+ The new hotness (as of Django 1.8 or so) is https://docs.djangoproject.com/en/dev/ref/models/database-functions/#length 
+
+  from django.db.models.functions import Length
+obj = MyModel.objects.all().order_by(Length('name').asc())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12804864)
+ You can of course sort the results using Python's  sorted , but that's not ideal.  
+
+  MyModel.objects.extra(select={'length':'Length(name)'}).order_by('length')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12804856)
+ you might have to sort that in python..  
+
+  sorted(MyModel.objects.all(),key=lambda o:len(o.name),reverse=True)  
+
+ or I lied ( A quick google search found the following) 
+
+  MyModel.objects.extra(select={'length':'Length(name)'}).order_by('length')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12804867)
+ You'll need to use the  extra  argument to pass an SQL function: 
+
+  obj = MyModel.objects.all().extra(order_by=['LENGTH(`name`)']) 
+  
+
+ Note that this is db-specific: MySQL uses  LENGTH , others might use  LEN . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51290129)
+ You could first annotate every  Block  instance, and then order by this annotation that uses the https://docs.djangoproject.com/en/2.0/ref/models/database-functions/#django.db.models.functions.Substr, like: 
+
+  from django.db.models.functions import <b>Substr</b>
+
+Block.objects.annotate(
+    sndchar=<b>Substr('name', 2, 1)</b>
+).order_by(<b>'-sndchar'</b>)  
+
+ as extra bonus every  Block  instance will have a  sndchar  attribute which is the second character of the  name  attribute (only in this queryset). But that is not really a problem I think. . 
+
+ The minus char in  <b>-</b>sndchar  means that we will sort in descending order. You can remove it if you want to sort in ascending order. 
+
+ The sorting is thus here done at the database level, which is usually (significantly) faster than doing this at the Django level. 
+
+ You can also sort on the string  starting  from the second character (such that in case of a  tie , the third character, etc. is taken into account), by dropping the  length  parameter, and thus annotate with the name except the first character: 
+
+  from django.db.models.functions import Substr
+
+# This will sort on the third character in case of a tie, and so on
+Block.objects.annotate(
+    sndchar=<b>Substr('name', 2)</b>
+).order_by('-sndchar')  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/38703255)
+ I would use a function based view rather than a class based generic view. Reason being that your required behavior is going beyond something generic. 
+
+ In your function you can build the queryset you desire instead of having to fight with the one provided by  generic.DetailView . 
+
+  def my_view(request, *args, **kwargs):
+    character = Character.objects.get(id=request.GET.get("id", None))
+    issues = character.issue_set.all().order_by("series__name")
+    return render(request, 'app/character.html', {"issues": issues})
+  
+
+ Alternatively, you can use what you already have and override the https://docs.djangoproject.com/en/1.9/ref/class-based-views/mixins-single-object/#django.views.generic.detail.SingleObjectMixin.get_queryset. 
+
+  class CharacterView(generic.DetailView):
+    model = Character
+    template_name = 'app/character.html'
+
+    def get_queryset():
+        # return correct queryset
+  
+
+ 
+   The biggest problem though is that there will be more aspects that will need to use this set. For instance, I'll be adding Creators, Story Arcs, etc. they will have their own pages and will need to display related issues, sorted by series as well. It would be nice to have a solution that can be used by any of these templates without much code re-use. 
+ 
+
+ This is a very common problem in all areas of programming. A very simple way to solve this would be to isolate the logic in one function and call that function whenever you need it. 
+
+  def my_issues_query():
+    # find the objects you need
+
+def my_view(request, *args, **kwargs):
+    issues = my_issues_query()
+  
+
+ You can also take advantage of pythons decorator functions. (Which is my favorite approach.) 
+
+  def has_issues(view_function):
+    def get_issues(request, *args, **kwargs):
+        # find all the issues you need here
+        # you'll only need to write this logic once.
+        issues = Issues.objects.filter(...)
+        return issues
+    return get_issues
+
+@has_issues
+def my_view(request, *args, **kwargs):
+    # this functions namespace now contains
+    # the variable `issues`.
+    # which allows for the use of the query ie.
+    return render(
+        request, 
+        "my_templates/template.html", 
+        {"issues":issue}
+    )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/51291817)
+ Using Django's https://docs.djangoproject.com/en/2.0/ref/models/conditional-expressions/ 
+
+  from django.db.models import Case, IntegerField, Value, When
+
+array = ['concept', 'code', 'read', 'action']
+
+Block.objects.annotate(
+    rank=Case(
+        *[When(name=name, then=Value(array.index(name))) for name in array],
+        default=Value(len(array)),
+        output_field=IntegerField(),
+    ),
+).order_by('rank')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34777657)
+ If you are using Django 1.8 or above you can use https://docs.djangoproject.com/en/1.8/ref/models/conditional-expressions/#conditional-aggregation, these should work for  annotate  querysets. 
+
+  from django.db.models import IntegerField, Case, When, Count
+
+
+queryset = Model1.objects.all()
+
+queryset = queryset.annotate(
+    declined=Count(
+        Case(When(model1_participation__status=0, then=1),
+             output_field=IntegerField())
+    ),
+    not_sure=Count(
+        Case(When(model1_participation__status=1, then=1),
+             output_field=IntegerField())
+    ),
+    accepted=Count(
+        Case(When(model1_participation__status=2, then=1),
+             output_field=IntegerField())
+    )
+)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/1048364)
+ Django 1.1 will have aggregate support. 
+
+ On Django 1.0.x you can count automatically with an extra field: 
+
+  class Lesson(models.Model):
+    contents = models.TextField()
+    visit_count = models.IntegerField(default=0)
+
+class StatLesson(models.Model):
+    lesson = models.ForeignKey(Lesson)
+    datetime = models.DateTimeField(default=datetime.datetime.now())
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            self.lesson.visit_count += 1
+            self.lesson.save()
+        super(StatLesson, self).save(*args, **kwargs)
+  
+
+  
+
+  Lesson.objects.all().order_by('visit_count')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27335225)
+ Since you are using a datetime field you want to make your query’s using datetime objects. so first order the queryset from earliest to latest then filter out the events tat arn't occurring today. 
+
+  from datetime import datetime, timedelta, time
+
+today = datetime.now().date()
+tomorrow = today + timedelta(1)
+today_start = datetime.combine(today, time())
+today_end = datetime.combine(tomorrow, time())
+
+queryset = KleedkamerIndeling.objects.order_by('-gametimedate').filter(gametimedate__gte=today_start).filter(gametimedate__lt=today_end)
+  
+
+ After that we can check if there are more then 10 objects, filter by the current time, and limit the queryset to 10 objects. 
+
+  if queryset.count() > 10:
+  queryset = KleedkamerIndeling.objects.filter(gametimedate__gte=datetime.now())[:10]
+  
+
+
+

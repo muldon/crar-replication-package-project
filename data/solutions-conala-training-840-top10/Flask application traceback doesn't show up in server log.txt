@@ -1,0 +1,249 @@
+Query: Flask application traceback doesn't show up in server log
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32722523)
+ Run in development mode by setting the  FLASK_ENV  environment variable to  development . Unhandled errors will show a stack trace in the terminal and the browser instead of a generic 500 error page. 
+
+  export FLASK_ENV=development  # use `set` on Windows
+flask run
+  
+
+ Prior to Flask 1.0, use  FLASK_DEBUG=1  instead. 
+
+ If you're still using  app.run  (no longer recommended in Flask 0.11), pass  debug=True . 
+
+  if __name__ == '__main__':
+    app.run(debug=True)
+  
+
+ 
+
+ In production, you don't want to run your app in debug mode. Instead you should log the errors to a file. 
+
+ Flask uses the standard Python logging library can be configured to log errors. Insert the the following to have send Flask's log messages to a file. 
+
+  import logging
+handler = logging.FileHandler('/path/to/app.log')  # errors logged to this file
+handler.setLevel(logging.ERROR)  # only log errors and above
+app.logger.addHandler(handler)  # attach the handler to the app's logger
+  
+
+ Read more about the Python https://docs.python.org/3/library/logging.config.html module. In particular you may want to change where errors are logged, or change the level to record more than just errors. 
+
+ Flask has documentation for http://flask.pocoo.org/docs/logging/ and http://flask.pocoo.org/docs/errorhandling/. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41534876)
+ You can set the  FLASK_DEBUG=1  environment variable when running the app as a service. Only do this temporarily, and note that enabling debug mode on a production server is a security issue. 
+
+ Upstart (default in Ubuntu 14.04) 
+
+  # /etc/init/uwsgiapp.conf
+env FLASK_DEBUG=1
+script
+  // upstart exec section
+end script
+  
+
+ Systemd (default in Ubuntu 16.04, Arch)   
+
+  [Service]
+Environment="FLASK_DEBUG=1"
+# other parts
+  
+
+  
+
+  [program:flask]
+environment=FLASK_DEBUG=1
+  
+
+ Typically the logs will be somewhere in  /var/log/ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/51236089)
+ If you are using gunicorn to run your Flask app, you can log all Flask exceptions to the gunicorn logs by adding the gunicorn error handlers to the Flask logger: 
+
+ In  module/__init__.py : 
+
+  @app.before_first_request
+def setup_logging():
+    if not app.debug:
+        import logging
+        gunicorn_logger = logging.getLogger('gunicorn.error')
+        for handler in gunicorn_logger.handlers:
+            app.logger.addHandler(handler)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/27452350)
+ Flask is catching your exceptions, make sure, you set  PROPAGATE_EXCEPTIONS  in config. 
+
+  from flask import Flask
+application = Flask(__name__)
+application.config['PROPAGATE_EXCEPTIONS'] = True
+
+@application.route('/')
+def hello_world():
+    return 'Hello World!'
+  
+
+ Uwsgi logging can be set with  
+
+    --logto /var/log/uwsgi/app.log
+  
+
+ or use http://uwsgi-docs.readthedocs.org/en/latest/Logging.html#basic-logging-to-files flag if if you want to separate  stdout  from  stderr . 
+
+ There's also possibility of setting loggers plugin (forward to syslog, etc.), however these plugins have to be compiled into uwsgi. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/37595908)
+ This approach works for me: Import the Python logging module and add gunicorn's error handlers to it. Then your logger will log into the gunicorn error log file: 
+
+  import logging
+
+app = Flask(__name__)
+
+gunicorn_error_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers.extend(gunicorn_error_logger.handlers)
+app.logger.setLevel(logging.DEBUG)
+app.logger.debug('this will show in the log')
+  
+
+ My Gunicorn startup script is configured to output log entries to a file like so: 
+
+  gunicorn main:app \
+    --workers 4 \
+    --bind 0.0.0.0:9000 \
+    --log-file /app/logs/gunicorn.log \
+    --log-level DEBUG \
+    --reload
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31146295)
+ I don't think you can do that there, you need to add logging inside your application, (that's what I do). Here are information about data you can log https://uwsgi-docs.readthedocs.org/en/latest/LogFormat.html?highlight=log. Also, I would suggest you to remove  --daemonize  option and instead use http://supervisord.org/, to have process control. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/41399796)
+ We solved the problem in comments but I will add solution here if someone else has a similar problem. 
+
+  For development environment  add  debug=True  argument to your app 
+
+  app.run(debug=True)  
+
+ If your development environment works on an application server, then you should look for autoreload option. In uWSGI there is http://uwsgi-docs.readthedocs.io/en/latest/Options.html#py-auto-reload for example. 
+
+  For released, stable environment  you should restart your application server. 
+
+ For example in  uWSGI  
+
+ 
+   There are several ways to make uWSGI gracefully restart. 
+
+  # using kill to send the signal
+kill -HUP `cat /tmp/project-master.pid`
+# or the convenience option --reload
+uwsgi --reload /tmp/project-master.pid
+# or if uwsgi was started with touch-reload=/tmp/somefile
+touch /tmp/somefile
+  
+ 
+
+ More: http://uwsgi-docs.readthedocs.io/en/latest/Management.html#reloading-the-server 
+
+  Warning : if you combine application and web server, uWSGI and Nginx for example, then restarting Nginx won't reload your application code. Focus on the application server. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16135012)
+ 
+ The part where you create handlers, add to loggers etc. should be in the  if __name__ == '__main__'  clause, i.e. your main entry point. I assume that would be  run.py . 
+ . I'd advise looking at the http://docs.python.org/2/howto/logging.html to see the various options available. 
+ I don't believe you need to change anything at the  nginx  level. 
+ 
+
+  Update:  You might want to have an exception clause that covers uncaught exceptions, e.g. 
+
+  if __name__ == '__main__':
+    try:
+        app.run(debug=True)
+    except Exception:
+        app.logger.exception('Failed')
+  
+
+ which should write the traceback of any exception which occurred in  app.run()  to the log. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/23205008)
+ It doesn't matter how complex your application is. You tell uWSGI where the entry is, the rest is processed normally with Python imports. 
+
+ In your case the entry is  module = %(app)  and  callable = app . So uWSGI will load the module and send requests to the callable which is a Flask application. 
+
+ Now since the requests are to be served by uWSGI and not Flask's server, you don't need the  app.run(debug = False)  line. But you can keep development and production code the same with this trick: 
+
+  #!flask/bin/python
+
+from app import app
+
+if __name__ == "__main__":
+    app.run(debug = False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14042671)
+ . 
+
+ First of all, you don't need to set the level of app.logger. So remove this line  app.logger.setLevel() . 
+
+ You want to save exception and return error page for every view. It is a lot of work to write this code everywhere. Flask provides a method to do this. Define an errorhandler method like this. 
+
+      @app.errorhandler(500)
+    def internal_error(exception):
+        app.logger.error(exception)
+        return render_template('500.html'), 500
+  
+
+ Whenever a view raises an exception, this method will be called and passed the exception as argument. Python logging provides exception method that is used to save full traceback of the exception. 
+
+ Since this handles all exception, you don't even need to put code in try/except block. Though, if you want to do something before calling the errorhandler(for e.g. rollback session or transaction) then do this: 
+
+      try:
+        #code
+    except:
+        #code
+        raise
+  
+
+ If you would like the date and time added for each entry in your log file, the following code can be used (in place of the similar code featured in the question). 
+
+  if app.debug is not True:   
+    import logging
+    from logging.handlers import RotatingFileHandler
+    file_handler = RotatingFileHandler('python.log', maxBytes=1024 * 1024 * 100, backupCount=20)
+    file_handler.setLevel(logging.ERROR)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    app.logger.addHandler(file_handler)
+  
+
+
+

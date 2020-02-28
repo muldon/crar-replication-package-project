@@ -1,0 +1,291 @@
+Query: Pandas read_csv expects wrong number of columns, with ragged csv file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20154429)
+ You can use  names  parameter. For example, if you have csv file like this: 
+
+  1,2,1
+2,3,4,2,3
+1,2,3,3
+1,2,3,4,5,6
+  
+
+ And try to read it, you'll receive and error  
+
+  >>> pd.read_csv(r'D:/Temp/tt.csv')
+Traceback (most recent call last):
+...
+Expected 5 fields in line 4, saw 6
+  
+
+ But if you pass  names  parameters, you'll get result: 
+
+  >>> pd.read_csv(r'D:/Temp/tt.csv', names=list('abcdef'))
+   a  b  c   d   e   f
+0  1  2  1 NaN NaN NaN
+1  2  3  4   2   3 NaN
+2  1  2  3   3 NaN NaN
+3  1  2  3   4   5   6
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32192555)
+ you can also load the CSV with separator '^', to load the entire string to a column, then use split to break the string into required delimiters. After that, you do a concat to merge with the original dataframe (if needed). 
+
+  temp=pd.read_csv('test.csv',sep='^',header=None,prefix='X')
+temp2=temp.X0.str.split(',',expand=True)
+del temp['X0']
+temp=pd.concat([temp,temp2],axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43159467)
+ You could use a pandas DataFrame: 
+
+  import pandas as pd
+data = pd.DataFrame([pd.Series(i) for i in yourlist])
+  
+
+ The result will be something like this: 
+
+ https://i.stack.imgur.com/WBubY.png 
+
+ The drawback is that you will have to deal with the missing values while doing your calculations.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/46330358)
+ Pandas is much better/faster at handling ragged columns than numpy is, and should be faster than a vanilla python implementation with a loop. 
+
+ Use  read_csv , followed by  stack , and then access the  values  attribute to return a  numpy  array. 
+
+  max_per_row = 10 # set this to the max possible number of elements in a row
+
+vals = pd.read_csv(buf, header=None, names=range(max_per_row),
+                             delim_whitespace=True).stack().values
+
+print(vals)
+array([  3. ,   2.5,   1.1,  30.2,  11.5,   5. ,   6.2,  12.2,  70.2,
+        14.7,   3.2,   1.1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/38971477)
+  pd.DataFrame  can build a DataFrame from a list of ragged rows: 
+
+  In [17]: pd.DataFrame([['a','b'],[1,2,3]])
+Out[17]: 
+   0  1    2
+0  a  b  NaN
+1  1  2  3.0
+  
+
+ Moreover, it is faster to build the DataFrame with one call to  pd.DataFrame 
+than many calls to  newdf.loc[index] = new_row  in a loop. 
+
+ 
+
+  import numpy as np
+import pandas as pd
+
+# column_name = {'foo':['A','B']}
+for key in column_name:
+    with open('{}.csv'.format(key), 'r') as f:
+        reader1 = csv.reader(f)
+        data = list(reader1)
+        nrows = len(data)
+        print('{}, {}'.format(key, nrows))
+        newdf = pd.DataFrame(data, columns=column_name[key])
+    # do stuff with newdf (1)
+    newdf.to_csv('{}_with_column_name.csv'.format(key))
+  
+
+ 
+
+ <sup>(1)</sup> Note that if your sole purpose is to create the a new CSV with
+column names, then it would be quicker to simply write the column names to the
+new file and then copy the contents from the old CSV into the new CSV. Building a
+DataFrame would not be necessary in this case and would slow down performance. 
+
+  for key in column_name:
+    newname = '{}_with_column_name.csv'.format(key)
+    with open('{}.csv'.format(key), 'r'), open(newname, 'w') as f, g:
+        g.write(','.join(column_name[key])+'\n') # assuming no quotation necessary
+        g.write(f.read())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54459679)
+ You need to use the argument  use_cols  to do that 
+
+   col_req = ['length','category','a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+ data = pd.read_csv('data.csv', use_cols=col_req) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29242246)
+ On second thought, instead of chunksize, just read in the first row and count the number of columns, then read and append everything with the correct number of columns.   
+
+  for f in files:
+    test = pd.read_csv( f, nrows=1 )
+    if len( test.columns ) == 4:
+        df = df.append( pd.read_csv( f ) )
+  
+
+ Here's the full version: 
+
+  df1 = pd.DataFrame(np.random.rand(2,4), columns = ['A', 'B', 'C', 'D'])
+df2 = pd.DataFrame(np.random.rand(2,3), columns = ['A', 'B', 'C'])
+df3 = pd.DataFrame(np.random.rand(2,4), columns = ['A', 'B', 'C', 'D'])
+df1.to_csv('test1.csv',index=False)
+df2.to_csv('test2.csv',index=False)
+df3.to_csv('test3.csv',index=False)
+
+files = ['test1.csv', 'test2.csv', 'test3.csv']
+
+df = pd.DataFrame()
+
+for f in files:
+    test = pd.read_csv( f, nrows=1 )
+    if len( test.columns ) == 4:
+        df = df.append( pd.read_csv( f ) )
+
+In  [54]: df
+Out [54]: 
+          A         B         C         D
+0  0.308734  0.242331  0.318724  0.121974
+1  0.707766  0.791090  0.718285  0.209325
+0  0.176465  0.299441  0.998842  0.077458
+1  0.875115  0.204614  0.951591  0.154492
+  
+
+ ( Edit to add )  Regarding the use of  nrows  for the  test...  line:  The only point of the test line is to read in enough of the CSV so that on the next line we check if it has the right number of columns before reading in.  In this test case, reading in the first row is sufficient to figure out if we have 3 or 4 columns, and it's inefficient to read in more than that, although there is no harm in leaving off the  nrows=1  besides reduced efficiency. 
+
+ In other cases (e.g. no header row and varying numbers of columns in the data), you might  need  to read in the whole CSV.   
+
+  for f in files:
+    test = pd.read_csv( f )
+    if len( test.columns ) == 4:
+        df = df.append( test )
+  
+
+ The only downside of that way is that you completely read in the datasets with 3 columns that you don't want to keep, but you also don't read in the good datasets twice that way.  So that's definitely a better way if you don't want to use  nrows  at all.  Ultimately, depends on what your actual data looks like as to which way is best for you, of course. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27863898)
+ Interestingly, adding the * quantifier to the sep argument seems to work: 
+
+  df = pd.read_csv('test.dat', sep='\t*', index_col=None)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/25943246)
+ When you open a file with  
+
+  open(filepath)
+  
+
+ a file handle  iterator  is returned. An iterator is good for one pass through its contents.   
+
+  self.csvdataframe = pd.read_csv(self.csvfile)
+  
+
+ reads the contents and exhausts the iterator. Subsequent calls to  pd.read_csv  thinks the iterator is empty. 
+
+ Note that you could avoid this problem by just passing the file path to  pd.read_csv : 
+
+  class dataMatrix:
+    def __init__(self, filepath):
+        self.path = filepath
+
+        # Load the .csv file to count the columns.
+        self.csvdataframe = pd.read_csv(filepath)
+        # Count the columns.
+        self.numcolumns = len(self.csvdataframe.columns)
+
+
+        # Re-load the .csv file, manually setting the column names to their
+        # number.
+        self.csvdataframe = pd.read_csv(filepath, 
+                                        names=range(self.numcolumns))    
+  
+
+  pd.read_csv  will then open (and close) the file for you. 
+
+ . Another option is to reset the file handle to the beginning of the file by calling  self.csvfile.seek(0) , but using  pd.read_csv(filepath, ...)  is still easier. 
+
+ 
+
+ Even better, instead of calling  pd.read_csv  twice (which is inefficient), you could rename the columns like this: 
+
+  class dataMatrix:
+    def __init__(self, filepath):
+        self.path = filepath
+
+        # Load the .csv file to count the columns.
+        self.csvdataframe = pd.read_csv(filepath)
+        self.numcolumns = len(self.csvdataframe.columns)
+        self.csvdataframe.columns = range(self.numcolumns)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23797971)
+ You can use the  date_parser  argument to read_csv 
+
+  In [62]: from pandas.compat import StringIO
+
+In [63]: s = """date,value 
+30MAR1990,140000 
+30JUN1990,30000  
+30SEP1990,120000  
+30DEC1990,34555
+"""
+
+In [64]: from pandas.compat import StringIO
+
+In [65]: import datetime
+  
+
+  date_parser  expects a function that will be called on an array of strings.  func  calls  datetime.datetime.strptime  on each string. Check out the  datetime  module in the python docs for more on the format codes. 
+
+  In [66]: func = lambda dates: [datetime.datetime.strptime(x, '%d%b%Y') for x in dates]
+
+In [67]: s = """date,value 
+30MAR1990,140000 
+30JUN1990,30000  
+30SEP1990,120000  
+30DEC1990,34555
+"""
+
+In [68]: pd.read_csv(StringIO(s), parse_dates=['date'], date_parser=func)
+Out[68]: 
+        date  value 
+0 1990-03-30  140000
+1 1990-06-30   30000
+2 1990-09-30  120000
+3 1990-12-30   34555
+
+[4 rows x 2 columns]
+  
+
+
+

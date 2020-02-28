@@ -1,0 +1,335 @@
+Query: How to write/read a Pandas DataFrame with MultiIndex from/to an ASCII file?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/24295050)
+ Pandas doesn't seem to let you do that.  I had to pre-process my CSV file before reading with pandas: 
+
+  decoded = codecs.decode(myfile.read(), "utf-8", "ignore")
+encoded = codecs.encode(decoded, "utf-8", "ignore") #probably superfluous
+fakefile = StringIO.StringIO(encoded)
+data = pandas.read_csv(fakefile, encoding="utf-8")
+  
+
+ Possibly terrible if you have a very large CSV file, but you could read chunks of the csv file at a time. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/44097490)
+ Check the answer https://stackoverflow.com/questions/33058835/encoding-error-using-df-to-csv 
+
+ It's a must simpler solution: 
+
+  newdf.to_csv("C:/tweetDF", sep='\t', encoding = 'utf-8')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11042986)
+ Not sure which version of pandas you are using but with  0.7.3  you can export your  DataFrame  to a TSV file and retain the indices by doing this: 
+
+  df.to_csv('mydf.tsv', sep='\t')
+  
+
+ The reason you need to export to TSV versus CSV is since the column headers have  ,  characters in them. This should solve the first part of your question.  
+
+ The second part gets a bit more tricky since from as far as I can tell, you need to beforehand have an idea of what you want your DataFrame to contain. In particular, you need to know: 
+
+ 
+ Which columns on your TSV represent the row  MultiIndex  
+ and that the rest of the columns should also be converted to a  MultiIndex  
+ 
+
+ To illustrate this, lets read back the TSV file we saved above into a new  DataFrame : 
+
+  In [1]: t_df = read_table('mydf.tsv', index_col=[0,1,2])
+In [2]: all(t_df.index == df.index)
+Out[2]: True
+  
+
+ So we managed to read  mydf.tsv  into a  DataFrame  that has the same row index as the original  df .  
+
+  In [3]: all(t_df.columns == df.columns)
+Out[3]: False
+  
+
+ And the reason here is because pandas (as far as I can tell) has no way of parsing the header row correctly into a  MultiIndex . As I mentioned above, if you know beorehand that your TSV file header represents a  MultiIndex  then you can do the following to fix this: 
+
+  In [4]: from ast import literal_eval
+In [5]: t_df.columns = MultiIndex.from_tuples(t_df.columns.map(literal_eval).tolist(), 
+                                              names=['one','two','three'])
+In [6]: all(t_df.columns == df.columns)
+Out[6]: True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14344104)
+ You can change the print options using http://pandas.pydata.org/pandas-docs/stable/basics.html#working-with-package-options: 
+
+ 
+    display.multi_sparse : 
+   : boolean  
+   &emsp;&emsp;    Default  True , "sparsify"  MultiIndex  display 
+   &emsp; &emsp;(don't display repeated
+          elements in outer levels within groups) 
+ 
+
+ Now the DataFrame will be printed as desired:  
+
+  In [11]: pd.set_option('multi_sparse', False)
+
+In [12]: df
+Out[12]: 
+one             A   A   A   A   A   A   A   A   A  A2  A2  A2  A2  A2  A2  A2  A2  A2
+two             B   B   B  B2  B2  B2  B3  B3  B3   B   B   B  B2  B2  B2  B3  B3  B3
+three           C  C2  C3   C  C2  C3   C  C2  C3   C  C2  C3   C  C2  C3   C  C2  C3
+n location sex                                                                       
+0 North    M    2   1   6   4   6   4   7   1   1   0   4   3   9   2   0   0   6   4
+1 East     F    3   5   5   6   4   8   0   3   2   3   9   8   1   6   7   4   7   2
+2 West     M    7   9   3   5   0   1   2   8   1   6   0   7   9   9   3   2   2   4
+3 South    M    1   0   0   3   5   7   7   0   9   3   0   3   3   6   8   3   6   1
+4 South    F    8   0   0   7   3   8   0   8   0   5   5   6   0   0   0   1   8   7
+5 West     F    6   5   9   4   7   2   5   6   1   2   9   4   7   5   5   4   3   6
+6 North    M    3   3   0   1   1   3   6   3   8   6   4   1   0   5   5   5   4   9
+7 North    M    0   4   9   8   5   7   7   0   5   8   4   1   5   7   6   3   6   8
+8 East     F    5   6   2   7   0   6   2   7   1   2   0   5   6   1   4   8   0   3
+9 South    M    1   2   0   6   9   7   5   3   3   8   7   6   0   5   4   3   5   9
+  
+
+  Note: in older pandas versions this was  pd.set_printoptions(multi_sparse=False)  . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41229055)
+ You have some characters that are not ASCII and therefore cannot be encoded as you are trying to do. I would just use  utf-8  as suggested in a comment. 
+
+ To check which lines are causing the issue you can try something like this: 
+
+  def is_not_ascii(string):
+    return string is not None and any([ord(s) >= 128 for s in string])
+
+df[df[col].apply(is_not_ascii)]
+  
+
+ You'll need to specify the column  col  you are testing. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31374790)
+ This is a file in Sextractor format.  The  astropy.io.ascii  http://astropy.readthedocs.org/en/stable/io/ascii/index.html understands this format natively so this is a snap to read: 
+
+  >>> from astropy.io import ascii
+>>> dat = ascii.read('table.dat')
+>>> dat
+<Table masked=False length=3>
+MAG_AUTO    rh       MU_MAX    FWHM_IMAGE CLASS_STAR
+  mag            mag / arcsec2    pix               
+float64  float64    float64     float64    float64  
+-------- ------- ------------- ---------- ----------
+ 18.7462 4.81509       20.1348    6.67273  0.0286538
+  18.244 7.17988       20.6454    21.6235  0.0286293
+ 18.3102 3.11273        19.096    8.26081  0.0430532
+...
+  
+
+ Note that using the astropy ASCII reader you get a table that also retains the unit meta data.   
+
+ If you still want to convert this to a pandas dataframe that's easy as well with  DataFrame(dat.as_array()) .  Version 1.1 of astropy (and the current master) will have methods  to_pandas  and  from_pandas  that make this conversion more robust (see http://astropy.readthedocs.org/en/latest/table/pandas.html). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/38060751)
+ When writing the file from your pandas dataframe, do  not  use a  codecs  file object.  pandas.to_csv()   already  encodes your data, and the  codecs  file object then has to try to decode (as ASCII) in order to be able to  re-encode  it. 
+
+ Just use a regular file: 
+
+  with open(outputfile, "w") as outputfile:
+    dataframe.to_csv(outputfile, encoding="utf-8")
+  
+
+ You can use the  csv  module as well, but then you have to encode all your row data to UTF-8  before  passing the row to the  csv.writer().writerow()  function. The https://docs.python.org/2/library/csv.html#examples includes code that automates this for you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/52077558)
+ Create  DataFrame  with  MultiIndex , because http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dsintro-deprecate-panel: 
+
+  df = pd.read_csv(file, header=[0,1], index_col=[0])
+  
+
+ And then select by http://pandas.pydata.org/pandas-docs/stable/advanced.html#using-slicers: 
+
+  idx = pd.IndexSlice
+print (df.loc[1, idx['A', '0-3_mon']])
+  
+
+  Sample : with no Multindex names: 
+
+  import pandas as pd
+
+temp=u"""A;A;B;B
+0-3_mon;3-6_mon;0-3_mon;3-6_mon
+1;10;12;14;18
+2;11;15;17;19
+3;13;16;21;20"""
+#after testing replace 'pd.compat.StringIO(temp)' to 'filename.csv'
+df = pd.read_csv(pd.compat.StringIO(temp), sep=";", header=[0,1])
+print (df)
+        A               B        
+  0-3_mon 3-6_mon 0-3_mon 3-6_mon
+1      10      12      14      18
+2      11      15      17      19
+3      13      16      21      20
+
+print (df.columns)
+MultiIndex(levels=[['A', 'B'], ['0-3_mon', '3-6_mon']],
+           labels=[[0, 0, 1, 1], [0, 1, 0, 1]])
+
+idx = pd.IndexSlice
+print (df.loc[1, idx['A', '0-3_mon']])
+10
+  
+
+  Sample  with specified names of MultiIndex: 
+
+  import pandas as pd
+
+temp=u"""acct_id;A;A;B;B
+level;0-3_mon;3-6_mon;0-3_mon;3-6_mon
+1;10;12;14;18
+2;11;15;17;19
+3;13;16;21;20"""
+#after testing replace 'pd.compat.StringIO(temp)' to 'filename.csv'
+df = pd.read_csv(pd.compat.StringIO(temp), sep=";", index_col=[0], header=[0,1])
+print (df)
+acct_id       A               B        
+level   0-3_mon 3-6_mon 0-3_mon 3-6_mon
+1            10      12      14      18
+2            11      15      17      19
+3            13      16      21      20
+
+print (df.columns)
+
+MultiIndex(levels=[['A', 'B'], ['0-3_mon', '3-6_mon']],
+           labels=[[0, 0, 1, 1], [0, 1, 0, 1]],
+           names=['acct_id', 'level'])
+
+idx = pd.IndexSlice
+print (df.loc[1, idx['A', '0-3_mon']])
+10
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17349769)
+ I think this will do it 
+
+  In [3]: df = DataFrame(dict(A = 'foo', B = 'bar', value = 1),index=range(5)).set_index(['A','B'])
+
+In [4]: df
+Out[4]: 
+         value
+A   B         
+foo bar      1
+    bar      1
+    bar      1
+    bar      1
+    bar      1
+
+In [5]: df.to_csv('test.csv')
+
+In [6]: !cat test.csv
+A,B,value
+foo,bar,1
+foo,bar,1
+foo,bar,1
+foo,bar,1
+foo,bar,1
+
+In [7]: pd.read_csv('test.csv',index_col=[0,1])
+Out[7]: 
+         value
+A   B         
+foo bar      1
+    bar      1
+    bar      1
+    bar      1
+    bar      1
+  
+
+ To write with the index duplication (kind of a hack though) 
+
+  In [27]: x = df.reset_index()
+
+In [28]: mask = df.index.to_series().duplicated()
+
+In [29]: mask
+Out[29]: 
+A    B  
+foo  bar    False
+     bar     True
+     bar     True
+     bar     True
+     bar     True
+dtype: bool
+
+In [30]: x.loc[mask.values,['A','B']] = ''
+
+In [31]: x
+Out[31]: 
+     A    B  value
+0  foo  bar      1
+1                1
+2                1
+3                1
+4                1
+
+In [32]: x.to_csv('test.csv')
+
+In [33]: !cat test.csv
+,A,B,value
+0,foo,bar,1
+1,,,1
+2,,,1
+3,,,1
+4,,,1
+  
+
+ Read back is a bit tricky actually 
+
+  In [37]: pd.read_csv('test.csv',index_col=0).ffill().set_index(['A','B'])
+Out[37]: 
+         value
+A   B         
+foo bar      1
+    bar      1
+    bar      1
+    bar      1
+    bar      1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50359996)
+ I would try changing the code to 
+
+  df1.to_csv("{0}{1}.csv".format(report_path,db), encoding='utf8-8')
+  
+
+ 
+ It seems clear you're encountering characters which aren't ASCII 
+ My  guess  is that your Jupyter is running a different interpreter than your script 
+ For non-ASCII encoding, UTF8 is a good first bet; if it doesn't work, have a look at https://www.crummy.com/software/BeautifulSoup/bs4/doc/#unicode-dammit.   
+ 
+
+
+

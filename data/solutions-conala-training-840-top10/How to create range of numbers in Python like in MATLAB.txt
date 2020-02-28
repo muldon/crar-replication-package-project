@@ -1,0 +1,365 @@
+Query: How to create range of numbers in Python like in MATLAB
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31143928)
+ Python's built in  xrange  function can generate integers like so: 
+
+  xrange(start, stop, step)
+  
+
+ But  xrange  cannot do floats.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31143953)
+ Numpy has  arange  and  r_  which look something like this: 
+
+  impt numpy as np
+print(np.arange(1, 3, .5))
+# [ 1.   1.5  2.   2.5]
+print(np.r_[1:3:.5])
+# [ 1.   1.5  2.   2.5]
+  
+
+ Notice that it is a little different than matlab, first the der of the stop and step are reversed in numpy compared to matlab, and second the stop is not included the the result. You might also consider using  linspace  it's often preferred over  arange  when you're wking with floating point numbers because  num  can be defined me precisely than  step : 
+
+  print(np.linspace(1, 3, num=5))
+# [ 1.   1.5  2.   2.5  3. ]
+  
+
+  
+
+  print(np.linspace(1, 3, num=4, endpoint=False))
+# [ 1.   1.5  2.   2.5]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/31146513)
+ As others have pointed out,  np.arange  gets you closest to what you are used to from matlab. However,  np.arange  excludes the end point. The solution that you proposed in your own answer can lead to wrong results (see my comment). 
+
+ This however, will always work: 
+
+  start = 0
+stop = 3
+step = 0.5
+a = np.arange(start, stop+step, step)
+  
+
+ For further reading: Especially if you are an experienced matlab-user, this guide/cheat sheet might be interesting:  http://wiki.scipy.org/NumPy_for_Matlab_Users 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29991043)
+ The best equivalent of a matlab cell array here is a list in python: 
+
+  a = []
+for i in range(n):
+    a.append(f(i))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45291268)
+ You can use https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html - 
+
+  (A[:,None] + np.arange(1024)).ravel()
+  
+
+  
+
+  # Input array
+In [433]: A = np.array([512,2560,3584,5632])
+
+# Add ranged numbers in a broadcasted way for elementwise addition   
+In [434]: A[:,None] + np.arange(1024)
+Out[434]: 
+array([[ 512,  513,  514, ..., 1533, 1534, 1535],
+       [2560, 2561, 2562, ..., 3581, 3582, 3583],
+       [3584, 3585, 3586, ..., 4605, 4606, 4607],
+       [5632, 5633, 5634, ..., 6653, 6654, 6655]])
+
+# Finally flatten those for final output
+In [435]: (A[:,None] + np.arange(1024)).ravel()
+Out[435]: array([ 512,  513,  514, ..., 6653, 6654, 6655])
+  
+
+ Alternatively with https://docs.scipy.org/doc/numpy/reference/generated/numpy.ufunc.outer.html - 
+
+  np.add.outer(A,range(1024)).ravel()
+  
+
+ 
+
+  Equivalent MATLAB version :  
+
+ For reference, the MATLAB version to leverage the equivalent  broadcasting  with  bsxfun  and keeping in mind the column-major ordering, would look something along these lines - 
+
+  >> A = [512,2560,3584,5632];
+>> sums = bsxfun(@plus, A, [0:1023].');
+>> [sums(1:3,1) ; sums(end-2:end,1)].'
+ans =
+         512         513         514        1533        1534        1535
+>> [sums(1:3,2) ; sums(end-2:end,2)].'
+ans =
+        2560        2561        2562        3581        3582        3583
+>> [sums(1:3,3) ; sums(end-2:end,3)].'
+ans =
+        3584        3585        3586        4605        4606        4607
+>> [sums(1:3,4) ; sums(end-2:end,4)].'
+ans =
+        5632        5633        5634        6653        6654        6655
+>> out = reshape(sums,1,[]);
+>> [out(1:3) out(end-2:end)]
+ans =
+         512         513         514        6653        6654        6655
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28264938)
+ Example (requires Python >= 2.6 with the NumPy and h5py >= 2.1 packages): 
+
+  import hdf5storage # get code on https://pypi.python.org/pypi/hdf5storage/0.1.3
+
+matcontent = {}
+matcontent[u'some_numbers'] = [10, 50, 20] # each key must be a unicode string
+hdf5storage.write(matcontent, '.', 'test.mat', store_python_metadata=False, matlab_compatible=True)
+  
+
+ In Matlab: 
+
+   
+
+ 
+
+ If you want to have a matrix instead of a cell array in Matlab: 
+
+  import hdf5storage # get code on https://pypi.python.org/pypi/hdf5storage/0.1.3
+import numpy as np
+
+matcontent = {}
+matcontent[u'some_numbers'] = np.array([10, 50, 20]) # each key must be a unicode string
+hdf5storage.write(matcontent, '.', 'test2.mat', matlab_compatible=True)
+  
+
+   
+
+ As you will notice, the second example is much faster (>x10). 
+
+ 
+
+ More generally, refer to the documentation for the http://pythonhosted.org/hdf5storage/storage_format.html: 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33176075)
+ You mentioned MATLAB.  Here's the equivalent to the accepted answer using Octave 
+
+  octave:17> ma=reshape(1:20,5,4)
+ma =
+    1    6   11   16
+    2    7   12   17
+    3    8   13   18
+    4    9   14   19
+    5   10   15   20
+
+octave:18> mask=(1<=ma(1,:))&(ma(1,:)<=6)&(2<=ma(2,:))&(ma(2,:)<=7)
+mask =
+   1   1   0   0
+
+octave:19> ma(:,mask)
+ans =
+    1    6
+    2    7
+    3    8
+    4    9
+    5   10
+  
+
+ The accepted answer without  where  is: 
+
+  In [592]: mask=(1 <= matrix[:,0]) & (matrix[:,0] <= 6) &(2 <= matrix[:,1]) & (matrix[:,1] <= 7)
+
+In [593]: matrix[mask,:]
+Out[593]: 
+array([[  1.,   2.,   3.,   4.,   5.],
+       [  6.,   7.,   8.,   9.,  10.]])
+  
+
+ I switched rows and columns in the Octave version because that is its natural way of generating the same numbers (MATLAB/Octave use the equivalent of  numpy s 'F' order - see below). 
+
+ The other changes are 0 v 1 start index, and () v [].  Otherwise the two notations are similar. 
+
+ A simpler way to generate the  matrix  in numpy: 
+
+  In [594]: np.arange(1,21).reshape(4,5)
+Out[594]: 
+array([[ 1,  2,  3,  4,  5],
+       [ 6,  7,  8,  9, 10],
+       [11, 12, 13, 14, 15],
+       [16, 17, 18, 19, 20]])
+  
+
+ Or with the MATLAB layout: 
+
+  In [595]: np.arange(1,21).reshape(5,4,order='F')
+Out[595]: 
+array([[ 1,  6, 11, 16],
+       [ 2,  7, 12, 17],
+       [ 3,  8, 13, 18],
+       [ 4,  9, 14, 19],
+       [ 5, 10, 15, 20]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/34941472)
+ In MATLAB, you can implement that in a simpler way with http://www.mathworks.com/help/matlab/ref/meshgrid.html, like so - 
+
+  Nx = 5;
+Ny = 7;
+
+xm_row = -(Nx-1)/2.0+0.5:(Nx-1)/2.0-0.5;
+ym_col = (-(Ny-1)/2.0+0.5:(Ny-1)/2.0-0.5)';  
+[xm_out,ym_out] = meshgrid(xm_row,ym_col)
+  
+
+ Let's compare this meshgrid version with the original code for verification - 
+
+  >> Nx = 5;
+>> Ny = 7;
+>> xm_row = -(Nx-1)/2.0+0.5:(Nx-1)/2.0-0.5;
+>> ym_col = (-(Ny-1)/2.0+0.5:(Ny-1)/2.0-0.5)'; 
+>> xm = xm_row(ones(Ny-1, 1), :)
+xm =
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+>> ym = ym_col(:,ones(Nx-1,1))
+ym =
+         -2.5         -2.5         -2.5         -2.5
+         -1.5         -1.5         -1.5         -1.5
+         -0.5         -0.5         -0.5         -0.5
+          0.5          0.5          0.5          0.5
+          1.5          1.5          1.5          1.5
+          2.5          2.5          2.5          2.5
+>> [xm_out,ym_out] = meshgrid(xm_row,ym_col)
+xm_out =
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+         -1.5         -0.5          0.5          1.5
+ym_out =
+         -2.5         -2.5         -2.5         -2.5
+         -1.5         -1.5         -1.5         -1.5
+         -0.5         -0.5         -0.5         -0.5
+          0.5          0.5          0.5          0.5
+          1.5          1.5          1.5          1.5
+          2.5          2.5          2.5          2.5
+  
+
+ Now, transitioning from MATLAB to Python has a simpler medium in http://www.numpy.org/, as it hosts many counterparts from MATLAB for use in a Python environment. For our case, we have a NumPy version of meshgrid and that makes it just a straight-forward porting as listed below - 
+
+  import numpy as np # Import NumPy module
+
+Nx = 5;
+Ny = 7;
+
+# Use np.arange that is a colon counterpart in NumPy/Python
+xm_row = np.arange(-(Nx-1)/2.0+0.5,(Nx-1)/2.0-0.5+1)
+ym_col = np.arange(-(Ny-1)/2.0+0.5,(Ny-1)/2.0-0.5+1)
+
+# Use meshgrid just like in MATLAB
+xm,ym = np.meshgrid(xm_row,ym_col)
+  
+
+ Output - 
+
+  In [28]: xm
+Out[28]: 
+array([[-1.5, -0.5,  0.5,  1.5],
+       [-1.5, -0.5,  0.5,  1.5],
+       [-1.5, -0.5,  0.5,  1.5],
+       [-1.5, -0.5,  0.5,  1.5],
+       [-1.5, -0.5,  0.5,  1.5],
+       [-1.5, -0.5,  0.5,  1.5]])
+
+In [29]: ym
+Out[29]: 
+array([[-2.5, -2.5, -2.5, -2.5],
+       [-1.5, -1.5, -1.5, -1.5],
+       [-0.5, -0.5, -0.5, -0.5],
+       [ 0.5,  0.5,  0.5,  0.5],
+       [ 1.5,  1.5,  1.5,  1.5],
+       [ 2.5,  2.5,  2.5,  2.5]])
+  
+
+ Also, please notice that  +1  was being added at the end of the second argument to  np.arange  in both cases, as  np.arange  excludes the second argument element when creating the range of  elements. As an example, if we want to create a range of elements from  3  to  10 , we would be required to do  np.arange(3,10+1)  as shown below - 
+
+  In [32]: np.arange(3,10+1)
+Out[32]: array([ 3,  4,  5,  6,  7,  8,  9, 10])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47840614)
+ This implementation follows Matlab's and should give exactly the same results with the following exception: it throws an error if n < 3 rather than return a non-magic square  [[1, 3], [4, 2]]  when n=2 like Matlab does.  
+
+ As usual, there are three cases: odd, divisible by 4, and even but not divisible by 4, the last one being the most complicated. 
+
+  def magic(n):
+  n = int(n)
+  if n < 3:
+    raise ValueError("Size must be at least 3")
+  if n % 2 == 1:
+    p = np.arange(1, n+1)
+    return n*np.mod(p[:, None] + p - (n+3)//2, n) + np.mod(p[:, None] + 2*p-2, n) + 1
+  elif n % 4 == 0:
+    J = np.mod(np.arange(1, n+1), 4) // 2
+    K = J[:, None] == J
+    M = np.arange(1, n*n+1, n)[:, None] + np.arange(n)
+    M[K] = n*n + 1 - M[K]
+  else:
+    p = n//2
+    M = magic(p)
+    M = np.block([[M, M+2*p*p], [M+3*p*p, M+p*p]])
+    i = np.arange(p)
+    k = (n-2)//4
+    j = np.concatenate((np.arange(k), np.arange(n-k+1, n)))
+    M[np.ix_(np.concatenate((i, i+p)), j)] = M[np.ix_(np.concatenate((i+p, i)), j)]
+    M[np.ix_([k, k+p], [0, k])] = M[np.ix_([k+p, k], [0, k])]
+  return M 
+  
+
+ I also wrote a function to test this:  
+
+  def test_magic(ms):
+  n = ms.shape[0]
+  s = n*(n**2+1)//2 
+  columns = np.all(ms.sum(axis=0) == s)
+  rows = np.all(ms.sum(axis=1) == s)
+  diag1 = np.diag(ms).sum() == s 
+  diag2 = np.diag(ms[::-1, :]).sum() == s
+  return columns and rows and diag1 and diag2 
+  
+
+ Try  [test_magic(magic(n)) for n in range(3, 20)]  to check the correctness. 
+
+
+

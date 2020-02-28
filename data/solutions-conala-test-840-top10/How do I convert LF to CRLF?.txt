@@ -1,0 +1,191 @@
+Query: How do I convert LF to CRLF?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13954932)
+ You can use the replace method of strings.    
+
+  txt.replace('\n', '\r\n')
+  
+
+ EDIT : 
+in your case : 
+
+  with open('input.txt') as inp, open('output.txt', 'w') as out:
+    txt = inp.read()
+    txt = txt.replace('\n', '\r\n')
+    out.write(txt)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/13954965)
+ Instead of converting, you should be able to just open the file using Python's http://docs.python.org/2/glossary.html#term-universal-newlines: 
+
+  f = open('words.txt', 'rU')
+  
+
+ (Note the  U .) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36422383)
+ why don't you try below::
+str.replace('\r\n','\n'); 
+
+ CRLF => \r\n
+LF => \n 
+
+ it's history of typewriter =) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/13962350)
+ You don't need to convert the line endings in the files in order to be able to iterate over them. As suggested by NPE, simply use http://docs.python.org/3/library/functions.html#open.  
+
+ The UnicodeDecodeError happens because the files you are processing are encoded as UTF-8 and when you attempt to decode the contents from bytes to a string, via  str(line) , Python is using the  cp1252  encoding to convert the bytes read from the file into a Python 3 string (i.e. a sequence of unicode code points). However, there are bytes in those files that cannot be decoded with the  cp1252  encoding and that causes a UnicodeDecodeError. 
+
+ If you change  str(line)  to  line.decode('utf-8')  you should no longer get the UnicodeDecodeError. Check out the http://docs.python.org/3.0/whatsnew/3.0.html#text-vs-data-instead-of-unicode-vs-8-bit writeup for some more details. 
+
+ Finally, you might also find http://www.joelonsoftware.com/articles/Unicode.html by Joel Spolsky useful. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/32743316)
+ Note, the file you are trying to download does not contain  CRLF  only  LF . 
+
+ You could use the following approach to convert the bytes to a suitable string. This should also result in you getting  CRLF : 
+
+  import urllib.request
+
+try:
+    url = 'https://www.census.gov/popest/data/counties/asrh/2014/files/CC-EST2014-ALLDATA.csv'
+    headers = {}
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0'
+    req = urllib.request.Request(url, headers=headers)
+    resp = urllib.request.urlopen(req)
+    respData = resp.read()
+
+    with open('Vintage2014.csv', 'w') as saveFile:
+        saveFile.write(respData.decode('latin-1'))
+
+except Exception as e:
+    print(str(e))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/36422321)
+ Python's https://docs.python.org/2.7/library/functions.html#open function supports the  'rU'  mode for https://docs.python.org/2.7/glossary.html#term-universal-newlines, in which case it doesn't mind which sort of newline each line has. In Python 3 you can also request a specific form of newline with the https://docs.python.org/3/library/functions.html#open.  
+
+ Translating from one form to the other is thus rather simple in Python: 
+
+  with open('filename.in', 'rU') as infile,                 \
+   open('filename.out', 'w', newline='\n') as outfile:
+       outfile.writelines(infile.readlines())
+  
+
+ (Due to the newline argument, the U is actually deprecated in Python 3; the equivalent form is  newline=None .) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14202526)
+ Just request "read binary" in the  open : 
+
+  f = open('data.txt', 'rb')
+data = f.read()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4993648)
+ You've got to add the shebang: 
+
+  #!/usr/bin/env python
+  
+
+ Then make the script executable: 
+
+  chmod +x foo
+  
+
+  
+
+  ./foo
+  
+
+ And a note from Homer6: if you're editing the file from windows and invoking it on linux, you may run into the cryptic "No such file or directory" error. It's due to the line endings of the lines being CRLF instead of LF. If you convert them to LF, the script will execute as expected. Notepad++ > View > Show Symbols > Show End of Line to show the EOL characters. And Notepad++ > Edit > EOL Conversion > Unix Format to convert all line endings to use LF. Alternatively, you can use the  dos2unix  tool ( dos2unix foo.py ), which is present on most Linux systems. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/43678795)
+ Convert Line Endings in-place (with Python 3) 
+
+ Windows to Linux/Unix</h3>
+
+ Here is a short script for directly converting  Windows line endings  ( \r\n  also called  CRLF ) to  Linux/Unix line endings  ( \n  also called  LF ) in-place (without creating an extra output file): 
+
+  # replacement strings
+WINDOWS_LINE_ENDING = b'\r\n'
+UNIX_LINE_ENDING = b'\n'
+
+# relative or absolute file path, e.g.:
+file_path = r"c:\Users\Username\Desktop\file.txt"
+
+with open(file_path, 'rb') as open_file:
+    content = open_file.read()
+
+content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
+
+with open(file_path, 'wb') as open_file:
+    open_file.write(content)
+  
+
+ Linux/Unix to Windows</h3>
+
+ Just swap the constants for the line endings in the  str.replace()  call like so:  content.replace(UNIX_LINE_ENDING, WINDOWS_LINE_ENDING) . 
+
+ 
+
+ Code Explanation</h3>
+
+ 
+   Important: Binary Mode  We need to make sure that we open the file both times in binary mode ( mode='rb'  and  mode='wb' ) for the conversion to work. 
+
+ When opening files in text mode ( mode='r'  or  mode='w'  without  b ), the platform's native line endings ( \r\n  on Windows and  \r  on old Mac OS versions) are automatically converted to Python's Unix-style line endings:  \n . So the call to  content.replace()  couldn't find any  \r\n  line endings to replace. 
+
+ In binary mode, no such conversion is done. Therefore the call to  str.replace()  can do its work.  
+   Binary Strings  In Python 3, if not declared otherwise, strings are stored as Unicode ( UTF-8 ). But we open our files in binary mode - therefore we need to add  b  in front of our replacement strings to tell Python to handle those strings as binary, too.  
+   Raw Strings  On Windows the path separator is a backslash  \  which we would need to escape in a normal Python string with  \\ . By adding  r  in front of the string we create a so called "raw string" which doesn't need any escaping. So you can directly copy/paste the path from Windows Explorer into your script. 
+
+ ( Hint:  Inside Windows Explorer press <kbd>CTRL</kbd>+<kbd>L</kbd> to automatically select the path from the address bar.)  
+   Alternative  We open the file twice to avoid the need of repositioning the file pointer. We also could have opened the file once with  mode='rb+'  but then we would have needed to move the pointer back to start after reading its content ( open_file.seek(0) ) and truncate its original content before writing the new one ( open_file.truncate(0) ). 
+
+ Simply opening the file again in write mode does that automatically for us.  
+ 
+
+ Cheers and happy programming, 
+winklerrr 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/40366420)
+ On linux, you need to use CRLF as EOL 
+
+ From the nc man page: 
+
+ 
+   -C, --crlf (Use CRLF as EOL) .
+             This option tells Ncat to convert LF.  line endings to CRLF. when taking input from standard input..  This is useful for talking to some stringent servers directly from a terminal in one of the many common plain-text protocols that use CRLF for end-of-line. 
+ 
+
+
+

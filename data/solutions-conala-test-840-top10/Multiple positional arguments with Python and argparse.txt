@@ -1,0 +1,323 @@
+Query: Multiple positional arguments with Python and argparse
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5373550)
+ You can't interleave the switches (i.e.  -a  and  -b ) with the positional arguments (i.e. fileone, filetwo and filethree) in this way. The switches must appear before or after the positional arguments, not in-between. 
+
+ Also, in order to have multiple positional arguments, you need to specify the  nargs  parameter to  add_argument . For example: 
+
+  parser.add_argument('input', nargs='+')
+  
+
+ This tells  argparse  to consume one or more positional arguments and append them to a list. See the http://docs.python.org/library/argparse.html for more information. With this line, the code: 
+
+  parser.parse_args(['-a', '-b', 'fileone', 'filetwo', 'filethree'])
+  
+
+  
+
+  Namespace(a=True, b=True, input=['fileone', 'filetwo', 'filethree'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/8503076)
+  
+
+  def printText(args):
+  print args
+
+parser = argparse.ArgumentParser()
+subparser = parser.add_subparsers()
+printer = subparser.add_parser('print')
+printer.add_argument('text')
+printer.add_argument('color', nargs='?')
+printer.add_argument('size', type=int, nargs='?')
+printer.set_defaults(func=printText)
+
+cmd = parser.parse_args()
+cmd.func(cmd)
+  
+
+ Then you get something like this: 
+
+  $ ./test.py -h
+usage: test.py [-h] {print} ...
+
+positional arguments:
+  {print}
+
+$ ./test.py print -h
+usage: test.py print [-h] text [color] [size]
+
+positional arguments:
+  text
+  color
+  size
+
+$ ./test.py print text
+Namespace(color=None, func=<function printText at 0x2a96150b90>, size=None, text='text')
+
+$ ./test.py print text red
+Namespace(color='red', func=<function printText at 0x2a96150b90>, size=None, text='text')
+
+$ ./test.py print text red 12
+Namespace(color='red', func=<function printText at 0x2a96150b90>, size=12, text='text')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40033371)
+ Your argument spec is inherently ambiguous (since  --bar  can take infinite arguments, there is no good way to tell when it ends, particularly since  files  is optional), so it requires user disambiguation. Specifically,  argparse  can be told "this is the end of the switches section, all subsequent argument are positional" by putting  --  befe the positional only section.  
+
+  cmd = '--foo a --bar b c d -- /path/to/file1'
+print parser.parse_args(cmd.split())
+  
+
+  
+
+  Namespace(bar=['b', 'c', 'd'], files='/path/to/file1', foo='a')
+  
+
+ (Tested on Py3, but should apply to Py2 as well) 
+
+ Alternatively, the user can pass the positional argument anywhere it's unambiguous by avoiding putting positional arguments after  --bar  e.g.: 
+
+  cmd = '/path/to/file1 --foo a --bar b c d'
+  
+
+  
+
+  cmd = '--foo a /path/to/file1 --bar b c d'
+  
+
+ Lastly, you could avoid using  nargs='*'  f switches, given the ambiguity it introduces. Instead, define  --bar  to be accepted multiple times with a single value per switch, accumulating all uses to a  list : 
+
+  parser.add_argument('--bar', action='append')
+  
+
+ then you pass  --bar  multiple times to supply multiple values one at a time, instead of passing it once with many values: 
+
+  cmd = '--foo a --bar b --bar c --bar d /path/to/file1'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/18140402)
+ Make the positional argument optional (with '?') 
+
+  parser = ArgumentParser()
+group = parser.add_mutually_exclusive_group()
+group.add_argument('--delete', metavar='value')
+group.add_argument('--update', metavar='value')
+group.add_argument('value', nargs='?')
+  
+
+ usage is then: 
+
+  usage: ipython [-h] [--delete value | --update value | value]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17960998)
+ The 'append' action makes more sense with an optional: 
+
+  parser.add_argument('-i', '--input',action='append')
+parser.parse_args(['-i','fileone', '-a', '-i','filetwo', '-b', '-i','filethree'])
+  
+
+ You can interleave optionals with separate positionals ('input1 -a input2 -b input3'), but you cannot interleave optionals within one multiitem positional.  But you can accomplish this with a two step parse. 
+
+  import argparse
+parser1 = argparse.ArgumentParser()
+parser1.add_argument('-a', action='store_true')
+parser1.add_argument('-b', action='store_true')
+parser2 = argparse.ArgumentParser()
+parser2.add_argument('input', nargs='*')
+
+ns, rest = parser1.parse_known_args(['fileone', '-a', 'filetwo', '-b', 'filethree'])
+# Namespace(a=True, b=True), ['fileone', 'filetwo', 'filethree']
+
+ns = parser2.parse_args(rest, ns)
+# Namespace(a=True, b=True, input=['fileone', 'filetwo', 'filethree'])
+  
+
+ http://bugs.python.org/issue14191 is a proposed patch that will do this with single call to: 
+
+  parser.parse_intermixed_args(['fileone', '-a', 'filetwo', '-b', 'filethree'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43391228)
+ For  default  keyword argument to work, you have to add  nargs='*'  like below: 
+
+  parser.add_argument("command",
+        help="the command to be executed",
+        choices=["dump", "delete", "update", "set"],
+        nargs='?',
+        default="set"
+    )
+  
+
+ See https://docs.python.org/2/library/argparse.html#default for more information :) 
+
+ Edit by OP:  nargs='*'  allows for multiple commands to be entered. Thus changed to  nargs='?'  as I am looking for  exactly one  command to be entered. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/23306703)
+  add_parser  with subparsers would do the trick 
+
+  import argparse
+parser = argparse.ArgumentParser(prog='script.py')
+sp = parser.add_subparsers(dest='cmd')
+for cmd in ['START', 'STOP', 'STATUS']:
+    sp.add_parser(cmd)
+for cmd in ['MOVEABS', 'MOVEREL']:
+    spp = sp.add_parser(cmd)
+    spp.add_argument('x', type=float)
+    spp.add_argument('y', type=float)
+parser.print_help()
+args = parser.parse_args()
+print(args)
+  
+
+  
+
+  2137:~/mypy$ python2.7 stack23304740.py MOVEREL -h
+usage: script.py [-h] {START,STOP,STATUS,MOVEABS,MOVEREL} ...
+
+positional arguments:
+  {START,STOP,STATUS,MOVEABS,MOVEREL}
+
+optional arguments:
+  -h, --help            show this help message  exit
+
+usage: script.py MOVEREL [-h] x y
+
+positional arguments:
+  x
+  y
+
+optional arguments:
+  -h, --help  show this help message  exit
+  
+
+  
+
+  2146:~/mypy$ python2.7 stack23304740.py MOVEREL 1.0 2.0
+...
+Namespace(cmd='MOVEREL', x=1.0, y=2.0)
+  
+
+  
+
+  2147:~/mypy$ python2.7 stack23304740.py START
+...
+Namespace(cmd='START')
+  
+
+ The MOVEREL arguments could be named  <x>    <y> , but then you'd have to access them via  args['<y>']  instead of  args.y .  metavar='<x>'  could be used to change the display but not the Namespace name. 
+
+ You could also use  spp.add_argument('point', nargs=2, type=float) .  Unfortunately there's a bug that keeps us from using a metavar in this  nargs=2  case, http://bugs.python.org/issue14074. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24246492)
+  argparse  can help you out in such circumstances and it's a very useful tool to have under your belt. 
+
+ Here's an  argparse  example with multiple args: 
+
+  parser = argparse.ArgumentParser(description='Description of your program')
+parser.add_argument('-f','--foo', help='Description for foo argument', required=True)
+parser.add_argument('-b','--bar', help='Description for bar argument', required=True)
+args = vars(parser.parse_args())
+  
+
+  args  will be a dictionary containing the arguments: 
+
+  if args['foo'] == 'Hello':
+    pass # replace with code
+
+if args['bar'] == 'World':
+    pass # replace with code
+  
+
+ Also check here for more information: 
+
+ 
+ https://docs.python.org/2.7/library/argparse.html 
+ 
+
+  Edit:  For positional arguments(e.g. pos_arg=value) use: 
+
+  parser.add_argument('pos_arg', nargs='+', help='Description for positional argument')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37564878)
+ The parameters of the last positional argument is not initialized correctly to achieve what you want. 
+
+  parser.add_argument('req', nargs='?', default="truc", help='Otherwise required')
+  
+
+ Please have a look to Python documentation for further details. But basically, the  nargs='?'  provides the possibility to have optional positional arguments. But you need to provide a default value. 
+
+  #python test.py  -t  
+
+  ## This is my test
+## Found "req"
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/33051172)
+ See the example with "integers" in the https://docs.python.org/dev/library/argparse.html. Don't include any hyphens and the argument will be treated as a positional argument. 
+
+  >>> parser = argparse.ArgumentParser()
+>>> parser.add_argument('first_supplied_argument', help='help')
+>>> parser.add_argument('second_supplied_argument', help='help')
+>>> args = parser.parse_args(['1', '2'])
+Namespace(first_supplied_argument='1', second_supplied_argument='2')
+  
+
+  Edit based on comment:  
+
+ Are you able to supply both positional and optional arguments? I think you will still need to supply at least one positional argument. 
+
+  parser = argparse.ArgumentParser()
+parser.add_argument('--first', help='help')
+parser.add_argument('first', nargs='?', help='help')
+parser.add_argument('--second', help='help')
+parser.add_argument('second', nargs='?', help='help')
+
+print parser.parse_args(['1', '2'])
+print parser.parse_args(['1', '--second', '2'])
+print parser.parse_args(['--first', '1', '--second', '2'])  # doesn't work
+print parser.parse_args(['', '--first', '1', '--second', '2'])  # probably not what you want to do
+  
+
+ Output: 
+
+  Namespace(first='1', second='2')
+Namespace(first='1', second='2')
+Namespace(first=None, second=None)  # doesn't work
+Namespace(first='1', second='2')
+  
+
+
+

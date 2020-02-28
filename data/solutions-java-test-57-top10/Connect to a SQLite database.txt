@@ -1,0 +1,175 @@
+Query: Connect to a SQLite database
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12443856)
+ Move your database (DB.sqlite) in your working directory. Then use this url to connect to it : 
+
+  jdbc:sqlite:DB.sqlite
+  
+
+ Using JDBC, it will be something like this : 
+
+  String driver = "org.sqlite.JDBC";
+Class.forName(driver);
+
+String dbUrl = "jdbc:sqlite:DB.sqlite";
+Connection connection = DriverManager.getConnection(dbUrl);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/41231622)
+ 
+   My best guess is that I shall use org.sqlite.SQLiteDataSource class (it comes in sqlite-jdbc-3.15.1.jar for Xerial sqlite-jdbc driver),  
+ 
+
+ Yes, that seems likely. 
+
+ 
+   but how? 
+ 
+
+ I just tried the following and it worked for me: 
+
+<pre class="lang-java prettyprint-override"> package com.example.sqlite.sqlite_test;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import org.sqlite.SQLiteDataSource;
+
+public class SqliteTestMain {
+
+    public static void main(String[] args) {
+        SQLiteDataSource ds = new SQLiteDataSource();
+        ds.setUrl("jdbc:sqlite::memory:");
+        try (Connection conn = ds.getConnection()) {
+            System.out.println("Connected.");
+            String sql = 
+                    "SELECT COUNT(*) AS n FROM \"sqlite_master\"";
+            try (
+                    Statement s = conn.createStatement();
+                    ResultSet rs = s.executeQuery(sql)) {
+                rs.next();
+                System.out.printf(
+                        "The \"sqlite_master\" table contains %d row(s).%n", 
+                        rs.getInt(1));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace(System.err);
+        }
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37564644)
+ You have to download and add the SQLite JDBC driver to your classpath. 
+You can download from here https://bitbucket.org/xerial/sqlite-jdbc/downloads   
+
+ If you use Gradle, you will only have to add the SQLite dependency: 
+
+  dependencies {
+    compile 'org.xerial:sqlite-jdbc:3.8.11.2'
+} 
+  
+
+ Next thing you have to do is to initialize the driver: 
+
+  try {
+    Class.forName("org.sqlite.JDBC");
+} catch (ClassNotFoundException eString) {
+    System.err.println("Could not init JDBC driver - driver not found");
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4280045)
+ . Unfortunately you cannot create a SQLite Connection pool on Tomcat as SQLite has a database file for each user. 
+
+ Just copy the jar file in  TOMCAT_HOME/lib  folder but you cannot call a connection via JNDI. 
+You will have to do something like this: 
+
+  /**
+     * 
+     * @param driverClassName
+     * @param url
+     * @param user
+     * @param password
+     * @throws SQLException 
+     * @throws Exception 
+     */
+    public DefaultJdbcTransaction(String driverClassName, String url, String user, String password) throws SQLException {
+        super();
+        // TODO Auto-generated constructor stub
+        try {
+            Class.forName(driverClassName).newInstance();
+
+            if (user == null && password == null) {
+                connection = DriverManager.getConnection(url);
+            } else {
+                connection = DriverManager.getConnection(url, user, password);
+            }
+        } catch (InstantiationException e) {
+            // TODO Auto-generated catch block
+            throw new SQLException(e);
+        } catch (IllegalAccessException e) {
+            // TODO Auto-generated catch block
+            throw new SQLException(e);
+        } catch (ClassNotFoundException e) {
+            // TODO Auto-generated catch block
+            throw new SQLException(e);
+        }
+    }
+  
+
+ Where  url="jdbc:sqlite:/path/to/sqlite/file/userId.db" ,  driverClassName="org.sqlite.JDBC" , and ( user = password = null ). 
+
+ I'm using  sqlitejdbc-v056.jar . 
+
+ Hope this helps 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/12385585)
+ You have to use the correct JDBC URL to specify the database file. 
+
+ See http://www.xerial.org/trac/Xerial/wiki/SQLiteJDBC#HowtoSpecifyDatabaseFiles in the documentation of the JDBC driver for SQLite (assuming that that's the JDBC driver you're using). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43203612)
+ There is something more than just Class.forName. 
+
+ In the case you did both things below:
+- Added the sqlite jar library to lib folder under your project, reference to it in the project build path.
+- Added Class.forName("org.sqlite.JDBC") statement.
+And the error message "No suit driver" still appear, its may caused by your database path.
+If you are using Windows:
+Instead of: 
+
+  DriverManager.getConnection("D:\\db\\my-db.sqlite").
+  
+
+ You should use: 
+
+  DriverManager.getConnection("jdbc:sqlite:D:\\db\\my-db.sqlite").
+  
+
+ The "jdbc:sqlite:" will do the trick. 
+
+ If you are using Linux, just change the seperator character:
+DriverManager.getConnection("jdbc:sqlite:/your/somepath/my-db.sqlite"). 
+
+
+

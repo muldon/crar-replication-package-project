@@ -1,0 +1,228 @@
+Query: How to read a "C source, ISO-8859 text"
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51884089)
+ As was mentioned in the comments, you need to  .read()  the file: 
+
+  with open('nametext','r') as f:
+    print(f.read())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/16883459)
+ You change the codec in the  open()  command; the ISO-8859 standard has multiple codecs, I picked Latin-1 for you here, but you may need to pick another one: 
+
+  codecs.open('myfile', 'r', 'iso-8859-1').read()
+  
+
+ See the http://docs.python.org/2/library/codecs.html for a list of valid codecs. Judging by the pastie data, iso-8859-1 is the correct codec to use, as it is suited for Scandinavian text. 
+
+ Generally, without other sources, you cannot know what codec a file uses. At best, you can guess (which is what  file  does). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/23321338)
+ With python 3.3 you can use the built in open function 
+
+  open("myfile",encoding="ISO-8859-1")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20353935)
+ There is lib for encoding detection: https://pypi.python.org/pypi/chardet ( Character encoding auto-detection in Python. . Open source ) 
+
+ Detects... 
+
+ 
+ ASCII, UTF-8, UTF-16 (2 variants), UTF-32 (4 variants) 
+ Big5, GB2312, EUC-TW, HZ-GB-2312, ISO-2022-CN (Traditional and Simplified Chinese) 
+ EUC-JP, SHIFT_JIS, ISO-2022-JP (Japanese) 
+ EUC-KR, ISO-2022-KR (Korean) 
+ KOI8-R, MacCyrillic, IBM855, IBM866, ISO-8859-5, windows-1251 (Cyrillic) 
+ ISO-8859-2, windows-1250 (Hungarian) 
+ ISO-8859-5, windows-1251 (Bulgarian) 
+ windows-1252 (English) 
+ ISO-8859-7, windows-1253 (Greek) 
+ ISO-8859-8, windows-1255 (Visual and Logical Hebrew) 
+ TIS-620 (Thai) 
+ 
+
+ example from docs: 
+
+  >>> import urllib
+>>> rawdata = urllib.urlopen('http://yahoo.co.jp/').read()
+>>> import chardet
+>>> chardet.detect(rawdata)
+{'encoding': 'EUC-JP', 'confidence': 0.99}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45914943)
+ That is obvious . If you want to open a file and its not  utf8  for python3(  utf8  is default encoding for python3 and  ascii  for python2 ) then you have to mention the encoding you know the file is in while opening it : 
+
+  io.open(file_path_dest,"r",encoding='ISO-8859-1')
+  
+
+ In this case encoding is  ISO-8859-1  so you have to mention it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3114238)
+ 
+   I want the output in ascii instead of utf-8 
+ 
+
+ That's not ASCII, which has no characters mapped above 0x80. You're talking about ISO-8859-1, or possibly code page 1252 (the Windows encoding based on it). 
+
+  'Ã'.decode('iso-8859-1')
+  
+
+ Well that depends on what encoding you've used to save the character  Ã  in the source, doesn't it? It sounds like your text editor has saved it as UTF-8. (That's a good thing, because locale-specific encodings like ISO-8859-1 need to go away ASAP.) 
+
+ Tell Python that the source file you've saved is in UTF-8 as per http://www.python.org/dev/peps/pep-0263/: 
+
+  # coding=utf-8
+
+urllib.quote(u'Ã'.encode('iso-8859-1'))    # -> %C3
+  
+
+ Or, if you don't want that hassle, use a backslash escape: 
+
+  urllib.quote(u'\u00C3'.encode('iso-8859-1'))    # -> %C3
+  
+
+ Although, either way, a modern webapp should be using UTF-8 for its input rather than ISO-8859-1/cp1252. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/28365783)
+ Let's create a page with an  windows-1251  charset given in  meta  tag and some Russian nonsense text. I saved it in Sublime Text as a windows-1251 file, for sure. 
+
+  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+ <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=windows-1251">
+ </head>
+ <body>
+   Привет, мир! 
+ </body>
+</html>
+  
+
+ You can use http://docs.python-requests.org/en/latest/user/quickstart/#response-content in the  requests  library: 
+
+ 
+   If you change the encoding, Requests will use the new value of r.encoding whenever you call r.text. 
+ 
+
+  
+
+  In [1]: import requests
+
+In [2]: result = requests.get('http://127.0.0.1:1234/1251.html')
+
+In [3]: result.encoding = 'windows-1251'
+
+In [4]: u'Привет' in result.text
+Out[4]: True
+  
+
+  
+
+ If it doesn't work for you, there's a slightly uglier approach. 
+
+ You should take a look at what encoding do the web-server is sending you. 
+
+ It may be that the encoding of the response is actually  cp1252  (also known as  ISO-8859-1 ), or whatever else, but neither  utf8  nor  cp1251 . It may differ and depends on a web-server! 
+
+  In [1]: import requests
+
+In [2]: result = requests.get('http://127.0.0.1:1234/1251.html')
+
+In [3]: result.encoding
+Out[3]: 'ISO-8859-1'
+  
+
+ So we should recode it accordingly. 
+
+  In [4]: u'Привет'.encode('cp1251').decode('cp1252') in result.text
+Out[4]: True
+  
+
+ But that just looks ugly to me (also, I suck at encodings and it's not really the best solution at all). I'd go with a re-setting the encoding using  requests  itself. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/28316636)
+ You may be able to https://superuser.com/questions/301552/how-to-auto-detect-text-file-encoding with http://chardet.readthedocs.org/en/latest/: 
+
+  $ pip install chardet
+
+>>> import urllib
+>>> rawdata = urllib.urlopen('http://yahoo.co.jp/').read()
+>>> import chardet
+>>> chardet.detect(rawdata)
+{'encoding': 'EUC-JP', 'confidence': 0.99}
+  
+
+  The basic usage also suggests how you can use this to infer the encoding from large files e.g. files too large to read into memory - it'll read the file until it's confident enought about the encoding.  
+
+ 
+
+ According to https://stackoverflow.com/questions/18403898/unicodedecodeerror-utf8-codec-cant-decode-byte-0xc3 you should try  encoding="ISO-8859-2" : 
+
+ 
+   My guess is that your input is encoded as ISO-8859-2 which contains Ă as  0xC3 . 
+ 
+
+ 
+
+  Note: Sublime may not infer the encoding correctly either so you have to take it's output with a pinch of salt, it's best to check with your vendor (wherever you're getting the file from) what the actual encoding is...  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37154810)
+   .csv  you are trying to read is  encoded  in e.g.  ISO-8859-1 . That's why it's a  UnicodeDecodeError  - python / pandas is trying to  decode  the source using  utf-8  codec assuming per default the source is  unicode .  
+
+ Once you indicate the non-default source encoding, pandas will use the proper codec to match the source and decode into the format used internally. 
+
+ See python https://docs.python.org/3.5/howto/unicode.html and more https://pythonhosted.org/kitchen/unicode-frustrations.html. http://kunststube.net/encoding/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/32010255)
+ If you  know  the codec used, don't use  chardet . Character detection is never foolproof, the library guessed wrong for your file. 
+
+ Note that ISO-8859-2 is the wrong codec, as that codec cannot even encode the letter  è . You have ISO-8859-1 (Latin-1) or Windows codepage 1252 data instead;  è  in 8859-1 and cp1252 is encoded to 0xE8, and 0xE8 in 8859-2 is  č : 
+
+  >>> print u'confrčres'.encode('iso-8859-2').decode('iso-8859-1')
+confrères
+  
+
+ Was 8859-2 perhaps the guess  chardet  made? 
+
+ You can use the https://docs.python.org/2/library/io.html to handle decoding and encoding on the fly; it is the same codebase that handles all I/O in Python 3 and has fewer issues than  codecs : 
+
+  from shutil import copyfileobj
+
+with open('test.txt', 'r', encoding='iso-8859-1') as inf:
+    with open('test_out.txt', 'w', encoding='utf8') as outf:
+        copyfileobj(inf, outf)
+  
+
+ I used https://docs.python.org/2/library/shutil.html#shutil.copyfileobj to handle the copying across of data. 
+
+
+

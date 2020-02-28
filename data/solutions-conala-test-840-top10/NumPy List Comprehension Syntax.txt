@@ -1,0 +1,296 @@
+Query: NumPy List Comprehension Syntax
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/21360116)
+ The easy way is to not do this. Use numpy's implicit vectorization instead. For example, if you have arrays A and B as follows: 
+
+  A = numpy.array([[1, 3, 5],
+                 [2, 4, 6],
+                 [9, 8, 7]])
+B = numpy.array([[5, 3, 5],
+                 [3, 5, 3],
+                 [5, 3, 5]])
+  
+
+ then the following code using list comprehensions: 
+
+  C = numpy.array([[A[i, j] * B[i, j] for j in xrange(A.shape[1])]
+                 for i in xrange(A.shape[0])])
+  
+
+  
+
+  C = A * B
+  
+
+ . Generally, you will produce faster, clearer code if you don't use list comprehensions with numpy than if you do. 
+
+ If you really want to use list comprehensions, standard Python list-comprehension-writing techniques apply. Iterate over the elements, not the indices: 
+
+  C = numpy.array([[a*b for a, b in zip(a_row, b_row)]
+                 for a_row, b_row in zip(A, B)]
+  
+
+ Thus, your example code would become 
+
+  numpy.array([[elem for elem in x_row] for x_row in X])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40267599)
+  .astype(np.object_)  is most likely the thing you need. Consider this matlab code: 
+
+  x = [1 2 3 4]
+y = num2cell(x)
+y(end) = 'hello'
+  
+
+ In numpy, that translates to: 
+
+  x = np.array([1, 2, 3, 4])
+y = x.astype(np.object_)
+y[-1] = 'hello'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/21360107)
+ First, you should not be using NumPy arrays as lists of lists. 
+
+ Second, let's forget about NumPy; your listcomp doesn't make any sense in the first place, even for lists of lists. 
+
+ In the inner comprehension,  for i in X  is going to iterate over the rows in X. Those rows aren't numbers, they're lists (or, in NumPy, 1D arrays), so  X[i]  makes no sense whatsoever. You may have wanted  i[j]  instead. 
+
+ In the outer comprehension,  for j in X[i]  has the same problem, but is has an even bigger problem: there is no  i  value. You have a comprehension looping over each  i   inside  this comprehension. 
+
+ If you're confused by a comprehension, write it out as an explicit  for  statement, as explained in the tutorial section on http://docs.python.org/3/tutorial/datastructures.html#list-comprehensions: 
+
+  tmp = []
+for j in X[i]:
+    tmp.append([X[i,j] for i in X])
+  
+
+  
+
+  tmp = []
+for j in X[i]:
+    tmp2 = []
+    for i in X:
+        tmp2.append(X[i,j])
+    tmp.append(tmp2)
+  
+
+ … which should make it obvious what's wrong here. 
+
+ 
+
+  
+
+  [[cell for cell in row] for row in X]
+  
+
+ Again, turn it back into explicit  for  statements: 
+
+  tmp = []
+for row in X;
+    tmp2 = []
+    for cell in row:
+        tmp2.append(cell)
+    tmp.append(tmp2)
+  
+
+ That's obviously right. 
+
+ Or, if you really want to use indexing (but you don't): 
+
+  [[X[i][j] for j in range(len(X[i]))] for i in range(len(X))]
+  
+
+ 
+
+ So, back to NumPy. In NumPy terms, that last version is: 
+
+  [[X[i,j] for j in range(X.shape[1])] for i in range(x.shape[0])]
+  
+
+ … and if you want to go in column-major order instead of row-major, you can (unlike with a list of lists): 
+
+  [[X[i,j] for i in range(X.shape[0])] for j in range(x.shape[1])]
+  
+
+ … but that will of course transpose the array, which isn't what you wanted to do. 
+
+ The one thing you  can't  do is mix up column-major and row-major order in the same expression, because you end up with nonsense. 
+
+ 
+
+ Of course the  right  way to make a copy of an array is to use the  copy  method: 
+
+  X.copy()
+  
+
+ Just as the right way to transpose an array is: 
+
+  X.T
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/19619268)
+ List comprehension does not assign anything, it creates a new list, which you may then use to fill a numpy array. But most of the times when working with  numpy  arrays it is best to use slices: 
+
+  >>> import numpy as np
+>>> yu = np.array([np.nan, np.nan, np.nan, np.nan, np.nan,])
+>>> rte = np.array([1,2,3,4,5])
+>>> yu[:] = rte
+>>> yu
+array([ 1.,  2.,  3.,  4.,  5.])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50816772)
+ Your logic will not work because slicing does not operate on each sublist within a list. It will only operate on the outer list. 
+
+ You can use a list comprehension instead: 
+
+  new_list = [i[:2] for i in list_of_tuples]
+  
+
+ Or, for a functional solution, you can use  operator.itemgetter : 
+
+  from operator import itemgetter
+
+new_list = list(map(itemgetter(0, 1), list_of_tuples))
+
+print(new_list)
+
+[('11', '12'), ('21', '22'), ('31', '32'), ('41', '42')]
+  
+
+ The syntax you are looking for is akin to NumPy array indexing. NumPy is a 3rd party library which allows indexing by multiple dimensions simultaneously: 
+
+  import numpy as  np
+
+arr = np.array(list_of_tuples).astype(int)
+res = arr[:, :2]
+
+print(res)
+
+[[11 12]
+ [21 22]
+ [31 32]
+ [41 42]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23327004)
+ Use  all()  like this: 
+
+  >>> lst = [[1, 2], [1, -3], [-1, -2], [-1, 2], [0, 0], [0, 1], [0, -1]]
+>>> all(x > 0.45 for _, x in lst)
+False
+  
+
+ If you need a list of booleans then use a list comprehension: 
+
+  >>> [x > 0.45 for _, x in lst]
+[True, False, False, True, False, True, False]
+  
+
+  mylist[][1]  is an invalid syntax, but if you can use NumPy then you can do something like: 
+
+  In [1]: arr = np.array([[1, 2], [1, -3], [-1, -2], [-1, 2], [0, 0], [0, 1], [0, -1]])
+
+In [2]: all(arr[:,1] > 0.45)
+Out[2]: False
+
+In [4]: arr[:,1] > .45
+Out[4]: array([ True, False, False,  True, False,  True, False], dtype=bool)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50477952)
+ Unlike  numpy  arrays, you cannot index a list with a list. But you can use a list comprehension for this task: 
+
+  A = [[0], [0, 1], [0, 1, 2], [0, 1], [0, 1, 2, 3]]
+W = [[2, 2], [1, 2, 3], [2, 2, 2, 3], [1, 3, 4, 4], [1, 1, 3, 4]]
+
+res = [[j for i, j in enumerate(w) if i not in a] for a, w in zip(A, W)]
+
+print(res)
+
+[[2], [3], [3], [4, 4], []]
+  
+
+ 
+
+ Or, if you are happy using a 3rd party library,  numpy  syntax is simpler: 
+
+  import numpy as np
+
+res = [np.delete(i, j).tolist() for i, j in zip(W, A)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21365162)
+ Another option (though not necessarily performant) is to rethink your problem as a map instead of a comprehension and write a ufunc: 
+
+ http://docs.scipy.org/doc/numpy/reference/ufuncs.html 
+
+ You can call functional-lite routines like: 
+
+ http://docs.scipy.org/doc/numpy/reference/generated/numpy.apply_over_axes.html
+http://docs.scipy.org/doc/numpy/reference/generated/numpy.vectorize.html 
+
+ Etc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38382890)
+ You can use numpy conditional selections to create new array, without those values. 
+
+  start = time.time()
+m = np.median(r)
+maxr,minr = m-0.5, m+0.5
+filtered_array = r[ (r < minr) | (r > maxr) ]
+end = time.time()
+print('Took %.4f seconds'%(end-start))
+  
+
+  filtered_array  is slice of  r  without masked values (all values that will be later removed by mask already removed in  filtered_array ). 
+
+ Update: used shorter syntax suggested by @ayhan. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6259063)
+ There is really nothing wrong with a list comprehension. This is exactly the sort of thing list comprehensions were designed for. 
+
+ If you're using NumPy (or SciPy), the syntax you're looking for actually does work: 
+
+  from numpy import array
+
+...
+
+x = array([1,2,3,4,5,6,7,8,9])
+xlist = 4<=x
+  
+
+ But if you don't already have a good reason to use NumPy, it's not worth bringing it in just for that syntax. In any case, come to think of it I'm not sure if NumPy works in Python 3 yet. 
+
+
+

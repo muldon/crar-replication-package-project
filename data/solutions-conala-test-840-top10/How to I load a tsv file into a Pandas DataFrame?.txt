@@ -1,0 +1,378 @@
+Query: How to I load a tsv file into a Pandas DataFrame?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/48723559)
+ open file, save as .csv and then apply  
+
+  df = pd.read_csv('apps.csv', sep='\t')
+  
+
+ for any other format also, just change the sep tag 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9656288)
+ Use  read_table(filepath) . The default separator is tab 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/9652858)
+  Note : As of 17.0  from_csv  is discouraged: use  pd.read_csv  instead 
+
+ The documentation lists a http://pandas.pydata.org/pandas-docs/dev/generated/pandas.DataFrame.from_csv.html function that appears to do what you want: 
+
+  DataFrame.from_csv('c:/~/trainSetRel3.txt', sep='\t')
+  
+
+ If you have a header, you can pass  header=0 . 
+
+  DataFrame.from_csv('c:/~/trainSetRel3.txt', sep='\t', header=0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34548894)
+ As of 17.0 http://pandas.pydata.org/pandas-docs/version/0.17.1/generated/pandas.DataFrame.from_csv.html is discouraged. 
+
+ Use  pd.read_csv(fpath, sep='\t')  or  pd.read_table(fpath) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43463594)
+ Given a csv file like this: 
+
+  $ cat test.tsv
+DocID   Text    WhateverAnnotations
+1   Foo bar bar dot dot dot
+2   bar bar black sheep dot dot dot dot
+
+$ cut -f2 test.tsv
+Text
+Foo bar bar
+bar bar black sheep
+  
+
+ And in code: 
+
+  $ python
+>>> import pandas as pd
+>>> pd.read_csv('test.tsv', delimiter='\t')
+   DocID                 Text WhateverAnnotations
+0      1          Foo bar bar         dot dot dot
+1      2  bar bar black sheep     dot dot dot dot
+>>> df = pd.read_csv('test.tsv', delimiter='\t')
+>>> df['Text']
+0            Foo bar bar
+1    bar bar black sheep
+Name: Text, dtype: object
+  
+
+ To use the  pipe  in spacy: 
+
+  >>> import spacy
+>>> nlp = spacy.load('en')
+>>> for parsed_doc in nlp.pipe(iter(df['Text']), batch_size=1, n_threads=4):
+...     print (parsed_doc[0].text, parsed_doc[0].tag_)
+... 
+Foo NNP
+bar NN
+  
+
+ To use  pandas.DataFrame.apply() : 
+
+  >>> df['Parsed'] = df['Text'].apply(nlp)
+
+>>> df['Parsed'].iloc[0]
+Foo bar bar
+>>> type(df['Parsed'].iloc[0])
+<class 'spacy.tokens.doc.Doc'>
+>>> df['Parsed'].iloc[0][0].tag_
+'NNP'
+>>> df['Parsed'].iloc[0][0].text
+'Foo'
+  
+
+ 
+
+ . 
+
+ First duplicate the rows 2 million times: 
+
+  $ cat test.tsv 
+DocID   Text    WhateverAnnotations
+1   Foo bar bar dot dot dot
+2   bar bar black sheep dot dot dot dot
+
+$ tail -n 2 test.tsv > rows2
+
+$ perl -ne 'print "$_" x1000000' rows2 > rows2000000
+
+$ cat test.tsv rows2000000 > test-2M.tsv
+
+$ wc -l test-2M.tsv 
+ 2000003 test-2M.tsv
+
+$ head test-2M.tsv 
+DocID   Text    WhateverAnnotations
+1   Foo bar bar dot dot dot
+2   bar bar black sheep dot dot dot dot
+1   Foo bar bar dot dot dot
+1   Foo bar bar dot dot dot
+1   Foo bar bar dot dot dot
+1   Foo bar bar dot dot dot
+1   Foo bar bar dot dot dot
+1   Foo bar bar dot dot dot
+1   Foo bar bar dot dot dot
+  
+
+ [nlppipe.py]: 
+
+  import time
+
+import pandas as pd
+import spacy
+
+
+df = pd.read_csv('test-2M.tsv', delimiter='\t')
+nlp = spacy.load('en')
+
+start = time.time()
+for parsed_doc in nlp.pipe(iter(df['Text']), batch_size=1000, n_threads=4):
+    x = parsed_doc[0].tag_
+print (time.time() - start)
+  
+
+ [dfapply.py]: 
+
+  import time
+
+import pandas as pd
+import spacy
+
+
+df = pd.read_csv('test-2M.tsv', delimiter='\t')
+nlp = spacy.load('en')
+
+start = time.time()
+df['Parsed'] = df['Text'].apply(nlp)
+
+for doc in df['Parsed']:
+    x = doc[0].tag_
+print (time.time() - start)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/49786129)
+  import pandas as pd
+import numpy as np
+
+tsv_file='name.tsv'
+csv_table=pd.read_table(tsv_file,sep='\t')
+csv_table.to_csv('new_name.csv',index=False)
+  
+
+ I used the above piece of code to convert the .tsv file to .csv file 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/36867978)
+ First of all you want to use  -nl  parameter for  -getmerge : 
+
+  store data into  '/mypath/tempp2' using PigStorage('\t','-schema');
+fs -getmerge -nl /mypath/tempp2  /localpath/data.tsv;
+  
+
+ http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/FileSystemShell.html#getmerge 
+
+ 
+   Optionally -nl can be set to enable adding a newline character (LF) at
+  the end of each file. 
+ 
+
+ then you'll have in your  /localpath/data.tsv  the following structure: 
+
+  0 - headerline
+1 - empty line
+2 - PIG schema
+3 - empty line
+4 - 1-st line of DATA
+5 - 2-nd line of DATA
+...
+  
+
+ so now you can easily read it in pandas: 
+
+  df = pd.read_csv('/localpath/data.tsv', sep='\t', skiprows=[1,2,3])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11042986)
+ Not sure which version of pandas you are using but with  0.7.3  you can export your  DataFrame  to a TSV file and retain the indices by doing this: 
+
+  df.to_csv('mydf.tsv', sep='\t')
+  
+
+ The reason you need to export to TSV versus CSV is since the column headers have  ,  characters in them. This should solve the first part of your question.  
+
+ The second part gets a bit more tricky since from as far as I can tell, you need to beforehand have an idea of what you want your DataFrame to contain. In particular, you need to know: 
+
+ 
+ Which columns on your TSV represent the row  MultiIndex  
+ and that the rest of the columns should also be converted to a  MultiIndex  
+ 
+
+ To illustrate this, lets read back the TSV file we saved above into a new  DataFrame : 
+
+  In [1]: t_df = read_table('mydf.tsv', index_col=[0,1,2])
+In [2]: all(t_df.index == df.index)
+Out[2]: True
+  
+
+ So we managed to read  mydf.tsv  into a  DataFrame  that has the same row index as the original  df .  
+
+  In [3]: all(t_df.columns == df.columns)
+Out[3]: False
+  
+
+ And the reason here is because pandas (as far as I can tell) has no way of parsing the header row correctly into a  MultiIndex . As I mentioned above, if you know beorehand that your TSV file header represents a  MultiIndex  then you can do the following to fix this: 
+
+  In [4]: from ast import literal_eval
+In [5]: t_df.columns = MultiIndex.from_tuples(t_df.columns.map(literal_eval).tolist(), 
+                                              names=['one','two','three'])
+In [6]: all(t_df.columns == df.columns)
+Out[6]: True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42029759)
+ Here one way that allow you to load every at once and do a axis=0 concat: 
+
+ Load your files with an extra column I called  fileid  in that exemple that allow you to identify rows coming from a given file. You should be able to do that in your loading loop 
+
+  df1
+Out[189]: 
+         A    B  fileid
+0  name1.0  4.0       1
+1  name2.0  3.0       1
+2  name3.0  2.0       1
+
+df2
+Out[190]: 
+         A    B  fileid
+0  name1.0  3.0       2
+1  name3.0  4.0       2
+2  name4.0  5.0       2
+3  name5.3  0.0       2
+  
+
+ Do a one time clean up on your column  A : 
+
+  df = pd.concat([df1, df2])
+
+df.A = df.A.str.split('.', n=1, expand=True)[0]
+
+df
+Out[183]: 
+       A    B  fileid
+0  name1  4.0       1
+1  name2  3.0       1
+2  name3  2.0       1
+0  name1  3.0       2
+1  name3  4.0       2
+2  name4  5.0       2
+3  name5  0.0       2
+  
+
+ . Columns are naturally identified by the file they come from with the naming convention used in  fileid : 
+
+  df.pivot('A', 'fileid', 'B')
+Out[192]: 
+fileid    1    2
+A               
+name1   4.0  3.0
+name2   3.0  NaN
+name3   2.0  4.0
+name4   NaN  5.0
+name5   NaN  0.0
+  
+
+ For a larger audience, I find this approach advantageous because when we deal with way more files or when we want to parallelize the calculation, this approach fits well with http://dask.pydata.org: you apply the https://gist.github.com/mrocklin/e7b7b3a65f2835cda813096332ec73ca to get dask loading yourfile in parallel  and  adding the  fileid column at the same time. And now you can compute your entire resulting dataframe in parallel "for free" (like 5 more lines of code,  import dask  statement included...) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31797414)
+ I think you are looking to use  pandas.Series.unique . First, make the  'Name'  index a column 
+
+  df
+#     Value2  Value
+#Name              
+#A         x    8.8
+#B         y    6.6
+#A         x    6.6
+#A         x    8.8
+
+df.reset_index(inplace=True)
+#  Name Value2  Value
+#0    A      x    8.8
+#1    B      y    6.6
+#2    A      x    6.6
+#3    A      x    8.8
+  
+
+ Next call  groupby  and call the  unique  function on the  'Value'  series 
+
+  gb = df.groupby(('Name','Value2'))
+result = gb['Value'].unique()
+result.reset_index(inplace=True) #lastly, reset the index
+#  Name Value2       Value
+#0    A      x  [8.8, 6.6]
+#1    B      y       [6.6]
+  
+
+ Finally, if you want  'Name'  as the index again, just do 
+
+  result.set_index( 'Name', inplace=True)
+#     Value2       Value
+#Name                   
+#A         x  [8.8, 6.6]
+#B         y       [6.6]
+  
+
+ UPDATE 
+
+ As a follow up, make sure you re-assign result after resetting the index 
+
+  result = gb['Value'].unique()
+type(result)
+#pandas.core.series.Series
+
+result = result.reset_index()
+type(result)
+#pandas.core.frame.DataFrame
+  
+
+ saving as CSV (rather TSV) 
+
+ You don't want to use CSV here because there are commas in the  Value  column entries. Rather, save as TSV, you still use the same method  to_csv , just change the  sep  arg: 
+
+  result.to_csv( 'result.txt', sep='\t')
+  
+
+ If I load result.txt in EXCEL as a TSV, I get 
+
+ https://i.stack.imgur.com/ZP4MH.png 
+
+
+

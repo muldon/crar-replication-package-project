@@ -1,0 +1,252 @@
+Query: Numpy: find the euclidean distance between two 3-D arrays
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/46908540)
+ Use vectorized approach 
+
+  In [5463]: (df[['lat', 'long']] - np.array(L1)).pow(2).sum(1).pow(0.5)
+Out[5463]:
+0     8.369161
+1    18.523838
+2    26.066777
+3    18.632320
+4    22.546096
+dtype: float64
+  
+
+ Which  can also be 
+
+  In [5468]: df['distance'] = df[['lat', 'long']].sub(np.array(L1)).pow(2).sum(1).pow(0.5)
+
+In [5469]: df
+Out[5469]:
+   id     lat   long   distance
+0   1  12.654  15.50   8.369161
+1   2  14.364  25.51  18.523838
+2   3  17.636  32.53  26.066777
+3   5  12.334  25.84  18.632320
+4   9  32.224  15.74  22.546096
+  
+
+ 
+
+  Option 2  Use Numpy's built-in  np.linalg.norm  vector norm. 
+
+  In [5473]: np.linalg.norm(df[['lat', 'long']].sub(np.array(L1)), axis=1)
+Out[5473]: array([  8.36916101,  18.52383805,  26.06677732,  18.63231966,   22.5460958 ])
+
+In [5485]: df['distance'] = np.linalg.norm(df[['lat', 'long']].sub(np.array(L1)), axis=1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29913436)
+ You can compute the Euclidean distance between the two matrices: 
+
+  import numpy as np
+import scipy.spatial.distance
+import matplotlib.pyplot as plt
+x = np.array([[0.12, 0.11, 0.1, 0.09, 0.08],
+   [0.13, 0.12, 0.11, 0.1, 0.09],
+   [0.15, 0.14, 0.12, 0.11, 0.1],
+   [0.17, 0.15, 0.14, 0.12, 0.11],
+   [0.19, 0.17, 0.16, 0.14, 0.12],
+   [0.22, 0.19, 0.17, 0.15, 0.13],
+   [0.24, 0.22, 0.19, 0.16, 0.14],
+   [0.27, 0.24, 0.21, 0.18, 0.15],
+   [0.29, 0.26, 0.22, 0.19, 0.16]])
+y = np.array([[0.07, 0.06, 0.05, 0.04, 0.03],
+          [0.08, 0.07, 0.06, 0.05, 0.04],
+          [0.10, 0.09, 0.07, 0.06, 0.05],
+          [0.14, 0.12, 0.11, 0.09, 0.08],
+          [0.16, 0.14, 0.13, 0.11, 0.09],
+          [0.19, 0.16, 0.14, 0.12, 0.10],
+          [0.22, 0.20, 0.17, 0.14, 0.12],
+          [0.25, 0.22, 0.19, 0.16, 0.13],
+          [0.27, 0.24, 0.20, 0.17, 0.14]])
+
+dists = []
+for i in range(100):
+     y = y + (i / 10000.)
+     dists.append(scipy.spatial.distance.euclidean(x.flatten(), y.flatten()))
+plt.plot(dists)
+  
+
+ will return this graph, which is the evolution of the Euclidean distance between your 2 matrices:
+  
+
+ To break the loop at the minimum, you can use: 
+
+  dist = np.inf
+for i in range(100):
+    y = y + (i / 10000.)
+    d = scipy.spatial.distance.euclidean(x.flatten(), y.flatten())
+    if d < dist:
+        dist = d
+    else:
+        break
+print dist
+# 0.0838525491562 #(the minimal distance)
+print y
+#[[ 0.1051  0.0951  0.0851  0.0751  0.0651] 
+#[ 0.1151  0.1051  0.0951  0.0851  0.0751] 
+#[ 0.1351  0.1251  0.1051  0.0951  0.0851] 
+#[ 0.1751  0.1551  0.1451  0.1251  0.1151] 
+#[ 0.1951  0.1751  0.1651  0.1451  0.1251] 
+#[ 0.2251  0.1951  0.1751  0.1551  0.1351] 
+#[ 0.2551  0.2351  0.2051  0.1751  0.1551] 
+#[ 0.2851  0.2551  0.2251  0.1951  0.1651] 
+#[ 0.3051  0.2751  0.2351  0.2051  0.1751]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/1871595)
+  
+
+  dists = numpy.sqrt((xy1[:, 0, numpy.newaxis] - xy2[:, 0])**2 + (xy1[:, 1, numpy.newaxis - xy2[:, 1])**2)
+mindist = numpy.min(dists, axis=1)
+minid = numpy.argmin(dists, axis=1)
+  
+
+  Edit : Instead of calling  sqrt , doing squares, etc., you can use  numpy.hypot : 
+
+  dists = numpy.hypot(xy1[:, 0, numpy.newaxis]-xy2[:, 0], xy1[:, 1, numpy.newaxis]-xy2[:, 1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/1871630)
+ To compute  m by p matrix of distances, this should work: 
+
+  >>> def distances(xy1, xy2):
+...   d0 = numpy.subtract.outer(xy1[:,0], xy2[:,0])
+...   d1 = numpy.subtract.outer(xy1[:,1], xy2[:,1])
+...   return numpy.hypot(d0, d1)
+  
+
+   .outer  calls make two such matrices (of scalar differences along  two axes),   .hypot  calls turns those into a same-shape matrix (of scalar euclidean distances). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3127955)
+ (Months later)
+ scipy.spatial.distance.cdist( X, Y ) 
+gives all pairs of distances,
+for X and Y 2 dim, 3 dim ... 
+It also does 22 different norms, detailed
+http://docs.scipy.org/doc/scipy/reference/spatial.distance.html . 
+
+  # cdist example: (nx,dim) (ny,dim) -> (nx,ny)
+
+from __future__ import division
+import sys
+import numpy as np
+from scipy.spatial.distance import cdist
+
+#...............................................................................
+dim = 10
+nx = 1000
+ny = 100
+metric = "euclidean"
+seed = 1
+
+    # change these params in sh or ipython: run this.py dim=3 ...
+for arg in sys.argv[1:]:
+    exec( arg )
+np.random.seed(seed)
+np.set_printoptions( 2, threshold=100, edgeitems=10, suppress=True )
+
+title = "%s  dim %d  nx %d  ny %d  metric %s" % (
+        __file__, dim, nx, ny, metric )
+print "\n", title
+
+#...............................................................................
+X = np.random.uniform( 0, 1, size=(nx,dim) )
+Y = np.random.uniform( 0, 1, size=(ny,dim) )
+dist = cdist( X, Y, metric=metric )  # -> (nx, ny) distances
+#...............................................................................
+
+print "scipy.spatial.distance.cdist: X %s Y %s -> %s" % (
+        X.shape, Y.shape, dist.shape )
+print "dist average %.3g +- %.2g" % (dist.mean(), dist.std())
+print "check: dist[0,3] %.3g == cdist( [X[0]], [Y[3]] ) %.3g" % (
+        dist[0,3], cdist( [X[0]], [Y[3]] ))
+
+
+# (trivia: how do pairwise distances between uniform-random points in the unit cube
+# depend on the metric ? With the right scaling, not much at all:
+# L1 / dim      ~ .33 +- .2/sqrt dim
+# L2 / sqrt dim ~ .4 +- .2/sqrt dim
+# Lmax / 2      ~ .4 +- .2/sqrt dim
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/18425866)
+  hypot  is another valid alternative 
+
+  a, b = randn(10, 2), randn(10, 2)
+ahat, bhat = (a - b).T
+r = hypot(ahat, bhat)
+  
+
+ Result of  timeit s between manual calculation and  hypot : 
+
+ Manual: 
+
+  timeit sqrt(((a - b) ** 2).sum(-1))
+100000 loops, best of 3: 10.3 µs per loop
+  
+
+ Using  hypot : 
+
+  timeit hypot(ahat, bhat)
+1000000 loops, best of 3: 1.3 µs per loop
+  
+
+ Now how about some adult-sized arrays: 
+
+  a, b = randn(1e7, 2), randn(1e7, 2)
+ahat, bhat = (a - b).T
+
+timeit -r10 -n3 hypot(ahat, bhat)
+3 loops, best of 10: 208 ms per loop
+
+timeit -r10 -n3 sqrt(((a - b) ** 2).sum(-1))
+3 loops, best of 10: 224 ms per loop
+  
+
+ Not much of a performance difference between the two methods. You can squeeze out a tiny bit more from the latter by avoiding  pow : 
+
+  d = a - b
+
+timeit -r10 -n3 sqrt((d * d).sum(-1))
+3 loops, best of 10: 184 ms per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20943162)
+ I find a 'dist' function in matplotlib.mlab, but I don't think it's handy enough.  
+
+ I'm posting it here just for reference. 
+
+  import numpy as np
+import matplotlib as plt
+
+a = np.array([1, 2, 3])
+b = np.array([2, 3, 4])
+
+# Distance between a and b
+dis = plt.mlab.dist(a, b)
+  
+
+
+

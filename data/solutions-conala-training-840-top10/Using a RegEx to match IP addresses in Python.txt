@@ -1,0 +1,185 @@
+Query: Using a RegEx to match IP addresses in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/11264379)
+ Using regex to validate IP address is a bad idea - this will pass 999.999.999.999 as valid. Try this approach using socket instead - much better validation and just as easy, if not easier to do. 
+
+  import socket
+
+def valid_ip(address):
+    try: 
+        socket.inet_aton(address)
+        return True
+    except:
+        return False
+
+print valid_ip('10.10.20.30')
+print valid_ip('999.10.20.30')
+print valid_ip('gibberish')
+  
+
+ If you really want to use parse-the-host approach instead, this code will do it exactly: 
+
+  def valid_ip(address):
+    try:
+        host_bytes = address.split('.')
+        valid = [int(b) for b in host_bytes]
+        valid = [b for b in valid if b >= 0 and b<=255]
+        return len(host_bytes) == 4 and len(valid) == 4
+    except:
+        return False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49637857)
+ You need to escape all dots (since you want to match them as literal chars), only use capturing groups around those patterns that you want  re.findall  to return and use non-capturing groups around the patterns you do not need it to yield, and use word boundaries. 
+
+  re.findall(r'\b((?:10|192|172)(?:\.\d{1,3}){3}\s*/(\d+))', s)
+  
+
+ See the https://regex101.com/r/d57ABN/2. 
+
+ See the http://rextester.com/IBZP47677: 
+
+  import re
+rx = r"\b((?:10|192|172)(?:\.\d{1,3}){3}\s*/(\d+))"
+ss = ["B    10.50.13.0 /26 blah foo", "O    192.169.5.0 /24 foo foo", "B    172.18.0.0/16 etc etc", "B    82.33.4.0/24 yak yak yak"]
+for s in ss:
+    print(s)
+    m = re.findall(rx, s)
+    if m:
+        print(m)
+    else:
+        print("NO MATCH")
+  
+
+ Output: 
+
+  B    10.50.13.0 /26 blah foo
+[('10.50.13.0 /26', '26')]
+O    192.169.5.0 /24 foo foo
+[('192.169.5.0 /24', '24')]
+B    172.18.0.0/16 etc etc
+[('172.18.0.0/16', '16')]
+B    82.33.4.0/24 yak yak yak
+NO MATCH
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11264056)
+ You have to modify your regex in the following way 
+
+  pat = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+  
+
+ that's because  .  is a wildcard that stands for "every character" 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6716516)
+ Here is a solution improving the regular expression and also adding in IP address validation. 
+
+  import re
+
+match = re.match(r'\s+id\s+((?:\d+\.){3}\d+),\s+data\s+((?:\d+\.){3}\d+),\s+Type Transit\s+(\d{1,2})', line)
+if match:
+    id, data = match.group(1, 2)
+    # Now actually check the IP addresses.
+    _i, _d = id.split('.'), data.split('.')
+    if (len(_i) != 4 or not all(s.isdigit() and 0 <= int(s) < 256 for s in _i)
+    or len(_d) != 4 or not all(s.isdigit() and 0 <= int(s) < 256 for s in _d)):
+        # Cancel that, hit an invalid IP address
+        del id, data
+        match = None
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2890922)
+ You can use the following regex to capture only valid IP addresses 
+
+  re.findall(r'\b25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\b',s)
+  
+
+ returns 
+
+  ['165', '91', '15', '131']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19435479)
+ Use  search  in place of  match  
+
+  pat = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+test = pat.search(linesout)
+  
+
+ If you want to use  match  then prepend regex with  .  
+
+  pat = re.compile(".\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+test = pat.match(linesout)
+  
+
+ Output in both case: 
+
+  Acceptable ip address
+  
+
+ Quoting from documentation  of http://docs.python.org/2/library/re.html#search-vs-match 
+
+ 
+   Python offers two different primitive operations based on regular
+  expressions: re.match() checks for a match only at the beginning of
+  the string, while re.search() checks for a match anywhere in the
+  string (this is what Perl does by default). 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11277266)
+ regex for ip v4:  
+
+  ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
+  
+
+ otherwise you take not valid ip address like 999.999.999.999, 256.0.0.0 etc 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/5111878)
+ For a list of IP addresses on *nix systems, 
+
+  import subprocess
+co = subprocess.Popen(['ifconfig'], stdout = subprocess.PIPE)
+ifconfig = co.stdout.read()
+ip_regex = re.compile('((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-4]|2[0-5][0-9]|[01]?[0-9][0-9]?))')
+[match[0] for match in ip_regex.findall(ifconfig, re.MULTILINE)]
+  
+
+ Though it's a bit late for this answer, I thought someone else may find it useful :-) 
+
+ PS : It'll return Broadcast addresses and Netmask as well. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30675214)
+ The following regexp should work: 
+
+  ^(?:10|127|172\.(?:1[6-9]|2[0-9]|3[01])|192\.168)\..*
+  
+
+ https://regex101.com/r/bO9kB2/2 
+
+
+

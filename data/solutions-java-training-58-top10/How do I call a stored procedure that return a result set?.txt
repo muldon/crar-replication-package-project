@@ -1,0 +1,483 @@
+Query: How do I call a stored procedure that return a result set?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40419296)
+ I wrote a very detailed article about https://vladmihalcea.com/how-to-call-mysql-stored-procedures-and-functions-with-jpa-and-hibernate/, but I'll write a short summary here as well. 
+
+ Considering you have a simple stored procedure that outputs a basic type: 
+
+  CREATE PROCEDURE count_comments (
+   IN postId INT, 
+   OUT commentCount INT
+) 
+BEGIN
+    SELECT COUNT(*) INTO commentCount 
+    FROM post_comment  
+    WHERE post_comment.post_id = postId; 
+END
+  
+
+ You can call this stored procedure using a JPA  StoredProcedureQuery : 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("count_comments")
+    .registerStoredProcedureParameter(
+        "postId", Long.class, ParameterMode.IN)
+    .registerStoredProcedureParameter(
+        "commentCount", Long.class, ParameterMode.OUT)
+    .setParameter("postId", 1L);
+
+query.execute();
+
+Long commentCount = (Long) query
+    .getOutputParameterValue("commentCount");
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42169952)
+ When we execute a stored procedure in JDBC we get back a series of zero or more "results". We can then process those "results" sequentially by calling  CallableStatement#getMoreResults() . Each "result" can contain 
+
+ 
+ zero or more rows of data that we can retrieve with a  ResultSet  object, 
+ an update count for a DML statement (INSERT, UPDATE, DELETE) that we can retrieve with  CallableStatement#getUpdateCount() , or 
+ an error that throws an SQLServerException. 
+ 
+
+ For "Issue 1" the problem is often that the stored procedure does not begin with  SET NOCOUNT ON;  and executes a DML statement before doing a SELECT to produce a result set. The update count for the DML is returned as the first "result", and the data rows are "stuck behind it" until we call  getMoreResults . 
+
+ "Issue 2" is essentially same problem. The stored procedure produces a "result" (usually a SELECT, or possibly an update count) before the error occurs. The error is returned in a subsequent "result" and does not cause an exception until we "retrieve" it using  getMoreResults . 
+
+ In many cases the problem can be avoided by simply adding  SET NOCOUNT ON;  as the first executable statement in the stored procedure. However, a change to the stored procedure is not always possible and the fact remains that in order to get  everything  back from the stored procedure we need to keep calling  getMoreResults  until, as the Javadoc says: 
+
+<pre class="lang-none prettyprint-override"> There are no more results when the following is true: 
+
+     // stmt is a Statement object
+     ((stmt.getMoreResults() == false) && (stmt.getUpdateCount() == -1))
+  
+
+ That sounds simple enough but as usual, "the devil is in the details", as illustrated by the following example. For a SQL Server stored procedure ... 
+
+<pre class="lang-sql prettyprint-override"> ALTER PROCEDURE dbo.TroublesomeSP AS
+BEGIN
+    -- note: no `SET NOCOUNT ON;`
+    DECLARE @tbl TABLE (id VARCHAR(3) PRIMARY KEY);
+
+    DROP TABLE NonExistent;
+    INSERT INTO @tbl (id) VALUES ('001');
+    SELECT id FROM @tbl;
+    INSERT INTO @tbl (id) VALUES ('001');  -- duplicate key error
+    SELECT 1/0;  -- error _inside_ ResultSet
+    INSERT INTO @tbl (id) VALUES ('101');
+    INSERT INTO @tbl (id) VALUES ('201'),('202');
+    SELECT id FROM @tbl;
+END
+  
+
+ ... the following Java code will return everything ... 
+
+<pre class="lang-java prettyprint-override"> try (CallableStatement cs = conn.prepareCall("{call dbo.TroublesomeSP}")) {
+    boolean resultSetAvailable = false;
+    int numberOfResultsProcessed = 0;
+    try {
+        resultSetAvailable = cs.execute();
+    } catch (SQLServerException sse) {
+        System.out.printf("Exception thrown on execute: %s%n%n", sse.getMessage());
+        numberOfResultsProcessed++;
+    }
+    int updateCount = -2;  // initialize to impossible(?) value
+    while (true) {
+        boolean exceptionOccurred = true; 
+        do {
+            try {
+                if (numberOfResultsProcessed > 0) {
+                    resultSetAvailable = cs.getMoreResults();
+                }
+                exceptionOccurred = false;
+                updateCount = cs.getUpdateCount();
+            } catch (SQLServerException sse) {
+                System.out.printf("Current result is an exception: %s%n%n", sse.getMessage());
+            }
+            numberOfResultsProcessed++;
+        } while (exceptionOccurred);
+
+        if ((!resultSetAvailable) && (updateCount == -1)) {
+            break;  // we're done
+        }
+
+        if (resultSetAvailable) {
+            System.out.println("Current result is a ResultSet:");
+            try (ResultSet rs = cs.getResultSet()) {
+                try {
+                    while (rs.next()) {
+                        System.out.println(rs.getString(1));
+                    }
+                } catch (SQLServerException sse) {
+                    System.out.printf("Exception while processing ResultSet: %s%n", sse.getMessage());
+                }
+            }
+        } else {
+            System.out.printf("Current result is an update count: %d %s affected%n",
+                    updateCount,
+                    updateCount == 1 ? "row was" : "rows were");
+        }
+        System.out.println();
+    }
+    System.out.println("[end of results]");
+}
+  
+
+ ... producing the following console output: 
+
+<pre class="lang-none prettyprint-override"> Exception thrown on execute: Cannot drop the table 'NonExistent', because it does not exist or you do not have permission.
+
+Current result is an update count: 1 row was affected
+
+Current result is a ResultSet:
+001
+
+Current result is an exception: Violation of PRIMARY KEY constraint 'PK__#314D4EA__3213E83F3335971A'. Cannot insert duplicate key in object 'dbo.@tbl'. The duplicate key value is (001).
+
+Current result is a ResultSet:
+Exception while processing ResultSet: Divide by zero error encountered.
+
+Current result is an update count: 1 row was affected
+
+Current result is an update count: 2 rows were affected
+
+Current result is a ResultSet:
+001
+101
+201
+202
+
+[end of results]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48147962)
+ 
+  For a simple stored procedure that using IN/OUT parameters like this 
+
+  CREATE OR REPLACE PROCEDURE count_comments (  
+   postId IN NUMBER,  
+   commentCount OUT NUMBER )  
+AS 
+BEGIN 
+    SELECT COUNT(*) INTO commentCount  
+    FROM post_comment  
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call it from JPA as follows: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("count_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+        ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Long.class, 
+        ParameterMode.OUT)
+    .setParameter(1, 1L);
+
+query.execute();
+
+Long commentCount = (Long) query.getOutputParameterValue(2);
+   
+  For a stored procedure which uses a  SYS_REFCURSOR  OUT parameter: 
+
+  CREATE OR REPLACE PROCEDURE post_comments ( 
+   postId IN NUMBER, 
+   postComments OUT SYS_REFCURSOR ) 
+AS 
+BEGIN
+    OPEN postComments FOR
+    SELECT *
+    FROM post_comment 
+    WHERE post_id = postId; 
+END;
+  
+
+ You can call it as follows: 
+
+  StoredProcedureQuery query = entityManager
+    .createStoredProcedureQuery("post_comments")
+    .registerStoredProcedureParameter(1, Long.class, 
+         ParameterMode.IN)
+    .registerStoredProcedureParameter(2, Class.class, 
+         ParameterMode.REF_CURSOR)
+    .setParameter(1, 1L);
+
+query.execute();
+
+List<Object[]> postComments = query.getResultList();
+   
+  For a SQL function that looks as follows: 
+
+  CREATE OR REPLACE FUNCTION fn_count_comments ( 
+    postId IN NUMBER ) 
+    RETURN NUMBER 
+IS
+    commentCount NUMBER; 
+BEGIN
+    SELECT COUNT(*) INTO commentCount 
+    FROM post_comment 
+    WHERE post_id = postId; 
+    RETURN( commentCount ); 
+END;
+  
+
+ You can call it like this: 
+
+  BigDecimal commentCount = (BigDecimal) entityManager
+.createNativeQuery(
+    "SELECT fn_count_comments(:postId) FROM DUAL"
+)
+.setParameter("postId", 1L)
+.getSingleResult();
+  
+
+ At least when using Hibernate 4.x and 5.x because the JPA  StoredProcedureQuery  does not work for SQL FUNCTIONS.  
+ 
+
+ For more details about how to call stored procedures and functions when using JPA and Hibernate, check out the following articles 
+
+ 
+ https://vladmihalcea.com/how-to-call-oracle-stored-procedures-and-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-sql-server-stored-procedures-and-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-postgresql-functions-from-hibernate/ 
+ https://vladmihalcea.com/how-to-call-mysql-stored-procedures-and-functions-with-jpa-and-hibernate/ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/10609281)
+ In the stored procedure, I replaced  
+
+  return @AuthIntValue
+  
+
+  
+
+  select @AuthIntValue as RetVat
+  
+
+ The way I call the stored procedure and transform the result into an object I created. 
+
+  StoredProcResult o = (StoredProcResult)session.createSQLQuery("exec CheckEquipmentAuthorization :replicaId")
+.addScalar("retVal", Hibernate.INTEGER)
+.setParameter("replicaId", replicaId)
+.setResultTransformer(Transformers.aliasToBean(StoredProcResult.class))
+.setCacheMode(CacheMode.GET)
+.uniqueResult();
+
+int xpto = o.getRetVal();
+  
+
+  
+
+  public class StoredProcResult {
+    public int retVal;
+
+    public int getRetVal() {
+        return retVal;
+    }
+
+    public void setRetVal(int retVal) {
+        this.retVal = retVal;
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/10295486)
+ First thing is you should write msql procedure that sends parameter for  LIKE , 
+
+  CREATE PROCEDURE simpleproc (param1 CHAR(20))
+BEGIN
+SELECT * FROM employee where empName like param1;
+END
+  
+
+ Then from java program you can use this code to use procedure, 
+
+  CallableStatement cstmt = con.prepareCall("{call simpleproc(?)}");
+cstmt.setString(1, "%su%");
+ResultSet rs = cstmt.executeQuery();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/40984167)
+ Here are the ways to call the stored procedures from java 
+
+  1.   
+
+   connection = jdbcTemplate.getDataSource().getConnection();
+  CallableStatement callableStatement = connection.prepareCall("{call STORED_PROCEDURE_NAME(?, ?, ?)}");
+  callableStatement.setString(1, "FirstName");
+  callableStatement.setString(2, " LastName");
+  callableStatement.registerOutParameter(3, Types.VARCHAR);
+  callableStatement.executeUpdate();
+  
+
+ Here we externally manage the resource closing 
+
+  2. Using CallableStatementCreator  
+
+   List paramList = new ArrayList();
+    paramList.add(new SqlParameter(Types.VARCHAR));
+    paramList.add(new SqlParameter(Types.VARCHAR));
+    paramList.add(new SqlOutParameter("msg", Types.VARCHAR));
+
+    Map<String, Object> resultMap = jdbcTemplate.call(new CallableStatementCreator() {
+
+    @Override
+    public CallableStatement createCallableStatement(Connection connection)
+    throws SQLException {
+
+    CallableStatement callableStatement = connection.prepareCall("{call STORED_PROCEDURE_NAME(?, ?, ?)}");
+    callableStatement.setString(1, "FirstName");
+            callableStatement.setString(2, " LastName");
+            callableStatement.registerOutParameter(3, Types.VARCHAR);
+    return callableStatement;
+
+    }
+    }, paramList);
+  
+
+  3. Use SimpleJdbcCall:  
+
+  SimpleJdbcCall simpleJdbcCall = new SimpleJdbcCall(jdbcTemplate)
+
+.withProcedureName("STORED_PROCEDURE_NAME");
+
+Map<String, Object> inParamMap = new HashMap<String, Object>();
+inParamMap.put("firstName", "FirstNameValue");
+inParamMap.put("lastName", "LastNameValue");
+SqlParameterSource in = new MapSqlParameterSource(inParamMap);
+
+
+Map<String, Object> simpleJdbcCallResult = simpleJdbcCall.execute(in);
+System.out.println(simpleJdbcCallResult);
+  
+
+  4. Use StoredProcedure class of org.springframework.jdbc.object  
+
+  The Code:
+First Create subclass of StoredProcedure: MyStoredProcedure
+
+class MyStoredProcedure extends StoredProcedure {
+
+public MyStoredProcedure(JdbcTemplate jdbcTemplate, String name) {
+
+super(jdbcTemplate, name);
+setFunction(false);
+
+}
+
+}
+
+Use MyStoredProcedure to call database stored procedure:
+
+
+//Pass jdbcTemlate and name of the stored Procedure.
+MyStoredProcedure myStoredProcedure = new MyStoredProcedure(jdbcTemplate, "PROC_TEST");
+
+//Sql parameter mapping
+SqlParameter fNameParam = new SqlParameter("fName", Types.VARCHAR);
+SqlParameter lNameParam = new SqlParameter("lName", Types.VARCHAR);
+SqlOutParameter msgParam = new SqlOutParameter("msg", Types.VARCHAR);
+SqlParameter[] paramArray = {fNameParam, lNameParam, msgParam};
+
+
+myStoredProcedure.setParameters(paramArray);
+myStoredProcedure.compile();
+
+
+//Call stored procedure
+Map storedProcResult = myStoredProcedure.execute("FirstNameValue", " LastNameValue");
+  
+
+ https://lalitjc.wordpress.com/2013/07/02/different-ways-of-calling-stored-procedure-using-spring/ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/4499848)
+ Use the SqlOutPutParameters :) 
+
+ Here is an example : 
+
+  SimpleJdbcCall countryProcedure = new SimpleJdbcCall(dataSource)
+        .withoutProcedureColumnMetaDataAccess()
+        .withProcedureName(procedureName)
+        .declareParameters(new SqlOutParameter("RETURNCODE", Types.INTEGER))
+        .declareParameters(new SqlOutParameter("RETURNMSG", Types.VARCHAR));
+Map result = countryProcedure.execute();
+        System.out.println("RETURNCODE: " + result.get("RETURNCODE"));
+        System.out.println("RETURNMSG: " + result.get("RETURNMSG"));
+  
+
+  Edit  :
+I looked at it and there is a simpler way. Use the WithReturnValue() on your SimpleJdbcCall and the return value will be stored in the return Map under the "return" key. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/14371479)
+ JPA 2.1 early draft states that there will be support for stored procedures, https://blogs.oracle.com/arungupta/entry/jpa_2_1_early_draft from Oracle. 
+
+ 
+   Support for Stored Procedures: Added support for the invocation of predefined database functions and user-defined database functions to the Java Persistence query language. 
+  
+   There are different variants of  EntityManager.createXXXStoredProcedureQuery  methods that return a StoredProcedureQuery for executing a stored procedure.  Just liked  @NamedQuery , there is  @NamedStoredProcedureQuery  that specifies and names a stored procedure, its parameters, and its result type. This annotation can be specified on an entity or mapped superclass. The name specified in the annotation is then used in  EntityManager.createNamedStoredProcedureQuery . The IN, OUT, and INOUT parameters can be set and used to retrieve values passed back from the procedure. For example: 
+ 
+
+  @Entity
+@NamedStoredProcedureQuery(name="topGiftsStoredProcedure", procedureName="Top10Gifts")
+public class Product {
+ . . .
+}
+
+// In your client
+
+StoredProcedreQuery query = EntityManager.createNamedStoredProcedureQuery("topGiftsStoredProcedure");
+query.registerStoredProcedureParameter(1, String.class, ParameterMode.INOUT);
+query.setParameter(1, "top10");
+query.registerStoredProcedureParameter(2, Integer.class, ParameterMode.IN);
+query.setParameter(2, 100);
+// there are other setParameter methods for defining the temporal type of a parameter
+. . .
+query.execute();
+String response = query.getOutputParameterValue(1);
+  
+
+ As for when the spec is going to be finalized, or when Hibernate will support JPA 2.1, I can't say.  But it might be worth keeping an eye out. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11881259)
+ This feature isn't supported by JDBC. You will have to create an SQL string and execute that: 
+
+  String sql = "exec my_stored_procedure\n@parameter_1 = ?,\n@parameter_2 = ?,\n@parameter_9 = ?";
+
+PreparedStatement stmt = ...
+stmt.setString( 1, "ONE" );
+stmt.setString( 2, "TWO" );
+stmt.setString( 3, "NINE" );
+stmt.execute();
+  
+
+ Remember: JDBC doesn't try to understand the SQL that you're sending to the database except for some special characters like  {}  and  ? . I once wrote a JDBC "database" which would accept JavaScript snippets as "SQL": I simply implemented  DataSource ,  Connection  and  ResultSet  and I could query my application's memory model using the JDBC interface but with JavaScript as query language. 
+
+
+

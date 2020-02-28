@@ -1,0 +1,201 @@
+Query: Pandas (python) plot() without a legend
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/40978321)
+ In order to remove a legend that has once been drawn, use 
+
+  plt.gca().get_legend().remove()
+  
+
+ assuming that you have  import ed  matplotlib.pyplot as plt  or  
+
+  ax.get_legend().remove()
+  
+
+ if  ax  is the axes where the legend resides. 
+
+ Alternatively, see Nipun Batras answer if there is some choice to turn the legend off from the beginning in which case one can simply use  
+
+  df.plot(legend=False)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/36045263)
+  
+
+  fig, ax = plt.subplots(figsize=(8,6))
+for i, grp in df.groupby(level=0):
+    grp.plot(x='SHIFT', y='INFORMATION_SURPLUS_PCT', label=str(i), ax=ax)
+  
+
+ https://i.stack.imgur.com/eDSyw.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/29640501)
+ So after your Series plot you could add this 
+
+  import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+
+NA = mpatches.Patch(color='blue', label='North America')
+EU = mpatches.Patch(color='green', label='Europe')
+AP = mpatches.Patch(color='red', label='Asia/Pacific')
+SA = mpatches.Patch(color='yellow', label='South America')
+plt.legend(handles=[NA,EU,AP,SA], loc=2)
+
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20865567)
+ There is a parameter in the function corresponding to legend; by default it is True 
+
+  df.plot(legend=False)
+  
+
+ Following is the definition of the  .plot()  method 
+
+ 
+   Definition: df.plot(frame=None, x=None, y=None, subplots=False, sharex=True, sharey=False, use_index=True, figsize=None, grid=None, legend=True, rot=None, ax=None, style=None, title=None, xlim=None, ylim=None, logx=False, logy=False, xticks=None, yticks=None, kind='line', sort_columns=False, fontsize=None, secondary_y=False, **kwds) 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/22070926)
+ I think what you want to do is be able to display a legend for a subset of the lines on your plot. This should do it: 
+
+  df = pd.DataFrame(np.random.randn(400, 4), columns=['one', 'two', 'three', 'four'])
+ax1 = df.cumsum().plot()
+lines, labels = ax1.get_legend_handles_labels()
+ax1.legend(lines[:2], labels[:2], loc='best')  # legend for first two lines only
+  
+
+ Giving 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/23556339)
+ I think  you need to call  plot  before you add the calling  legend . 
+
+  import pandas as pd
+import matplotlib.pyplot as plt
+a = {'Test1': {1: 21867186, 4: 20145576, 10: 18018537},
+    'Test2': {1: 23256313, 4: 21668216, 10: 19795367}}
+
+d = pd.DataFrame(a).T
+#print d
+
+f = plt.figure()
+
+plt.title('Title here!', color='black')
+d.plot(kind='bar', ax=f.gca())
+plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+plt.show()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33960046)
+ 
+  You can have all the legends in the same place, but you would have to create them in a separate step.  
+
+  # Plotting
+df.plot(kind='line', subplots=True, grid=True, title="Sample Data (Unit)",
+    layout=(4, 3), sharex=True, sharey=False, legend=False,    
+    style=['r', 'r', 'r', 'g', 'g', 'g', 'b', 'b', 'b', 'r', 'r', 'r'],
+    xticks=np.arange(0, len(df), 16))
+
+[ax.legend(loc=1) for ax in plt.gcf().axes]
+   
+  . just use  plt.tight_layout()  before you  show  or  savefig . Compare the two examples below created with and without  tight_layout .  
+ 
+
+ Without  tight_layout() : 
+
+ https://i.stack.imgur.com/RcCX4.png 
+
+ With  tight_layout() : 
+
+ <a href="https://i.stack.imgur.com/IDRb1.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50655786)
+ A simpler solution without  plt : 
+
+  ax1 = df1.plot()
+
+ax2 = ax1.twinx()
+ax2.spines['right'].set_position(('axes', 1.0))
+df2.plot(ax=ax2)
+
+ax3 = ax1.twinx()
+ax3.spines['right'].set_position(('axes', 1.1))
+df3.plot(ax=ax3)
+
+....
+  
+
+ Using function to achieve this: 
+
+  def plot_multi(data, cols=None, spacing=.1, **kwargs):
+
+    from pandas import plotting
+
+    # Get default color style from pandas - can be changed to any other color list
+    if cols is None: cols = data.columns
+    if len(cols) == 0: return
+    colors = getattr(getattr(plotting, '_style'), '_get_standard_colors')(num_colors=len(cols))
+
+    # First axis
+    ax = data.loc[:, cols[0]].plot(label=cols[0], color=colors[0], **kwargs)
+    ax.set_ylabel(ylabel=cols[0])
+    lines, labels = ax.get_legend_handles_labels()
+
+    for n in range(1, len(cols)):
+        # Multiple y-axes
+        ax_new = ax.twinx()
+        ax_new.spines['right'].set_position(('axes', 1 + spacing * (n - 1)))
+        data.loc[:, cols[n]].plot(ax=ax_new, label=cols[n], color=colors[n % len(colors)])
+        ax_new.set_ylabel(ylabel=cols[n])
+
+        # Proper legend position
+        line, label = ax_new.get_legend_handles_labels()
+        lines += line
+        labels += label
+
+    ax.legend(lines, labels, loc=0)
+    return ax
+  
+
+ Example: 
+
+  from random import randrange
+
+data = pd.DataFrame(dict(
+    s1=[randrange(-1000, 1000) for _ in range(100)],
+    s2=[randrange(-100, 100) for _ in range(100)],
+    s3=[randrange(-10, 10) for _ in range(100)],
+))
+
+plots.plot_multi(data.cumsum(), figsize=(10, 5))
+  
+
+ Output: 
+
+ https://i.stack.imgur.com/qiggO.png 
+
+
+

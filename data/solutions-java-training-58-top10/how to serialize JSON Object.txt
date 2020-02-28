@@ -1,0 +1,214 @@
+Query: how to serialize JSON Object
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/33292415)
+ The gson.toJson() returns a String, not a JsonObject. 
+
+ If you want to get a real JsonObject better do this: 
+
+  JsonObject json = (JsonObject)parser.parse(new Gson().toJson(myPojo));
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/12156646)
+ https://code.google.com/p/google-gson/ can also be used to serialize arbitrarily complex objects.  
+
+ Here is how you use it:  
+
+  Gson gson = new Gson(); 
+String json = gson.toJson(myObject); 
+  
+
+  Gson  will automatically convert collections to  JSON  arrays. Gson can serialize private fields and automatically ignores transient fields. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16607559)
+ Easy way to do it without annotations is to use https://github.com/google/gson 
+
+ Simple as that: 
+
+  Gson gson = new Gson();
+String json = gson.toJson(listaDePontos);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/25513488)
+ You can use  BeanSerializerModifier  to get the access to the default serializer and override it with your own delegate. Inside the delegate you can change your serialised object and call the default serializer. Here is an example:  
+
+  public class JacksonSerializeModifier {
+    public static class Bean {
+        public final String value;
+
+        public Bean(final String value) {
+            this.value = value;
+        }
+
+        public void foo() {
+            System.out.println("foo() invoked");
+        }
+    }
+
+    private static class MyBeanSerializerModifier extends BeanSerializerModifier {
+        @Override
+        public JsonSerializer<?> modifySerializer(
+                final SerializationConfig serializationConfig,
+                final BeanDescription beanDescription,
+                final JsonSerializer<?> jsonSerializer) {
+            return new ModifyingSerializer((JsonSerializer<Object>) jsonSerializer);
+        }
+    }
+
+    private static class ModifyingSerializer extends JsonSerializer<Object> {
+        private final JsonSerializer<Object> serializer;
+
+        public ModifyingSerializer(final JsonSerializer<Object> jsonSerializer) {
+            this.serializer  = jsonSerializer;
+        }
+
+        @Override
+        public void serialize(
+                final Object o,
+                final JsonGenerator jsonGenerator,
+                final SerializerProvider serializerProvider)
+        throws IOException {
+            if (o instanceof Bean) {
+                ((Bean) o).foo();
+            }
+            serializer.serialize(o, jsonGenerator, serializerProvider);
+        }
+    }
+
+    public static void main(String[] args) throws JsonProcessingException {
+        SimpleModule module = new SimpleModule();
+        module.setSerializerModifier(new MyBeanSerializerModifier());
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(module);
+        System.out.println(mapper.writeValueAsString(new Bean("abc")));
+    }
+}
+  
+
+ Output: 
+
+  foo() invoked
+{"value":"abc"}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/6366279)
+ You'd need to create a custom JSON serializer. 
+
+ E.g. 
+
+  public class FooJsonSerializer implements JsonSerializer<Foo> {
+
+    @Override
+    public JsonElement serialize(Foo foo, Type type, JsonSerializationContext context) {
+        JsonObject object = new JsonObject();
+        object.add("bar", context.serialize(foo.getBar());
+        object.add("baz", context.serialize(foo.getBaz());
+        // ...
+        return object;
+    }
+
+}
+  
+
+ and use it as follows: 
+
+  Gson gson = new GsonBuilder().registerTypeAdapter(Foo.class, new FooJsonSerializer()).create();
+String json = gson.toJson(foo);
+// ...
+  
+
+ This maintains the order as you've specified in the serializer. 
+
+ See also:</h3>
+
+ 
+ http://sites.google.com/site/gson/gson-user-guide#TOC-Custom-Serialization-and-Deserializ 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/6050963)
+  obj.add("created", context.serialize(src.created));
+  
+
+ If your  TimestampAdapter  is registered with Gson for the  Timestamp  class, the  JsonSerializationContext  should automatically use it to serialize the object and return a  JsonElement . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/20987974)
+ The point of a  JsonSerializer  is to serialize the fields of an Object, not the object itself. However, you are passing the object you've already told  Gson  to serialize. The following  
+
+  @Override
+public JsonElement serialize(ControlTransaction ctr, Type type,
+        JsonSerializationContext context) {
+    return context.serialize(ctr, type);
+}
+  
+
+  
+
+  @Override
+public JsonElement serialize(ControlTransaction ctr, Type type,
+        JsonSerializationContext context) {
+    return new GsonBuilder().registerTypeAdapter(
+            ControlTransaction.class,
+              new ControlTransactionSerializer()).create().toJsonTree(ctr);
+}
+  
+
+ which I hope you can see is going into recursive loop. 
+
+ The  JsonSerializationContext  is basically the underlying structure that the  Gson  object uses to serialize your object. When it sees your type  ControlTransaction , it will delegate to your custom  JsonSerializer . But your  JsonSerializer  will send it back to the  JsonSerializationContext  and the loop goes on.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/18123772)
+ Override the JsonSerializer serialize method as below. 
+
+  public class NullSerializer extends JsonSerializer<Object> {
+  public void serialize(Object value, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonProcessingException {
+    // any JSON value you want...  
+    jgen.writeString("");
+  }
+}
+  
+
+ then you can set  NullSerializer  as default for custom object mapper: 
+
+  public class CustomJacksonObjectMapper extends ObjectMapper {
+
+public CustomJacksonObjectMapper() {
+    super();
+    DefaultSerializerProvider.Impl sp = new DefaultSerializerProvider.Impl();
+    sp.setNullValueSerializer(new NullSerializer());
+    this.setSerializerProvider(sp);
+  }
+}
+  
+
+ or specify it for some property using  @JsonSerialize  annotation, e.g: 
+
+  public class MyClass {
+
+  @JsonSerialize(nullsUsing = NullSerializer.class)
+  private String property;
+}
+  
+
+
+

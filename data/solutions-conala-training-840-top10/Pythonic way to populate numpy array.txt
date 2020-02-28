@@ -1,0 +1,247 @@
+Query: Pythonic way to populate numpy array
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52342275)
+ You can create a new list with the values that you want to keep. 
+
+  a = np.array([2,5,6,3,6,3,45,6])
+b = [0,3,4,7] #indices that yo need to keep
+c = [a[i] for i in b]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/7356065)
+ There is  numpy.loadtxt : 
+
+  X = numpy.loadtxt('somefile.csv', delimiter=',')
+  
+
+ http://docs.scipy.org/doc/numpy/reference/generated/numpy.loadtxt.html 
+
+ 
+
+ Edit: for a list of numpy arrays, 
+
+  X = [scipy.array(line.split(','), dtype='float') 
+     for line in open('somefile.csv', 'r')]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/52344172)
+ Why don't you use just  c=a[b]  as this is the Python way to take the values from array a. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/47788301)
+ It is possible to build 2 dimensional nested list comprehensions: 
+
+  mat = np.array([[1 if x_ > y_ else -1 for y_ in y] for x_ in x])
+  
+
+ However, this can become pretty unreadable, and is not much different from for loops as far performance scaling is concerned. https://docs.scipy.org/doc/numpy-1.13.0/user/basics.broadcasting.html and vectorization will usually work better with larger arrays: 
+
+  mat = (x[:, None] > y[None, :]) * 2 - 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/2106651)
+ Suppose you know that the final array  arr  will never be larger than 5000x10.
+Then you could pre-allocate an array of maximum size, populate it with data as
+you go through the loop, and then use  arr.resize  to cut it down to the
+discovered size after exiting the loop. 
+
+ The tests below suggest doing so will be slightly faster than constructing intermediate
+python lists no matter what the ultimate size of the array is. 
+
+ Also,  arr.resize  de-allocates the unused memory, so the final (though maybe not the intermediate) memory footprint is smaller than what is used by  python_lists_to_array . 
+
+ This shows  numpy_all_the_way  is faster: 
+
+  % python -mtimeit -s"import test" "test.numpy_all_the_way(100)"
+100 loops, best of 3: 1.78 msec per loop
+% python -mtimeit -s"import test" "test.numpy_all_the_way(1000)"
+100 loops, best of 3: 18.1 msec per loop
+% python -mtimeit -s"import test" "test.numpy_all_the_way(5000)"
+10 loops, best of 3: 90.4 msec per loop
+
+% python -mtimeit -s"import test" "test.python_lists_to_array(100)"
+1000 loops, best of 3: 1.97 msec per loop
+% python -mtimeit -s"import test" "test.python_lists_to_array(1000)"
+10 loops, best of 3: 20.3 msec per loop
+% python -mtimeit -s"import test" "test.python_lists_to_array(5000)"
+10 loops, best of 3: 101 msec per loop
+  
+
+ This shows  numpy_all_the_way  uses less memory: 
+
+  % test.py
+Initial memory usage: 19788
+After python_lists_to_array: 20976
+After numpy_all_the_way: 20348
+  
+
+ test.py: 
+
+  import numpy as np
+import os
+
+
+def memory_usage():
+    pid = os.getpid()
+    return next(line for line in open('/proc/%s/status' % pid).read().splitlines()
+                if line.startswith('VmSize')).split()[-2]
+
+N, M = 5000, 10
+
+
+def python_lists_to_array(k):
+    list_of_arrays = list(map(lambda x: x * np.ones(M), range(k)))
+    arr = np.array(list_of_arrays)
+    return arr
+
+
+def numpy_all_the_way(k):
+    arr = np.empty((N, M))
+    for x in range(k):
+        arr[x] = x * np.ones(M)
+    arr.resize((k, M))
+    return arr
+
+if __name__ == '__main__':
+    print('Initial memory usage: %s' % memory_usage())
+    arr = python_lists_to_array(5000)
+    print('After python_lists_to_array: %s' % memory_usage())
+    arr = numpy_all_the_way(5000)
+    print('After numpy_all_the_way: %s' % memory_usage())
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/8355512)
+ If you have a list of floats  a=[x/10. for x in range(100000)] , then you can create an array with: 
+
+  np.array(a) # 9.92ms
+np.fromiter(a, dtype=np.float) # 5.19ms
+  
+
+  
+
+  list2 = np.zeros(len(lis))
+list2.fill(lis)
+  
+
+ .   .fill  fills the whole array with one value. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47789278)
+ If using numpy: 
+
+  import numpy as np
+nx = x.size
+ny = y.size
+mat = np.sign(x * np.atleast_2d(np.ones(ny)).T - np.ones(nx) * np.atleast_2d(y).T)
+mat[np.where(mat==0)] = -1
+  
+
+ numpy will take care regarding efficiency (whatever it means here). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7357752)
+ To efficiently load data to a  NumPy  arraya, i like NumPy's   fromiter   function.  
+
+ advantages in this context:  
+
+ 
+   stream-like loading ,  
+   pre-specify data type  of the reesult  array, and  
+   pre-allocate  empty  output array , which is then populated
+with the stream from the iterable.  
+ 
+
+  
+The first of these is inherent-- fromiter  only accepts data input in iterable form--the last two are managed through the second and third arguments passed to fromiter,  dtype,  and  count . 
+
+  >>> import numpy as NP
+>>> # create some data to load:
+>>> import random
+>>> source_iterable = (random.choice(range(100)) for c in range(20))
+
+>>> target = NP.fromiter(source_iterable, dtype=NP.int8, count=v.size)
+>>> target
+      array([85, 28, 37,  4, 23,  5, 47, 17, 78, 40, 28,  5, 69, 47, 15, 92, 
+             41, 33, 33, 98], dtype=int8)
+  
+
+ If you don't want to load your data using an iterable, you can still  pre-allocate  memory for your target array, using the NumPy functions  empty , and  empty_like  
+
+  >>> source_vec = NP.random.rand(10)
+>>> target = NP.empty_like(source_vec)
+>>> target[:] = source_vec
+>>> target
+  array([ 0.5472,  0.5085,  0.0803,  0.4757,  0.4831,  0.3054,  0.1024,  
+          0.9073,  0.6863,  0.3575])
+  
+
+ Alternatively, you can create an empty, (pre-allocated) array by calling  empty , then just passing in the shape you want. This function, by contrast with  empty_like , let's you pass in the data type: 
+
+  >>> target = NP.empty(shape=s.shape, dtype=NP.float)
+>>> target
+  array([ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.])
+>>> target[:] = source
+>>> target
+  array([ 0.5472,  0.5085,  0.0803,  0.4757,  0.4831,  0.3054,  0.1024,  
+          0.9073,  0.6863,  0.3575])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47788452)
+ Your  mat : 
+
+  In [352]: mat
+Out[352]: 
+array([[ 1., -1., -1., -1.],
+       [ 1., -1., -1., -1.],
+       [ 1.,  1., -1., -1.]])
+  
+
+ broadcasting  x  against  y : 
+
+  In [353]: x[:,None]>y
+Out[353]: 
+array([[ True, False, False, False],
+       [ True, False, False, False],
+       [ True,  True, False, False]], dtype=bool)
+  
+
+ turn that boolean mask into 1/-1 array with  where : 
+
+  In [354]: np.where(x[:,None]>y,1,-1)
+Out[354]: 
+array([[ 1, -1, -1, -1],
+       [ 1, -1, -1, -1],
+       [ 1,  1, -1, -1]])
+  
+
+ Or you could turn the boolean into a 0/1 array, and scale that to fit 
+
+  (x[:,None]>y).astype(float)*2-1
+  
+
+ A double loop over two 1d arrays or lists can often be cast as an  outer  operation like this. 
+
+
+

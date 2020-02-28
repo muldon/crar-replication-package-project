@@ -1,0 +1,175 @@
+Query: Manipulating binary data in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3059345)
+ To print it, you can do something like this: 
+
+  print repr(data)
+  
+
+  
+
+  print data.encode('hex')
+  
+
+  
+
+  print ' '.join([str(ord(a)) for a in data])
+  
+
+ To unpack binary integers, etc. from the data as if they originally came from a C-style struct, look at the http://docs.python.org/library/struct.html module. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3059331)
+ You are trying to print the data converted to ASCII characters, which will not work. 
+
+ You can safely use any byte of the data. If you want to print it as a hexadecimal, look at the functions  ord  and  hex / 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3059363)
+ http://docs.python.org/reference/lexical_analysis.html#strings.   .  and `~' are normal characters. 
+
+ Iterating on a string gives you the characters in it, one at a time. 
+
+ http://docs.python.org/library/functions.html#ord E.g.,  ord('A') == 65 . 
+
+ This will print the decimal numbers for each character: 
+
+  s = '\xbe\x00\xc8d\xf8d\x08\xe4.\x07~\x03\x9e\x07\xbe\x03\xde\x07\xfe\n'
+print ' '.join(str(ord(c)) for c in s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3059352)
+ Like theatrus mentioned, ord and hex might help you. 
+If you want to try to interpret some sort of structured binary data in the file, the http://docs.python.org/library/struct.html module might be helpful. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1143568)
+ Have you looked at the http://python-bitstring.googlecode.com module? It's designed to make the construction, parsing and modification of binary data easier than using the  struct  and  array  modules directly. 
+
+ It's especially made for working at the bit level, but will work with bytes just as well. It will also work with Python 2.4. 
+
+  from bitstring import BitString
+s = BitString(filename='somefile')
+
+# replace byte range with new values
+# The step of '8' signifies byte rather than bit indicies.
+s[10:15:8] = '0x001122'
+
+# Search and replace byte value with two bytes
+s.replace('0xcc', '0xddee', bytealigned=True)
+
+# Different interpretations of the data are available through properties
+if s[5:7:8].int > 1000:
+    s[5:7:8] = 1000
+
+# Use the bytes property to get back to a Python string
+open('newfile', 'wb').write(s.bytes)
+  
+
+ The underlying data stored in the  BitString  is just an  array  object, but with a comprehensive set of functions and special methods to make it simple to modify and interpret. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1133205)
+ Do you mean editing data in a buffer object?  Documentation on manipulating those at all from Python directly is fairly scarce. 
+
+ If you just want to edit bytes in a string, it's simple enough, though; struct.pack_into is new to 2.5, but struct.pack isn't: 
+
+  import struct
+s = open("file").read()
+ofs = 1024
+fmt = "Ih"
+size = struct.calcsize(fmt)
+
+before, data, after = s[0:ofs], s[ofs:ofs+size], s[ofs+size:]
+values = list(struct.unpack(fmt, data))
+values[0] += 5
+values[1] /= 2
+data = struct.pack(fmt, *values)
+s = "".join([before, data, after])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/3059486)
+ Binary data is rarely divided into "lines" separated by '\n'. If it is, it will have an implicit or explicit escape mechanism to distinguish between '\n' as a line terminator and '\n' as part of the data. Reading such a file as lines blindly without knowledge of the escape mechanism is pointless. 
+
+ To answer your specific concerns: 
+
+ '\x07' is the ASCII BEL character, which was originally for ringing the bell on a teletype machine. 
+
+ You can get the integer value of a byte 'b' by doing  ord(b) . 
+
+  HOWEVER, to process binary data properly, you need to know what the layout is . You can have signed and unsigned integers (of sizes 1, 2, 4, 8 bytes), floating point numbers, decimal numbers of varying lengths, fixed length strings, variable length strings, etc etc. Added complication comes from whether the data is recorded in bigendian fashion or littleendian fashion. Once you know all of the above (or have very good informed guesses), the http://docs.python.org/library/struct.html should be able to be used for all or most of your processing; the http://docs.python.org/library/ctypes.html may also be useful. 
+
+ Does the data format have a name? If so, tell us; we may be able to point you to code or docs. 
+
+ You ask "How do I go about using this data safely?" which begs the question: What do you want to use it for?  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3059382)
+ Are you using  read()  or  readline() ? You should be using  read(n)  to read n bytes;  readline()  will read until it hits a newline, which the binary file might not have. 
+
+ In either case, though, you are returned a string of bytes, which may be printable or non-printable characters, and is probably not very useful. 
+
+ What you want is  ord() , which converts a one-byte string into the corresponding integer value.  read()  from the file one byte at a time and call  ord()  on the result, or iterate through the entire string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/36205809)
+ You should either use a string  "0101"  or use binary  0b0101 . 
+A string will print  0101  and the binary will print the binary number it represents ( 5 ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/5212207)
+ The quick answer 
+
+ You can store binary data of any file type by using  db.BlobProperty()  in your model.   
+
+ If you use the  Image  API to manipulate the image data, you're limited to inputting   .jpg ,  . ,  .gif ,  .bmp ,  .tiff , and  .ico  types, and outputting to either  .jpg  or  . . 
+
+ 
+
+ Storing images 
+
+ To simply store the images in the data store, use  db.BlobProperty()  in your model, and have this store the binary data for the picture.  This is how the data is stored in the example code you linked to (see http://code.google.com/p/google-app-engine-samples/source/browse/trunk/image_sharing/image_sharing.py#85). 
+
+ Because the type  db.BlobProperty  type is not a picture per se, but can store any binary data, some discipline is needed; there's no easy way to programmatically enforce a pictures-only constraint.  Luckily, this means that you can store data of any type you want, including  .jpg ,  .gif ,  .tiff , etc. files in addition to the  .  format, as in the example. 
+
+ You'll probably want to, as they have in the example, create a new Class for the Model, and store certain metadata ("name", "filetype", etc.) needed for the files, in addition to the image's binary data.  You can see an example of this at http://code.google.com/p/google-app-engine-samples/source/browse/trunk/image_sharing/image_sharing.py#65 in the example you linked to. 
+
+ To store the image in the  BlobProperty , you'll want to use the  db.put()  to save the data; this is the same as with any type.  See the code starting on http://code.google.com/p/google-app-engine-samples/source/browse/trunk/image_sharing/image_sharing.py#215 in the example code you linked to. 
+
+ 
+
+ Manipulating images 
+
+ If you have to manipulate the image, you can use the http://code.google.com/appengine/docs/python/images/ package.  From the http://code.google.com/appengine/docs/python/images/overview.html#Image_Formats we can see the following: 
+
+ 
+   The service accepts image data in the JPEG, PNG, GIF (including animated GIF), BMP, TIFF and ICO formats. 
+  
+   It can return transformed images in the JPEG and PNG formats. If the input format and the output format are different, the service converts the input data to the output format before performing the transformation. 
+ 
+
+ So even though you can technically store any type in the datastore, the valid input and output typer are limited if you're using this API to manipulate the images. 
+
+
+

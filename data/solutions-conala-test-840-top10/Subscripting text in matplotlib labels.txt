@@ -1,0 +1,253 @@
+Query: Subscripting text in matplotlib labels
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17138534)
+ Try to change this line 
+
+  plt.plot(x,y, label='H2O')
+  
+
+  
+
+  plt.plot(x,y, label='$H_2O$')
+  
+
+ It shows with the font math. 
+
+ Or also you can use the unicode character for that: ₂ (0xE2 / &#8322;) 
+
+  plt.plot(x,y, label=u'H₂O')
+  
+
+  
+
+  plt.plot(x,y, label=u"H\u2082O")
+  
+
+ Please, note that unicode strings are noted as u"" instead than "". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/22334954)
+ In the http://docs.python.org/3.1/reference/grammar.html it can be summarized as "subscripting". 
+
+ The http://docs.python.org/2/reference/expressions.html#grammar-token-subscription calls it "subscription". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38708097)
+ Use  set_visible()  method: 
+
+  import matplotlib.pyplot as plt
+
+fig = plt.figure()
+ax = fig.gca()
+ax.scatter([1,2,3], [4,5,6], label = "a")
+legend = ax.legend()
+for text in legend.texts:
+    if (text.get_text() == 'a'): text.set_text('b') # change label text
+    text.set_visible(False)  # disable label
+plt.show()
+  
+
+ https://i.stack.imgur.com/JdFUw.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42732444)
+ Set the  text.latex.preview  parameter to  True : 
+
+  import numpy as np
+import matplotlib as mpl
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['text.latex.preview'] = True
+import matplotlib.pyplot as plt
+
+x = np.arange(10)
+plt.plot(x, np.random.uniform(size=(10,)), c='red', label=r'test')
+plt.scatter(x, np.random.uniform(size=(10,)), c='blue', label=r'test${}_{xy}$')
+plt.legend(ncol=2)                                                      
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/iykOM.png 
+
+ For the effect of the  preview  argument, also refer to https://matplotlib.org/2.2.2/gallery/text_labels_and_annotations/usetex_baseline_test.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39625380)
+ You could use  matplotlib.pylab.text  to add text to your plot and customize it to look like a legend 
+
+ For example: 
+
+  import numpy as np
+import matplotlib.cm as cm
+import matplotlib.pylab as plt
+
+raw_data = np.random.random((100, 100))
+fig, ax = plt.subplots(1)
+ax.imshow(raw_data, interpolation='nearest', cmap=cm.gray)
+ax.text(5, 5, 'your legend', bbox={'facecolor': 'white', 'pad': 10})
+plt.show()
+  
+
+ which gives you following https://i.stack.imgur.com/xV0qC.png 
+
+ You can check out the matplotlib documentation on text for more details http://matplotlib.org/users/text_intro.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35664010)
+ You will want to grab all the yticklabels of the axes, and then set them using all but the last one. An important point here (especially with newer versions of matplotlib) is that you must display the figure and refresh the canvas  before  fetching the ytick labels so that their default position is already computed. 
+
+  import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(4,8))
+ax1 = fig.add_axes([.25,.5,.5,.25])
+ax2 = fig.add_axes([.25,.25,.5,.25])
+
+ax1.set_xticklabels([])
+
+# Important to render initial ytick labels
+fig.show()
+fig.canvas.draw()
+
+# Remove the last ytick label
+labels = [tick.get_text() for tick in ax2.get_yticklabels()]
+ax2.set_yticklabels(labels[:-1])
+
+# Refresh the canvas to reflect the change
+fig.canvas.draw()
+  
+
+ 
+   Note: In my previous code, I was using a  fig.savefig()  call before altering the ticks to debug things and this forced the rendering and generation of default ytick labels. 
+ 
+
+ https://i.stack.imgur.com/1UXkW.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/11347843)
+ If you are using the object-oriented interface of matplotlib to plot your data, you can use the http://matplotlib.sourceforge.net/api/axes_api.html?highlight=get_xticklabels#matplotlib.axes.Axes.get_xticklabels and http://matplotlib.sourceforge.net/api/axes_api.html?highlight=get_yticklabels#matplotlib.axes.Axes.get_yticklabels to access the labels of each axis and then change the color of the ones you want. 
+
+  EDIT :  I misunderstood the original question. See below for a more appropriate answer. 
+
+ One of the possibility is to remove the original labels and create pseudo-labels using a text instance. This way, you can create text with different color inside. It is not straightforwad (you will have to write a lot of code, especially  if you have a lot of labels you want to multi-colorize), but below is an example of what you can do. 
+
+ The idea is to create the different parts of each label in the color you want using the  matplotlib.offsetbox.TextArea  method, and then merge them using the  matplotlib.offsetbox.HPacker  method (I discovered the HPacker method via http://abitofpythonabitofastronomy.blogspot.com/2009/05/mpl-multicolor-text.html). 
+
+  import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, HPacker
+
+fig = plt.subplots(1)
+
+ax.bar([0, 1], [20, 35], 0.35, color='0.5', yerr=[2, 3], ecolor='k')
+ax.set_xlim([-0.2, 1.7])
+ax.set_xticks([]) # empty xticklabels
+
+# apple label
+abox1 = TextArea("apple - ", textprops=dict(color="k", size=15))
+abox2 = TextArea("1 ", textprops=dict(color="b", size=15))
+abox3 = TextArea(": ", textprops=dict(color="k", size=15))
+abox4 = TextArea("7 ", textprops=dict(color="r", size=15))
+
+applebox = HPacker(children=[abox1, abox2, abox3, abox4],
+                  align="center", pad=0, sep=5)
+
+# orange label
+obox1 = TextArea("orange - ", textprops=dict(color="k", size=15))
+obox2 = TextArea("5 ", textprops=dict(color="b", size=15))
+obox3 = TextArea(": ", textprops=dict(color="k", size=15))
+obox4 = TextArea("10 ", textprops=dict(color="r", size=15))
+
+orangebox = HPacker(children=[obox1, obox2, obox3, obox4],
+                    align="center", pad=0, sep=5)
+
+anchored_applebox = AnchoredOffsetbox(loc=3, child=applebox, pad=0., frameon=False,
+                                      bbox_to_anchor=(0.1, -0.07),
+                                      bbox_transform=ax.transAxes, borderpad=0.)
+
+anchored_orangebox = AnchoredOffsetbox(loc=3, child=orangebox, pad=0., frameon=False,
+                                       bbox_to_anchor=(0.6, -0.07),
+                                       bbox_transform=ax.transAxes, borderpad=0.)
+
+ax.add_artist(anchored_applebox)
+ax.add_artist(anchored_orangebox)
+
+plt.show()
+  
+
+ Which gives: 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42741461)
+ Use the same position information for the network drawing as for the labels. 
+
+  node_cfg = nx.spring_layout(g)
+plt.figure(figsize=(8, 11), dpi=150)
+nx.draw(g, pos=node_cfg, with_labels=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/42373161)
+ X and y labels are bound to an axes in matplotlib. So it makes little sense to use  xlabel  or  ylabel  commands for the purpose of labeling several subplots.  
+
+ What is possible though, is to create a simple text and place it at the desired position.  fig.text(x,y, text)  places some text at coordinates  x  and  y  in figure coordinates, i.e. the lower left corner of the figure has coordinates  (0,0)  the upper right one  (1,1) . 
+
+  import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.DataFrame({'A': [0.3, 0.2, 0.5, 0.2], 'B': [0.1, 0.0, 0.3, 0.1], 'C': [0.2, 0.5, 0.0, 0.7], 'D': [0.6, 0.3, 0.4, 0.6]}, index=list('abcd'))
+axes = df.plot(kind="bar", subplots=True, layout=(2,2), sharey=True, sharex=True)
+
+fig=axes[0,0].figure
+fig.text(0.5,0.04, "Some very long and even longer xlabel", ha="center", va="center")
+fig.text(0.05,0.5, "Some quite extensive ylabel", ha="center", va="center", rotation=90)
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/8A97k.png 
+
+ The drawback of this solution is that the coordinates of where to place the text need to be set manually and may depend on the figure size. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/47650520)
+ You can use the unicode thin space character http://www.fileformat.info/info/unicode/char/2009/index.htm. 
+
+ For example, compare the width of the spaces in the legend text here between the "10" and the "km": 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+
+fig, ax = plt.subplots(1)
+
+ax.plot(np.arange(5), 'r-', label='10 km (normal space)')
+ax.plot(5.-np.arange(5), 'b-', label=u"10\u2009km (thin space)")
+
+ax.legend()
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/LRQui.png 
+
+
+

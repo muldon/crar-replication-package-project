@@ -1,0 +1,224 @@
+Query: Matching multiple regex patterns with the alternation operator?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32482393)
+ You can use  
+
+  m.group()
+  
+
+ to see which part of regex matched your input. 
+
+  >> for m in pat.finditer('pat290'):
+...     print m.start(), m.end(), m.group()
+...
+0 4 pat2
+
+>>> for m in pat.finditer('pat3789'):
+...     print m.start(), m.end(), m.group()
+...
+0 4 pat3
+
+>>> for m in pat.finditer('some-pat1234567'):
+...     print m.start(), m.end(), m.group()
+...
+5 9 pat1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/14182462)
+ Let's take a look at our output using  re.DEBUG . 
+
+  branch 
+  literal 40 
+  subpattern 1 
+    min_repeat 0 65535 
+      any None 
+  literal 41 
+or
+  in 
+    category category_word
+  
+
+ Ouch, there's only one  subpattern  in there but  re.findall  only pulls out  subpattern s if one exists! 
+
+  a = re.findall(r'\((.*?)\)|(.)', '(zyx)bc',re.DEBUG); a
+[('zyx', ''), ('', 'b'), ('', 'c')]
+branch 
+  literal 40 
+  subpattern 1 
+    min_repeat 0 65535 
+      any None 
+  literal 41 
+or
+  subpattern 2 
+    any None
+  
+
+ . :) 
+
+ Now we just have to make this into the format you want. 
+
+  [i[0] if i[0] != '' else i[1] for i in a]
+['zyx', 'b', 'c']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14182389)
+ From the documentation of  re.findall : 
+
+ 
+   If one or more groups are present in the pattern, return a list of groups; this will be a list of tuples if the pattern has more than one group. 
+ 
+
+ While your regexp is matching the string three times, the  (.  group is empty for the second two matches.  If you want the output of the other half of the regexp, you can add a second group: 
+
+  >>> re.findall(r'\((.\)|(\w)', '(zyx)bc')
+[('zyx', ''), ('', 'b'), ('', 'c')]
+  
+
+ Alternatively, you could remove all the groups to get a simple list of strings again: 
+
+  >>> re.findall(r'\(.*?\)|\w', '(zyx)bc')
+['(zyx)', 'b', 'c']
+  
+
+ You would need to manually remove the parentheses though. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14183343)
+ Other answers have shown you how to get the result you need, but with the extra step of manually removing the parentheses. If you use lookarounds in your regex, you won't need to strip the parentheses manually: 
+
+  >>> import re
+>>> s = '(zyx)bc'
+>>> print (re.findall(r'(?<=\()\w+(?=\))|\w', s))
+['zyx', 'b', 'c']
+  
+
+  
+
+  (?<=\() // lookbehind for left parenthesis
+\w+     // all characters until:
+(?=\))  // lookahead for right parenthesis
+|       // OR
+\w      // any character
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50414614)
+  '|'  has nothing to do with the index of group, index is always counted from left to right in the regex itself. 
+
+ In your original regex, their are 6 groups: 
+
+  In [270]: m.groups()
+Out[270]: (None, None, None, '12', '34', '567890')
+  
+
+ The matching part is the second part, thus you need: 
+
+  In [271]: m.group(4)
+Out[271]: '12'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/14182404)
+ The docs mention treating groups specially, so don't put a group around the parenthesized pattern, and you'll get everything, but you'll need to remove the parens from the matched data yourself: 
+
+  >>> re.findall(r'\(.+?\)|\w', '(zyx)bc')
+['(zyx)', 'b', 'c']
+  
+
+ or use more groups, then process the resulting tuples to get the strings you seek: 
+
+  >>> [''.join(t) for t in re.findall(r'\((.+?)\)|(\w)', '(zyx)bc')]
+>>> ['zyx', 'b', 'c']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/8884934)
+ Regexes can be used to search for multiple match patterns in a single pass: 
+
+  >>> import re
+>>> a = ['asd' , 'test']
+>>> regex = re.compile('|'.join(map(re.escape, sorted(a, key=len, reverse=True))))
+
+>>> print bool(regex.search(text))       # determine whether there are any matches
+True
+>>> print regex.findall(text)            # extract all matching text
+['test']
+>>> regex.search(text).start()           # find the position of the first match
+0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/33642769)
+ If you're just trying to delete specific substrings, you can combine the patterns with alternation for a single pass removal: 
+
+  pat1 = r"Please check with the store to confirm holiday hours."
+pat2 = r'\t'
+combined_pat = r'|'.join((pat1, pat2))
+stripped = re.sub(combined_pat, '', s2)
+  
+
+ It's more complicated if the "patterns" use actual regex special characters (because then you need to worry about wrapping them to ensure the alternation breaks at the right places), but for simple fixed patterns, it's simple. 
+
+ If you had real regexes, rather than fixed patterns, you might do something like: 
+
+  all_pats = [...]
+combined_pat = r'|'.join(map(r'(?:{})'.format, all_pats))
+  
+
+ so any regex specials remain grouped without possibly "bleeding" across an alternation. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/32690525)
+ Python regular expressions uses the  |  operator for alternation. 
+
+  def series2string(myserie) :
+    myserie2 = '|'.join(serie for serie in myserie)
+    myserie2 = '(' + myserie2 + ')'
+    return myserie2
+  
+
+ More information: https://docs.python.org/3/library/re.html 
+
+ 
+
+ The individual patterns look really messy, so I don't know what is a mistake, and what is intentional. I am guessing you are looking for the word "vu" in a few different contexts. 
+
+ 
+ Always use Python raw strings for regular expressions, prefixed with  r  ( r'pattern here' ). It allows you to use  \  in a pattern without python trying to interpret it as a string escape. It is passed directly to the regex engine. https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals 
+ Use  \s  to match white-space (spaces and line-breaks). 
+ Since you already have several alternative patterns, don't make  (  and  )  optional. It can result in catastrophic backtracking, which can make matching large strings really slow. 
+ \(?  &rarr;  \(  
+ \)?  &rarr;  \)  
+  {1}  doesn't do anything. It just repeats the previous sub-pattern once, which is the same as not specifying anything. 
+  \br  is invalid. It is interpreted as  \b  (ASCII bell-character) + the letter  r . 
+ You have a quote character ( ' ) at the beginning of your text-string. Either you intend  ^  to match the start of any line, or the  '  is a copy/paste error. 
+  Some errors when combining the patterns: 
+
+  pattern = [pattern1, pattern2, pattern3, pattern4]
+pattern = series2string(pattern)
+
+expression(re.compile(pattern), text)
+   
+ 
+
+
+

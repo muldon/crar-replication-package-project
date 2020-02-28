@@ -1,0 +1,282 @@
+Query: what's a good way to combinate through a set?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50833899)
+ if it is helpfull for you, I will rewrite the beginning of your code. . 
+
+  import pandas as pd
+from pandas import HDFStore, DataFrame
+import random, string
+
+
+def create_dummy(nb_iteration):
+
+    dummy_data = [''.join(random.sample(string.ascii_uppercase, 5)) for i in range(nb_iteration)]
+    df = pd.DataFrame(dummy_data, columns = ['Dummy_Data'])
+
+    return df
+
+df_small= create_dummy(53)
+df_big= create_dummy(100000)
+
+df_big.to_hdf('h5_file.h5', \
+  'symbols_dict', format = "table", data_columns = True, append = False, \
+  complevel = 9, complib ='blosc')
+
+df_small.to_hdf('h5_file.h5', \
+  'symbols_dict', format = "table", data_columns = True, append = True, \
+  complevel = 9, complib ='blosc')
+
+df_test = pd.read_hdf('test_def.h5', key='table')
+df_test
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/19078726)
+ There is a refinement of powerset: 
+
+  def powerset(seq):
+    """
+    Returns all the subsets of this set. This is a generator.
+    """
+    if len(seq) <= 0:
+        yield []
+    else:
+        for item in powerset(seq[1:]):
+            yield [seq[0]]+item
+            yield item
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17700015)
+  def get_power_set(s):
+  power_set=[[]]
+  for elem in s:
+    # iterate over the sub sets so far
+    for sub_set in power_set:
+      # add a new subset consisting of the subset at hand added elem
+      power_set=power_set+[list(sub_set)+[elem]]
+  return power_set
+  
+
+ For example: 
+
+  get_power_set([1,2,3])
+  
+
+  
+
+  [[], [1], [2], [1, 2], [3], [1, 3], [2, 3], [1, 2, 3]]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3686605)
+ What you seek to generate is the Cartesian http://docs.python.org/library/itertools.html#itertools.product of elements taken from set of  category . 
+
+ The partitioning into multiple sets is relatively easy: 
+
+  item_set[category].append(item)
+  
+
+ With proper instantiation (e.g.) http://docs.python.org/library/collections.html#collections.defaultdict for  item_set[category]  and then  itertools.product  will give you the desired output. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/50835520)
+ I am not an expert on this, but as far as I looked at least at h5py module, http://docs.h5py.org/en/latest/high/dataset.html , HDF5 supports Numpy datatypes, which do not include any categorical datatype.  
+
+ Same for http://www.pytables.org/usersguide/datatypes.html, which is used by Pandas.  
+
+  Categories  datatype is introduced and used in https://pandas.pydata.org/pandas-docs/stable/categorical.html, and is described: 
+
+ 
+   A categorical variable takes on a  limited , and  usually fixed , number of possible values (categories; levels in R) 
+ 
+
+ So what might be happening is perhaps every time in order to add a new category, you have to somehow re-read all existing categories from hdf5store in order for Pandas to reindex it? 
+
+ From the docs in general, however, it appears that this datatype will  not  be suited for adding arbitrary strings into hdf5store, unless you are sure after maybe a couple of additions there will be no new categories. 
+
+ As additional note, unless your application demands extremely high performance, storing data in SQL might potentially be a better option -- SQL has better support for strings, for one thing. For example, while SQLite was found slower than HDF5 in some https://stackoverflow.com/questions/16628329/hdf5-concurrency-compression-i-o-performance, they didn't include processing strings. Jumping from CSV to HDF5 sounds like jumping from a horsecart to a rocket, but perhaps a car or airplane would work just as well (or better, as it has more options, to stretch the analogy)? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/43632114)
+ The current state-of-the-art inspired initially by a 50 than by a 100 reps bounties is at the moment (instead of a Python extension module written entirely in C):  
+
+ 
+   An efficient algorithm and implementation that is better than the obvious  (set + combinations)  approach in the best (and average) case, and is competitive with it in the worst case. 
+ 
+
+ It seems to be possible to fulfill this requirement using a kind of "fake it before you make it" approach. The current state-of-the-art is that there are two generator function algorithms available for solving the problem of getting unique combinations in case of a non-unique list. The below provided algorithm combines both of them what becomes possible because it seems to exist a threshold value for percentage of unique items in the list which can be used for appropriate switching between the two algorithms. The calculation of the percentage of uniqueness is done with so tiny amount of computation time that it even doesn't clearly show up in the final results due to common variation of the taken timing.  
+
+  def iterFastUniqueCombos(lstList, comboSize, percUniqueThresh=60):
+
+    lstListSorted = sorted(lstList)
+    lenListSorted = len(lstListSorted)
+
+    percUnique = 100.0 - 100.0*(lenListSorted-len(set(lstListSorted)))/lenListSorted
+
+    lstComboCandidate = []
+    setUniqueCombos = set()
+
+    def idxNextUnique(idxItemOfList):
+        idxNextUniqueCandidate = idxItemOfList + 1
+        while (
+                idxNextUniqueCandidate < lenListSorted 
+                    and 
+                lstListSorted[idxNextUniqueCandidate] == lstListSorted[idxItemOfList]
+        ): # while
+            idxNextUniqueCandidate += 1
+        idxNextUnique = idxNextUniqueCandidate
+        return idxNextUnique
+
+    def combinate(idxItemOfList):
+        if len(lstComboCandidate) == sizeOfCombo:
+            yield tuple(lstComboCandidate)
+        elif lenListSorted - idxItemOfList >= sizeOfCombo - len(lstComboCandidate):
+            lstComboCandidate.append(lstListSorted[idxItemOfList])
+            yield from combinate(idxItemOfList + 1)
+            lstComboCandidate.pop()
+            yield from combinate(idxNextUnique(idxItemOfList))
+
+    if percUnique > percUniqueThresh:
+        from itertools import combinations
+        allCombos = combinations(lstListSorted, comboSize)
+        for comboCandidate in allCombos:
+            if comboCandidate in setUniqueCombos:
+                continue
+            yield comboCandidate
+            setUniqueCombos.add(comboCandidate)
+    else:
+        yield from combinate(0)
+    #:if/else    
+#:def iterFastUniqueCombos()
+  
+
+ The below provided timings show that the above  iterFastUniqueCombos()  generator function provides a clear advantage 
+over  uniqueCombinations()  variant in case the list has less than 60 percent of unique elements and is not worse as 
+the on  (set + combinations)  based  uniqueCombinations()  generator function in the opposite case where it gets much faster than the  iterUniqueCombos()  one (due to switching between 
+the  (set + combinations)  and the  (no lookups)  variant at 60% threshold for amount of unique elements in the list):  
+
+  ===========  sizeOfCombo: 6   sizeOfList: 48   noOfUniqueInList 1   percUnique   2
+Combos: 12271512  print(len(list(combinations(lst,k))))           :   2.04968 seconds.
+Combos:        1  print(len(list(      iterUniqueCombos(lst,k)))) :   0.00011 seconds.
+Combos:        1  print(len(list(  iterFastUniqueCombos(lst,k)))) :   0.00008 seconds.
+Combos:        1  print(len(list(    uniqueCombinations(lst,k)))) :   3.61812 seconds.
+
+==========  sizeOfCombo: 6   sizeOfList: 48   noOfUniqueInList 48   percUnique 100
+Combos: 12271512  print(len(list(combinations(lst,k))))           :   1.99383 seconds.
+Combos: 12271512  print(len(list(      iterUniqueCombos(lst,k)))) :  49.72461 seconds.
+Combos: 12271512  print(len(list(  iterFastUniqueCombos(lst,k)))) :   8.07997 seconds.
+Combos: 12271512  print(len(list(    uniqueCombinations(lst,k)))) :   8.11974 seconds.
+
+==========  sizeOfCombo: 6   sizeOfList: 48   noOfUniqueInList 27   percUnique  56
+Combos: 12271512  print(len(list(combinations(lst,k))))           :   2.02774 seconds.
+Combos:   534704  print(len(list(      iterUniqueCombos(lst,k)))) :   1.60052 seconds.
+Combos:   534704  print(len(list(  iterFastUniqueCombos(lst,k)))) :   1.62002 seconds.
+Combos:   534704  print(len(list(    uniqueCombinations(lst,k)))) :   3.41156 seconds.
+
+==========  sizeOfCombo: 6   sizeOfList: 48   noOfUniqueInList 31   percUnique  64
+Combos: 12271512  print(len(list(combinations(lst,k))))           :   2.03539 seconds.
+Combos:  1114062  print(len(list(      iterUniqueCombos(lst,k)))) :   3.49330 seconds.
+Combos:  1114062  print(len(list(  iterFastUniqueCombos(lst,k)))) :   3.64474 seconds.
+Combos:  1114062  print(len(list(    uniqueCombinations(lst,k)))) :   3.61857 seconds.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2953343)
+ This works for 1 or more lists. The 0 lists case is not so easy, because it would have to return a set that contains all possible values. 
+
+  def intersection(first, *others):
+    return set(first).intersection(*others)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43519518)
+ Instead of post-processing/filtering your output, you can pre-process your input list. This way, you can avoid generating duplicates in the first place. Pre-processing involves either sorting (or using a  collections.Counter  on) the input. One possible recursive realization is: 
+
+  def subbags(bag, k):
+    a = sorted(bag)
+    n = len(a)
+    sub = []
+
+    def index_of_next_unique_item(i):
+        j = i + 1
+
+        while j < n and a[j] == a[i]:
+            j += 1
+
+        return j
+
+    def combinate(i):
+        if len(sub) == k:
+            yield tuple(sub)
+        elif n - i >= k - len(sub):
+            sub.append(a[i])
+            yield from combinate(i + 1)
+            sub.pop()
+            yield from combinate(index_of_next_unique_item(i))
+
+    yield from combinate(0)
+
+bag = [1, 2, 3, 1, 2, 1]
+k = 3
+i = -1
+
+print(sorted(bag), k)
+print('---')
+
+for i, subbag in enumerate(subbags(bag, k)):
+    print(subbag)
+
+print('---')
+print(i + 1)
+  
+
+ Output: 
+
+  [1, 1, 1, 2, 2, 3] 3
+---
+(1, 1, 1)
+(1, 1, 2)
+(1, 1, 3)
+(1, 2, 2)
+(1, 2, 3)
+(2, 2, 3)
+---
+6
+  
+
+ Requires some stack space for the recursion, but this + sorting the input should use substantially less time + memory than generating and discarding repeats.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/5823868)
+ I would add all the items not in the set into a list. 
+
+  s = set([1,2,3,35,67,87,95])
+
+x = []
+for item in range(1, 101):
+    if item not in s:
+        x.append(item)
+
+print x
+  
+
+
+

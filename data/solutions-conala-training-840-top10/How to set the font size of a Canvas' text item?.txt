@@ -1,0 +1,324 @@
+Query: How to set the font size of a Canvas' text item?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/15458040)
+ For text items, the font size is part of the  font  keyword argument: 
+
+  canvas.create_text(x, y, font=("Purisa", rndfont), text=k)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15459270)
+  font  is an attribute which you can pass in tkinter objects. You pass a  tuple  indicating the font  name  and  size , so your code should look more like: 
+
+  canvas.create_text(x, y, font=("Purisa", 12), text= k)
+  
+
+ But you're asking how to make the font size a variable. You should just be able to pass it as a variable the way you would for any other use: 
+
+  rndfont = 12
+canvas.create_text(x, y, font=("Purisa", rndfont), text= k)
+  
+
+ I just tested it and it seems that if you pass an invalid attribute for that tuple (like pass an empty string where the font name should be), it'll ignore the attribute entirely. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/26973348)
+ Don't create a new text item every time. Instead, just change the text of the old item. 
+
+  canvas.itemconfigure(text, text=new_latency)
+  
+
+ Your other option is to delete the old item before creating the new item, but it's better just to reuse the old item. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3092341)
+ Overview 
+
+ You can only associate scrollbars with a few widgets, and the root widget and  Frame  aren't part of that group of widgets.  
+
+ The most common solution is to create a canvas widget and associate the scrollbars with that widget. Then, into that canvas embed the frame that contains your label widgets. Determine the width/height of the frame and feed that into the canvas  scrollregion  option so that the scrollregion exactly matches the size of the frame. 
+
+ Drawing the text items directly on the canvas isn't very hard, so you might want to reconsider that approach if the frame-embedded-in-a-canvas solution seems too complex. Since you're creating a grid, the coordinates of each text item is going to be very easy to compute, especially if each row is the same height (which it probably is if you're using a single font). 
+
+ For drawing directly on the canvas, just figure out the line height of the font you're using (and there are commands for that). Then, each y coordinate is  row*(lineheight+spacing) . The x coordinate will be a fixed number based on the widest item in each column. If you give everything a tag for the column it is in, you can adjust the x coordinate and width of all items in a column with a single command. 
+
+ Object-oriented solution 
+
+ Here's an example of the frame-embedded-in-canvas solution, using an object-oriented approach: 
+
+  import tkinter as tk
+
+class Example(tk.Frame):
+    def __init__(self, root):
+
+        tk.Frame.__init__(self, root)
+        self.canvas = tk.Canvas(root, borderwidth=0, background="#ffffff")
+        self.frame = tk.Frame(self.canvas, background="#ffffff")
+        self.vsb = tk.Scrollbar(root, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vsb.set)
+
+        self.vsb.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.create_window((4,4), window=self.frame, anchor="nw", 
+                                  tags="self.frame")
+
+        self.frame.bind("<Configure>", self.onFrameConfigure)
+
+        self.populate()
+
+    def populate(self):
+        '''Put in some fake data'''
+        for row in range(100):
+            tk.Label(self.frame, text="%s" % row, width=3, borderwidth="1", 
+                     relief="solid").grid(row=row, column=0)
+            t="this is the second column for row %s" %row
+            tk.Label(self.frame, text=t).grid(row=row, column=1)
+
+    def onFrameConfigure(self, event):
+        '''Reset the scroll region to encompass the inner frame'''
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+if __name__ == "__main__":
+    root=tk.Tk()
+    Example(root).pack(side="top", fill="both", expand=True)
+    root.mainloop()
+  
+
+ Procedural solution 
+
+ Here is a solution that doesn't use objects: 
+
+  import tkinter as tk
+
+def populate(frame):
+    '''Put in some fake data'''
+    for row in range(100):
+        tk.Label(frame, text="%s" % row, width=3, borderwidth="1", 
+                 relief="solid").grid(row=row, column=0)
+        t="this is the second column for row %s" %row
+        tk.Label(frame, text=t).grid(row=row, column=1)
+
+def onFrameConfigure(canvas):
+    '''Reset the scroll region to encompass the inner frame'''
+    canvas.configure(scrollregion=canvas.bbox("all"))
+
+root = tk.Tk()
+canvas = tk.Canvas(root, borderwidth=0, background="#ffffff")
+frame = tk.Frame(canvas, background="#ffffff")
+vsb = tk.Scrollbar(root, orient="vertical", command=canvas.yview)
+canvas.configure(yscrollcommand=vsb.set)
+
+vsb.pack(side="right", fill="y")
+canvas.pack(side="left", fill="both", expand=True)
+canvas.create_window((4,4), window=frame, anchor="nw")
+
+frame.bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
+
+populate(frame)
+
+root.mainloop()
+  
+
+  Note:  to make this work in python 2.x, use  Tkinter  rather than  tkinter  in the import statement 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/27733127)
+ You could use the  setFont  method of the  canvas  object, to set the font to  Bold  when needed, and  Normal  otherwise. 
+
+  * UPDATE *  
+
+ In order to calculate the right value for  x , you can use the  stringWidth  method, that calculates the length of the string given its content, the font name and the font size. You will have to import it from  reportlab.pdfbase.pdfmetrics : 
+
+  [...]
+from reportlab.pdfbase.pdfmetrics import stringWidth
+[...]
+
+# student name variable.
+student_name = 'Alex'
+
+# Content.
+line1 = " is working on college project."
+line2 = "Reportlab is very good lib, "
+line3 = " liked it"
+
+# drawString location calculation.
+x = 0
+y = 8.5 * 72
+
+# First string.
+can.setFont('Helvetica-Bold', 8)
+can.drawString(x, y, student_name)
+can.setFont('Helvetica', 8)
+textWidth = stringWidth(student_name, 'Helvetica-Bold', 8) 
+x += textWidth + 1
+can.drawString(x, y, line1)
+
+y = y - 72
+
+# Second String.
+x = 0
+can.setFont('Helvetica', 8)
+can.drawString(x, y, line2)
+textWidth = stringWidth(line2, 'Helvetica', 8) 
+x += textWidth + 1
+can.setFont('Helvetica-Bold', 8)
+can.drawString(x, y, student_name)
+textWidth = stringWidth(student_name, 'Helvetica-Bold', 8) 
+x += textWidth + 1
+can.setFont('Helvetica', 8)
+can.drawString(x, y, line3)
+
+# Create PDF.
+can.save()
+  
+
+ Or you could have a look at  ParagraphStyle  and  Paragraph  ( from reportlab.lib.styles import ParagraphStyle ,  from reportlab.platypus import Paragraph ) but I am not sure if you can concatenate two different styles in the same string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19971213)
+ You can calculate the coordinates based on the size of the text, but you need to find out the size of the text in the given font in pixels. This can be done in Tkinter by first using a scratch canvas and the bbox method. Create the text item and capture the id, then use the bbox method to get its size.  
+
+  scratch = Canvas()
+id = scratch.create_text((0, 0), text=text, <options>)
+size = scratch.bbox(id)
+# size is a tuple: (x1, y1, x2, y2)
+# since x1 and y1 will be 0, x2 and y2 give the string width and height
+  
+
+ Then you can calculate your x and y coordinates based on the results and draw it on your actual canvas. There is likely also a more efficient way to do this, but I don't know of it yet. 
+
+ Or maybe you just want the x position to change based on the text size, in other words, making it right justified. In Tkinter this is most easily done by using the "anchor=E" option and giving the right edge of the text area for the x coordinate: 
+
+  canvas.create_text(ButtonX - 10, 30, anchor=E, ...)
+  
+
+ You can also use "width=200" for example to wrap the text in a 200 pixel wide box, in addition to anchor and any other options. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14490838)
+ I've never run across this behavior before; it looks like a Tkinter bug. The good news is, there appears to be a workaround. If you give each font a unique name the problem seems to vanish. 
+
+ The following example shows multiple lines, each with a different font size: 
+
+  import Tkinter as tk
+import tkFont
+
+class Example(tk.Frame):
+    def __init__(self, parent):
+        tk.Frame.__init__(self, parent)
+
+        self.display = tk.Canvas(self, width=400, height=600, background="black")
+        self.display.pack(side="top", fill="both", expand=True)
+        y = 10
+        for size in range (2, 38, 2):
+            tempfont = tkFont.Font(family='Helvetica',size=size, 
+                                   name="font%s" % size)
+            self.display.create_text(10, y, fill = "#FFFFFF",text = size, 
+                                     font = tempfont, anchor="nw")
+            y = y + tempfont.metrics()["linespace"]
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    frame = Example(parent=root)
+    frame.pack(side="top", fill="both", expand=True)
+
+    root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44230092)
+ The snippet of code below will show a list of all the available fonts that Tkinter has to offer, using  tkFont  and the  font.families() . 
+
+  from Tkinter import *
+import tkFont
+
+root = Tk()
+
+fonts=list(tkFont.families())
+fonts.sort()
+
+display = Listbox(root)
+display.pack(fill=BOTH, expand=YES, side=LEFT)
+
+scroll = Scrollbar(root)
+scroll.pack(side=RIGHT, fill=Y, expand=NO)
+
+scroll.configure(command=display.yview)
+display.configure(yscrollcommand=scroll.set)
+
+for item in fonts:
+    display.insert(END, item)
+
+root.mainloop()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/35629156)
+ The problem with your code is that  canvas.stringWidth(self, text, fontName, fontSize)  returns the width of the given string  without wrapping  it. So rotating the canvas will not decrease the width as the string is still the same length. 
+
+ To show this lets look at the following example: 
+
+  def rotated_text_length(c, string):
+    text_len = c.stringWidth(string, "Helvetica", 10)
+    print "Normal text: ", text_len
+
+    c.rotate(90)
+    text_len = c.stringWidth(string, "Helvetica", 10)
+    print "Rotated text: ", text_len
+
+c = canvas.Canvas("hello.pdf")
+rotated_text_length(c, "This is a very silly example"*100)
+rotated_text_length(c, "This is a very silly example"*50)
+  
+
+ If the string Width would wrap we would get the same length for both rotated sentences, yet the output is as follows: 
+
+  Normal text:  11891.0
+Rotated text:  11891.0
+Normal text:  5945.5
+Rotated text:  5945.5
+  
+
+ Which indicates that the returned width only depends on the string length (and of course font). So no wrapping is applied which makes sense based on the Reportlab reference: 
+
+ 
+    def stringWidth(self, text, fontName=None, fontSize=None):  
+  
+   gets width of a string in the given font and size 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/19601683)
+ If you use a Paragraph then wrap it on the canvas, it will return to you the width and height that it will take up. 
+
+  p = Paragraph(text, style=preferred_style)
+width, height = p.wrapOn(self.canvas, aW, aH)
+p.drawOn(self.canvas, x_pos, y_pos)
+  
+
+  aH = available Height 
+ aW = available Width  
+
+ the  style  refers to a ParagraphStyle. 
+
+
+

@@ -1,0 +1,156 @@
+Query: pass a string into subprocess.Popen
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16266707)
+ subprocess.Popen: http://docs.python.org/2/library/subprocess.html#subprocess.Popen 
+
+  import subprocess
+
+command = "ntpq -p"  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+
+#Launch the shell command:
+output = process.communicate()
+
+print output[0]
+  
+
+ In the Popen constructor, if  shell  is  True , you should pass the command as a string rather than as a sequence. Otherwise, just split the command into a list:  
+
+  command = ["ntpq", "-p"]  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None)
+  
+
+ If you need to read also the standard error, into the Popen initialization, you can set  stderr  to  subprocess.PIPE  or to  subprocess.STDOUT : 
+
+  import subprocess
+
+command = "ntpq -p"  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+#Launch the shell command:
+output, error = process.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/24982453)
+ I am using python3 and found out that you need to encode your string before you can pass it into stdin: 
+
+  p = Popen(['grep', 'f'], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+out, err = p.communicate(input='one\ntwo\nthree\nfour\nfive\nsix\n'.encode())
+print(out)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/163556)
+ I figured out this workaround: 
+
+  >>> p = subprocess.Popen(['grep','f'],stdout=subprocess.PIPE,stdin=subprocess.PIPE)
+>>> p.stdin.write(b'one\ntwo\nthree\nfour\nfive\nsix\n') #expects a bytes type object
+>>> p.communicate()[0]
+'four\nfive\n'
+>>> p.stdin.close()
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16266645)
+ The  os.popen()  has been deprecated since Python 2.6. You should now use the  subprocess  module instead: http://docs.python.org/2/library/subprocess.html#subprocess.Popen 
+
+  import subprocess
+
+command = "gcc -E myHeader.h"  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None, shell=True)
+
+#Launch the shell command:
+output = process.communicate()
+
+print output[0]
+  
+
+ In the Popen constructor, if  shell  is  True , you should pass the command as a string rather than as a sequence. Otherwise, just split the command into a list:  
+
+  command = ["gcc", "-E", "myHeader.h"]  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=None)
+  
+
+ If you need to read also the standard error, into the Popen initialization, you can set  stderr  to  subprocess.PIPE  or to  subprocess.STDOUT : 
+
+  import subprocess
+
+command = "gcc -E myHeader.h"  # the shell command
+process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+#Launch the shell command:
+output, error = process.communicate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1421350)
+ Have you tried to feed your string to http://docs.python.org/library/subprocess.html#subprocess.Popen.communicate as a string? 
+
+  Popen.communicate(input=my_input)
+  
+
+  
+
+  p = subprocess.Popen(["head", "-n", "1"], stdin=subprocess.PIPE)
+p.communicate('first\nsecond')
+  
+
+ output: 
+
+  first
+  
+
+ I forgot to set stdin to subprocess.PIPE when I tried it at first. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1421394)
+ Use http://docs.python.org/library/os.html#os.pipe: 
+
+  >>> from subprocess import Popen
+>>> import os, sys
+>>> read, write = os.pipe()
+>>> p = Popen(["head", "-n", "1"], stdin=read, stdout=sys.stdout)
+>>> byteswritten = os.write(write, "foo bar\n")
+foo bar
+>>>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9610538)
+ If you take a look at the http://docs.python.org/library/subprocess.html#replacing-shell-pipeline section in the documentation, you'll see that your example could be written as follows using  subprocess : 
+
+  from subprocess import Popen, PIPE                                        
+p_dgst = Popen("openssl dgst -sha1 -sign /foo/1 /bar/1".split(),
+               stdout=PIPE)
+p_enc =  Popen("openssl enc -base64 -A".split(),
+               stdin=p_dgst.stdout, stdout.PIPE)
+my_value = p_enc.communicate()[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/9735384)
+ If argument to  Popen  is a string, it tries to execute it as  'sh <argument>' , so in your case it becomes  'sh python test.py arg1 arg2'  that is obviously wrong.  You can pass it a list (as twall suggested), or specify  shell=True  parameter.  The next should work: 
+
+  subprocess.Popen("python test.py arg1 arg2", shell=True)
+  
+
+
+

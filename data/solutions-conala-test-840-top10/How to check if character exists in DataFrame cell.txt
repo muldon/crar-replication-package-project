@@ -1,0 +1,305 @@
+Query: How to check if character exists in DataFrame cell
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39299761)
+ Use  str  and  contains : 
+
+  In [5]: df['a'].str.contains('-')
+Out[5]: 
+0    True
+1    True
+2    True
+Name: a, dtype: bool
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/54879454)
+ Working with  float s, so need https://docs.scipy.org/doc/numpy/reference/generated/numpy.isclose.html for check both columns, chain with  &  for bitwise  AND  and test with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Series.any.html for at least one  True  of boolean mask: 
+
+  tup = (31.76, 77.84)
+lat, long = tup
+
+a = (np.isclose(df['lat'], lat) & np.isclose(df['long'], long)).any()
+print (a)
+True
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41729348)
+ Something else you can try if you are having issues encoding to 'utf-8' and want to go cell by cell you could try the following.  
+
+  Python 2  
+
+ (Where "df" is your DataFrame object.) 
+
+  for column in df.columns:
+    for idx in df[column].index:
+        x = df.get_value(idx,column)
+        try:
+            x = unicode(x.encode('utf-8','ignore'),errors ='ignore') if type(x) == unicode else unicode(str(x),errors='ignore')
+            df.set_value(idx,column,x)
+        except Exception:
+            print 'encoding error: {0} {1}'.format(idx,column)
+            df.set_value(idx,column,'')
+            continue
+  
+
+ Then try: 
+
+  df.to_csv(file_name)
+  
+
+ 
+
+ You can check the encoding of the columns by: 
+
+  for column in df.columns:
+    print '{0} {1}'.format(str(type(df[column][0])),str(column))
+  
+
+ Warning: errors='ignore' will just omit the character e.g. 
+
+  IN: unicode('Regenexx\xae',errors='ignore')
+OUT: u'Regenexx'
+  
+
+  Python 3  
+
+  for column in df.columns:
+    for idx in df[column].index:
+        x = df.get_value(idx,column)
+        try:
+            x = x if type(x) == str else str(x).encode('utf-8','ignore').decode('utf-8','ignore')
+            df.set_value(idx,column,x)
+        except Exception:
+            print('encoding error: {0} {1}'.format(idx,column))
+            df.set_value(idx,column,'')
+            continue
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/51170972)
+  
+
+  import pandas as pd
+
+df=pd.DataFrame(
+    {'col1': [323,542,123,235],
+     'col2': ['roster_admin','assignment_rule_admin','contact_user','admin_incident'] ,
+    })
+
+df.apply(lambda row: row.astype(str).str.contains('admin').any(), axis=1)
+  
+
+  Output:  
+
+  0     True
+1     True
+2    False
+3     True
+dtype: bool
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41204098)
+ From http://pandas.pydata.org/pandas-docs/stable/style.html 
+
+ 
+   You can apply conditional formatting, the visual styling of a
+  DataFrame depending on the data within, by using the DataFrame.style
+  property. 
+ 
+
+  import pandas as pd
+df = pd.DataFrame([[2,3,1], [3,2,2], [2,4,4]], columns=list("ABC"))
+
+df.style.apply(lambda x: ["background: red" if v > x.iloc[0] else "" for v in x], axis = 1)
+  
+
+ https://i.stack.imgur.com/Y1k2G.png 
+
+ 
+
+  Edit : to format specific cells, you can add condition checkers to check the name of element with  Series.iteritems()  or check the index with  enumerate() , e.g. if you want to format starting from column 3, you can use enumerate and check the index: 
+
+  df = pd.DataFrame([[2,3,-3], [3,2,7], [2,4,4]], columns=list("ABC"))
+
+df.style.apply(lambda x: ["background-color: #ff33aa" 
+                          if (i >= 2 and (v > x.iloc[0] + x.iloc[1] 
+                                          or v < x.iloc[0] - x.iloc[1])) 
+                          else "" for i, v in enumerate(x)], axis = 1)
+  
+
+ <a href="https://i.stack.imgur.com/wkftq.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51170991)
+ There are two solutions: 
+
+ 
+   df.col.apply  method is more straightforward but also a little bit slower: 
+
+  In [1]: import pandas as pd
+
+In [2]: import re
+
+In [3]: df = pd.DataFrame({'col1':[1,2,3,4,5], 'col2':['admin', 'aa', 'bb', 'c_admin_d', 'ee_admin']})
+
+In [4]: df
+Out[4]: 
+   col1       col2
+0     1      admin
+1     2         aa
+2     3         bb
+3     4  c_admin_d
+4     5   ee_admin
+
+In [5]: r = re.compile(r'.*(admin).*')
+
+In [6]: df.col2.apply(lambda x: bool(r.match(x)))
+Out[6]: 
+0     True
+1    False
+2    False
+3     True
+4     True
+Name: col2, dtype: bool
+
+In [7]: %timeit -n 100000 df.col2.apply(lambda x: bool(r.match(x)))
+167 µs ± 1.02 µs per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+   
+ 
+
+ 
+
+<ol start="2">
+   np.vectorize  method require  import numpy , but it's more efficient (about 4 times faster in my  timeit  test). 
+
+  In [1]: import numpy as np
+
+In [2]: import pandas as pd
+
+In [3]: import re
+
+In [4]: df = pd.DataFrame({'col1':[1,2,3,4,5], 'col2':['admin', 'aa', 'bb', 'c_admin_d', 'ee_admin']})
+
+In [5]: df
+Out[5]: 
+   col1       col2
+0     1      admin
+1     2         aa
+2     3         bb
+3     4  c_admin_d
+4     5   ee_admin
+
+In [6]: r = re.compile(r'.*(admin).*')
+
+In [7]: regmatch = np.vectorize(lambda x: bool(r.match(x)))
+
+In [8]: regmatch(df.col2.values)
+Out[8]: array([ True, False, False,  True,  True])
+
+In [9]: %timeit -n 100000 regmatch(df.col2.values)
+43.4 µs ± 362 ns per loop (mean ± std. dev. of 7 runs, 100000 loops each)
+   
+ 
+
+ 
+
+ Since you have changed your question to check any cell, and also concern about time efficiency: 
+
+  # if you want to check all columns no mater what `dtypes` they are
+dfs = df.astype(str, copy=True, errors='raise')
+regmatch(dfs.values) # This will return a 2-d array of booleans
+regmatch(dfs.values).any() # For existence.
+  
+
+ You can still use  df.applymap  method, but again, it will be slower. 
+
+  dfs = df.astype(str, copy=True, errors='raise')
+r = re.compile(r'.*(admin).*')
+dfs.applymap(lambda x: bool(r.match(x))) # This will return a dataframe of booleans.
+dfs.applymap(lambda x: bool(r.match(x))).any().any() # For existence.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/54123033)
+ Assuming that you use pandas, and the  df  variable is your dataframe above, you may try the following: 
+
+  df.loc[df['the_date'].isnull(), 'the_date'] = df['string'].apply(lambda x:x.split('_')[-1])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/50666766)
+ If the value is a string you could use   
+
+  for bl in bl_list:
+    if sheet.cell(row=i, column=j).find(bl) != -1:
+        print("value  {} found".format(bl))
+  
+
+ Alternatively, this search for any common elements between the splitted value of the cell and your set 
+
+  if len(list(set(sheet.cell(row=i, column=j).value.split(' ').intersection(bl_list))) > 0:
+    print("value found")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44904757)
+ You could convert the data into a dataframe, then use a merge: 
+
+  data = pd.DataFrame({'a':[1,2,3,4], 'b':[1,2,3,4],'c':[1,2,3,4],'d':[1,2,3,4]})
+
+lookup = {'a':2,'b':2, 'c':2}
+
+lookupdf = pd.DataFrame(lookup, index = [1]) #need the index, as they are all scalar
+
+pd.merge(lookupdf, data)
+
+
+    a   b   c   d
+0   2   2   2   2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/42567551)
+ How about a good ole list comprehension on the flattened contents... 
+
+  import pandas as pd
+import numpy as np
+
+df1=pd.DataFrame({1:['a','a'],2:['c','c']})
+df2=pd.DataFrame({1:['a','a'],2:['d','c']})
+
+rows_different_mask = (df1 != df2).any(axis=1)
+
+pairs = zip(df1.values.reshape(1, -1)[0], df2.values.reshape(1, -1)[0])
+new_elems = ["%s->%s" %(old, new) if (old != new) else new for old, new in pairs]
+df3 = pd.DataFrame(np.reshape(new_elems, df1.values.shape))
+print df3
+
+   0     1
+0  a  c->d
+1  a     c
+  
+
+
+

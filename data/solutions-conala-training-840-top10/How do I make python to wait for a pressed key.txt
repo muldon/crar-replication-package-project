@@ -1,0 +1,206 @@
+Query: How do I make python to wait for a pressed key
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/5004022)
+ The python http://docs.python.org/faq/library#how-do-i-get-a-single-keypress-at-a-time provides the following: 
+
+  import termios, fcntl, sys, os
+fd = sys.stdin.fileno()
+
+oldterm = termios.tcgetattr(fd)
+newattr = termios.tcgetattr(fd)
+newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
+termios.tcsetattr(fd, termios.TCSANOW, newattr)
+
+oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+
+try:
+    while 1:
+        try:
+            c = sys.stdin.read(1)
+            print "Got character", repr(c)
+        except IOError: pass
+finally:
+    termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
+    fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
+  
+
+ which can be rolled into your use case. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11094086)
+ If you want to see if they pressed a exact key (like say 'b') Do this: 
+
+  while True:
+    choice = raw_input("> ")
+
+    if choice == 'b' :
+        print "You win"
+        input("yay")
+        break
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/983382)
+ One way to do this in Python 2, is to use  raw_input() : 
+
+  raw_input("Press Enter to continue...")
+  
+
+ In python3 it's just  input()  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/16933120)
+ If you are ok with depending on system commands you can use the following: 
+
+ Linux: 
+
+  os.system('read -s -n 1 -p "Press any key to continue..."')
+print
+  
+
+ Windows: 
+
+  os.system("pause")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1135035)
+ In Python 3, no  raw_input()  exists. So, just use: 
+
+  input("Press Enter to continue...")
+  
+
+ This only waits for a user to press enter though, so you might want to use  msvcrt  ((Windows/DOS only) The msvcrt module gives you access to a number of functions in the Microsoft Visual C/C++ Runtime Library (MSVCRT)): 
+
+  import msvcrt as m
+def wait():
+    m.getch()
+  
+
+ This should wait for a key press. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/6037500)
+ I don't know of a platform independent way of doing it, but under Windows, if you use the msvcrt module, you can use its getch function: 
+
+  import msvcrt
+c = msvcrt.getch()
+print 'you entered', c
+  
+
+ mscvcrt also includes the non-blocking kbhit() function to see if a key was pressed without waiting (not sure if there's a corresponding curses function).  Under UNIX, there is the curses package, but not sure if you can use it without using it for all of the screen output.  This code works under UNIX: 
+
+  import curses
+stdscr = curses.initscr()
+c = stdscr.getch()
+print 'you entered', chr(c)
+curses.endwin()
+  
+
+ Note that curses.getch() returns the ordinal of the key pressed so to make it have the same output I had to cast it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/34956791)
+  Cross Platform, Python 2/3 code:  
+
+  # import sys, os
+
+def wait_key():
+    ''' Wait for a key press on the console and return it. '''
+    result = None
+    if os.name == 'nt':
+        import msvcrt
+        result = msvcrt.getch()
+    else:
+        import termios
+        fd = sys.stdin.fileno()
+
+        oldterm = termios.tcgetattr(fd)
+        newattr = termios.tcgetattr(fd)
+        newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
+        termios.tcsetattr(fd, termios.TCSANOW, newattr)
+
+        try:
+            result = sys.stdin.read(1)
+        except IOError:
+            pass
+        finally:
+            termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
+
+    return result
+  
+
+ I removed the fctl/non-blocking stuff because it was giving  IOError s and I didn't need it.  I'm using this code specifically because I want it to block.   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11784277)
+ If you're on Windows: 
+
+  def wait_for_user(secs):
+    import msvcrt
+    import time
+    start = time.time()
+    while True:
+        if msvcrt.kbhit():
+            msvcrt.getch()
+            break
+        if time.time() - start > secs:
+            break
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/44607296)
+ You may set the key waiting time to  0  second as  waitKey(0) . Your code  waitKey(100)  instructs OpenCV to wait for 100 milliseconds then destroy the window. If you set  waitKey(5000)  for 5 seconds, it will show the image for 5 seconds and destroy it. 
+
+ Below is the relevant http://docs.opencv.org/2.4/modules/highgui/doc/user_interface.html#waitkey. 
+
+ 
+   The function waitKey waits for a key event infinitely (when
+  delay <= 0 ) or for delay milliseconds, when it is positive.
+  Since the OS has a minimum time between switching threads, the
+  function will not wait exactly delay ms, it will wait at least delay
+  ms, depending on what else is running on your computer at that time.
+  It returns the code of the pressed key or -1 if no key was pressed
+  before the specified time had elapsed. 
+ 
+
+ Below is a sample usage of the waitKey() that will wait forever for <kbd>Q</kbd> being pressed before destroy the  imshow()  window. 
+
+  if cv2.waitKey(0) & 0xFF == ord('q'):
+    break
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/31754004)
+ If you combine time.sleep, threading.Thread, and sys.stdin.read you can easily wait for a specified amount of time for input and then continue. 
+
+  t = threading.Thread(target=sys.stdin.read(1) args=(1,))
+t.start()
+time.sleep(5)
+t.join()
+  
+
+
+

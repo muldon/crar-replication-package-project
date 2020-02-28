@@ -1,0 +1,201 @@
+Query: Reading hex to double-precision float python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/38831910)
+ You need to convert the hex digits to a binary string first: 
+
+  struct.unpack('d', "4081637ef7d0424a".decode("hex"))
+  
+
+  
+
+  struct.unpack('d', binascii.unhexlify("4081637ef7d0424a"))
+  
+
+ The latter version wks in both Python 2 and 3, the fmer only in Python 2 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/1592362)
+  >>> import struct
+>>> struct.unpack('!f', '41973333'.decode('hex'))[0]
+18.899999618530273
+>>> struct.unpack('!f', '41995C29'.decode('hex'))[0]
+19.170000076293945
+>>> struct.unpack('!f', '470FC614'.decode('hex'))[0]
+36806.078125
+  
+
+ Update: see comment on how to do this in Python 3. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/30823972)
+ To decode floats use the struct-module: 
+
+  >>> struct.unpack('>d','403C000000000000'.decode('hex'))[0]
+28.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/4315367)
+ Building on https://stackoverflow.com/questions/4315190/single-precision-big-endian-float-values-to-pythons-float-double-precision-big/4315230#4315230, 
+
+  import binascii
+import struct
+
+text='8192323E'
+print(struct.unpack('<f',binascii.unhexlify(text))[0])
+# 0.17438699305057526
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/1592179)
+ I'm guessing this question relates to https://stackoverflow.com/questions/1591920/python-binary-data-reading and you are working with 4 bytes rather than 8 hex digits. 
+
+  "\x41\x91\x33\x33"  is a 4 byte string even though it looks like 16 
+
+  >>> len("\x41\x91\x33\x33")
+4
+>>> import struct  
+>>> struct.unpack(">fff","\x41\x97\x33\x33\x41\x99\x5C\x29\x47\x0F\xC6\x14")
+(18.899999618530273, 19.170000076293945, 36806.078125)
+  
+
+ If you do need to deal with the string of hexdigits rather than the actual bytes, you can use  struct.pack  to convert it, like this 
+
+  >>> for hx in ["41973333","41995C29","470FC614"]:
+...     print(struct.unpack(">f",struct.pack(">i",int(hx,16)))[0])
+... 
+18.8999996185
+19.1700000763
+36806.078125
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1592226)
+ Slice up the hex strings into 2-character chunks (bytes), make each chunk into the right byte with int formatting, struct.unpack when done.  I.e.: 
+
+  import struct 
+
+testcases = {
+"41973333": 1.88999996185302734375E1,
+"41995C29": 1.91700000762939453125E1,
+"470FC614": 3.6806078125E4,
+}
+
+def hex2float(s):
+    bins = ''.join(chr(int(s[x:x+2], 16)) for x in range(0, len(s), 2))
+    return struct.unpack('>f', bins)[0]
+
+for s in testcases:
+  print hex2float(s), testcases[s]
+  
+
+  
+
+  18.8999996185 18.8999996185
+19.1700000763 19.1700000763
+36806.078125 36806.078125
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33088673)
+ Use string formatting, for example: 
+
+  >>> "0x%08x" % 0xffaa
+'0x0000ffaa'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48505879)
+ You can check convert the float to a hex representation; the sign, exponent and fraction each get a separate section. Provided the fraction uses only the first 6 hex digits (the remaining 7 digits must be zero),  and  the 6th digit is even (so the last bit is  not  set) will your 64-bit double float fit in a 32-bit single. The exponent is limited to a value between -126 and 127: 
+
+  import math
+import re
+
+def is_single_precision(
+        f,
+        _isfinite=math.isfinite,
+        _singlepat=re.compile(
+            r'-?0x[01]\.[0-9a-f]{5}[02468ace]0{7}p'
+            r'(?:\+(?:1[01]\d|12[0-7]|[1-9]\d|\d)|'
+            r'-(?:1[01]\d|12[0-6]|[1-9]\d|\d))$').match):
+    return not _isfinite(f) or _singlepat(f.hex()) is not None or f == 0.0
+  
+
+ The  float.hex()  method is quite fast, faster than roundtripping via struct or numpy; you can create 1 million hex representations in under half a second: 
+
+  >>> timeit.Timer('(1.2345678901e+26).hex()').autorange()
+(1000000, 0.47934128501219675)
+  
+
+ The regex engine is also pretty fast, and with name lookups optimised in the function above we can test 1 million float values in about 1.1 seconds: 
+
+  >>> import random, sys
+>>> testvalues = [0.0, float('inf'), float('-inf'), float('nan')] + [random.uniform(sys.float_info.min, sys.float_info.max) for _ in range(2 * 10 ** 6)]
+>>> timeit.Timer('is_single_precision(f())', 'from __main__ import is_single_precision, testvalues; f = iter(testvalues).__next__').autorange()
+(1000000, 1.1044921400025487)
+  
+
+ The above works because the  binary32  format for floats allots 23 bits for the fraction. The exponent is allotted 8 bits (signed). The regex only allows for the first 23 bits to be set, and the exponent to be within the range for a signed 8-bit number. 
+
+ Also see 
+
+ 
+ https://en.wikipedia.org/wiki/Single-precision_floating-point_format#IEEE_754_single-precision_binary_floating-point_format:_binary32 
+ https://en.wikipedia.org/wiki/Double-precision_floating-point_format#IEEE_754_double-precision_binary_floating-point_format:_binary64 
+ 
+
+ This may not be what you want however! Take for example 1/3rd or 1/10th. Both are values which require  approximation  in floating point values, and both fail the test: 
+
+  >>> (1/3).hex()
+'0x1.5555555555555p-2'
+>>> (1/10).hex()
+'0x1.999999999999ap-4'
+  
+
+ You may have to instead take a heuristic approach; if your hex value has all zeros in the first 6 digits of the fraction, or an exponent outside of the (-126, 127) range, converting to double would lead to  too much  loss. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38879403)
+ In Python  float  is always double-precision. 
+
+ If you require your answer to be output in the form of a hexadecimal integer, the question was already answered: 
+
+  import struct
+
+# define double_to_hex as in the other answer
+
+double_to_hex(17.5)   # Output: '0x4031800000000000'
+double_to_hex(-17.5)  # Output: '0xc031800000000000'
+  
+
+ However you might instead consider using the builtin function: 
+
+  (17.5).hex()    # Output: '0x1.1800000000000p+4'
+(-17.5).hex()   # Output: '-0x1.1800000000000p+4'
+
+# 0x1.18p+4 == (1 + 1./0x10 + 8./0x100) * 2**4 == 1.09375 * 16 == 17.5
+  
+
+ This is the same answer as before, just in a more structured and human-readable format. 
+
+ The lower 52 bits are the mantissa. The upper 12 bits consists of a sign bit and an 11-bit exponent; the exponent bias is 1023 == 0x3FF, so 0x403 means '4'. See https://en.wikipedia.org/wiki/IEEE_floating_point. 
+
+
+

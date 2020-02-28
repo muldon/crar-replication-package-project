@@ -1,0 +1,212 @@
+Query: Replace non-ASCII characters with a single space
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/41437699)
+ If the replacement character can be '?' instead of a space, then I'd suggest  result = text.encode('ascii', 'replace').decode() : 
+
+  """Test the performance of different non-ASCII replacement methods."""
+
+
+import re
+from timeit import timeit
+
+
+# 10_000 is typical in the project that I'm working on and most of the text
+# is going to be non-ASCII.
+text = 'Æ' * 10_000
+
+
+print(timeit(
+    """
+result = ''.join([c if ord(c) < 128 else '?' for c in text])
+    """,
+    number=1000,
+    globals=globals(),
+))
+
+print(timeit(
+    """
+result = text.encode('ascii', 'replace').decode()
+    """,
+    number=1000,
+    globals=globals(),
+))
+  
+
+ Results: 
+
+  0.7208260721400134
+0.009975979187503592
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/20078869)
+ Your  ''.join()  expression is  filtering , removing anything non-ASCII; you could use a conditional expression instead: 
+
+  return ''.join([i if ord(i) < 128 else ' ' for i in text])
+  
+
+ This handles characters one by one and would still use one space per character replaced. 
+
+ Your regular expression should just replace  consecutive  non-ASCII characters with a space: 
+
+  re.sub(r'[^\x00-\x7F]+',' ', text)
+  
+
+ Note the  +  there. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/48404316)
+ As a native and efficient approach, you don't need to use  ord  or any loop over the characters. Just encode with  ascii  and ignore the errors. 
+
+ The following will just remove the non-ascii characters: 
+
+  new_string = old_string.encode('ascii',errors='ignore')
+  
+
+ Now if you want to replace the deleted characters just do the following: 
+
+  final_string = new_string + b' ' * (len(old_string) - len(new_string))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20079244)
+ For  character  processing, use Unicode strings: 
+
+  PythonWin 3.3.0 (v3.3.0:bd8afb90ebf2, Sep 29 2012, 10:57:17) [MSC v.1600 64 bit (AMD64)] on win32.
+>>> s='ABC马克def'
+>>> import re
+>>> re.sub(r'[^\x00-\x7f]',r' ',s)   # Each char is a Unicode codepoint.
+'ABC  def'
+>>> b = s.encode('utf8')
+>>> re.sub(rb'[^\x00-\x7f]',rb' ',b) # Each char is a 3-byte UTF-8 sequence.
+b'ABC      def'
+  
+
+ But note you will still have a problem if your string contains decomposed Unicode characters (separate character and combining accent marks, for example): 
+
+  >>> s = 'mañana'
+>>> len(s)
+6
+>>> import unicodedata as ud
+>>> n=ud.normalize('NFD',s)
+>>> n
+'mañana'
+>>> len(n)
+7
+>>> re.sub(r'[^\x00-\x7f]',r' ',s) # single codepoint
+'ma ana'
+>>> re.sub(r'[^\x00-\x7f]',r' ',n) # only combining mark replaced
+'man ana'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9138520)
+ You can use regular expressions to do this: 
+
+  >>> import re
+>>> x = '09     Web Problem       Any problem has to do with the dept. web sites'
+>>> print re.sub(r'([^\s])\s([^\s])', r'\1_\2',x)
+09     Web_Problem       Any_problem_has_to_do_with_the_dept._web_sites
+  
+
+ The search pattern is (1) any non-white-space character, followed by (2) a  single  white-space character, followed by (3) another non-white-space character. 
+
+ Numbers 1 and 3 are captured so that they can be used in the replacement pattern. Number 2 is ignored and we put an underscore in instead. 
+
+ This leaves the multi-white-space areas alone and simply changes the singly-occurring white-space characters into underscores, which is what I think you were asking for. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35492167)
+ For you the get the most alike representation of your original string I recommend https://pypi.python.org/pypi/Unidecode: 
+
+  from unidecode import unidecode
+def remove_non_ascii(text):
+    return unidecode(unicode(text, encoding = "utf-8"))
+  
+
+ Then you can use it in a string: 
+
+  remove_non_ascii("Ceñía")
+Cenia
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/7396665)
+ The problem here is with the encoding  of the file you downloaded  ( aa_meetings.csv ).  The server doesn't declare an encoding in its HTTP headers, but the only non-ASCII<sup>1</sup> octet in the file has the value 0x92.  You say that this is supposed to be "the dreaded weird single-quote character", therefore the file's encoding is http://en.wikipedia.org/wiki/Windows-1252.  But you're trying to search and replace for the UTF-8 encoding of U+2019, i.e.  '\xe2\x80\x99' , which is not what is in the file. 
+
+ Fixing this is as simple as adding appropriate calls to  encode  and  decode : 
+
+  # encoding: utf-8
+import urllib2
+
+# read raw CSV data from URL
+url = urllib2.urlopen('http://www.aaphoenix.org/meetings/aa_meetings.csv')
+raw = url.read().decode('windows-1252')
+
+# replace bad characters
+raw = raw.replace(u'’', u"'")
+
+print(raw.encode("ascii"))
+  
+
+ <sup>1</sup> by "ASCII" I mean "the character encoding which maps single octets with values 0x00 through 0x7F directly to U+0000 through U+007F, and does not define the meaning of octets with values 0x80 through 0xFF". 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48403928)
+ You can remove the non printable ascii chars like this; it applies the line of code you provided to replace non printable ascii by a white space, to each value in the dictionary: 
+
+  def remove_non_printable_ascii(s):
+    return ''.join([c if 32 < ord(c) < 127 else " " for c in s])
+
+a = {'age': '12\xa0', 'name': 'pks\xa0\xa0'}
+
+for k in a:
+    a[k] = remove_non_printable_ascii(a[k])
+
+a
+  
+
+ output: 
+
+  {'age': '12 ', 'name': 'pks  '}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/48403872)
+ You don't need a list comprehension and  ord  just encode to ascii and ignore the errors: 
+
+  In [106]: {key:value.encode('ascii',errors='ignore') for key, value in a.items()}
+Out[106]: {'age': b'12', 'name': b'pks'}
+  
+
+ If you want to replace with space here is an efficient way: 
+
+  In [117]: def replace_nonascii(mydict):
+              for key, value in a.items():
+                  new = value.encode('ascii',errors='ignore')
+                  yield key, new + b' ' * (len(value) - len(new))
+   .....:         
+
+In [118]: dict(replace_nonascii(a))
+Out[118]: {'age': b'12 ', 'name': b'pks  '}
+  
+
+
+

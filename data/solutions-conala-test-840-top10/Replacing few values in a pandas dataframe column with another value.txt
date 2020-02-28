@@ -1,0 +1,196 @@
+Query: Replacing few values in a pandas dataframe column with another value
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/46112697)
+ This solution will change the existing dataframe itself: 
+
+  mydf = pd.DataFrame({"BrandName":["A", "B", "ABC", "D", "AB"], "Speciality":["H", "I", "J", "K", "L"]})
+mydf["BrandName"].replace(["ABC", "AB"], "A", inplace=True)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53299912)
+  
+
+  import pandas as pd
+dk=pd.DataFrame({"BrandName":['A','B','ABC','D','AB'],"Specialty":['H','I','J','K','L']})
+  
+
+ Now use  DataFrame.replace()  function: 
+
+  dk.BrandName.replace(to_replace=['ABC','AB'],value='A')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54294058)
+   .map  +  .fillna  (if   'id'  is a unique key in  df2 ) 
+
+  df1['city'] = df1.id.map(df2.set_index('id').city_in_mail).fillna(df1.city)
+
+print(df1)
+#     id city
+#0  4735    x
+#1    46    b
+#2  2345    d
+#3  8768    e
+#4   807    f
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32724432)
+  import pandas as pd
+import numpy as np
+randn = np.random.randn
+s = Series(randn(5), index=['a', 'b', 'c', 'd', 'e'])
+d = {'one' : Series([1., 2., 3.], index=['a', 'b', 'c']),
+     'two' : Series([1., 2., 3., 4.], index=['a', 'b', 'c', 'd'])}
+df = pd.DataFrame(d)
+df
+df.replace(1, 12*4)  # replace all values 1 by 12*4
+df
+  
+
+ Ref about  replace()  : https://stackoverflow.com/questions/25698710/replace-all-occurrences-of-a-string-in-a-pandas-dataframe-python 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/53120694)
+ Here is necessary double transpose: 
+
+  cols = ['B','C', 'D']
+df[cols] = df[cols].T.fillna(df['A']).T
+print(df)
+   A    B    C    D
+0  3  2.0  3.0  0.0
+1  5  4.0  2.0  5.0
+2  7  7.0  7.0  5.0
+3  9  3.0  9.0  4.0
+  
+
+  
+
+  df[cols] = df[cols].fillna(df['A'], axis=1)
+print(df)
+  
+
+ 
+   NotImplementedError: Currently only can fill with dict/Series column by column 
+ 
+
+ Another solution with https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html and broadcasting column  A : 
+
+  df = pd.DataFrame(np.where(df.isnull(), df['A'].values[:, None], df), 
+                  index=df.index, 
+                  columns=df.columns)
+print (df)
+     A    B    C    D
+0  3.0  2.0  3.0  0.0
+1  5.0  4.0  2.0  5.0
+2  7.0  7.0  7.0  5.0
+3  9.0  3.0  9.0  4.0
+  
+
+ Thank you @pir for another solution: 
+
+  df = pd.DataFrame(np.where(df.isnull(), df[['A']], df), 
+                  index=df.index, 
+                  columns=df.columns)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51954290)
+ loc function can be used to replace multiple values,
+Documentation for it :
+https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.loc.html/%22loc%22 
+
+  df.loc[df['BrandName'].isin([ABC', 'AB'])]='A'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/32725646)
+ http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.where.html#pandas-dataframe-where might be what you need.  You would have to construct another  dataframe  with the specific column values that you want to substitute. 
+
+ I don't have Pandas installed here so I can't show a dataframe example - but it works similarly with numpy arrays. 
+
+  >>> a
+array([1, 2, 0, 3, 4, 0, 5])
+>>> subst
+array([10, 20, 30, 40, 50, 60, 70])
+>>> k = -.5
+>>> np.where(a == 0, subst * k, a)
+array([  1.,   2., -15.,   3.,   4., -30.,   5.])
+>>>
+  
+
+ 
+
+ One difference with the  dataframe  is that it can do an in-place substitution and you only have to specify the  other   dataframe  (the one with the substitute values). 
+
+ Finally a Pandas example: 
+
+  >>> 
+>>> df
+   d  e  f
+a  0  1  1
+b  1  1  0
+c  1  0  1
+>>> s
+    d   e   f
+a  10  20  30
+b  10  20  30
+c  10  20  30
+>>> k = -.5
+>>> df.where(df != 0, other = s * k)
+   d   e   f
+a -5   1   1
+b  1   1 -15
+c  1 -10   1
+>>> 
+>>> df.where(df != 0, other = s * k, inplace = True)
+>>> df
+   d   e   f
+a -5   1   1
+b  1   1 -15
+c  1 -10   1
+>>>
+  
+
+ http://pandas.pydata.org/pandas-docs/stable/indexing.html#the-where-method-and-masking 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54294004)
+ Try  combine_first  with  rename  to align column index: 
+
+  df2.set_index('id')\
+   .rename(columns={'city_in_mail':'city'})\
+   .combine_first(df1.set_index('id'))\
+   .reset_index()
+  
+
+ Output: 
+
+         id city
+0  4735.0    x
+1    46.0    b
+2  2345.0    d
+3  8768.0    e
+4   807.0    f
+  
+
+ Note: You can reassign this back to df1 if you choose. 
+
+
+

@@ -1,0 +1,560 @@
+Query: Append string to the start of each value in a said column of a pandas dataframe (elegantly)
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/20027386)
+  df['col'] = 'str' + df['col'].astype(str)
+  
+
+ Example: 
+
+  >>> df = pd.DataFrame({'col':['a',0]})
+>>> df
+  col
+0   a
+1   0
+>>> df['col'] = 'str' + df['col'].astype(str)
+>>> df
+    col
+0  stra
+1  str0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49995329)
+ As an alternative, you can also use an  apply  combined with  format  which I find slightly more readable if one e.g. also wants to add a suffix or manipulate the element itself: 
+
+  df = pd.DataFrame({'col':['a', 0]})
+
+df['col'] = df['col'].apply(lambda x: "{}{}".format('str', x))
+  
+
+ which also yields the desired output: 
+
+      col
+0  stra
+1  str0
+  
+
+ If you are using Python 3.6+, you can also use f-strings: 
+
+  df['col'] = df['col'].apply(lambda x: f"str{x}")
+  
+
+ yielding the same output. 
+
+ The f-string version is almost as fast as @RomanPekar's solution (python 3.6.4): 
+
+  df = pd.DataFrame({'col':['a', 0]*200000})
+
+%timeit df['col'].apply(lambda x: f"str{x}")
+117 ms ± 451 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+%timeit 'str' + df['col'].astype(str)
+112 ms ± 1.04 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+  
+
+ Using  format , however, is indeed far slower: 
+
+  %timeit df['col'].apply(lambda x: "{}{}".format('str', x))
+185 ms ± 1.07 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/54392591)
+ . You can figure out what solution works best depending on your data, performance, and readability requirements. Solutions have been provided that work for pure string columns, as well as handle the general case of mixed types and NaNs. 
+
+  vectorized String Concatenation  
+
+  df = pd.DataFrame({'col': ['a', '5', 'eee']})
+df2 = pd.DataFrame({'col': ['a', 5, 'eee', np.nan]})
+
+df
+
+   col
+0    a
+1    5
+2  eee
+
+df2
+
+   col
+0    a
+1    5
+2  eee
+3  NaN
+  
+
+  
+
+ If your column(s) are completely strings (i.e., no NaNs or mixed types, numeric, etc), the solution is simple: 
+
+  'str' + df
+
+      col
+0    stra
+1    str5
+2  streee
+  
+
+ To concat 'str' to just the specific column, 
+
+  'str' + df['col']
+
+0      stra
+1      str5
+2    streee
+Name: col, dtype: object
+  
+
+ The result can be assigned back, either in-place, 
+
+  df['col'] = 'str' + df['col']
+  
+
+ Or, with https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.assign.html: 
+
+  df.assign(col='str' + df['col'])
+  
+
+ If you need to handle missing data or mixed dtypes (i.e., as in  df2 ), you can use https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.isna.html to generate a mask to pass to https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.where.html.  
+
+  u = df2['col'].where(df2['col'].isna(), df2['col'].astype(str))
+u
+
+0      a
+1      5
+2    eee
+3    NaN
+Name: col, dtype: object
+  
+
+  
+
+  'str' + u
+
+0      stra
+1      str5
+2    streee
+3       NaN
+Name: col, dtype: object
+  
+
+ 
+
+  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.radd.html  
+
+  df['col'].radd('str')
+
+0      stra
+1      str5
+2    streee
+Name: col, dtype: object
+  
+
+   
+
+  u = df2['col'].where(df2['col'].isna(), df2['col'].astype(str))
+u.radd('str')
+
+0      stra
+1      str5
+2    streee
+3       NaN
+Name: col, dtype: object
+  
+
+ 
+
+  https://docs.scipy.org/doc/numpy-1.15.0/reference/generated/numpy.core.defchararray.add.html  
+
+  np.char.add('str', df.col)
+# array(['stra', 'str5', 'streee'], dtype='<U11')
+
+df.assign(col=np.char.add('str', df.col))
+
+      col
+0    stra
+1    str5
+2  streee
+  
+
+ For mixed dtypes and NaNs, follow a procedure to one shown before with  add : 
+
+  u = (pd.Series(np.char.add('str', df2['col'].values.astype(str)))
+       .where(df2['col'].notna()))
+df2.assign(col=u)
+
+      col
+0    stra
+1    str5
+2  streee
+3     NaN
+  
+
+ 
+
+  https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.map.html and https://pyformat.info  
+
+  df['col'].map('str{0}'.format)
+
+      col
+0    stra
+1    str5
+2  streee
+  
+
+ And, for the general case, use  
+
+  df2['col'].map('str{0}'.format).where(df2['col'].notna())
+
+0      stra
+1      str5
+2    streee
+3       NaN
+Name: col, dtype: object
+  
+
+  
+
+ 
+
+  List Comprehensions   
+
+ I am going to go out on a limb and say that list comprehensions are likely the fastest solutions here. The issue is that string operations are inherently harder to vectorise, so most pandas "vectorised" functions are basically wrappers over for loops. If you don't need the overhead, you can strip it out by handwriting your own loops. I've written extensively about this in https://stackoverflow.com/q/54028199/4909087.  
+
+  ['str' + x for x in df['col']]
+# ['stra', 'str5', 'streee']
+
+df.assign(col=['str' + x for x in df['col']])
+
+      col
+0    stra
+1    str5
+2  streee
+  
+
+ Or, using  str.format : 
+
+  df.assign(col=[f'str{x}' for x in df['col']])
+
+      col
+0    stra
+1    str5
+2  streee
+  
+
+ These solutions also have a general equivalent: 
+
+  df2.assign(col=[
+   'str' + str(x) if pd.notna(x) else np.nan for x in df2['col']])
+
+      col
+0    stra
+1    str5
+2  streee
+3     NaN
+  
+
+  
+
+  df2.assign(col=[f'str{x}' if pd.notna(x) else np.nan for x in df2['col']])
+
+      col
+0    stra
+1    str5
+2  streee
+3     NaN
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/32238323)
+  df['Start']  is the whole series, so you have to iterate that and  then  split: 
+
+  new_series = []
+for x in df['Start']:
+    value_list = []
+    for y in x.rstrip(',').split(','):
+        value_list.append(str(int(y) + 1))
+    new_series.append(','.join(value_list))
+df['test'] = new_series
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35401834)
+ As long as your columns are  datetime s, they have a  .dt  accessor with lots of useful datetime methods attached, including  strftime , so you can do: 
+
+  import pandas as pd
+
+df = pd.DataFrame({'dates': pd.date_range('2015-01-01', '2015-01-10', freq='12H')})
+df.dates.dt.strftime('%H:%S')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39832803)
+ IIUC you need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.values.html: 
+
+  start = pd.to_datetime('2015-02-24')
+rng = pd.date_range(start, periods=5)
+
+df = pd.DataFrame({'a': range(5), 'b':list('ABCDE')}, index=rng)  
+print (df)
+            a  b
+2015-02-24  0  A
+2015-02-25  1  B
+2015-02-26  2  C
+2015-02-27  3  D
+2015-02-28  4  E
+
+print (df.values)
+[[0 'A']
+ [1 'B']
+ [2 'C']
+ [3 'D']
+ [4 'E']]
+  
+
+ if need index values also first convert  datetime  to  string  values in  index  and then use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.reset_index.html for converting  index  to column: 
+
+  df.index = df.index.astype(str)
+print (df.reset_index().values)
+[['2015-02-24' 0 'A']
+ ['2015-02-25' 1 'B']
+ ['2015-02-26' 2 'C']
+ ['2015-02-27' 3 'D']
+ ['2015-02-28' 4 'E']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40414679)
+ Here is a quick and dirty approach using a list comprehension. 
+
+  >>> df = pd.DataFrame({'A': np.arange(1, 3, 0.2)})
+
+>>> A = df.A.values.tolist()
+A: [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.5, 2.6, 2.8]
+
+>>> B = np.arange(0, 3, 1).tolist()
+B: [0, 1, 2]
+
+>>> BA = [k for k in range(0, len(B)-1) for a in A if (B[k]<=a) & (B[k+1]>a) or (a>max(B))]
+BA: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48019616)
+ I cannot reproduce the  range string.
+But this function should work for both cases: 
+
+  def single_seats_comma(row):
+    if type(row) is tuple:
+        return list(row)
+    elif type(row) is range:
+        res = [row.start]
+        end = row.stop - 1
+        if end - row.start > 1:
+            res.append(end)
+    return res
+  
+
+ Example: 
+
+  >>> tickets = pd.DataFrame({'seats': [(100, 1022), range(3, 4), range(2, 10)]})
+>>> tickets['seats'].apply(single_seats_comma)
+0    [100, 1022]
+1            [3]
+2         [2, 9]
+Name: seats, dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/33465360)
+ A couple of assumptions went into this: 
+
+ 
+ Null/NA values don't count 
+ You need multiple non-NA values to keep a column 
+ Those values need to be different in some way (e.g., a column full of 1's and only 1's should be dropped) 
+ 
+
+ All that said, I would use a  select  statement on the columns. 
+
+ If you start with this dataframe:  
+
+  import pandas
+
+N = 15
+df = pandas.DataFrame(index=range(10), columns=list('ABCD'))
+df.loc[2, 'A'] = 23
+df.loc[3, 'B'] = 52
+df.loc[4, 'B'] = 36
+df.loc[5, 'C'] = 11
+df.loc[6, 'C'] = 11
+df.loc[7, 'D'] = 43
+df.loc[8, 'D'] = 63
+df.loc[9, 'D'] = 97
+
+df
+  
+
+ Which creates: 
+
+       A    B    C    D
+0  NaN  NaN  NaN  NaN
+1  NaN  NaN  NaN  NaN
+2   23  NaN  NaN  NaN
+3  NaN   52  NaN  NaN
+4  NaN   36  NaN  NaN
+5  NaN  NaN   11  NaN
+6  NaN  NaN   11  NaN
+7  NaN  NaN  NaN   43
+8  NaN  NaN  NaN   63
+9  NaN  NaN  NaN   97
+  
+
+ Given my assumptions above, columns A and C should be dropped since A only has one value and both of C's values are the same.  
+
+  df.select(lambda c: df[c].dropna().unique().shape[0] > 1, axis=1)
+  
+
+ And that gives me: 
+
+       B    D
+0  NaN  NaN
+1  NaN  NaN
+2  NaN  NaN
+3   52  NaN
+4   36  NaN
+5  NaN  NaN
+6  NaN  NaN
+7  NaN   43
+8  NaN   63
+9  NaN   97
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50050996)
+ You want to identify the indices for a particular start and stop values and get the matching rows plus all the rows in between. One way is to find the indexes and build a range, but you already said that you don't like that approach. Here is a general solution using boolean logic that should work for you. 
+
+ First, let's make a more interesting example: 
+
+  import pandas as pd
+df = pd.DataFrame({'a':['one','two','three', 'four', 'five']})
+  
+
+ Suppose  start = "two"  and  stop = "four" . That is, you want to get the following output DataFrame: 
+
+         a
+1    two
+2  three
+3   four
+  
+
+ We can find the index of the bounding rows via: 
+
+  df["a"].isin({start, stop})
+#0    False
+#1     True
+#2    False
+#3     True
+#4    False
+#Name: a, dtype: bool
+  
+
+ If the value for index 2 were  True , we would be done as we could just use this output as a mask. So let's find a way to create the mask we need. 
+
+ First we can use  cummax()  and the boolean XOR operator ( ^ ) to achieve: 
+
+  (df["a"]==start).cummax() ^ (df["a"]==stop).cummax()
+#0    False
+#1     True
+#2     True
+#3    False
+#4    False
+#Name: a, dtype: bool
+  
+
+ This is almost what we want, except we are missing the stop value index. So let's just bitwise OR ( | ) the stop condition: 
+
+  #0    False
+#1     True
+#2     True
+#3     True
+#4    False
+#Name: a, dtype: bool
+  
+
+ This gets the result we are looking for. So create a mask, and index the dataframe: 
+
+  mask = (df["a"]==start).cummax() ^ (df["a"]==stop).cummax() | (df["a"]==stop)
+print(df[mask])
+#       a
+#1    two
+#2  three
+#3   four
+  
+
+ We can extend these findings into a function that also supports indexing up to a row or indexing from a row to the end: 
+
+  def get_rows(df, col, start, stop):
+    if start is None:
+        mask = ~((df[col] == stop).cummax() ^ (df[col] == stop))
+    else:
+        mask = (df[col]==start).cummax() ^ (df[col]==stop).cummax() | (df[col]==stop)
+    return df[mask]
+
+# get rows between "two" and "four" inclusive
+print(get_rows(df=df, col="a", start="two", stop="four"))
+#       a
+#1    two
+#2  three
+#3   four
+
+# get rows from "two" until the end
+print(get_rows(df=df, col="a", start="two", stop=None))
+#       a
+#1    two
+#2  three
+#3   four
+#4   five
+
+# get rows up to "two"
+print(get_rows(df=df, col="a", start=None, stop="two"))
+#     a
+#0  one
+#1  two
+  
+
+ 
+
+  Update :  
+
+ For completeness, here is the indexing based solution. 
+
+  def get_rows_indexing(df, col, start, stop):
+    min_ind = min(df.index[df[col]==start].tolist() or [0])
+    max_ind = max(df.index[df[col]==stop].tolist() or [len(df)])
+    return df[min_ind:max_ind+1]
+  
+
+ This function does essentially the same thing as the other version, but it may be easier to understand. Also this is more robust, as the other version relies on  None  not being a value in the desired column. 
+
+
+

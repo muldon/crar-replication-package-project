@@ -1,0 +1,430 @@
+Query: How to serialize SqlAlchemy result to JSON?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/50836809)
+ following code will serialize sqlalchemy result to json. 
+
+  import json
+from collections import OrderedDict
+
+
+def asdict(self):
+    result = OrderedDict()
+    for key in self.__mapper__.c.keys():
+        if getattr(self, key) is not None:
+            result[key] = str(getattr(self, key))
+        else:
+            result[key] = getattr(self, key)
+    return result
+
+
+def to_array(all_vendors):
+    v = [ ven.asdict() for ven in all_vendors ]
+    return json.dumps(v) 
+  
+
+ Calling fun, 
+
+  def all_products():
+    all_products = Products.query.all()
+    return to_array(all_products)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/46180522)
+ You can use introspection of SqlAlchemy as this :  
+
+  mysql = SQLAlchemy()
+from sqlalchemy import inspect
+
+class Contacts(mysql.Model):  
+    __tablename__ = 'CONTACTS'
+    id = mysql.Column(mysql.Integer, primary_key=True)
+    first_name = mysql.Column(mysql.String(128), nullable=False)
+    last_name = mysql.Column(mysql.String(128), nullable=False)
+    phone = mysql.Column(mysql.String(128), nullable=False)
+    email = mysql.Column(mysql.String(128), nullable=False)
+    street = mysql.Column(mysql.String(128), nullable=False)
+    zip_code = mysql.Column(mysql.String(128), nullable=False)
+    city = mysql.Column(mysql.String(128), nullable=False)
+    def toDict(self):
+        return { c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs }
+
+@app.route('/contacts',methods=['GET'])
+def getContacts():
+    contacts = Contacts.query.all()
+    contactsArr = []
+    for contact in contacts:
+        contactsArr.append(contact.toDict()) 
+    return jsonify(contactsArr)
+
+@app.route('/contacts/<int:id>',methods=['GET'])
+def getContact(id):
+    contact = Contacts.query.get(id)
+    return jsonify(contact.toDict())
+  
+
+ Get inspired from an answer here : 
+    https://stackoverflow.com/questions/1958219/convert-sqlalchemy-row-object-to-python-dict 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/7032311)
+ You can convert a RowProxy to a dict like this: 
+
+   d = dict(row.items())
+  
+
+ Then serialize that to JSON ( you will have to specify an encoder for things like  datetime  values )
+It's not that hard if you just want one record ( and not a full hierarchy of related records ). 
+
+  json.dumps([(dict(row.items())) for row in rs])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/11884806)
+ You could just output your object as a dict: 
+
+  class User:
+   def as_dict(self):
+       return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+  
+
+ And then you use User.as_dict() to serialize your object. 
+
+ As explained in https://stackoverflow.com/questions/1958219/convert-sqlalchemy-row-object-to-python-dict 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/36406527)
+ . 
+
+  "from_json"  (class method) builds a Model object based on json data. 
+
+  "deserialize"  could be called only on instance, and merge all data from json into Model instance. 
+
+  "serialize"  - recursive serialization 
+
+  __write_only__  property is needed to define write only properties ("password_hash" for example). 
+
+  class Serializable(object):
+    __exclude__ = ('id',)
+    __include__ = ()
+    __write_only__ = ()
+
+    @classmethod
+    def from_json(cls, json, selfObj=None):
+        if selfObj is None:
+            self = cls()
+        else:
+            self = selfObj
+        exclude = (cls.__exclude__ or ()) + Serializable.__exclude__
+        include = cls.__include__ or ()
+        if json:
+            for prop, value in json.iteritems():
+                # ignore all non user data, e.g. only
+                if (not (prop in exclude) | (prop in include)) and isinstance(
+                        getattr(cls, prop, None), QueryableAttribute):
+                    setattr(self, prop, value)
+        return self
+
+    def deserialize(self, json):
+        if not json:
+            return None
+        return self.__class__.from_json(json, selfObj=self)
+
+    @classmethod
+    def serialize_list(cls, object_list=[]):
+        output = []
+        for li in object_list:
+            if isinstance(li, Serializable):
+                output.append(li.serialize())
+            else:
+                output.append(li)
+        return output
+
+    def serialize(self, **kwargs):
+
+        # init write only props
+        if len(getattr(self.__class__, '__write_only__', ())) == 0:
+            self.__class__.__write_only__ = ()
+        dictionary = {}
+        expand = kwargs.get('expand', ()) or ()
+        prop = 'props'
+        if expand:
+            # expand all the fields
+            for key in expand:
+                getattr(self, key)
+        iterable = self.__dict__.items()
+        is_custom_property_set = False
+        # include only properties passed as parameter
+        if (prop in kwargs) and (kwargs.get(prop, None) is not None):
+            is_custom_property_set = True
+            iterable = kwargs.get(prop, None)
+        # loop trough all accessible properties
+        for key in iterable:
+            accessor = key
+            if isinstance(key, tuple):
+                accessor = key[0]
+            if not (accessor in self.__class__.__write_only__) and not accessor.startswith('_'):
+                # force select from db to be able get relationships
+                if is_custom_property_set:
+                    getattr(self, accessor, None)
+                if isinstance(self.__dict__.get(accessor), list):
+                    dictionary[accessor] = self.__class__.serialize_list(object_list=self.__dict__.get(accessor))
+                # check if those properties are read only
+                elif isinstance(self.__dict__.get(accessor), Serializable):
+                    dictionary[accessor] = self.__dict__.get(accessor).serialize()
+                else:
+                    dictionary[accessor] = self.__dict__.get(accessor)
+        return dictionary
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31569287)
+ For security reasons you should never return all the model's fields. . 
+
+ Flask's json encoding now supports UUID, datetime and relationships (and added  query  and  query_class  for flask_sqlalchemy  db.Model  class). I've updated the encoder as follows: 
+
+ 
+   app/json_encoder. 
+ 
+
+      from sqlalchemy.ext.declarative import DeclarativeMeta
+    from flask import json
+
+
+    class AlchemyEncoder(json.JSONEncoder):
+        def default(self, o):
+            if isinstance(o.__class__, DeclarativeMeta):
+                data = {}
+                fields = o.__json__() if hasattr(o, '__json__') else dir(o)
+                for field in [f for f in fields if not f.startswith('_') and f not in ['metadata', 'query', 'query_class']]:
+                    value = o.__getattribute__(field)
+                    try:
+                        json.dumps(value)
+                        data[field] = value
+                    except TypeError:
+                        data[field] = None
+                return data
+            return json.JSONEncoder.default(self, o)
+  
+
+ 
+    .  
+ 
+
+  # json encoding
+from app.json_encoder import AlchemyEncoder
+app.json_encoder = AlchemyEncoder
+  
+
+ With this I can optionally add a  __json__  property that returns the list of fields I wish to encode: 
+
+ 
+    app/models.  
+ 
+
+  class Queue(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    song_id = db.Column(db.Integer, db.ForeignKey('song.id'), unique=True, nullable=False)
+    song = db.relationship('Song', lazy='joined')
+    type = db.Column(db.String(20), server_default=u'audio/mpeg')
+    src = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
+    def __init__(self, song):
+        self.song = song
+        self.src = song.full_path
+
+    def __json__(self):
+        return ['song', 'src', 'type', 'created_at']
+  
+
+ I add @jsonapi to my view, return the resultlist and then my output is as follows: 
+
+  [
+
+{
+
+    "created_at": "Thu, 23 Jul 2015 11:36:53 GMT",
+    "song": 
+
+        {
+            "full_path": "/static/music/Audioslave/Audioslave [2002]/1 Cochise.mp3",
+            "id": 2,
+            "path_name": "Audioslave/Audioslave [2002]/1 Cochise.mp3"
+        },
+    "src": "/static/music/Audioslave/Audioslave [2002]/1 Cochise.mp3",
+    "type": "audio/mpeg"
+}
+
+]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25696535)
+ https://pypi.python.org/pypi/flask_jsontools package has an implementation of https://github.com/kolypto/py-flask-jsontools#jsonserializablebase Base class for your models. 
+
+  
+
+  from sqlalchemy.ext.declarative import declarative_base
+from flask.ext.jsontools import JsonSerializableBase
+
+Base = declarative_base(cls=(JsonSerializableBase,))
+
+class User(Base):
+    #...
+  
+
+ Now the  User  model is magically serializable. 
+
+ If your framework is not Flask, you can just https://github.com/kolypto/py-flask-jsontools/blob/master/flask_jsontools/formatting.py 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/41204271)
+ Here is a solution that lets you select the relations you want to include in your output as deep as you would like to go.
+NOTE: This is a complete re-write taking a dict/str as an arg rather than a list. .. 
+
+  def deep_dict(self, relations={}):
+    """Output a dict of an SA object recursing as deep as you want.
+
+    Takes one argument, relations which is a dictionary of relations we'd
+    like to pull out. The relations dict items can be a single relation
+    name or deeper relation names connected by sub dicts
+
+    Example:
+        Say we have a Person object with a family relationship
+            person.deep_dict(relations={'family':None})
+        Say the family object has homes as a relation then we can do
+            person.deep_dict(relations={'family':{'homes':None}})
+            OR
+            person.deep_dict(relations={'family':'homes'})
+        Say homes has a relation like rooms you can do
+            person.deep_dict(relations={'family':{'homes':'rooms'}})
+            and so on...
+    """
+    mydict =  dict((c, str(a)) for c, a in
+                    self.__dict__.items() if c != '_sa_instance_state')
+    if not relations:
+        # just return ourselves
+        return mydict
+
+    # otherwise we need to go deeper
+    if not isinstance(relations, dict) and not isinstance(relations, str):
+        raise Exception("relations should be a dict, it is of type {}".format(type(relations)))
+
+    # got here so check and handle if we were passed a dict
+    if isinstance(relations, dict):
+        # we were passed deeper info
+        for left, right in relations.items():
+            myrel = getattr(self, left)
+            if isinstance(myrel, list):
+                mydict[left] = [rel.deep_dict(relations=right) for rel in myrel]
+            else:
+                mydict[left] = myrel.deep_dict(relations=right)
+    # if we get here check and handle if we were passed a string
+    elif isinstance(relations, str):
+        # passed a single item
+        myrel = getattr(self, relations)
+        left = relations
+        if isinstance(myrel, list):
+            mydict[left] = [rel.deep_dict(relations=None)
+                                 for rel in myrel]
+        else:
+            mydict[left] = myrel.deep_dict(relations=None)
+
+    return mydict
+  
+
+ so for an example using person/family/homes/rooms... turning it into json all you need is 
+
+  json.dumps(person.deep_dict(relations={'family':{'homes':'rooms'}}))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50299048)
+ . 
+In your model, add:  
+
+  def as_dict(self):
+       return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
+  
+
+ The  str()  is for python 3 so if using python 2 use  unicode() . It should help deserialize dates. You can remove it if not dealing with those. 
+
+ You can now query the database like this 
+
+  some_result = User.query.filter_by(id=current_user.id).first().as_dict()
+  
+
+  First()  is needed to avoid weird errors.  as_dict()  will now deserialize the result. After deserialization, it is ready to be turned to json 
+
+  jsonify(some_result)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/27951648)
+ Here's what's usually sufficient for me: 
+
+ I create a serialization mixin which I use with my models. The serialization function basically fetches whatever attributes the SQLAlchemy inspector exposes and puts it in a dict. 
+
+  from sqlalchemy.inspection import inspect
+
+class Serializer(object):
+
+    def serialize(self):
+        return {c: getattr(self, c) for c in inspect(self).attrs.keys()}
+
+    @staticmethod
+    def serialize_list(l):
+        return [m.serialize() for m in l]
+  
+
+ All that's needed now is to extend the SQLAlchemy model with the  Serializer  mixin class. 
+
+ If there are fields you do not wish to expose, or that need special formatting, simply override the  serialize()  function in the model subclass. 
+
+  class User(db.Model, Serializer):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String)
+    password = db.Column(db.String)
+
+    # ...
+
+    def serialize(self):
+        d = Serializer.serialize(self)
+        del d['password']
+        return d
+  
+
+ In your controllers, all you have to do is to call the  serialize()  function (or  serialize_list(l)  if the query results in a list) on the results: 
+
+  def get_user(id):
+    user = User.query.get(id)
+    return json.dumps(user.serialize())
+
+def get_users():
+    users = User.query.all()
+    return json.dumps(User.serialize_list(users))
+  
+
+
+

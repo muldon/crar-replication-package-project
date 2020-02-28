@@ -1,0 +1,242 @@
+Query: Python pickle/unpickle a list to/from a file
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/32383253)
+ The class definition must come before you unpickle: 
+
+  class foo(): # works
+    pass
+encodedList = []
+try:
+    with open('test') as file:
+        tfile = open( 'test', "r" )
+        encodedList = pickle.load( tfile )
+except IOError:
+    tfile = open( 'test', "w" )
+    pickle.dump( encodedList, tfile )
+tfile.close()
+  
+
+  
+
+  encodedList = []
+try:
+    with open('test') as file:
+        tfile = open( 'test', "r" )
+        encodedList = pickle.load( tfile )
+except IOError:
+    tfile = open( 'test', "w" )
+    pickle.dump( encodedList, tfile )
+tfile.close()
+
+
+class foo(): # fails
+    pass
+  
+
+ The output will be  AttributeError: 'module' object has no attribute 'foo'  which is what you are seeing in your own code. If the class definition is in another file, add the import before you try to unpickle 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/17623631)
+ This would work. 
+
+ What is does however is unpickle one object from the file, and then print the rest of the file's content to  stdout  
+
+ What you could do is something like: 
+
+  import cPickle
+with open( 'big_pickled_list.pkl' ) as p:
+    try:
+        while True:
+            print cPickle.load(p)
+    except EOFError:
+        pass
+  
+
+ That would unpickle all objects from the file until reaching EOF. 
+
+ 
+
+ If you want something that works like  for line in f: , you can wrap this up easily: 
+
+  def unpickle_iter(file):
+    try:
+        while True:
+             yield cPickle.load(file)
+    except EOFError:
+        raise StopIteration
+  
+
+  
+
+  with open('big_pickled_list.pkl') as file:
+    for item in unpickle_iter(file):
+        # use item ...
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18229269)
+ Decided to make it as an answer. pickle.load method expects to get a file like object, but you are providing a string instead, and therefore an exception.  
+
+  pickle.load('afile')
+  
+
+  
+
+  pickle.load(open('afile', 'rb'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/18229564)
+ To add to @ Rapolas K's answer: 
+
+ I found that I had problems with the file not closing so used this method: 
+
+  with open('afile','rb') as f:
+     pickle.load(f)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/21018375)
+ I faced the same issue and tried many things but all in vain. Finally, I used cPickle and the problem was resolved. Just replace 'pickle' with 'cPickle' and every thing works fine. It has exactly same methods and args. 
+
+  import cPickle
+
+cPickle.dump()
+
+cPickle.load()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7430690)
+ OK, let's try it: 
+
+  In [22]: import pickle
+
+In [23]: numlist = {'Person': ['2342342', '15:05']}
+
+In [24]: outfile = open("log.txt", "wb")
+
+In [25]: pickle.dump(numlist, outfile)
+
+In [26]: outfile.close()
+
+In [27]: infile = open("log.txt", "rb")
+
+In [28]: pickle.load(infile)
+Out[28]: {'Person': ['2342342', '15:05']}
+  
+
+ As you can see, I got back exactly what I've started with ( numlist ). The only thing that's changed compared to your code is that I close  outfile  before re-opening it, to make sure that the buffers get flushed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25386726)
+ If you pickle  x  and  y  as two separate lists, they will not share a reference when you unpickle them, irrespective of whether they did beforehand;  objects , not  references , are pickled: 
+
+  >>> import pickle
+>>> x = y = [1, 2]
+>>> with open('test.txt', 'w') as f:
+    pickle.dump(x, f)
+    pickle.dump(y, f)
+
+
+>>> with open('test.txt') as f:
+    x = pickle.load(f)
+    y = pickle.load(f)
+
+
+>>> x == y
+True
+>>> x is y
+False
+  
+
+ If you want two names to share references after you  load  them back in, you could  pickle  a container: 
+
+  >>> x = y = [1, 2]
+>>> with open('text.txt', 'w') as f:
+    pickle.dump([x, y], f)
+
+
+>>> with open('text.txt') as f:
+    x, y = pickle.load(f)
+
+
+>>> x == y
+True
+>>> x is y
+True
+  
+
+ But then you might as well just pickle one list! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/12762056)
+ Pickle streams are entirely self-contained, and so unpickling will unpickle one object at a time. 
+
+ Therefore, to unpickle multiple streams, you should repeatedly unpickle the file until you get an EOFError: 
+
+  >>> f=open('a.p', 'wb')
+>>> pickle.dump({1:2}, f)
+>>> pickle.dump({3:4}, f)
+>>> f.close()
+>>> 
+>>> f=open('a.p', 'rb')
+>>> pickle.load(f)
+{1: 2}
+>>> pickle.load(f)
+{3: 4}
+>>> pickle.load(f)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+EOFError
+  
+
+ so your unpickle code might look like 
+
+  import pickle
+objs = []
+while 1:
+    try:
+        objs.append(pickle.load(f))
+    except EOFError:
+        break
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/15809886)
+ You could add all your objects to a list and then do whatever you prefer with them. 
+
+  with open(pickle_file) as f:
+    unpickled = []
+    while True:
+        try:
+            unpickled.append(pickle.load(f))
+        except EOFError:
+            break
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/6145497)
+ I think you want the shelve module. It creates a file (uses pickle under the hood) that contains the contents of a variable accessible by key (think persistent dictionary). 
+
+
+

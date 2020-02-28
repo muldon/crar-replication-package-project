@@ -1,0 +1,470 @@
+Query: How do I compress or zip a directory recursively?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/23346890)
+ The following method(s) seem to successfully compress a directory recursively: 
+
+  public static void compressZipfile(String sourceDir, String outputFile) throws IOException, FileNotFoundException {
+    ZipOutputStream zipFile = new ZipOutputStream(new FileOutputStream(outputFile));
+    compressDirectoryToZipfile(sourceDir, sourceDir, zipFile);
+    IOUtils.closeQuietly(zipFile);
+}
+
+private static void compressDirectoryToZipfile(String rootDir, String sourceDir, ZipOutputStream out) throws IOException, FileNotFoundException {
+    for (File file : new File(sourceDir).listFiles()) {
+        if (file.isDirectory()) {
+            compressDirectoryToZipfile(rootDir, sourceDir + File.separator + file.getName(), out);
+        } else {
+            ZipEntry entry = new ZipEntry(sourceDir.replace(rootDir, "") + file.getName());
+            out.putNextEntry(entry);
+
+            FileInputStream in = new FileInputStream(sourceDir + file.getName());
+            IOUtils.copy(in, out);
+            IOUtils.closeQuietly(in);
+        }
+    }
+}
+  
+
+ As seen in my compression code snippet, I'm using  IOUtils.copy()  to handle stream data transfer. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2403875)
+ You can use:
+http://java.sun.com/j2se/1.4.2/docs/api/
+and:
+http://www.java-forums.org/new-java/4123-how-do-you-recursively-traverse-through-file-folders.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/24642072)
+ Modified as i needed then mixed in a bit of the best answers. This version will: 
+
+ 
+  Recursively Extract a zip to given location  
+  Create empty directories  
+  Close zip properly  
+ 
+
+ 
+
+  public static void unZipAll(File source, File destination) throws IOException 
+{
+    System.out.println("Unzipping - " + source.getName());
+    int BUFFER = 2048;
+
+    ZipFile zip = new ZipFile(source);
+    try{
+        destination.getParentFile().mkdirs();
+        Enumeration zipFileEntries = zip.entries();
+
+        // Process each entry
+        while (zipFileEntries.hasMoreElements())
+        {
+            // grab a zip file entry
+            ZipEntry entry = (ZipEntry) zipFileEntries.nextElement();
+            String currentEntry = entry.getName();
+            File destFile = new File(destination, currentEntry);
+            //destFile = new File(newPath, destFile.getName());
+            File destinationParent = destFile.getParentFile();
+
+            // create the parent directory structure if needed
+            destinationParent.mkdirs();
+
+            if (!entry.isDirectory())
+            {
+                BufferedInputStream is = null;
+                FileOutputStream fos = null;
+                BufferedOutputStream dest = null;
+                try{
+                    is = new BufferedInputStream(zip.getInputStream(entry));
+                    int currentByte;
+                    // establish buffer for writing file
+                    byte data[] = new byte[BUFFER];
+
+                    // write the current file to disk
+                    fos = new FileOutputStream(destFile);
+                    dest = new BufferedOutputStream(fos, BUFFER);
+
+                    // read and write until last byte is encountered
+                    while ((currentByte = is.read(data, 0, BUFFER)) != -1) {
+                        dest.write(data, 0, currentByte);
+                    }
+                } catch (Exception e){
+                    System.out.println("unable to extract entry:" + entry.getName());
+                    throw e;
+                } finally{
+                    if (dest != null){
+                        dest.close();
+                    }
+                    if (fos != null){
+                        fos.close();
+                    }
+                    if (is != null){
+                        is.close();
+                    }
+                }
+            }else{
+                //Create directory
+                destFile.mkdirs();
+            }
+
+            if (currentEntry.endsWith(".zip"))
+            {
+                // found a zip file, try to extract
+                unZipAll(destFile, destinationParent);
+                if(!destFile.delete()){
+                    System.out.println("Could not delete zip");
+                }
+            }
+        }
+    } catch(Exception e){
+        e.printStackTrace();
+        System.out.println("Failed to successfully unzip:" + source.getName());
+    } finally {
+        zip.close();
+    }
+    System.out.println("Done Unzipping:" + source.getName());
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/755626)
+ I use this code to get all ZIP files in a folder. Call this recursively checking for the file object to be a sub directory again and again. 
+
+  public List<String> getFiles(String folder) {
+
+List<String> list = new ArrayList<String>();
+        File dir = new File(folder);
+        if(dir.isDirectory()) {
+            FileFilter filter = new FileFilter() {
+
+                public boolean accept(File file) {
+                    boolean flag = false;
+                    if(file.isFile() && !file.isDirectory()) {
+                        String filename = file.getName();
+                        if(!filename.endsWith(".zip")) {
+                            return true;
+                        
+                        return false;   
+                
+
+            ;
+            File[] fileNames = dir.listFiles(filter);
+            for (File file : fileNames) {
+                list.add(file.getName());
+            
+            return list;
+  
+
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18710860)
+ Please take a look on https://code.google.com/p/jinahya/source/browse/trunk/com.googlecode.jinahya/jinahya-se/src/main/java/com/googlecode/jinahya/util/zip/Zips.java and <a href="http://jinahya.wordpress.com/tag/zip/"  
+
+<pre class="lang-java prettyprint-override"> public static void unzip(final ZipFile zipfile, final File directory)
+    throws IOException {
+
+    final Enumeration<? extends ZipEntry> entries = zipfile.entries();
+    while (entries.hasMoreElements()) {
+        final ZipEntry entry = entries.nextElement();
+        final File file = file(directory, entry);
+        if (entry.isDirectory()) {
+            continue;
+        }
+        final InputStream input = zipfile.getInputStream(entry);
+        try {
+            // copy bytes from input to file
+        } finally {
+            input.close();
+        }
+    }
+}
+  
+
+<pre class="lang-java prettyprint-override"> protected static File file(final File root, final ZipEntry entry)
+    throws IOException {
+
+    final File file = new File(root, entry.getName());
+
+    File parent = file;
+    if (!entry.isDirectory()) {
+        final String name = entry.getName();
+        final int index = name.lastIndexOf('/');
+        if (index != -1) {
+            parent = new File(root, name.substring(0, index));
+        }
+    }
+    if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+        throw new IOException(
+            "failed to create a directory: " + parent.getPath());
+    }
+
+    return file;
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45972988)
+ I fix above error and it works perfect. 
+
+      public static void compressZipfile(String sourceDir, String outputFile) throws IOException, FileNotFoundException {
+    ZipOutputStream zipFile = new ZipOutputStream(new FileOutputStream(outputFile));
+    Path srcPath = Paths.get(sourceDir);
+    compressDirectoryToZipfile(srcPath.getParent().toString(), srcPath.getFileName().toString(), zipFile);
+    IOUtils.closeQuietly(zipFile);
+}
+
+private static void compressDirectoryToZipfile(String rootDir, String sourceDir, ZipOutputStream out) throws IOException, FileNotFoundException {
+    String dir = Paths.get(rootDir, sourceDir).toString();
+    for (File file : new File(dir).listFiles()) {
+        if (file.isDirectory()) {
+            compressDirectoryToZipfile(rootDir, Paths.get(sourceDir,file.getName()).toString(), out);
+        } else {
+            ZipEntry entry = new ZipEntry(Paths.get(sourceDir,file.getName()).toString());
+            out.putNextEntry(entry);
+
+            FileInputStream in = new FileInputStream(Paths.get(rootDir, sourceDir, file.getName()).toString());
+            IOUtils.copy(in, out);
+            IOUtils.closeQuietly(in);
+        }
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9257957)
+ Here is another example (recursive) which also lets you include/exclude the containing folder form the  zip: 
+
+  import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+public class ZipUtil {
+
+  private static final int DEFAULT_BUFFER_SIZE = 1024 * 4;
+
+  public static void main(String[] args) throws Exception {
+    zipFile("C:/tmp/demo", "C:/tmp/demo.zip", true);
+  }
+
+  public static void zipFile(String fileToZip, String zipFile, boolean excludeContainingFolder)
+    throws IOException {        
+    ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(zipFile));    
+
+    File srcFile = new File(fileToZip);
+    if(excludeContainingFolder && srcFile.isDirectory()) {
+      for(String fileName : srcFile.list()) {
+        addToZip("", fileToZip + "/" + fileName, zipOut);
+      }
+    } else {
+      addToZip("", fileToZip, zipOut);
+    }
+
+    zipOut.flush();
+    zipOut.close();
+
+    System.out.println("Successfully created " + zipFile);
+  }
+
+  private static void addToZip(String path, String srcFile, ZipOutputStream zipOut)
+    throws IOException {        
+    File file = new File(srcFile);
+    String filePath = "".equals(path) ? file.getName() : path + "/" + file.getName();
+    if (file.isDirectory()) {
+      for (String fileName : file.list()) {             
+        addToZip(filePath, srcFile + "/" + fileName, zipOut);
+      }
+    } else {
+      zipOut.putNextEntry(new ZipEntry(filePath));
+      FileInputStream in = new FileInputStream(srcFile);
+
+      byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+      int len;
+      while ((len = in.read(buffer)) != -1) {
+        zipOut.write(buffer, 0, len);
+      }
+
+      in.close();
+    }
+  }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/30183731)
+ The zip libraries for java cannot be used to compress folders in simpler way like - compress this folder. 
+
+ You need to do the test if the input is folder or file by yourself. If it is a file - add it to the zip. If it is a folder - iterate the folder and add each file to the zip. . To add more than one file to the Zip you need to create ZipEntry for each file.  
+
+ You can try this code which works for me: 
+
+  public static void zip(File directory, File zipfile) throws IOException {
+    URI base = directory.toURI();
+    Deque<File> queue = new LinkedList<File>();
+    queue.push(directory);
+    OutputStream out = new FileOutputStream(zipfile);
+    Closeable res = out;
+    try {
+        ZipOutputStream zout = new ZipOutputStream(out);
+        res = zout;
+        while (!queue.isEmpty()) {
+            directory = queue.pop();
+            for (File kid : directory.listFiles()) {
+                String name = base.relativize(kid.toURI()).getPath();
+                if (kid.isDirectory()) {
+                    queue.push(kid);
+                    name = name.endsWith("/") ? name : name + "/";
+                    zout.putNextEntry(new ZipEntry(name));
+                } else {
+                    zout.putNextEntry(new ZipEntry(name));
+                    copy(kid, zout);
+                    zout.closeEntry();
+                }
+            }
+        }
+    } finally {
+        res.close();
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6472872)
+ Java Program to Zip(folders contains either empty or full ones) 
+
+  public class ZipUsingJavaUtil {
+    /*
+     * Zip function zip all files and folders
+     */
+    @Override
+    @SuppressWarnings("finally")
+    public boolean zipFiles(String srcFolder, String destZipFile) {
+        boolean result = false;
+        try {
+            System.out.println("Program Start zipping the given files");
+            /*
+             * send to the zip procedure
+             */
+            zipFolder(srcFolder, destZipFile);
+            result = true;
+            System.out.println("Given files are successfully zipped");
+        } catch (Exception e) {
+            System.out.println("Some Errors happned during the zip process");
+        } finally {
+            return result;
+        }
+    }
+
+    /*
+     * zip the folders
+     */
+    private void zipFolder(String srcFolder, String destZipFile) throws Exception {
+        ZipOutputStream zip = null;
+        FileOutputStream fileWriter = null;
+        /*
+         * create the output stream to zip file result
+         */
+        fileWriter = new FileOutputStream(destZipFile);
+        zip = new ZipOutputStream(fileWriter);
+        /*
+         * add the folder to the zip
+         */
+        addFolderToZip("", srcFolder, zip);
+        /*
+         * close the zip objects
+         */
+        zip.flush();
+        zip.close();
+    }
+
+    /*
+     * recursively add files to the zip files
+     */
+    private void addFileToZip(String path, String srcFile, ZipOutputStream zip, boolean flag) throws Exception {
+        /*
+         * create the file object for inputs
+         */
+        File folder = new File(srcFile);
+
+        /*
+         * if the folder is empty add empty folder to the Zip file
+         */
+        if (flag == true) {
+            zip.putNextEntry(new ZipEntry(path + "/" + folder.getName() + "/"));
+        } else { /*
+                 * if the current name is directory, recursively traverse it
+                 * to get the files
+                 */
+            if (folder.isDirectory()) {
+                /*
+                 * if folder is not empty
+                 */
+                addFolderToZip(path, srcFile, zip);
+            } else {
+                /*
+                 * write the file to the output
+                 */
+                byte[] buf = new byte[1024];
+                int len;
+                FileInputStream in = new FileInputStream(srcFile);
+                zip.putNextEntry(new ZipEntry(path + "/" + folder.getName()));
+                while ((len = in.read(buf)) > 0) {
+                    /*
+                     * Write the Result
+                     */
+                    zip.write(buf, 0, len);
+                }
+            }
+        }
+    }
+
+    /*
+     * add folder to the zip file
+     */
+    private void addFolderToZip(String path, String srcFolder, ZipOutputStream zip) throws Exception {
+        File folder = new File(srcFolder);
+
+        /*
+         * check the empty folder
+         */
+        if (folder.list().length == 0) {
+            System.out.println(folder.getName());
+            addFileToZip(path, srcFolder, zip, true);
+        } else {
+            /*
+             * list the files in the folder
+             */
+            for (String fileName : folder.list()) {
+                if (path.equals("")) {
+                    addFileToZip(folder.getName(), srcFolder + "/" + fileName, zip, false);
+                } else {
+                    addFileToZip(path + "/" + folder.getName(), srcFolder + "/" + fileName, zip, false);
+                }
+            }
+        }
+    }
+}
+  
+
+
+

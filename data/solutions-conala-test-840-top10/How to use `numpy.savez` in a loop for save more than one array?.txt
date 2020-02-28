@@ -1,0 +1,398 @@
+Query: How to use `numpy.savez` in a loop for save more than one array?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/22712918)
+ You can use the  *args  arguments to save many arrays in only one temp file. 
+
+  np.savez(tmp, *getarray[:10])
+  
+
+  
+
+  np.savez(tmp, *[getarray[0], getarray[1], getarray[8]])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/42750873)
+ When you save a new file of the same name it over-writes the old file. Why don't you take your save out of your for loop: 
+
+  import numpy as np
+
+a = np.array([1, 2, 3])
+b = np.array([5, 6, 12])
+
+save_info = np.zeros([3, 2, 3]) #array to store all the info
+#one dimension for each entry in a, one for as many arrays as you have
+#generating info, and one for the number of times you'll loop over it
+
+for i in range(3): #therefore i will be [0, 1, 2]
+    save_info[:, 0, i] = a #save from the a array
+    save_info[:, 1, i] = b #save from the b array
+    a = a * 3
+    b = b * 2
+
+np.savez("file_info", info1=save_info) #save outside for loop doesn't overwrite
+  
+
+ I can then read information from the file: 
+
+  >>> import numpy as np
+>>> data = np.load("file_info.npz") #load file to data object
+>>> data["info1"]
+array([[[  1.,   3.,   9.],
+        [  5.,  10.,  20.]],
+
+       [[  2.,   6.,  18.],
+        [  6.,  12.,  24.]],
+
+       [[  3.,   9.,  27.],
+        [ 12.,  24.,  48.]]])
+  
+
+ Edit:
+Or if you're avoiding creating one big array you could rename the file that you're saving to each time you loop through: 
+
+  import numpy as np
+
+a = np.array([1, 2, 3])
+b = np.array([5, 6, 12])
+
+for i in range(3): #therefore i will be [0, 1, 2]
+    np.savez("file_info_"+str(i), info1=a, info2=b)
+    #will save to "file_info_0.npz" on first run
+    #will save to "file_info_1.npz" on second run
+    #will save to "file_info_2.npz" on third run
+
+    a = a * 3
+    b = b * 2
+  
+
+ Edit:
+You might prefer to make two smaller arrays, one for a and one for b: 
+
+  import numpy as np
+
+a = np.array([1, 2, 3])
+b = np.array([5, 6, 12])
+
+save_a = np.zeros([3, 3]) #array to store all the a runs
+save_b = np.zeros([3, 3]) #array to store all the b runs
+
+for i in range(3): #therefore i will be [0, 1, 2]
+    save_a[:, i] = a #save from the a array
+    save_b[:, i] = b #save from the b array
+    a = a * 3
+    b = b * 2
+
+np.savez("file_info", info1=save_a, info2=save_b) #save outside for loop doesn't overwrite
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/22716159)
+ . 
+
+ Because the function savez opens the file, writes all variables, then close the file, data are over-written when it called. 
+
+ savez is simple. you can find the code at https://github.com/numpy/numpy/blob/master/numpy/lib/npyio.py 
+
+ how about implementing "your_own_savez", then use the following code. 
+
+  tmp = TemporaryFile()
+f = my_savez(tmp)    
+for i in range(10):
+    array = getarray[i]  #demo purpose
+    f.savez(array)
+f.close()
+
+tmp.seek(0)
+tmp_read = np.load(tmp)
+print tmp_read.files
+  
+
+ Here is my quick and dirty code. 
+
+  import numpy as np
+import tempfile
+
+class my_savez(object):
+    def __init__(self, file):
+        # Import is postponed to here since zipfile depends on gzip, an optional
+        # component of the so-called standard library.
+        import zipfile
+        # Import deferred for startup time improvement
+        import tempfile
+        import os
+
+        if isinstance(file, basestring):
+            if not file.endswith('.npz'):
+                file = file + '.npz'
+
+        compression = zipfile.ZIP_STORED
+
+        zip = self.zipfile_factory(file, mode="w", compression=compression)
+
+        # Stage arrays in a temporary file on disk, before writing to zip.
+        fd, tmpfile = tempfile.mkstemp(suffix='-numpy.npy')
+        os.close(fd)
+
+        self.tmpfile = tmpfile
+        self.zip = zip
+        self.i = 0
+
+    def zipfile_factory(self, *args, **kwargs):
+        import zipfile
+        import sys
+        if sys.version_info >= (2, 5):
+            kwargs['allowZip64'] = True
+        return zipfile.ZipFile(*args, **kwargs)
+
+    def savez(self, *args, **kwds):
+        import os
+        import numpy.lib.format as format
+
+        namedict = kwds
+        for val in args:
+            key = 'arr_%d' % self.i
+            if key in namedict.keys():
+                raise ValueError("Cannot use un-named variables and keyword %s" % key)
+            namedict[key] = val
+            self.i += 1
+
+        try:
+            for key, val in namedict.iteritems():
+                fname = key + '.npy'
+                fid = open(self.tmpfile, 'wb')
+                try:
+                    format.write_array(fid, np.asanyarray(val))
+                    fid.close()
+                    fid = None
+                    self.zip.write(self.tmpfile, arcname=fname)
+                finally:
+                    if fid:
+                        fid.close()
+        finally:
+            os.remove(self.tmpfile)
+
+    def close(self):
+        self.zip.close()
+
+tmp = tempfile.TemporaryFile()
+f = my_savez(tmp)
+for i in range(10):
+  array = np.zeros(10)
+  f.savez(array)
+f.close()
+
+tmp.seek(0)
+
+tmp_read = np.load(tmp)
+print tmp_read.files
+for k, v in tmp_read.iteritems():
+     print k, v
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34631515)
+ I am not an experienced programmer, but this is the way I did it (just in case it may help someone in the future). In addition, it is the first time that I am posting here, so I apologize if I am not following some kind of standard ;) 
+
+ Creating the npz file: 
+
+  import numpy as np
+
+tmp = file("C:\\Windows\\Temp\\temp_npz.npz",'wb')
+
+# some variables
+a= [23,4,67,7]
+b= ['w','ww','wwww']
+c= np.ones((2,6))
+
+# a lit containing the name of your variables
+var_list=['a','b','c']
+
+# save the npz file with the variables you selected
+str_exec_save = "np.savez(tmp,"    
+for i in range(len(var_list)):    
+    str_exec_save += "%s = %s," % (var_list[i],var_list[i])
+str_exec_save += ")"
+exec(str_exec_save)
+
+tmp.close
+  
+
+ Loading the variables with their original names: 
+
+  import numpy as np
+import tempfile
+
+tmp = open("C:\\Windows\\Temp\\temp_npz.npz",'rb')
+
+# loading of the saved variables
+var_load = np.load(tmp)
+
+# getting the name of the variables
+files = var_load.files
+
+# loading then with their original names
+for i in range(len(files)):
+    exec("%s = var_load['%s']" % (files[i],files[i]) )
+  
+
+ The only difference is that the variables will become numpy variables. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/22777113)
+ If you want to save the subarrays in your main array, then you probably need to use  save  manually, i.e. 
+
+  mainArray = [np.array([1,2,3]), np.array([4,5,6])]
+for i in range(len(mainArray)):
+    np.save('dataFile_%i'%i, mainArray[i] )
+  
+
+ Or you can use  savez  to save subarrays separately and load them later. 
+
+  mainArray = [np.array([1,2,3]), np.array([4,5,6])]
+np.savez('dataFile', mainArray[0], mainArray[1])
+
+npzfile = np.load('dataFile.npz')
+npzfile['arr_0']
+npzfile['arr_1']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/26382953)
+  np.savez()  is made just for this: http://docs.scipy.org/doc/numpy/reference/generated/numpy.savez.html#numpy.savez 
+
+ Not only will it let you save multiple arrays in one file, even if they have different columns etc., it will be more efficient and compact. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9263508)
+ You can encode and decode the keys before you pass it to the  savez  function. 
+
+  >>> import numpy
+>>> import base64
+>>> arrs = {'data/a.text': numpy.array([1,2]),
+            'data/b.text': numpy.array([3,4]),
+            'data/c.text': numpy.array([5,6])}
+>>> numpy.savez('file.npz', **dict((base64.urlsafe_b64encode(k), v)
+                                    for k,v in arrs.iteritems()))
+>>> npzfile = numpy.load('file.npz')
+>>> decoded = dict((base64.urlsafe_b64decode(k), v)
+                   for k,v in npzfile.iteritems())
+>>> decoded
+{'data/c.text': array([5, 6]),
+ 'data/a.text': array([1, 2]),
+ 'data/b.text': array([3, 4])}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/25891948)
+ Using  numpy.savez  with  **kwds , the arrays are  saved  with  the keyword names . 
+
+     >>> outfile = TemporaryFile()
+   >>> np.savez(outfile, x=x, y=y)
+   >>> outfile.seek(0)
+   >>> npzfile = np.load(outfile)
+   >>> npzfile.files
+   ['y', 'x']
+   >>> npzfile['x']
+   array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+  
+
+ while
+using  savez  with "just"   *args  , the  arrays are saved with default names . 
+
+   >>> np.savez(outfile, x, y)
+ >>> outfile.seek(0) # Only needed here to simulate closing & reopening file
+ >>> npzfile = np.load(outfile)
+ >>> npzfile.files
+ ['arr_1', 'arr_0']
+ >>> npzfile['arr_0']
+ array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+  
+
+ Re-read at least the docstring numpy help and use the proposed syntax. 
+
+     print numpy.savez.__doc__
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17575216)
+ Numpy provides an easy way to store many arrays in a compressed file: 
+
+  a = np.arange(10)
+b = np.arange(10)
+np.savez_compressed('file.npz', a=a, b=b)
+  
+
+ You can even change the array names when saving, by doing for example:  np.savez_compressed('file.npz', newa=a, newb=b) . 
+
+ To read the saved file use  np.load() , which returns a  NpzFile  instance that works like a dictionary: 
+
+  loaded = np.load('file.npz')
+  
+
+ To load the arrays: 
+
+  a_loaded = loaded['a']
+b_loaded = loaded['b']
+  
+
+  
+
+  from operator import itemgetter
+g = itemgetter( 'a', 'b' )
+a_loaded, b_loaded = g(np.load('file.npz'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/48603568)
+ All your calls to  np.save  use the filename, not the filehandle.
+Since you do not reuse the filehandle, each save overwrites the file instead of appending the array to it. 
+
+ This should work: 
+
+  filename = 'testing.npy'
+
+with open(filename, 'wb') as f:
+    for x, _ in train_generator:
+        prediction = base_model.predict(x)
+        print(prediction[0,0,0,0:5])
+        np.save(f, prediction)
+
+        current_iteration += 1
+    if current_iteration == 5:
+        break
+  
+
+ And while there may be advantages to storing multiple arrays in one  .npy  file (I imagine advantages in situations where memory is limited), they are https://docs.scipy.org/doc/numpy-dev/neps/npy-format.html to store one single array, and you can use  .npz  files ( np.savez  or  np.savez_compressed ) to store multiple arrays: 
+
+  filename = 'testing.npz'
+predictions = []
+for (x, _), index in zip(train_generator, range(5)):
+    prediction = base_model.predict(x)
+    predictions.append(prediction)
+np.savez(filename, predictions) # will name it arr_0
+# np.savez(filename, predictions=predictions) # would name it predictions
+# np.savez(filename, *predictions) # would name it arr_0, arr_1, …, arr_4
+  
+
+
+

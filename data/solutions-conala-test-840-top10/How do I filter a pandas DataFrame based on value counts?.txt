@@ -1,0 +1,192 @@
+Query: How do I filter a pandas DataFrame based on value counts?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/43104013)
+ You can use  groupby.filter ; In the filter, construct a unique boolean value for each group to filter the data frame: 
+
+  df.groupby("column3").filter(lambda g: (g.name != 0) and (g.column3.size >= 3))
+  
+
+ https://i.stack.imgur.com/yob3U.png 
+
+ Another option could be: 
+
+  df[(df.column3 != 0) & (df.groupby("column3").column3.transform("size") >= 3)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43104160)
+ Or you could filter out the zeroes before you group: 
+
+   df1[df1['column3'] != 0].groupby("column3").filter(lambda x: x['column3'].size >= 3 )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/43104300)
+ Alternative solution: 
+
+  In [132]: cnt = df.column3.value_counts()
+
+In [133]: cnt
+Out[133]:
+0    4
+1    3
+3    2
+2    2
+Name: column3, dtype: int64
+
+In [134]: v = cnt[(cnt.index != 0) & (cnt >= 3)].index.values
+
+In [135]: v
+Out[135]: array([1], dtype=int64)
+
+In [136]: df.query("column3 in @v")
+Out[136]:
+   column1 column2  column3
+0       10       A        1
+1       15       A        1
+2       19       B        1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50988713)
+ It might be faster to do this simply with  value_counts() :     
+
+  df.loc[df.session_init == '1', 'ID'].value_counts()
+
+98     3
+675    2
+345    1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49137137)
+ IIUC filter .. 
+
+  df.groupby('poo').filter(lambda x : (x['poo'].count()>=3).any())
+Out[81]: 
+   foo bar poo
+0    1   a   A
+1    2   a   A
+2    3   a   B
+3    4   b   B
+4    5   b   A
+5    6   b   A
+7    8   d   B
+8    9   e   B
+  
+
+ Or combine  value_counts  with  isin  
+
+  s=df.poo.value_counts().gt(3)
+df.loc[df.poo.isin(s[s].index)]
+Out[89]: 
+   foo bar poo
+0    1   a   A
+1    2   a   A
+2    3   a   B
+3    4   b   B
+4    5   b   A
+5    6   b   A
+7    8   d   B
+8    9   e   B
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50988690)
+ First filter to only show the '1' values. Then  groupby  the ID column and  count  each of those instances 
+
+  df[df.session_init == "1"].groupby('ID').count()
+
+     session_init
+ID               
+98              3
+345             1
+675             2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/52164689)
+ You can extract the values you want to mask from the index of  value_counts  and them map them to "miscellaneous" using https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.replace.html: 
+
+  import pandas as pd
+import numpy as np
+
+df = pd.DataFrame(np.random.randint(0, 10, (2000, 2)), columns=['A', 'B'])
+
+frequencies = df['A'].value_counts()
+
+condition = frequencies<200   # you can define it however you want
+mask_obs = frequencies[condition].index
+mask_dict = dict.fromkeys(mask_obs, 'miscellaneous')
+
+df['A'] = df['A'].replace(mask_dict)  # or you could make a copy not to modify original data
+  
+
+ Now, using value_counts will group all the values below your threshold as miscellaneous: 
+
+  df['A'].value_counts()
+
+df['A'].value_counts()
+Out[18]: 
+miscellaneous    947
+3                226
+1                221
+0                204
+7                201
+2                201
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49521633)
+ This should filter the dataframe based on a Boolean index using the bins: 
+
+  top_2 = pd.value_counts(df.col2, bins=[0, 5, 10, 15]).nlargest(2)
+df[~pd.cut(df.col2, top_2.index).isnull()]
+  
+
+ output: 
+
+      col1  col2
+3     20    10
+4     21    11
+5     19    11
+6     18    12
+7     20     6
+8     22     7
+9     21     8
+10    22     8
+11    25     6
+12    21     7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/38293618)
+ Use  value_counts  and  isin  
+
+  vc = df.Col1.value_counts() > 2
+vc = vc[vc]
+
+df.loc[df.Col1.isin(vc.index)]
+  
+
+ https://i.stack.imgur.com/fTVzR.png 
+
+
+

@@ -1,0 +1,253 @@
+Query: Django urlsafe base64 decoding with decryption
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2230689)
+ I solved the problem!  
+
+  deserialized = pickle.loads(captcha_decrypt(urlsafe_b64decode(key.encode('ascii'))))
+return HttpResponse(str(deserialized))
+  
+
+ But still I don't understand, why it didn't work first time. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2230623)
+ The problem is that b64decode quite explicitly can only take bytes (a string), not unicode. 
+
+  >>> import base64
+>>> test = "Hi, I'm a string"
+>>> enc = base64.urlsafe_b64encode(test)
+>>> enc
+'SGksIEknbSBhIHN0cmluZw=='
+>>> uenc = unicode(enc)
+>>> base64.urlsafe_b64decode(enc)
+"Hi, I'm a string"
+>>> base64.urlsafe_b64decode(uenc)
+Traceback (most recent call last):
+...
+TypeError: character mapping must return integer, None or unicode
+  
+
+ Since you know that your data only contains ASCII data (that's what base64encode will return), it should be safe to encode your unicode code points as ASCII or UTF-8 bytes, those bytes will be equivalent to the ASCII you expected. 
+
+  >>> base64.urlsafe_b64decode(uenc.encode("ascii"))
+"Hi, I'm a string"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/42211975)
+ Here's an implementation of URL Safe encryption and Decryption using AES(PyCrypto) and base64.  
+
+      import base64
+    from Crypto import Random
+    from Crypto.Cipher import AES
+
+    AKEY = 'mysixteenbytekey' # AES key must be either 16, 24, or 32 bytes long
+
+    iv = Random.new().read(AES.block_size)
+
+
+    def encode(message):
+        obj = AES.new(AKEY, AES.MODE_CFB, iv)
+        return base64.urlsafe_b64encode(obj.encrypt(message))
+
+
+    def decode(cipher):
+        obj2 = AES.new(AKEY, AES.MODE_CFB, iv)
+        return obj2.decrypt(base64.urlsafe_b64decode(cipher))
+  
+
+ If you face some issue like this https://bugs.python.org/issue4329 ( TypeError: character mapping must return integer, None or unicode )
+        use str(cipher) while decoding as follows 
+
+ return obj2.decrypt(base64.urlsafe_b64decode(str(cipher))) 
+
+      In [13]: encode("Hello World")
+    Out[13]: b'67jjg-8_RyaJ-28='
+
+    In [14]: %timeit encode("Hello World")
+    100000 loops, best of 3: 13.9 µs per loop
+
+    In [15]: decode(b'67jjg-8_RyaJ-28=')
+    Out[15]: b'Hello World'
+
+    In [16]: %timeit decode(b'67jjg-8_RyaJ-28=')
+    100000 loops, best of 3: 15.2 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/24726346)
+ You need to use: 
+
+  message_decoded = base64.urlsafe_b64decode(message_raw)
+  
+
+ since the raw message is URLSafe base64 encoded. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/47924973)
+ . after hour long search (still beginner at python django), a relevant change was pointed in release notes whose definitions were little difficult for a newcomer. 
+https://docs.djangoproject.com/en/2.0/releases/2.0/#removed-support-for-bytestrings-in-some-places 
+
+ 
+   To support native Python 2 strings, older Django versions had  accept both bytestrings and unicode strings. Now that Python 2 support is dropped, bytestrings should only be encountered around input/output boundaries (handling of binary fields or HTTP streams, for example). You might have  update your code  limit bytestring usage  a minimum, as Django no longer accepts bytestrings in certain code paths. 
+  
+   For example, reverse() now uses str() instead of force_text() 
+  coerce the args and kwargs it receives, prior  their placement in
+  the URL. For bytestrings, this creates a string with an undesired b
+  prefix as well as additional quotes (str(b'foo') is "b'foo'"). To
+  adapt, call decode() on the bytestring before passing it  reverse(). 
+ 
+
+ Totally unable  work on its implications, i had  go deeper in the actual django core code. 
+
+ So from django 1.11  2.0 the encode change is as follows 
+
+  'uid': urlsafe_base64_encode(force_bytes(user.pk)),
+  
+
+   
+
+  'uid': urlsafe_base64_encode(force_bytes(user.pk)).decode(),
+  
+
+ and decode from 
+
+  uid = force_text(urlsafe_base64_decode(uidb64))
+  
+
+   
+
+   uid = urlsafe_base64_decode(uidb64).decode()
+  
+
+ . Hope this helps someone. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54509245)
+ Use https://docs.python.org/library/stdtypes.html#int.from_bytes to convert a base64 decoded string into int 
+
+  int.from_bytes(
+    base64.urlsafe_b64decode(
+        'EFbSUq0g7qvoW2ehykfSveb_pSmunxOJUEVao1RWwck='
+    ),
+    'big' # the endianness
+)
+7390406020584230016520446236832857473226268177813448430255309703833393217993
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/53444581)
+ Code as follows: 
+
+  base64.urlsafe_b64encode('Some String'.encode('UTF-8')).decode('ascii')
+  
+
+  For example:   return {'raw': base64.urlsafe_b64encode(message.as_string().encode('UTF-8')).decode('ascii')}  
+
+  Worked for me.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36349122)
+ Your  imageData  has probably been converted to unicode at some point.  urlsafe_b64decode  passes  str  values (aka  bytes ) as  altchars  and so the translation in  b64decode  expects  str  data as input. 
+
+  def urlsafe_b64decode(s):
+    """Decode a string encoded with the standard Base64 alphabet.
+
+    s is the string to decode.  The decoded string is returned.  A TypeError
+    is raised if the string is incorrectly padded or if there are non-alphabet
+    characters present in the string.
+
+    The alphabet uses '-' instead of '+' and '_' instead of '/'.
+    """
+    return b64decode(s, '-_')
+  
+
+ Re-encode your  imageData  or fix the source not to decode it as  unicode . 
+
+ Here's an example of how  b64decode  and  urlsafe_b64decode  behave differently on receiving  unicode . 
+
+  >>> base64.b64encode('tervehdys')
+'dGVydmVoZHlz'
+>>> s = unicode(base64.b64encode('tervehdys'))
+>>> base64.b64decode(s)
+'tervehdys'
+>>> base64.urlsafe_b64decode(s)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "base64.py", line 112, in urlsafe_b64decode
+    return b64decode(s, '-_')
+  File "base64.py", line 71, in b64decode
+    s = _translate(s, {altchars[0]: '+', altchars[1]: '/'})
+  File "base64.py", line 36, in _translate
+    return s.translate(''.join(translation))
+TypeError: character mapping must return integer, None or unicode
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34058588)
+ You can use  base64.b64encode()  and  base64.b64decode()  to bring the hypertext into a readable form that will not break HTML forms. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/2510935)
+ The smallest builtin hash I am aware of is md5 
+
+  >>> import hashlib, base64
+>>> d=hashlib.md5(b"hello worlds").digest(); d=base64.b64encode(d); 
+>>> print(d)
+
+b'S27ylES0wiLdFAGdUpFgCQ=='
+  
+
+ Low collision and short are somewhat mutually exclusive due to the http://en.wikipedia.org/wiki/Birthday_problem 
+
+ To make it urlsafe you need to use the function from the base64 module 
+
+  >>> import base64
+>>> base64.urlsafe_b64encode(hashlib.md5("hello world").digest())
+'XrY7u-Ae7tCTyyK7j1rNww=='
+  
+
+ However there should be no problem storing the 16 byte md5 digest in the database in binary form. 
+
+  >>> md5bytes=hashlib.md5("hello world").digest()
+>>> len(md5bytes)
+16
+>>> urllib.quote_plus(md5bytes)
+'%5E%B6%3B%BB%E0%1E%EE%D0%93%CB%22%BB%8FZ%CD%C3'
+  
+
+  Python 2  
+
+  >>> base64.urlsafe_b64encode(md5bytes)
+'XrY7u-Ae7tCTyyK7j1rNww=='
+  
+
+  Python 3  
+
+  >>> base64.urlsafe_b64encode(md5bytes).decode('ascii')
+'XrY7u-Ae7tCTyyK7j1rNww=='
+  
+
+ You can choose either the  quote_plus  or the  urlsafe_b64encode  for your url, then decode with the corresponding function  unquote_plus  or  urlsafe_b64decode  before you look them up in the database. 
+
+
+

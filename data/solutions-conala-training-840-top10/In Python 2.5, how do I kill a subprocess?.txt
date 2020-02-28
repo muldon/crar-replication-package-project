@@ -1,0 +1,190 @@
+Query: In Python 2.5, how do I kill a subprocess?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/16866661)
+  p = subprocess.Popen("echo 'foo' && sleep 60 && echo 'bar'", shell=True)
+p.kill()
+  
+
+ Check out the docs on the  subprocess  module for more info: http://docs.python.org/2/library/subprocess.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2761237)
+ Not using  Popen.communicate()  or  call()  will result in a zombie process. 
+
+ If you don't need the output of the command, you can use  subprocess.call() : 
+
+  >>> import subprocess
+>>> subprocess.call(['grep', 'jdoe', '/etc/passwd'])
+0
+  
+
+ If the output is important, you should use  Popen()  and  communicate()  to get the stdout and stderr. 
+
+  >>> from subprocess import Popen, PIPE
+>>> process = Popen(['ls', '-l', '/tmp'], stdout=PIPE, stderr=PIPE)
+>>> stdout, stderr = process.communicate()
+>>> stderr
+''
+>>> print stdout
+total 0
+-rw-r--r-- 1 jdoe jdoe 0 2010-05-03 17:05 bar
+-rw-r--r-- 1 jdoe jdoe 0 2010-05-03 17:05 baz
+-rw-r--r-- 1 jdoe jdoe 0 2010-05-03 17:05 foo
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5115404)
+ Use  subprocess.Popen()  instead of  subprocess.call() . For example: 
+
+  import subprocess
+my_process = subprocess.Popen(['ls', '-l'])
+  
+
+ To terminate the child: 
+
+  my_process.kill()
+  
+
+ To capture the kill signal, you could so something like this: 
+
+  import signal
+import sys
+def signal_handler(signal, frame):
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20363340)
+  subprocess.call()  is just  subprocess.Popen().wait() : 
+
+  from subprocess import Popen
+from threading import Timer
+
+p = Popen(["command", "arg1"])
+print(p.pid) # you can save pid to a file to use it outside Python
+
+# do something else..
+
+# now ask the command to exit
+p.terminate()
+terminator = Timer(5, p.kill) # give it 5 seconds to exit; then kill it
+terminator.start()
+p.wait()
+terminator.cancel() # the child process exited, cancel the hit
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4164110)
+ Remove  sudo  from the subprocess command if it's possible which you should do because you shouldn't run a subprocess in a sudo user from your GUI , it's definitely a security breach: 
+
+  subprocess.Popen(commandtosend, shell=True,preexec_fn=os
+                 ^^
+                 Here don't put sudo
+  
+
+ Like this your subprocess will be launch with the www-data user(Apache user), and you can kill it with  os.kill(subp.pid, signal.SIGKILL) . 
+
+ If it's not possible to remove the  sudo  (which is bad) from the subprocess you will have to execute the kill like this :  
+
+  os.system("sudo kill %s" % (subp.pid, ))
+  
+
+ Hope this can help :) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1603780)
+ Windows doesn't have signals, so you can't use the signal module. However, you can still catch the KeyboardInterrupt exception when Ctrl-C is pressed. 
+
+ Something like this should get you going: 
+
+  import subprocess
+
+try:
+    child = subprocess.Popen(blah)
+    child.wait() 
+
+except KeyboardInterrupt:
+    child.terminate()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40166314)
+ As it stands, if script  A  kills  B  using  os.kill  then  C  will not itself be killed. 
+
+ In order to ensure this, script  B  could take care of killing  C  when it exits 
+
+  # this is in script B
+import functools, atexit
+
+def kill_children(*pids):
+    import os, signal
+
+    for pid in pids or []:
+        os.kill(pid, signal.SIGTERM)
+
+# we start a process for C
+c_pid = ...
+
+# kill C when we we exit
+atexit.register(functools.partial(kill_children, c_pid)) 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/3733383)
+ No there is no time out. I guess, what you are looking for is to kill the sub process after some time. Since you are able to signal the subprocess, you should be able to kill it too. 
+
+ generic approach to sending a signal to subprocess: 
+
+  proc = subprocess.Popen([command])
+time.sleep(1)
+print 'signaling child'
+sys.stdout.flush()
+os.kill(proc.pid, signal.SIGUSR1)
+  
+
+ You could use this mechanism to terminate after a time out period. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/4084373)
+ Only use  Popen  kill method 
+
+  process = subprocess.Popen(
+    task.getExecutable(), 
+    stdout=subprocess.PIPE, 
+    stderr=subprocess.PIPE, 
+    shell=True
+)
+process.kill()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/1064370)
+ You call os.kill on the process pid. 
+
+  os.kill(process.pid, signal.SIGKILL)
+  
+
+ You're OK because you're on on Linux.  Windows users are out of luck. 
+
+
+

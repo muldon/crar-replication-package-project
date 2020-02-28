@@ -1,0 +1,276 @@
+Query: format strings and named arguments in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/35667660)
+ Needing to partially fill format strings is a common problem when progressively filling the format strings, e.g. for SQL queries. 
+
+  format_partial()  method uses the  Formatter  from  string  and  ast  to parse the format string and also find out whether the named parameter hash has all the values needed to partially evaluate the format: 
+
+  import ast
+from collections import defaultdict
+from itertools import chain, ifilter, imap
+from operator import itemgetter
+import re
+from string import Formatter
+
+def format_partial(fstr, **kwargs):
+    def can_resolve(expr, **kwargs):
+        walk = chain.from_iterable(imap(ast.iter_fields, ast.walk(ast.parse(expr))))
+        return all(v in kwargs for k,v in ifilter(lambda (k,v): k=='id', walk))
+
+    ostr = fstr
+    fmtr = Formatter()
+    dd = defaultdict(int)
+    fmtr.get_field = lambda field_name, args, kwargs: (dd[field_name],field_name)
+    fmtr.check_unused_args = lambda used_args, args, kwargs: all(v in dd for v in used_args)
+    for t in ifilter(itemgetter(1), Formatter().parse(fstr)):
+        f = '{'+t[1]+(':'+t[2] if t[2] else '')+'}'
+        dd = defaultdict(int)
+        fmtr.format(f,**kwargs)
+        if all(can_resolve(e,**kwargs) for e in dd):
+            ostr = re.sub(re.escape(f),Formatter().format(f, **kwargs),ostr,count=1)
+    return ostr
+  
+
+  format_partial  will leave the unresolved portion of the format string, so subsequent calls can be used to resolve those parts as the data is available. 
+
+ goodmami's and dawg's answers seem cleaner, but they both fail to capture the format mini-language completely as in  {x:>{x}} ;  format_partial  will have no problem resolving any format string that  string.format()  resolves: 
+
+  from datetime import date
+format_partial('{x} {} {y[1]:x} {x:>{x}} {z.year}', **{'x':30, 'y':[1,2], 'z':date.today()})
+
+'30 {} 2                             30 2016'
+  
+
+ It is even easier to extend the functionality to old style format strings using regex instead of the string formatter, as the old style format substrings were regular (ie. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45988699)
+ You are using the  format  method for strings incorrectly.  format  requires that you pass in keyword arguments when you want to substitute names inside a string. 
+
+ The correct form to use the method in your case would be the following: 
+
+  s = """
+a b c {a}
+""".format(a='123')
+
+print s
+  
+
+ However if you do want to pass in a dictionary, then you can unpack it into keyword arguments by prepending  **  before the dictionary itself. This will unpack the dictionary into the the keyword argument of  a='123'  like the code above. 
+
+ Please read more about Python strings and the string format method https://docs.python.org/2/library/string.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/11146329)
+ Note that the  %  syntax for formatting strings is becoming outdated. If your version of Python supports it, you should write: 
+
+  instr = "'{0}', '{1}', '{2}', '{3}', '{4}', '{5}', '{6}'".format(softname, procversion, int(percent), exe, description, company, procurl)
+  
+
+ This also fixes the error that you happened to have. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/3380068)
+ From Python 2.6: 
+
+  >>> "www.someurl.com/{0}/blah.html".format(100)
+'www.someurl.com/100/blah.html'
+  
+
+ To support older environments, the  %  operator has a similar role: 
+
+  >>> "www.someurl.com/%d/blah.html" % 100
+'www.someurl.com/100/blah.html'
+  
+
+ If you would like to support named arguments, then you can can pass a  dict . 
+
+  >>> url_args = {'num' : 100 }
+>>> "www.someurl.com/%(num)d/blah.html" % url_args
+'www.someurl.com/100/blah.html'
+  
+
+ In general, when types need to be mixed, I recommend string formatting: 
+
+  >>> '%d: %s' % (1, 'string formatting',)
+'1:  string formatting'
+  
+
+ String formatting coerces objects into strings by using their  __str__  methods.[*] There is much more detailed documentation available on Python string formatting in the http://docs.python.org/library/stdtypes.html#string-formatting. This behaviour is different in Python 3+, as all strings are unicode. 
+
+ If you have a list or tuple of strings, the  join  method is quite convenient. It applies a separator between all elements of the iterable. 
+
+  >>> ' '.join(['2:', 'list', 'of', 'strings'])
+'2: list of strings'
+  
+
+ If you are ever in an environment where you need to support a legacy environment, (e.g. Python <2.5), you should generally avoid string concatenation. See the article referenced in the comments. 
+
+ [*] Unicode strings use the  __unicode__  method.  
+
+  >>> u'3: %s' % ':)'
+u'3: :)'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/35974160)
+ You have two options for formatting: The old python2 style  %  operator that works with C-printf-style format strings, and the new python3 style  format()  method of the string. Because of backporting you can use both options in both python2 and python3. 
+
+ The  %  formatter that accepts C-printf-style format strings: 
+
+  "Hello %s" % subs
+"Hello %s%s" % (subs, '.')
+my_dict = {'placeholder_name': 'world', 'period': '.'}
+"Hello %(placeholder_name)s%(period)s" % my_dict
+  
+
+ Note that in python the  %s  format specifier accepts any kind of object (integer, class instance, etc) as input and converts it to a string with the  str()  operator that is quite convenient. The same is true about  %r  that calls  repr()  on the substitutable input object. You need other format specifiers like  %f  only if you want to do type (eg.: float) specific format parametrization (like  %.5f ). 
+
+ The new  format()  method: 
+
+  "Hello {}".format(subs)
+"Hello {placeholder_name}".format(placeholder_name=subs)
+  
+
+ Of course  placeholder_name  could also be  subs , I just used a different name to clarify things. The following would work just like the above solution: 
+
+  "Hello {subs}".format(subs=subs)
+  
+
+ In python positional arguments can also be passed to a function call from a list or tuple, and keyword arguments can also be passed from a dictionary if you want to exploit more dynamic features of the language: 
+
+  my_tuple = ('world', '.')
+"Hello {}{}".format(*my_tuple)
+my_dict = {'subs': 'world', 'period': '.'}
+"Hello {subs}{period}".format(**my_dict)
+  
+
+ We could complicate things by parametrizing the format string, check out the docs for the  format()  method for more. 
+
+ If you have multiple things to substitute then I highly recommend using named placeholders (with the keyword args of  format() ) instead of fiddling with argument indexes because it usually results in easier to read code. If there are multiple things to substitute then it can also reduce the occurrence of bugs. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/45259337)
+ You've misunderstood what  '{:0{N}d}'.format(d, N=N)  does. The  d  in the format spec doesn't refer to the variable  d ; it means print an integer in base 10. Python matches that field with the  d  argument positionally. 
+
+ When you try that with an f-string,  f'{:0{N}d}' , f-strings have no positional arguments. Python doesn't know what to format for that field. You need to fix your original bug and place  d  in front of the  :  so Python knows it's supposed to format  d  there. 
+
+ For reference, the correct version with  format  would have been  '{d:0{N}}'.format(d=d, N=N) . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37577590)
+ Here's another way to do it using python27: 
+
+  action = '{bond}, {james} {bond}'
+d = dict((x[1], '') for x in action._formatter_parser())
+# Now we have: `d = {'james': '', 'bond': ''}`.
+d.update(bond='bond')
+print action.format(**d)  # bond,  bond
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/26682021)
+ You can just have empty  {}  brackets in the format string. And by the way in the second one, you need to set the call to format equal to a variable as it doesn't work in-place: 
+
+  message = '{} had a little {}'.format(name, pet)  # < v2.7 needs numbers in brackets.
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17895844)
+ Named replacement fields (the  {...}  parts in a http://docs.python.org/2/library/string.html#format-string-syntax) match against  keyword arguments  to the  .format()  method, and not  positional arguments . 
+
+ Keyword arguments are like keys in a dictionary; order doesn't matter, as they are matched against a  name . 
+
+ If you wanted to match against  positional  arguments, use numbers: 
+
+  "{0} {1}".format(10, 20)
+  
+
+ In Python 2.7 and up, you can omit the numbers; the  {}  replacement fields are then auto-numbered in order of appearance in the formatting string: 
+
+  "{} {}".format(10, 20) 
+  
+
+ The formatting string can match against both positional  and  keyword arguments, and can use arguments multiple times: 
+
+  "{1} {ham} {0} {foo} {1}".format(10, 20, foo='bar', ham='spam')
+  
+
+ Quoting from the <a href="http://docs.python.org/2/library/string.html#format-string-syntax" specification : 
+
+ 
+   The  field_name  itself begins with an  arg_name  that is either  a number or a keyword . If it’s a number, it refers to a positional argument, and if it’s a keyword, it refers to a named keyword argument. 
+ 
+
+ . 
+
+ If you are creating a large formatting string, it is often much more readable and maintainable to use named replacement fields, so you don't have to keep counting out the arguments and figure out what argument goes where into the resulting string. 
+
+ You can also use the  **keywords  calling syntax to apply an existing dictionary to a format, making it easy to turn a CSV file into formatted output: 
+
+  import csv
+
+fields = ('category', 'code', 'price', 'description', 'link', 'picture', 'plans')
+table_row = '''\
+    <tr>
+      <td> </td>
+      <td>{link} ({price:.2f})</td>
+   </tr>
+'''
+
+with open(filename, 'rb') as infile:
+    reader = csv.DictReader(infile, fieldnames=fields, delimiter='\t')
+    for row in reader:
+        row['price'] = float(row['price'])  # needed to make `.2f` formatting work
+        print table_row.format(**row)
+  
+
+ Here,  picture ,  link ,  description  and  price  are all keys in the  row  dictionary, and it is  much easier  to see what happens when I apply the  row  to the formatting string. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46158048)
+ The formatting of  '{"one": {}}'  is https://docs.python.org/3/library/string.html#grammar-token-field_name and will essentially try to look for a keyword argument that's been supplied to  .format  and has the name  '"one"' . 
+
+ As the docs state: 
+
+ 
+   The  field_name  itself begins with an  arg_name  that is either a number or a keyword. If it’s a number, it refers to a positional argument, and  if it’s a keyword, it refers to a named keyword argument.  
+ 
+
+ <sub>(emphasis mine)</sub> 
+
+ That's why you get the  KeyError  exception; it tries to look for a key in the mapping of keyword arguments provided to  format . (which, in this case, is empty, hence the error). 
+
+ As a solution, just escape the outer curly braces: 
+
+  >>> '{{"one":{}}}'.format(1)
+'{"one":1}'
+  
+
+ The same remedy applies if you decide on using  f -strings in the future: 
+
+  >>> f'{{"one": {1}}}'
+'{"one": 1}'
+  
+
+
+

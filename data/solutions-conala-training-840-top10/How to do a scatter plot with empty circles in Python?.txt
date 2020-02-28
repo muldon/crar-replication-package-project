@@ -1,0 +1,285 @@
+Query: How to do a scatter plot with empty circles in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4146321)
+ Would these work? 
+
+  plt.scatter(np.random.randn(100), np.random.randn(100), facecolors='none')
+  
+
+   
+
+ or using plot() 
+
+  plt.plot(np.random.randn(100), np.random.randn(100), 'o', mfc='none')
+  
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/4146439)
+ From the http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.scatter for scatter: 
+
+  Optional kwargs control the Collection properties; in particular:
+
+    edgecolors:
+        The string ‘none’ to plot faces with no outlines
+    facecolors:
+        The string ‘none’ to plot unfilled outlines
+  
+
+ Try the following: 
+
+  import matplotlib.pyplot as plt 
+import numpy as np 
+
+x = np.random.randn(60) 
+y = np.random.randn(60)
+
+plt.scatter(x, y, s=80, facecolors='none', edgecolors='r')
+plt.show()
+  
+
+   
+
+  Note:  For other types of plots see https://stackoverflow.com/questions/10956903/how-to-make-hollow-square-marks-with-matplotlib-in-python on the use of  markeredgecolor  and  markerfacecolor . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/4255944)
+ Here's another way: this adds a circle to the current axes, plot or image or whatever :  
+
+  from matplotlib.patches import Circle  # $matplotlib/patches.py
+
+def circle( xy, radius, color="lightsteelblue", facecolor="none", alpha=1, ax=None ):
+    """ add a circle to ax= or current axes
+    """
+        # from .../pylab_examples/ellipse_demo.py
+    e = Circle( xy=xy, radius=radius )
+    if ax is None:
+        ax = pl.gca()  # ax = subplot( 1,1,1 )
+    ax.add_artist(e)
+    e.set_clip_box(ax.bbox)
+    e.set_edgecolor( color )
+    e.set_facecolor( facecolor )  # "none" not None
+    e.set_alpha( alpha )
+  
+
+   
+
+ (The circles in the picture get squashed to ellipses because  imshow aspect="auto"  ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36754796)
+  sns.regplot  doesn't pass through all the keywords you need for this, but you can do it with  scatter  explicitly, turning off  regplot 's scatter, and then rebuilding the legend: 
+
+  g.map(plt.scatter, "x", "y", s=50, alpha=.7,
+      linewidth=.5,
+      facecolors = 'none',
+      edgecolor=['red', 'blue'])
+
+
+g.map(sns.regplot, "x", "y", ci=None, robust=1,
+     scatter=False)
+
+markers = [plt.Line2D([0,0],[0,0], markeredgecolor=pal[key],
+                      marker='o', markerfacecolor='none',
+                      mew=0.3,
+                      linestyle='')
+            for key in pal]
+
+plt.legend(markers, pal.keys(), numpoints=1)
+plt.show()
+  
+
+ https://i.stack.imgur.com/T6hUn.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/4146701)
+ So I assume you want to highlight some points that fit a certain criteria. You can use Prelude's command to do a second scatter plot of the hightlighted points with an empty circle and a first call to plot all the points. Make sure the s paramter is sufficiently small for the larger empty circles to enclose the smaller filled ones. 
+
+ The other option is to not use scatter and draw the patches individually using the circle/ellipse command. These are in matplotlib.patches, http://matplotlib.sourceforge.net/examples/api/patch_collection.html is some sample code on how to draw circles rectangles etc. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33655691)
+ Have you tried the pandas scatter plot? 
+
+  import pandas as pd
+import random
+
+n = 100000
+df = pd.DataFrame({'x': np.random.random(n), 'y': np.random.random(n), 'r': np.random.random(n)})
+df.plot(kind='scatter', x='x', y='y', s=df['r']*1000, facecolor='none')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47565569)
+ I believe doing both approaches may achieve what you are trying to do. First draw the unfilled circles, then do a scatter plot with the same points. For the scatter plots, make the size 0 but use it to set the colorbar. 
+
+ Consider the following example: 
+
+  import numpy as np
+from matplotlib import pyplot as plt
+import matplotlib.cm as cm
+
+%matplotlib inline
+
+# generate some random data
+npoints = 5
+x = np.random.randn(npoints)
+y = np.random.randn(npoints)
+
+# make the size proportional to the distance from the origin
+s = [0.1*np.linalg.norm([a, b]) for a, b in zip(x, y)]
+s = [a / max(s) for a in s]  # scale
+
+# set color based on size
+c = s
+colors = [cm.jet(color) for color in c]  # gets the RGBA values from a float
+
+# create a new figure
+plt.figure()
+ax = plt.gca()
+for a, b, color, size in zip(x, y, colors, s):
+    # plot circles using the RGBA colors
+    circle = plt.Circle((a, b), size, color=color, fill=False)
+    ax.add_artist(circle)
+
+# you may need to adjust the lims based on your data
+minxy = 1.5*min(min(x), min(y))
+maxxy = 1.5*max(max(x), max(y))
+plt.xlim([minxy, maxxy])
+plt.ylim([minxy, maxxy])
+ax.set_aspect(1.0)  # make aspect ratio square
+
+# plot the scatter plot
+plt.scatter(x,y,s=0, c=c, cmap='jet', facecolors='none')
+plt.grid()
+plt.colorbar()  # this works because of the scatter
+plt.show()
+  
+
+ Example plot from one of my runs: 
+
+ https://i.stack.imgur.com/WL2eR.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43182976)
+ To determine if there is a scatter circle at a position  (xi,yi)  is not straight forward. The problem is that  (xi,yi)  are given in data coordinates, while the circle is drawn as a circle in display coordinates. This means that the circle in display coordinates might acutally be an ellipse in data coordinates, when the axis scaling is different for x and y axis.  
+
+ Matplotlib contains some functionality to determine if a point given in display coordinates is within the extent of an artist. I order to use this, the canvas first has to be drawn. One might then simulate a mouse event at the position  (xi,yi)  and detect if it hits any artist from the scatter. The respective color can then be retrieved. 
+
+  import numpy as np; np.random.seed(0)
+import matplotlib.pyplot as plt
+import matplotlib.backend_bases
+
+x = np.random.rayleigh(size=10)
+y = np.random.normal(size=10)
+c = np.random.rand(10)
+
+fig, ax = plt.subplots()
+sc = ax.scatter(x,y,c=c, s=49, picker=True)
+
+fig.canvas.draw()
+
+def color_at_pos(xi,yi):
+    xi, yi = ax.transData.transform((xi,yi))
+    me = matplotlib.backend_bases.LocationEvent("no", fig.canvas, xi, yi)
+    cont, ind = sc.contains(me)
+    return sc.cmap(sc.norm(sc.get_array()[ind["ind"]]))
+
+col = color_at_pos(1.25931,0.145889)
+print col
+col = color_at_pos(0.7,0.7)
+print col
+
+plt.show()
+  
+
+ Here the first point  (1.25931,0.145889)  is actuall within two circles, so two colors are printed, while the second point is not in any circle and an empty array is printed. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/37581970)
+ A solution is to replot the line on top of the scatter: 
+
+  df = pd.DataFrame([[1,2],[10,20]])
+ax = df.plot.scatter(x=0, y=1, style='b')
+df.plot.line(x=0, y=1, ax=ax, style='b')
+  
+
+ In this case, forcing points and lines both to be blue. 
+
+ If you don't need the properties of the scatter plot such as value dependent colours and sizes, just use a line plot with circles for the points: 
+
+  df.plot.line(x=0, y=1, style='-o')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9868518)
+ Scatter plot is actually a collection of lines (circles to be exacts). 
+
+ if you store your scatter plot in an object you could access it's properties, one of them is called set_visible. Here is an example: 
+
+  """
+make a scatter plot with varying color and size arguments
+code mostly from:
+http://matplotlib.sourceforge.net/mpl_examples/pylab_examples/scatter_demo2.py
+"""
+import matplotlib
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import matplotlib.cbook as cbook
+
+# load a numpy record array from yahoo csv data with fields date,
+# open, close, volume, adj_close from the mpl-data/example directory.
+# The record array stores python datetime.date as an object array in
+# the date column
+datafile = cbook.get_sample_data('/usr/share/matplotlib/sampledata/goog.npy')
+#datafile = /usr/share/matplotlib/sampledata
+r = np.load(datafile).view(np.recarray)
+r = r[-250:] # get the most recent 250 trading days
+
+delta1 = np.diff(r.adj_close)/r.adj_close[:-1]
+
+# size in points ^2
+volume = (15*r.volume[:-2]/r.volume[0])**2
+close = 0.003*r.close[:-2]/0.003*r.open[:-2]
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+## store the scatter in abc object
+abc=ax.scatter(delta1[:-1], delta1[1:], c=close, s=volume, alpha=0.75)
+### if you comment that line of set False to True, you'll see what happens.
+abc.set_visible(False)
+#ticks = arange(-0.06, 0.061, 0.02)
+#xticks(ticks)
+#yticks(ticks)
+
+ax.set_xlabel(r'$\Delta_i$', fontsize=20)
+ax.set_ylabel(r'$\Delta_{i+1}$', fontsize=20)
+ax.set_title('Volume and percent change')
+ax.grid(True)
+
+plt.show()
+  
+
+
+

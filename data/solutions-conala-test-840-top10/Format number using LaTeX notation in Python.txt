@@ -1,0 +1,241 @@
+Query: Format number using LaTeX notation in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/13490731)
+ You can write a  frexp10  function: 
+
+  def frexp10(x):
+    exp = int(math.floor(math.log10(abs(x))))
+    return x / 10**exp, exp
+  
+
+ Formatting in LaTeX style is then: 
+
+  '{0}^{{{1:+03}}}'.format(*frexp10(-1.234e9))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/11898304)
+ Convert the number to scientific notation string:   
+
+  s = string.format("%.3e",0.001)
+  
+
+ then replace the e+ or e- with latex format: 
+
+  s.replace("e+","$^{")
+s.replace("e-","$^{")
+  
+
+ then append the latex end brackets: 
+
+  s = s + "}$"
+  
+
+ that should output: 
+
+  "1.000$^{-3}$"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/13490601)
+ The http://ctan.org/pkg/siunitx LaTeX package solves this for you by allowing you to use the python float value directly without resorting to parsing the resulting string and turning it into valid LaTeX. 
+
+  >>> print "\\num{{{0:.2g}}}".format(1e9)
+\num{1e+09}
+  
+
+ When the LaTeX document is compiled, the above code will be turned into 
+ . As andybuckley points out in the comments, the plus sign might not be accepted by siunitx (I've not tested it), so it may be necessary to do a  .repace("+", "")  on the result. 
+
+ If using  siunitx  is somehow off the table, write a custom function like this: 
+
+  def latex_float(f):
+    float_str = "{0:.2g}".format(f)
+    if "e" in float_str:
+        base, exponent = float_str.split("e")
+        return r"{0} \times 10^{{{1}}}".format(base, int(exponent))
+    else:
+        return float_str
+  
+
+  
+
+  >>> latex_float(1e9)
+'1 \\times 10^{9}'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17307141)
+ You can do something like: 
+
+  ax.set_title( "${0} \\times 10^{{{1}}}$".format('3.5','+20'))
+  
+
+  
+
+  ax.set_title( "$%s \\times 10^{%s}$" % ('3.5','+20'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17307525)
+  
+
+  print r'$%s \times 10^{%s}$' % tuple('3.5e+20'.split('e+'))
+  
+
+ with new format: 
+
+  print r'${} \times 10^{{{}}}$'.format(*'3.5e+20'.split('e+'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/54561413)
+ Install the https://github.com/AndrewChap/num2tex package: 
+
+  pip install num2tex
+  
+
+ and format your title as: 
+
+  ax.set_title('${}$'.format(num2tex(3.5e20)))
+  
+
+ or use the  _repr_latex_()  method: 
+
+  ax.set_title(num2tex(3.5e20)._repr_latex_())
+  
+
+ which will give you the same thing. 
+
+  num2tex  inherits from  str  so the  format  function can be used as you would use it for a string: 
+
+  ax.set_title('${:.2e}$'.format(num2tex(3.5e20)))
+  
+
+ Disclaimer: I (very recently) created  num2tex .  It works well for my workflow and I am now trying to get feedback from others who might be interested in using it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25767872)
+ I think you need an extra curly brace around the  t . This works for me: 
+
+  text1 = r"${}_{{t}} = {:.{p}f} \pm {:.{p}f} {c}$".format(xn, ccl[0], ect[0], c=cod, p=prec)
+text2 = r"${}_{{t}} = {:.{p}f} \pm {:.{p}f} {c}$".format(yn, ccl[1], ect[1], c=cod, p=prec2)
+  
+
+ Adding the double curly brace means they are treated literally, not as a part of the python format syntax 
+
+   
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/49330649)
+ In order to get nicely formatted labels in scientific notation one may use the formatting capabilities of a  ScalarFormatter  which uses MathText (Latex) and apply it to the labels.  
+
+  import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.ticker as mticker
+
+fig, ax = plt.subplots()
+
+x = np.linspace(0, 300, 20)
+y = np.linspace(0,300, 20)
+y = y*1e16
+
+ax.plot(x,y)
+
+f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
+g = lambda x,pos : "${}$".format(f._formatSciNotation('%1.10e' % x))
+plt.gca().yaxis.set_major_formatter(mticker.FuncFormatter(g))
+
+plt.show()
+  
+
+ https://i.stack.imgur.com/LHBBt.png 
+
+ While this may be useful in a lot of cases, it does not actually meet the requirements of the question. To have equal digits on all labels a more customized version can be used. 
+
+  import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.ticker as mticker
+
+fig, ax = plt.subplots()
+
+x = np.linspace(0, 300, 20)
+y = np.linspace(0,300, 20)
+y = y*1e16
+
+ax.plot(x,y)
+
+class MathTextSciFormatter(mticker.Formatter):
+    def __init__(self, fmt="%1.2e"):
+        self.fmt = fmt
+    def __call__(self, x, pos=None):
+        s = self.fmt % x
+        decimal_point = '.'
+        positive_sign = '+'
+        tup = s.split('e')
+        significand = tup[0].rstrip(decimal_point)
+        sign = tup[1][0].replace(positive_sign, '')
+        exponent = tup[1][1:].lstrip('0')
+        if exponent:
+            exponent = '10^{%s%s}' % (sign, exponent)
+        if significand and exponent:
+            s =  r'%s{\times}%s' % (significand, exponent)
+        else:
+            s =  r'%s%s' % (significand, exponent)
+        return "${}$".format(s)
+
+# Format with 2 decimal places
+plt.gca().yaxis.set_major_formatter(MathTextSciFormatter("%1.2e"))
+
+plt.show()
+  
+
+ <a href="https://i.stack.imgur.com/unYU8.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/53553524)
+ Here's a simple solution: 
+
+  def SuperScriptinate(number):
+  return number.replace('0','⁰').replace('1','¹').replace('2','²').replace('3','³').replace('4','⁴').replace('5','⁵').replace('6','⁶').replace('7','⁷').replace('8','⁸').replace('9','⁹').replace('-','⁻')
+
+def sci_notation(number, sig_fig=2):
+    ret_string = "{0:.{1:d}e}".format(number, sig_fig)
+    a,b = ret_string.split("e")
+    b = int(b)         # removed leading "+" and strips leading zeros too.
+    return a + "x10^" + SuperScriptinate(str(b))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26556759)
+ In general you can't count the number of decimal digits, but you can compute the minimum precision and use it with  f  format specification in https://docs.python.org/3/library/stdtypes.html#str.format or equivalent function: 
+
+  from math import ceil, log10
+p = 0.00001
+precision = int(ceil(abs(log10(abs(p))))) if p != 0 else 1
+'{:.{}f}'.format(p, precision)
+  
+
+ You'll need to increase precision if you want to display more than one significant digit. Also you might need a slightly different logic for numbers > 1. 
+
+
+

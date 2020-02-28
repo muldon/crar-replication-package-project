@@ -1,0 +1,309 @@
+Query: How to derive the week start for a given (iso) weeknumber / year in python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/4793752)
+ If you're limited to stdlib you could do the following: 
+
+  >>> datetime.datetime.strptime('2011, 4, 0', '%Y, %U, %w')
+datetime.datetime(2011, 1, 23, 0, 0)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/35891060)
+ As of Python 3.6, you can use the new  %G ,  %u  and  %V  directives. See http://bugs.python.org/issue12006 and the https://docs.python.org/3/library/datetime.html#strftime-and-strptime-behavior: 
+
+ 
+    %G  
+  ISO 8601 year with century representing the year that contains the greater part of the ISO week ( %V ). 
+  
+    %u  
+  ISO 8601 weekday as a decimal number where 1 is Monday. 
+  
+    %V  
+  ISO 8601 week as a decimal number with Monday as the first day of the week. Week 01 is the week containing Jan 4. 
+ 
+
+ Given a string with year, weeknumber and weekday number, it is easy to parse those out to a date with: 
+
+  from datetime import datetime
+
+datetime.strptime('2002 01 1', '%G %V %u').date()
+  
+
+  
+
+  from datetime import datetime
+
+def date_from_isoweek(iso_year, iso_weeknumber, iso_weekday):
+    return datetime.strptime(
+        '{:04d} {:02d} {:d}'.format(iso_year, iso_weeknumber, iso_weekday),
+        '%G %V %u').date()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/44906380)
+  
+
+  >>> import datetime
+>>> june1 = datetime.datetime(2017,6,1)
+>>> june1
+datetime.datetime(2017, 6, 1, 0, 0)
+>>> june1_weekday = june1.weekday()
+>>> if june1_weekday < 6:  # 6 indicates Sunday
+        first_sunday_in_june = june1 + datetime.timedelta(days=6-june1_weekday)
+else:
+        first_sunday_in_june = june1
+
+
+>>> print(first_sunday_in_june)
+2017-06-04 00:00:00
+  
+
+ Assuming you want ISO weeknumbers, you can then use the  isocalendar()  method. This gives a tuple  (year, weeknumber, weekday) . This uses the convention that weeks start with Monday, and the first week of the year is the first week with at least four days in the year (or in other words, the week with the first Thursday). 
+
+  >>> first_sunday_in_june.isocalendar()
+(2017, 22, 7)
+  
+
+ If you have another convention for first-day-of-the-week or first-week-of-the-year, you will have to brew your own function to get the week number. 
+
+ Use the above method in a loop over the months, and you can create the desired list with week numbers. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43523853)
+ Since django 1.11, you can do: 
+
+  Entry.objects.filter(created_at__week=current_week)
+  
+
+ It will give you the week from monday to sunday, according to ISO-8601. 
+
+ To query for the current week:  
+
+  from datetime import date
+current_week = date.today().isocalendar()[1] 
+  
+
+ isocalendar() will return a tuple with 3 items: (ISO year, ISO week number, ISO weekday). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/30656058)
+ I have fixed your function: 
+
+  def get_start_end_dates(year, week):
+     d = date(year,1,1)
+     if(d.weekday()<= 3):
+         d = d - timedelta(d.weekday())             
+     else:
+         d = d + timedelta(7-d.weekday())
+     dlt = timedelta(days = (week-1)*7)
+     return d + dlt,  d + dlt + timedelta(days=6)
+  
+
+ It gets the correct start and end day of the week in given year.  
+
+ It also assumes that years with first day of the year on Friday, Saturday or Sunday have 1 week on next week. See here: http://en.wikipedia.org/wiki/Week 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/39208375)
+  UPDATE:  you can choose between these three UNIX modifiers:  %U , %V , %W : 
+
+ 
+    %U     week number of year, with Sunday as first day of week (00..53). 
+  
+    %V     ISO week number, with Monday as first day of week (01..53).  
+  
+    %W     week number of year, with Monday as first day of week (00..53). 
+ 
+
+  In [189]: df.col.dt.strftime('%U-%V-%W')
+Out[189]:
+0    38-38-38
+1    39-38-38
+2    39-39-39
+3    39-39-39
+4    39-39-39
+5    39-39-39
+6    39-39-39
+7    39-39-39
+8    40-39-39
+9    40-40-40
+Name: col, dtype: object
+  
+
+  %U  week number of year, with Sunday as first day of week (00..53). 
+
+  In [190]: df.col.dt.strftime('%Y-w%U')
+Out[190]:
+0    2010-w38
+1    2010-w39
+2    2010-w39
+3    2010-w39
+4    2010-w39
+5    2010-w39
+6    2010-w39
+7    2010-w39
+8    2010-w40
+9    2010-w40
+Name: col, dtype: object
+  
+
+  %V     ISO week number, with Monday as first day of week (01..53).      
+
+  In [191]: df.col.dt.strftime('%Y-w%V')
+Out[191]:
+0    2010-w38
+1    2010-w38
+2    2010-w39
+3    2010-w39
+4    2010-w39
+5    2010-w39
+6    2010-w39
+7    2010-w39
+8    2010-w39
+9    2010-w40
+Name: col, dtype: object
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/35890416)
+  %U  treats weeks as starting on  Sunday , not on Monday. From the https://docs.python.org/2/library/datetime.html#strftime-and-strptime-behavior: 
+
+ 
+    %U  
+  Week number of the year (Sunday as the first day of the week) as a zero padded decimal number. All days in a new year preceding the first Sunday are considered to be in week 0. 
+ 
+
+ You could use the  %W  format, which gives a zero-padded week number based on  Monday  being the first day of the week: 
+
+ 
+    %W  
+  Week number of the year (Monday as the first day of the week) as a decimal number. All days in a new year preceding the first Monday are considered to be in week 0.   
+ 
+
+ The alternative is to use  b.isocalendar()[1]  if you need to get the week number as per ISO 8601. The rules for what is considered week 1 differ from the ISO calendar calculations;  %W  bases this on the first Monday in the year, while ISO 8601 states that the week that includes January 4 is the first week. For 2016 both systems align, but that's not the case in 2014, 2015 or 2019: 
+
+  >>> d = datetime(2019, 3, 9)
+>>> d.strftime('%W')
+'09'
+>>> d.isocalendar()[1]
+10
+  
+
+ If you wait until Python 3.6, you can use the  %V  format to include the ISO week number, see http://bugs.python.org/issue12006. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/44911098)
+ I've done a loop through the months, then got the first Sunday (starting at month's 1<sup>st</sup> and moving to the next day until a Sunday is found), then got the week-of-year of the date found: 
+
+  from datetime import datetime
+from datetime import date
+
+# dayofweek: Sunday=0, Monday=1 and so on
+def get_week_number(year=2017, dayofweek=0):
+    weeks = []
+
+    for month in range(1, 13):
+        # get first Sunday of month
+        d = date(year, month, 1)
+        while(d.weekday() != dayofweek):
+            d = d.replace(day=d.day + 1)
+
+        # isocalendar()[1] is the week-of-year field
+        weeks.append(d.isocalendar()[1])
+
+    return weeks
+
+print(get_week_number(2017, 0))
+  
+
+ The result, though, is different from what you expect: 
+
+  [1, 6, 10, 14, 18, 23, 27, 32, 36, 40, 45, 49]
+  
+
+ I also tried with  weeks.append(int(d.strftime("%W")))  but it gives the same results - I'm using Python 3.5.2 and https://docs.python.org/3/library/datetime.html#datetime.date.isocalendar: 
+
+ 
+   The ISO year consists of 52 or 53 full weeks, and where a week starts on a Monday and ends on a Sunday. The first week of an ISO year is the first (Gregorian) calendar week of a year containing a Thursday. This is called week number 1, and the ISO year of that Thursday is the same as its Gregorian year. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21140406)
+ You are doing nothing wrong,  2013/12/30  falls in week 1 of 2014, according to the http://en.wikipedia.org/wiki/ISO_week_date: 
+
+ 
+   The ISO 8601 definition for week 01 is the week with the year's first Thursday in it. 
+ 
+
+ The Thursday in that week is 2014/01/02. 
+
+ Other ways to explain the definition, from the same linked WikiPedia article: 
+
+ 
+   
+   It is the first week with a majority (four or more) of its days in January (ISO weeks start on Monday) 
+   Its first day is the Monday nearest to 1 January. 
+   It has 4 January in it. Hence the earliest possible dates are 29 December through 4 January, the latest 4 through 10 January. 
+   It has the year's first working day in it, if Saturdays, Sundays and 1 January are not working days. 
+   
+ 
+
+ If you were looking for the last week number of a given year (52 or 53, depending on the year), I'd use December 28th, which is always guaranteed to be in the last week (because January 4th is always part of the  first  week of the next year): 
+
+  def lastweeknumber(year):
+    return datetime.date(year, 12, 28).isocalendar()[1]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/29263010)
+ According to the same ISO specification, January 4th is  always  going to be week 1 of a given year. By the same calculation, the 28th of December is then  always  in the last week of the year. You can use that to find the last week number of a given year: 
+
+  from datetime import date, timedelta
+
+def weeks_for_year(year):
+    last_week = date(year, 12, 28)
+    return last_week.isocalendar()[1]
+  
+
+ Also see Wikipedia, the ISO week article http://en.wikipedia.org/wiki/ISO_week_date#Last_week: 
+
+ 
+   
+   It has the year's last Thursday in it. 
+   It is the last week with a majority (4 or more) of its days in December. 
+   Its middle day, Thursday, falls in the ending year. 
+   Its last day is the Sunday nearest to 31 December. 
+   It has 28 December in it. Hence the latest possible dates are 28 December through 3 January, the earliest 21 through 28 December. 
+   
+ 
+
+ For more comprehensive week calculations, you could use the https://pypi.python.org/pypi/isoweek; it has a  Week.last_week_of_year()  class method: 
+
+  >>> import isoweek
+>>> isoweek.Week.last_week_of_year(2014)
+isoweek.Week(2014, 52)
+>>> isoweek.Week.last_week_of_year(2014).week
+52
+  
+
+
+

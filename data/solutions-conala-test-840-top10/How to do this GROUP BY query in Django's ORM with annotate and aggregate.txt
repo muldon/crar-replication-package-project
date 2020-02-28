@@ -1,0 +1,198 @@
+Query: How to do this GROUP BY query in Django's ORM with annotate and aggregate
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/1910930)
+ You can make an extract with dates: 
+http://docs.djangoproject.com/en/dev/ref/models/querysets/#dates-field-kind-order-asc 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/21281928)
+ I found a nice solution with a parametrized class that works as an Aggreation Function: 
+
+  def custom_aggregation(select_query):
+    class SqlAggregate(models.sql.aggregates.Aggregate):
+        sql_function = ''
+        sql_template = select_query
+
+    class VisitorRate(models.Aggregate):
+        sql = SqlAggregate
+        def add_to_query(self, query, alias, col, source, is_summary):
+            aggregate = self.sql(col,
+                                 source=source,
+                                 is_summary=is_summary,
+                                 **self.extra)
+            query.aggregates[alias] = aggregate
+
+    return VisitorRate
+
+
+    aggregate_query = "SUM(CASE WHEN metric = visitors' THEN value ELSE 0 END) / NULLIF (SUM(value), 0)"
+    AggregationFunction = custom_aggregation(aggregate_query)
+
+    result = MetricHour.objects \
+        .extra(select={'date': 'date_trunc(%s, timeframe)'}, select_params=[interval]) \
+        .values('date') \
+        .annotate(value=AggregationFunction('value'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/38009575)
+ The  Sum()  aggregate function is available in  django.db.models  and you can use related fields in an F expression. 
+
+  from django.db.models import F, Sum
+
+Sales.objects.values('salesperson__id').annotate(commission=Sum(
+    (F('selling_price') - F('cost_price')) * F('salesperson__commission_rate')
+))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/45077297)
+ You can annotate the new field and compare with values from the aggregated field using an  F  expression: 
+
+  from django.db.models import F 
+
+some_queryset.annotate(max_val=Max('some_prop')).filter(max_val=F('another_prop'))
+  
+
+ Annotation and  F  expressions exist in Django 1.4. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/24131279)
+ This actually turned out to be a bit easier than I thought.   .values()  and then  .annotate (), I was able to do the GROUP BY. 
+
+  order_items = order_items.values('billing_party')
+               .annotate(total_rate=Sum('rate'), count=Count('id'))
+               .order_by('-total_rate')
+  
+
+ Here's the documentation on doing  .values()  and then  annotate()  to handle issues of the above: https://docs.djangoproject.com/en/dev/topics/db/aggregation/#values. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/33356490)
+ You need to use https://docs.djangoproject.com/en/1.8/topics/db/aggregation/: 
+
+  from django.db.models import Count
+comments = Comments.objects.annotate(num_answers=Count('answers'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/43651851)
+ Annotate adds a field to results: 
+
+  >> Order.objects.annotate(total_price=Sum('price'))
+<QuerySet [<Order: L-555>, <Order: L-222>]>
+
+>> orders.first().total_price
+Decimal('340.00')
+  
+
+ Aggregate returns a dict with asked result: 
+
+  >> Order.objects.aggregate(total_price=Sum('price'))
+{'total_price': Decimal('1260.00')}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/39774497)
+ There is module that allows you to group Django models and still work with a QuerySet in the result: https://github.com/kako-nawao/django-group-by 
+
+ For example: 
+
+  from django_group_by import GroupByMixin
+
+class BookQuerySet(QuerySet, GroupByMixin):
+    pass
+
+class Book(Model):
+    title = TextField(...)
+    author = ForeignKey(User, ...)
+    shop = ForeignKey(Shop, ...)
+    price = DecimalField(...)
+  
+
+ 
+
+  class GroupedBookListView(PaginationMixin, ListView):
+    template_name = 'book/books.html'
+    model = Book
+    paginate_by = 100
+
+    def get_queryset(self):
+        return Book.objects.group_by('title', 'author').annotate(
+            shop_count=Count('shop'), price_avg=Avg('price')).order_by(
+            'name', 'author').distinct()
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(total_count=self.get_queryset().count(), **kwargs)
+  
+
+ 'book/books.html' 
+
+   
+{% for book in object_list %}
+     
+         {{ book.title }}</td>
+         {{ book.author.last_name }}, {{ book.author.first_name }} 
+         {{ book.shop_count }} 
+         {{ book.price_avg }} 
+     
+{% endfor %}
+ 
+  
+
+ The difference to the  annotate / aggregate  basic Django queries is the use of the attributes of a related field, e.g.  book.author.last_name . 
+
+ If you need the PKs of the instances that have been grouped together, add the following annotation: 
+
+  .annotate(pks=ArrayAgg('id'))
+  
+
+ NOTE:  ArrayAgg  is a Postgres specific function, available from Django 1.9 onwards: https://docs.djangoproject.com/en/1.10/ref/contrib/postgres/aggregates/#arrayagg  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/46163705)
+ Aggregate annotation by group from many aggregate annotations by group is generally a complicated question, but   Avg  from  Sum   is a special  much easier  case. 
+
+ Expression  Avg('sum_for_field')   can be evaluated as  Sum('sum_for_field') / Count('category',  distinct=True)  that can be evaluated by https://docs.djangoproject.com/en/1.11/ref/models/expressions/#aggregate-expressions. The  Sum('sum_for_field')  equals  Sum('amount') . 
+
+  Solution : (Expected names: The model is  Data  that has fields  date ,  category ,  amount .) 
+
+  qs = Data.objects.values('date').annotate(
+    avg_final=Sum('amount') / Count('category', distinct=True)
+)
+  
+
+ (I'm convinced that very similar questions would be without any solution by current Django 1.11, even with Subquery class, without using a strange extra() method and without raw SQL) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/16547896)
+ I think you can do something like:  
+
+  MM.objects.all().values('b', 'a').annotate(max=Max('c'))
+  
+
+ Note that you need to import something to use Max:  from django.db.models import Max  
+
+  values('b', 'a')  will give  GROUP BY b, a  and  annotate(...)  will compute the MAX in your query. 
+
+
+

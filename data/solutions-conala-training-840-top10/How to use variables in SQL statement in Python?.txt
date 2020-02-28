@@ -1,0 +1,254 @@
+Query: How to use variables in SQL statement in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/902426)
+ http://www.amk.ca/python/writing/DB-API.html 
+
+ Be careful when you simply append values of variables to your statements:
+Imagine a user naming himself  ';DROP TABLE Users;'  --
+That's why you need to use sql escaping, which Python provides for you when you use the cursor.execute in a decent manner. Example in the url is: 
+
+  cursor.execute("insert into Attendees values (?, ?, ?)", (name,
+seminar, paid) )
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/21734918)
+ .  DON'T  use the most obvious one ( %s  with  % ) in real code, it's open to http://en.wikipedia.org/wiki/SQL_injection. 
+
+ Here copy-paste'd  http://docs.python.org/2/library/sqlite3.html : 
+
+  # Never do this -- insecure!
+symbol = 'RHAT'
+c.execute("SELECT * FROM stocks WHERE symbol = '%s'" % symbol)
+
+# Do this instead
+t = ('RHAT',)
+c.execute('SELECT * FROM stocks WHERE symbol=?', t)
+print c.fetchone()
+
+# Larger example that inserts many records at a time
+purchases = [('2006-03-28', 'BUY', 'IBM', 1000, 45.00),
+             ('2006-04-05', 'BUY', 'MSFT', 1000, 72.00),
+             ('2006-04-06', 'SELL', 'IBM', 500, 53.00),
+            ]
+c.executemany('INSERT INTO stocks VALUES (?,?,?,?,?)', purchases)
+  
+
+  More examples if you need:  
+
+  # Multiple values single statement/execution
+c.execute('SELECT * FROM stocks WHERE symbol=? OR symbol=?', ('RHAT', 'MSO'))
+print c.fetchall()
+c.execute('SELECT * FROM stocks WHERE symbol IN (?, ?)', ('RHAT', 'MSO'))
+print c.fetchall()
+# This also works, though ones above are better as a habit as it's inline with syntax of executemany().. but your choice.
+c.execute('SELECT * FROM stocks WHERE symbol=? OR symbol=?', 'RHAT', 'MSO')
+print c.fetchall()
+# Insert a single item
+c.execute('INSERT INTO stocks VALUES (?,?,?,?,?)', ('2006-03-28', 'BUY', 'IBM', 1000, 45.00))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/902417)
+  cursor.execute("INSERT INTO table VALUES (%s, %s, %s)", (var1, var2, var3))
+  
+
+ Note that the parameters are passed as a tuple. 
+
+ The database API does proper escaping and quoting of variables. Be careful not to use the string formatting operator ( % ), because 
+
+ 
+ it does not do any escaping or quoting. 
+ it is prone to Uncontrolled string format attacks e.g. http://en.wikipedia.org/wiki/SQL_injection. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/21642190)
+ Pass the parameter as a sequence (instead of multiple individual values). And use  parameters  argument instead of formatting sql yourself. 
+
+  cur.execute('UPDATE newslib SET (keyword1) = %s WHERE id= %s', [m_k1,row[0]])
+#                                                            ^^^^^^^^^^^^^^^
+  
+
+ See http://www.python.org/dev/peps/pep-0249/#id14 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/18834100)
+ Query parameters <strike>should</strike> must be passed in the second argument of  execute() : 
+
+  params = ('002', 'CS', 'BG', 'HD1', 'T1', 'C1', 0, 'U')
+cursor.execute("""INSERT INTO 
+                      scale_equipment 
+                      (truck_id, product_id, driver_id, field_id, pit_id, harvest_equipment_id, weight, status) 
+                  VALUES 
+                       (%s, %s, %s, %s, %s, %s, %s, %s)""", params)
+  
+
+ In this case you wouldn't worry about sql injections, mysqldb driver does escaping for you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/902836)
+ Different implementations of the Python DB-API are allowed to use different placeholders, so you'll need to find out which one you're using -- it could be (e.g. with MySQLdb): 
+
+  cursor.execute("INSERT INTO table VALUES (%s, %s, %s)", (var1, var2, var3))
+  
+
+ or (e.g. with sqlite3 from the Python standard library): 
+
+  cursor.execute("INSERT INTO table VALUES (?, ?, ?)", (var1, var2, var3))
+  
+
+ or others yet (after  VALUES  you could have  (:1, :2, :3)  , or "named styles"  (:fee, :fie, :fo)  or  (%(fee)s, %(fie)s, %(fo)s)  where you pass a dict instead of a map as the second argument to  execute ).  Check the  paramstyle  string constant in the DB API module you're using, and look for paramstyle at http://www.python.org/dev/peps/pep-0249/ to see what all the parameter-passing styles are! 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18269521)
+ You need a  function  to return a result. An anonymous block will not. 
+
+ You need to http://docs.oracle.com/cd/E11882_01/server.112/e26088/statements_5011.htm#SQLRF01208 in the database, for instance: 
+
+  create or replace function calculation return number is
+  c   number := 0.2;
+  mn  number := 1.5;
+  res number;
+begin
+  return c + mn / 6.;
+end;
+/
+  
+
+ Then change your Python code to call the function, using, http://cx-oracle.sourceforge.net/html/cursor.html 
+
+  db = cx_Oracle.connect(user, pass, dsn_tns)
+cursor = db.cursor()
+
+try:
+  result = cursor.callfunc('calculation', float)
+  print result
+except cx_Oracle.DatabaseError as e:
+  err, = e.args
+  print "\n".join([str(err.code),err.message,err.context])
+  
+
+ 
+
+ It's not possible to create a function on the fly but your function is simple enough that you can do it in a select statement and use  fetchall()  as described in the linked documentation to return the result to Python.  fetchall()  returns a list of tuples so if you're only after a single row and column you can immediately select the 0<sup>th</sup> index of both. 
+
+  >>> import cx_Oracle
+>>> db = cx_Oracle.connect('****','****','****')
+>>> cursor = db.cursor()
+>>> SQL = """select 0.2 + 1.5 / 6. from dual"""
+>>> try:
+...     cursor.execute(SQL)
+...     result = cursor.fetchall()[0][0]
+... except cx_Oracle.DataBaseError, e:
+...     pass
+...
+<__builtin__.OracleCursor on <cx_Oracle.Connection to ****@****>>
+>>> result
+0.45000000000000001
+>>>
+  
+
+ You can also pass the variables into your  execute()  call using bind variables and therefore instantiate them in Python if necessary: 
+
+  >>> c = 0.2
+>>> mn = 1.5
+>>> SQL = """select :c + :mn / 6. from dual"""
+>>> bind_vars = { 'c' : c, 'mn' : mn }
+>>> cursor.execute(SQL, bind_vars)
+<__builtin__.OracleCursor on <cx_Oracle.Connection to history@monitor>>
+>>> result = cursor.fetchall()[0][0]
+>>> result
+0.45000000000000001
+>>>
+  
+
+ Though it might be simpler to do all this in Python... I assume your actual situation is more complicated? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7700733)
+ You don't need to make two SQL queries to do this. Instead, use an INSERT query of the form http://www.sqlite.org/lang_insert.html: 
+
+  conn=sqlite3.connect(...)
+cursor=conn.cursor()
+
+today = datetime.date.today()
+sql='''
+    INSERT INTO history
+    SELECT ?, foo, bar, baz
+    FROM data
+    ORDER BY ac
+'''
+cursor.execute(sql,[today])
+conn.commit()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/50478637)
+ First, your concatenation of strings with the modulus operator is not correct as  %(vars)  needs to reside outside the string intended to be formatted. 
+
+ Second, you should be using SQL parameterization (an industry standard in  any  database, not just DB2) and not string interpolation of data and query statement. You can do so using the  ibm_db_dbi  module to pass parameters in the cursor  execute  call: 
+
+  import ibm_db
+import ibm_db_dbi   # ADD DBI LAYER
+
+db = ibm_db.connect('*LOCAL','userid','password') 
+
+# ADD FOR PYTHON STANDARD DB-API PROPERTIES (I.E., CURSOR)
+conn = ibm_db_dbi.Connection(db)   
+cur = conn.cursor()
+
+# PREPARED STATEMENT (WITH PLACEHOLDERS)
+sql = """INSERT INTO TEMPLIB.TEMPPF (TYPE, DRPARTY, CRPARTY, 
+                                     AMOUNT, ACNUM, DESCRIPT) 
+          VALUES(?, ?, ?, ?, ?, ?)
+          with NC
+      """
+
+# EXECUTE ACTION QUERY BINDING PARAMS
+cur.execute(sql, (self.type, self.debitparty, self.creditparty, self.amount, 
+                  self.craccountnumber, self.description)) 
+
+cur.close()
+conn.close()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9047641)
+  ALTER TABLE dbx.tablex MODIFY Link VARCHAR(255) CHARACTER SET utf8; COLLATE utf8_general_ci NOT NULL;
+  
+
+ This is a MySQL query, not a Python statement. You need to pass the above to MySQL. 
+
+ Also,  [] * 10  does not do what you think it does. And the proper way to iterate over a list of variables is: 
+
+  for variable in variables:
+    cursor.execute(sql, variable)
+  
+
+  
+
+  cursor.executemany(sql, variables)
+  
+
+
+

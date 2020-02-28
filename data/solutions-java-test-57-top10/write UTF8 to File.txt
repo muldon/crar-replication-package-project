@@ -1,0 +1,214 @@
+Query: write UTF8 to File
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/3018753)
+ You need to know the encoding of the input file. For example, if the file is in Latin-1, you would do something like this, 
+
+          FileInputStream fis = new FileInputStream("test.in");
+        InputStreamReader isr = new InputStreamReader(fis, "ISO-8859-1");
+        Reader in = new BufferedReader(isr);
+        FileOutputStream fos = new FileOutputStream("test.out");
+        OutputStreamWriter osw = new OutputStreamWriter(fos, "UTF-8");
+        Writer out = new BufferedWriter(osw);
+
+        int ch;
+        while ((ch = in.read()) > -1) {
+            out.write(ch);
+        }
+
+        out.close();
+        in.close();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3018806)
+ The following code converts a file from srcEncoding to tgtEncoding: 
+
+  public static void transform(File source, String srcEncoding, File target, String tgtEncoding) throws IOException {
+    BufferedReader br = null;
+    BufferedWriter bw = null;
+    try{
+        br = new BufferedReader(new InputStreamReader(new FileInputStream(source),srcEncoding));
+        bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(target), tgtEncoding));
+        char[] buffer = new char[16384];
+        int read;
+        while ((read = br.read(buffer)) != -1)
+            bw.write(buffer, 0, read);
+    } finally {
+        try {
+            if (br != null)
+                br.close();
+        } finally {
+            if (bw != null)
+                bw.close();
+        }
+    }
+}
+  
+
+  --EDIT--  
+
+ Using Try-with-resources (Java 7): 
+
+  public static void transform(File source, String srcEncoding, File target, String tgtEncoding) throws IOException {
+    try (
+      BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(source), srcEncoding));
+      BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(target), tgtEncoding)); ) {
+          char[] buffer = new char[16384];
+          int read;
+          while ((read = br.read(buffer)) != -1)
+              bw.write(buffer, 0, read);
+    } 
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/3018757)
+    String charset = "ISO-8859-1"; // or what corresponds
+  BufferedReader in = new BufferedReader( 
+      new InputStreamReader (new FileInputStream(file), charset));
+  String line;
+  while( (line = in.readLine()) != null) { 
+    ....
+  }
+  
+
+ There you have the text decoded. You can write it, by the simmetric Writer/OutputStream methods, with the encoding you prefer (eg UTF-8). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/34245174)
+ You can convert string, read by readLine to UTF8, using following code: 
+
+  public static void main(String[] args) throws IOException {
+    RandomAccessFile raf = new RandomAccessFile(new File("MyFile.txt"), "r");
+    String line = raf.readLine();
+    String utf8 = new String(line.getBytes("ISO-8859-1"), "UTF-8");
+    System.out.println("Line: " + line);
+    System.out.println("UTF8: " + utf8);
+}
+  
+
+ Content of MyFile.txt: (UTF-8 Encoding) 
+
+  Привет из Украины
+  
+
+ Console output: 
+
+  Line: ÐÑÐ¸Ð²ÐµÑ Ð¸Ð· Ð£ÐºÑÐ°Ð¸Ð½Ñ
+UTF8: Привет из Украины
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45664769)
+ Reading the file via readLine() worked for me: 
+
+  RandomAccessFile raf = new RandomAccessFile( ... );
+String line;
+while ((line = raf.readLine()) != null) { 
+    String utf = new String(line.getBytes("ISO-8859-1"));
+    ...
+}
+
+// my file content has been created with:
+raf.write(myStringContent.getBytes());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19466762)
+ To write  03  (leading zero) instead of  3  you can use 
+
+  int myInteger = 3;
+out.println("Some value: " + String.format("%02d", myInteger) );
+  
+
+ See http://docs.oracle.com/javase/7/docs/api/java/lang/String.html#format%28java.lang.String,%20java.lang.Object...%29 for details on the syntax. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/18107529)
+ In Java 7 get the text with "Windows-1252" this is Windows Latin-1. 
+
+  Path oldPath = Paths.get("C:/Temp/old.txt");
+Path newPath = Paths.get("C:/Temp/new.txt");
+byte[] bytes = Files.readAllBytes(oldPath);
+String content = "\uFEFF" + new String(bytes, "Windows-1252");
+bytes = content.getBytes("UTF-8");
+Files.write(newPath, bytes, StandardOption.WRITE);
+  
+
+ This takes the bytes, interpretes them as Windows Latin-1.
+And for NotePad the trick: NotePad recognizes the encoding by a preceding BOM marker character. A zero-width space, normally not used in UTF-8. 
+
+ Then it takes from the String the UTF-8 encoding. 
+
+ Windows-1252 is ISO-8859-1 (pure Latin-1) but has some special characters, like comma quotes, of the range 0x80 - 0xBF. 
+
+ 
+
+ In Java 6: 
+
+  File oldPath = new File("C:/Temp/old.txt");
+File newPath = new File("C:/Temp/new.txt");
+long longLength = oldPath.length();
+if (longLength > Integer.MAX_VALUE) {
+    throw new IllegalArgumentException("File too large: " + oldPath.getPath());
+}
+int fileSize = (int)longLength;
+byte[] bytes = new byte[fileSize];
+InputStream in = new FileInputStream(oldPath);
+int nread = in.read(bytes);
+in.close();
+assert nread == fileSize;
+
+String content = "\uFEFF" + new String(bytes, "Windows-1252");
+bytes = content.getBytes("UTF-8");
+
+OutputStream out = new FileOutputStream(newPath);
+out.write(bytes);
+out.close();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/4022416)
+ This is solution! 
+
+  OutputStreamWriter writer = new OutputStreamWriter(out, "cp1251");
+writer.write(s);
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/18141382)
+ You can be explicit with the java.nio.charset.Charset class (windows-1252 is the proper name for ANSI): 
+
+  public static void main(String[] args) throws IOException {
+    Path p = Paths.get("file.txt");
+    ByteBuffer bb = ByteBuffer.wrap(Files.readAllBytes(p));
+    CharBuffer cb = Charset.forName("windows-1252").decode(bb);
+    bb = Charset.forName("UTF-8").encode(cb);
+    Files.write(p, bb.array());
+}
+  
+
+ Or in one line if you prefer =) 
+
+  Files.write(Paths.get("file.txt"), Charset.forName("UTF-8").encode(Charset.forName("windows-1252").decode(ByteBuffer.wrap(Files.readAllBytes(Paths.get("file.txt"))))).array());
+  
+
+
+

@@ -1,0 +1,339 @@
+Query: Convert Between a File Path and a URL
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/27241528)
+ That  getPath()  call, which is  URL.getPath() , does not return a filesystem path. It returns the path portion of a URL. In the case of a  file:  URL, it will be a URL-encoded local filesystem path. If that original URL is in fact a  file:  URL, you need to use the URI and URL classes, or custom string processing, to convert that to a local filesystem path that the  Runtime.exec()  can work with. 
+
+ This might work directly in your case. 
+
+  File jarLocation = Paths.get(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toFile();
+  
+
+ You can also see the discussion at https://stackoverflow.com/questions/18520972/converting-java-file-url-to-file-path-platform-independent-including-u. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45782699)
+ 
+  "the most common approach"  is not necessarily the best :) 
+ Take care which path you mean: https://docs.oracle.com/javase/7/docs/api/java/lang/ClassLoader.html#getResources(java.lang.String) returns a URL, which can have a https://docs.oracle.com/javase/7/docs/api/java/net/URL.html#getPath() component. However, this is not necessarily a valid file-path. 
+Note, that there is also a method https://docs.oracle.com/javase/7/docs/api/java/nio/file/Paths.html#get(java.net.URI) which takes a https://docs.oracle.com/javase/7/docs/api/java/net/URI.html as parameter 
+ The first slash in  /D:/Projects/myapp/build/resources/main/file.txt  just means, that this is an absolute path: see http://docs.oracle.com/javase/6/docs/api/java/lang/Class.html#getResource(java.lang.String) 
+ I recommend, that you simply use https://docs.oracle.com/javase/7/docs/api/java/lang/ClassLoader.html#getResourceAsStream(java.lang.String) when you want to read a file  
+ 
+
+  Update  to answer comment: "So why does Paths.get() not accept the absolute path?" 
+
+  Paths.get()   does  accept absolute paths. 
+But you must pass a valid (file-)path - and in your case you pass the URL-path directly (which is not a valid file-path). 
+
+ 
+ When you call:  getClass().getClassLoader().getResource("file.txt")  it returns a URL:  file:/D:/Projects/myapp/build/resources/main/file.txt 
+
+ 
+ this URL consists of the schema  file:  
+ and the valid (absolute URL)path:  /D:/Projects/myapp/build/resources/main/file.txt  
+  
+ you try to use this URL-path directly as a file-path, which is wrong
+
+ 
+ thus the https://docs.oracle.com/javase/7/docs/api/java/nio/file/Paths.html#get(java.lang.String,%20java.lang.String...) method throws an  InvalidPathException  
+  
+ 
+
+ To convert the URL path to a valid file-path you could use the https://docs.oracle.com/javase/7/docs/api/java/nio/file/Paths.html#get(java.net.URI) method like so:  
+
+  URL fileUrl = getClass().getClassLoader().getResource("file.txt");
+String filePath = Paths.get(fileUrl.toURI());
+// now you have a valid file-path: D:/Projects/myapp/build/resources/main/file.txt
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/2717696)
+ To convert a  file://...  URL to  java.io.File , you'll have to combine both  url.getPath()  and  url.toURI()  for a safe solution: 
+
+  File f;
+try {
+    f = new File(url.toURI());
+} catch(URISyntaxException e) {
+    f = new File(url.getPath());
+}
+  
+
+ Full explanations in this http://weblogs.java.net/blog/2007/04/25/how-convert-javaneturl-javaiofile. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14696595)
+ HTTPClient 4 has an object for that org.apache.http.client.utils.URIBuilder: 
+
+             URIBuilder builder = 
+            new URIBuilder()
+        .setScheme(url.getProtocol())
+        .setHost(url.getHost())
+        .setPort(url.getPort())
+        .setUserInfo(url.getUserInfo())
+        .setPath(url.getPath())
+        .setQuery(url.getQuery());
+    URI uri = builder.build();
+    return uri;
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17870390)
+ The current recommendation (with JDK 1.7+) is to convert URL → URI → Path. So to convert a URL to File, you would say  Paths.get(url.toURI()).toFile() . If you can’t use JDK 1.7 yet, I would recommend  new File(URI.getSchemeSpecificPart()) . 
+
+ Converting file → URI: First I’ll show you some examples of what URIs you are likely to get in Java. 
+
+                            -classpath URLClassLoader File.toURI()                Path.toUri()
+C:\Program Files          file:/C:/Program%20Files/ file:/C:/Program%20Files/   file:///C:/Program%20Files/
+C:\main.c++               file:/C:/main.c++         file:/C:/main.c++           file:///C:/main.c++
+\\VBOXSVR\Downloads       file://VBOXSVR/Downloads/ file:////VBOXSVR/Downloads/ file://VBOXSVR/Downloads/
+C:\Résume.txt             file:/C:/R%c3%a9sume.txt  file:/C:/Résume.txt         file:///C:/Résume.txt
+\\?\C:\Windows (non-path) file://%3f/C:/Windows/    file:////%3F/C:/Windows/    InvalidPathException
+  
+
+ Some observations about these URIs: 
+
+ 
+ The URI specifications are  http://tools.ietf.org/html/rfc1738, superseded by http://tools.ietf.org/html/rfc2396, superseded by http://tools.ietf.org/html/rfc3986. (The WHATWG also has a http://url.spec.whatwg.org/, but it does not specify how file URIs should be interpreted.) Any reserved characters within the path are percent-quoted, and non-ascii characters in a URI are percent-quoted when you call URI.toASCIIString(). 
+ File.toURI() is worse than Path.toUri() because File.toURI() https://bugs.openjdk.java.net/browse/JDK-6356783?page=com.atlassian.jira.plugin.system.issuetabpanels:all-tabpanel (gives file:/ instead of file:///) and does not format URIs for UNC paths according to http://blogs.msdn.com/b/ie/archive/2006/12/06/file-uris-in-windows.aspx. None of these UNC URIs work in Firefox though (Firefox requires file://///). 
+ Path is more strict than File; you cannot construct an invalid Path from http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247%28v=vs.85%29.aspx. “These prefixes are not used as part of the path itself,” but they can be passed to Win32 APIs. 
+ 
+
+ Converting URI → file: Let’s try converting the preceding examples to files: 
+
+                              new File(URI)            Paths.get(URI)           new File(URI.getSchemeSpecificPart())
+file:///C:/Program%20Files  C:\Program Files         C:\Program Files         C:\Program Files
+file:/C:/Program%20Files    C:\Program Files         C:\Program Files         C:\Program Files
+file:///C:/main.c++         C:\main.c++              C:\main.c++              C:\main.c++
+file://VBOXSVR/Downloads/   IllegalArgumentException \\VBOXSVR\Downloads\     \\VBOXSVR\Downloads
+file:////VBOXSVR/Downloads/ \\VBOXSVR\Downloads      \\VBOXSVR\Downloads\     \\VBOXSVR\Downloads
+file://///VBOXSVR/Downloads \\VBOXSVR\Downloads      \\VBOXSVR\Downloads\     \\VBOXSVR\Downloads
+file://%3f/C:/Windows/      IllegalArgumentException IllegalArgumentException \\?\C:\Windows
+file:////%3F/C:/Windows/    \\?\C:\Windows           InvalidPathException     \\?\C:\Windows
+  
+
+ Again, using  Paths.get(URI)  is preferred over  new File(URI) , because Path is able to handle the UNC URI and reject invalid paths with the \?. But if you can’t use Java 1.7, say  new File(URI.getSchemeSpecificPart())  instead. 
+
+ By the way, do  not  use  URLDecoder  to decode a file URL. For files containing “+” such as “file:///C:/main.c++”,   URLDecoder  will turn it into “C:\main.c&nbsp;&nbsp;”!  URLDecoder  is only for parsing application/x-www-form-urlencoded HTML form submissions within a URI’s query ( param=value&param=value ), not for unquoting a URI’s path. 
+
+ 2014-09: edited to add examples. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/7700050)
+ that is not the correct way to convert a URL to a File.   
+
+  new File(Main.class.getResource("/worlds/").toURI());
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/12733172)
+ To obtain the  File  for a given  Class , there are two steps: 
+
+ 
+ Convert the  Class  to a  URL  
+ Convert the  URL  to a  File  
+ 
+
+ It is important to understand both steps, and not conflate them. 
+
+ Once you have the  File , you can call  getParentFile  to get the containing folder, if that is what you need. 
+
+ Step 1:  Class  to  URL  
+
+ As discussed in other answers, there are two major ways to find a  URL  relevant to a  Class . 
+
+ 
+   URL url = Bar.class.getProtectionDomain().getCodeSource().getLocation();   
+   URL url = Bar.class.getResource(Bar.class.getSimpleName() + ".class");   
+ 
+
+ Both have pros and cons. 
+
+ The  getProtectionDomain  approach yields the base location of the class (e.g., the containing JAR file). However, it is possible that the Java runtime's security policy will throw  SecurityException  when calling  getProtectionDomain() , so if your application needs to run in a variety of environments, it is best to test in all of them. 
+
+ The  getResource  approach yields the full URL resource path of the class, from which you will need to perform additional string manipulation. It may be a  file:  path, but it could also be  jar:file:  or even something nastier like  bundleresource://346.fwk2106232034:4/foo/Bar.class  when executing within an OSGi framework. Conversely, the  getProtectionDomain  approach correctly yields a  file:  URL even from within OSGi. 
+
+ Note that both  getResource("")  and  getResource(".")  failed in my tests, when the class resided within a JAR file; both invocations returned null. So I recommend the #2 invocation shown above instead, as it seems safer. 
+
+ Step 2:  URL  to  File  
+
+ Either way, once you have a  URL , the next step is convert to a  File . This is its own challenge; see http://weblogs.java.net/blog/kohsuke/archive/2007/04/how_to_convert.html for full details, but in short, you can use  new File(url.toURI())  as long as the URL is completely well-formed. 
+
+ Lastly, I would  highly discourage  using  URLDecoder . Some characters of the URL,  :  and  /  in particular, are not valid URL-encoded characters. From the http://docs.oracle.com/javase/7/docs/api/java/net/URLDecoder.html Javadoc: 
+
+ 
+   It is assumed that all characters in the encoded string are one of the following: "a" through "z", "A" through "Z", "0" through "9", and "-", "_", ".". The character "%" is allowed but is interpreted as the start of a special escaped sequence. 
+  
+   ... 
+  
+   There are two possible ways in which this decoder could deal with illegal strings. It could either leave illegal characters alone or it could throw an IllegalArgumentException. Which approach the decoder takes is left to the implementation. 
+ 
+
+ In practice,  URLDecoder  generally does not throw  IllegalArgumentException  as threatened above. And if your file path has spaces encoded as  %20 , this approach may appear to work. However, if your file path has other non-alphameric characters such as  +  you will have problems with  URLDecoder  mangling your file path. 
+
+ Working code 
+
+ To achieve these steps, you might have methods like the following: 
+
+  /**
+ * Gets the base location of the given class.
+ *  
+ * If the class is directly on the file system (e.g.,
+ * "/path/to/my/package/MyClass.class") then it will return the base directory
+ * (e.g., "file:/path/to").
+ *  
+ *  
+ * If the class is within a JAR file (e.g.,
+ * "/path/to/my-jar.jar!/my/package/MyClass.class") then it will return the
+ * path to the JAR (e.g., "file:/path/to/my-jar.jar").
+ *  
+ *
+ * @param c The class whose location is desired.
+ * @see FileUtils#urlToFile(URL) to convert the result to a {@link File}.
+ */
+public static URL getLocation(final Class<?> c) {
+    if (c == null) return null; // could not load the class
+
+    // try the easy way first
+    try {
+        final URL codeSourceLocation =
+            c.getProtectionDomain().getCodeSource().getLocation();
+        if (codeSourceLocation != null) return codeSourceLocation;
+    }
+    catch (final SecurityException e) {
+        // NB: Cannot access protection domain.
+    }
+    catch (final NullPointerException e) {
+        // NB: Protection domain or code source is null.
+    }
+
+    // NB: The easy way failed, so we try the hard way. We ask for the class
+    // itself as a resource, then strip the class's path from the URL string,
+    // leaving the base path.
+
+    // get the class's raw resource path
+    final URL classResource = c.getResource(c.getSimpleName() + ".class");
+    if (classResource == null) return null; // cannot find class resource
+
+    final String url = classResource.toString();
+    final String suffix = c.getCanonicalName().replace('.', '/') + ".class";
+    if (!url.endsWith(suffix)) return null; // weird URL
+
+    // strip the class's path from the URL string
+    final String base = url.substring(0, url.length() - suffix.length());
+
+    String path = base;
+
+    // remove the "jar:" prefix and "!/" suffix, if present
+    if (path.startsWith("jar:")) path = path.substring(4, path.length() - 2);
+
+    try {
+        return new URL(path);
+    }
+    catch (final MalformedURLException e) {
+        e.printStackTrace();
+        return null;
+    }
+} 
+
+/**
+ * Converts the given {@link URL} to its corresponding {@link File}.
+ *  
+ * This method is similar to calling {@code new File(url.toURI())} except that
+ * it also handles "jar:file:" URLs, returning the path to the JAR file.
+ *  
+ * 
+ * @param url The URL to convert.
+ * @return A file path suitable for use with e.g. {@link FileInputStream}
+ * @throws IllegalArgumentException if the URL does not correspond to a file.
+ */
+public static File urlToFile(final URL url) {
+    return url == null ? null : urlToFile(url.toString());
+}
+
+/**
+ * Converts the given URL string to its corresponding {@link File}.
+ * 
+ * @param url The URL to convert.
+ * @return A file path suitable for use with e.g. {@link FileInputStream}
+ * @throws IllegalArgumentException if the URL does not correspond to a file.
+ */
+public static File urlToFile(final String url) {
+    String path = url;
+    if (path.startsWith("jar:")) {
+        // remove "jar:" prefix and "!/" suffix
+        final int index = path.indexOf("!/");
+        path = path.substring(4, index);
+    }
+    try {
+        if (PlatformUtils.isWindows() && path.matches("file:[A-Za-z]:.*")) {
+            path = "file:/" + path.substring(5);
+        }
+        return new File(new URL(path).toURI());
+    }
+    catch (final MalformedURLException e) {
+        // NB: URL is not completely well-formed.
+    }
+    catch (final URISyntaxException e) {
+        // NB: URL is not completely well-formed.
+    }
+    if (path.startsWith("file:")) {
+        // pass through the URL as-is, minus "file:" prefix
+        path = path.substring(5);
+        return new File(path);
+    }
+    throw new IllegalArgumentException("Invalid URL: " + url);
+}
+  
+
+ You can find these methods in the https://github.com/scijava/scijava-common library: 
+
+ 
+ https://github.com/scijava/scijava-common/blob/scijava-common-2.62.1/src/main/java/org/scijava/util/ClassUtils.java#L296-L355 
+ https://github.com/scijava/scijava-common/blob/scijava-common-2.62.1/src/main/java/org/scijava/util/FileUtils.java#L221-L268. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/21580145)
+      URL url = new URL("file:/C:/projektoj/ĝeneralaj");
+    Path path = Paths.get(url.toURI());
+
+C:\projektoj\ĝeneralaj
+  
+
+ If the URL points into a jar/zip ("jar:file:/... ..../...") then one may use the Path in the zip FileSystem, see: https://stackoverflow.com/questions/21344065/java-change-zipentry-name 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2789456)
+ The http://java.sun.com/javase/6/docs/api/java/io/File.html#File%28java.lang.String%29 expects a pathname, not an URL. If you want to construct a  File  based on a  String  which actually represents an URL, then you'll need to convert this  String  back to  URL  first and make use of http://java.sun.com/javase/6/docs/api/java/io/File.html#File%28java.net.URI%29 to construct the  File  based on http://java.sun.com/javase/6/docs/api/java/net/URL.html#toURI%28%29. 
+
+  String urlAsString = "file:/c:/foo/bar";
+URL url = new URL(urlAsString);
+File file = new File(url.toURI());
+  
+
+  Update:  since you're on Java 1.4 and  URL#toURI()  is actually a Java 1.5 method (sorry, overlooked that bit), better use http://java.sun.com/javase/6/docs/api/java/net/URL.html#getPath%28%29 instead which returns the pathname, so that you can use  File(String) . 
+
+  String urlAsString = "file:/c:/foo/bar";
+URL url = new URL(urlAsString);
+File file = new File(url.getPath());
+  
+
+
+

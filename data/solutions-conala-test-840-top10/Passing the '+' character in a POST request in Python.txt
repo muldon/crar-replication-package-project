@@ -1,0 +1,244 @@
+Query: Passing the '+' character in a POST request in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/12528097)
+ The  +  character is the proper encoding for a space when quoting GET or POST data. Thus, a literal  +  character needs to be escaped as well, lest it be decoded to a space on the other end. See RFC 2396, https://tools.ietf.org/html/rfc2396#section-2.2, https://tools.ietf.org/html/rfc2396#section-3.4 and the http://www.w3.org/TR/html401/interact/forms.html#h-17.13.4.1: 
+
+ 
+   Control names and values are escaped. Space characters are replaced by `+', and then reserved characters are escaped as described in http://www.w3.org/TR/html401/references.html#ref-RFC1738, section 2.2. 
+ 
+
+ If you are posting data to an application that does not decode a  +  character to a space but instead treats such data as literal plus signs instead, you need to encode your parameters yourself using the http://docs.python.org/library/urllib.html#urllib.quote instead, specifying that the  +  character is not to be encoded: 
+
+  import urllib
+def urlencode_withoutplus(query):
+    if hasattr(query, 'items'):
+        query = query.items()
+    l = []
+    for k, v in query:
+        k = urllib.quote(str(k), safe=' /+')
+        v = urllib.quote(str(v), safe=' /+')
+        l.append(k + '=' + v)
+    return '&'.join(l)
+  
+
+  
+
+  >>> urlencode_withoutplus({'arg0': 'value', 'arg1': '+value'})
+'arg0=value&arg1=+value'
+  
+
+ When using  requests , you can simply pass in the result of the above function as the  data  value, but in that case you need to manually set the content type: 
+
+  requests.post(url, urlencode_withoutplus(query),
+    headers={'Content-Type': 'application/x-www-form-urlencoded'})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3110164)
+ You cannot POST Python Unicode objects directly. You should encode it as a UTF-8 string first: 
+
+  name = u'\xe4\xf6\xfc'.encode('utf-8')
+userInfo = [('Name', name)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/12528239)
+  urllib2.quote(' ')     # '%20'
+urllib2.unquote('%20') # ' '
+  
+
+ So why not just unquote the parameter part: 
+
+  f = urllib.urlopen(url, urllib.unquote(urllib.urlencode(params)))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/33759571)
+ If you want to check if the first character is a space: 
+
+  if title.startswith(" "):
+  
+
+ If you want to check if the first character is any whitespace, you can do this: 
+
+  import re # regular expression module
+if re.match(r"\s", title): # match() matches only at beginning of subject text.
+                           # \s is any whitespace
+  
+
+ or this: 
+
+  if title != title.lstrip(): # lstrip removes whitespaces at the left (hence the "l")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/25070256)
+ When you submit your signup form, you're using POST. Because you're using POST, your form values are added to  request.form , not  request.args . 
+
+ Your email address will be in: 
+
+  request.form.get('email')
+  
+
+ If you were hitting the URL  /characters?email=someemail@test.com , and you weren't rendering a template immediately with: 
+
+  if request.method == 'GET':     
+    return render_template('character.html') 
+  
+
+ in your characters view, only then would you be able to access: 
+
+  request.args.get('email')
+  
+
+ Check out the http://werkzeug.pocoo.org/docs/wrappers/?highlight=request docs for more info. 
+
+  Edit:  Here's a full working example (minus your models stuff) 
+
+ app.py 
+
+   from flask import request, Flask, render_template, redirect, url_for       
+
+app = Flask(__name__)                                                      
+app.debug = True                                                           
+
+
+@app.route('/signup', methods=['GET','POST'])                              
+def signup():                                                              
+    if request.method == 'GET':                                            
+        return render_template('signup.html')                              
+    email = request.form['email']                                          
+    return redirect(url_for('character', email=email))                     
+
+
+@app.route('/character', methods=['POST', 'GET'])                          
+def character():                                                           
+    email_from_form = request.form.get('email')                            
+    email_from_args = request.args.get('email')                            
+    return render_template('character.html',                               
+                           email_from_form=email_from_form,                
+                           email_from_args=email_from_args)                
+
+
+if __name__ == '__main__':                                                 
+    app.run() 
+  
+
+ templates/signup.html 
+
+  <html>                                                                     
+
+Email from form: {{ email_from_form }}                                  
+Email from args: {{ email_from_args }}                                     
+
+</html>  
+  
+
+ templates/character.html 
+
+  <html>                                                                     
+
+<form name="test" action="/character" method="post">                       
+    <label>Email</label>                                                   
+    <input type="text" name="email" value="test@email.com" />              
+    <input type="submit" />                                                
+</form>                                                                    
+
+</html>      
+  
+
+ Submitting the signin form (via POST) will populate  Email from form  
+
+ Hitting the url  http://localhost:5000/character?email=test@email.com  (via GET) will populate  Email from args  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48912223)
+ If you pass in a string, requests will http://docs.python-requests.org/en/master/api/#requests.request (see also the http://docs.python-requests.org/en/master/_modules/requests/models/#PreparedRequest.prepare_body). Use  
+
+  payload = {'username': "test+user@gmail.com"}
+  
+
+ . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/44776335)
+ when you  post  with nested dictionary data,  json.dumps  will help, or you can directly pass it via  json  parameter. 
+
+  import json
+# ...
+r = requests.post(url, data=json.dumps(payload), headers=headers)
+# or
+r = requests.post(url, json=payload, headers=headers)
+  
+
+ see http://docs.python-requests.org/en/master/user/quickstart/#more-complicated-post-requests. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/16866795)
+  
+
+  r = requests.post('http://localhost:9090/validate', data=request.POST)
+  
+
+ You are passing a full  django.http.HttpRequest  object to  requests.post , when you only need its post data. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/52131144)
+ I'm able to get the lyrics properly with this code in python3.x: 
+
+  url = 'https://www.lyrical-nonsense.com/lyrics/bump-of-chicken/hello-world/'
+resp = requests.get(url)
+print(BeautifulSoup(resp.text).find('div', class_='olyrictext').get_text())
+  
+
+ Printing (truncated) 
+
+  >>> BeautifulSoup(resp.text).find('div', class_='olyrictext').get_text()
+'扉開けば\u3000捻れた昼の夜\r\n昨日どうやって帰った\u3000体だけ...'
+  
+
+ A few things strike me as odd there, notably the  \r\n  (windows line ending) and  \u3000  (IDEOGRAPHIC SPACE) but that's probably not the problem 
+
+ The one thing I noticed that's  odd  about the form submission (and why the browser emulator probably succeeds) is the form is using  multipart  instead of  urlencoded  form data. (signified by  enctype="multipart/form-data" ) 
+
+ Sending multipart form data is a little bit strange in  requests , I had to poke around a bit and eventually found https://stackoverflow.com/a/22974646/812183 which helps show how to format the multipart data in a way that the backing server understands.  To do this you have to abuse  files  but have a " None " filename.   "for humans"  hah! 
+
+  url2 = 'http://furigana.sourceforge.net/cgi-bin/index.cgi'
+resp2 = requests.post(url2, files={'text': (None, raw_lyrics), 'state': (None, 'output')})
+  
+
+ And the text is not mangled now! 
+
+  >>> BeautifulSoup(resp2.text).find('body').get_text()
+'\n扉(とびら)開(ひら)けば捻(ねじ)れた昼(ひる)...'
+  
+
+ (Note that this code  should  work in either python2 or python3) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23747882)
+ You're posting JSON.  request.POST  is for form-encoded data. 
+
+ You should be accessing  request.body  and passing it through  json.loads() . 
+
+
+

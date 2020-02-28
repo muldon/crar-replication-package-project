@@ -1,0 +1,250 @@
+Query: Set execute bit for a file using python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/14104799)
+  import os
+os.chmod("my_script.sh", 0744)
+  
+
+ Pick the value properly though. Some values might not be safe. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/33262066)
+ One problem is that it appears you're calling chmod with the intent of adding a single permission bit.  In fact, you are setting all of the permission bits, so the call is trying to clear all of them except the one you want set.  Assuming you're on a Unix system, you will presumably want to set the user and group bits as well, including the read and execute bits. 
+
+ You can do the following: 
+
+  st = os.stat(path)
+old_mode = st.st_mode
+new_mode = old_mode | stat.S_IWOTH
+os.chmod(path, new_mode)
+  
+
+ Hopefully that will help you. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/5523325)
+ Setting the SUID bit on a *.py file does not help in any way here since the script is executed by the Python interpreter which must be set SUID in this case. Using 'sudo' is your better friend here. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/14105527)
+ You can always do this from the Terminal shell, before running it, using http://www.manpagez.com/man/1/chmod/: 
+
+  chmod a+x my_script.sh
+  
+
+ If you want to do it from Python, you can use either <a href="http://docs.python.org/library/os.html#os.chmod"  or http://docs.python.org/library/os.html#os.fchmod in the  os  module. Since you've already got the file open, I'd do the latter: 
+
+  with open("my_script.sh", "w") as fd:
+    fd.write("#!/bin/sh\n")
+    fd.write("echo $PATH\n")
+    os.fchmod(fd.fileno(), stat.S_IRWXU | stat.S_IRWXG | stat.S_IROTH | stat.S_IXOTH)
+  
+
+ Unfortunately, as you can see, there's no direct equivalent to  chmod a+x  adding the  x  flag for everyone while leaving everything else alone. But you can do the same thing the  chmod  command-line tool actually does: http://docs.python.org/library/os.html#os.stat the file (or, in this case, http://docs.python.org/library/os.html#os.fstat) to get the existing permissions, then modify them: 
+
+  with open("my_script.sh", "w") as fd:
+    fd.write("#!/bin/sh\n")
+    fd.write("echo $PATH\n")
+    mode = os.fstat(fd.fileno()).st_mode
+    mode |= stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    os.fchmod(fd.fileno(), stat.S_IMODE(mode))
+  
+
+ (You don't actually need the  S_IMODE  step on most platforms, because either  st_mode  doesn't have any extra bits, or (f) chmod  harmlessly ignores them—as OS X does. But it's better to do the right thing, to make your code portable and future-proof.) 
+
+ Most people consider "friendly" names like  S_IXUSR  to be not particularly friendly, and once you learn to think of modes in octal terms it's actually easier than trying to remember how POSIX abbreviates things, so you may prefer this: 
+
+  with open("my_script.sh", "w") as fd:
+    fd.write("#!/bin/sh\n")
+    fd.write("echo $PATH\n")
+    mode = os.fstat(fd.fileno()).st_mode
+    mode |= 0o111
+    os.fchmod(fd.fileno(), mode & 0o7777)
+  
+
+ The  111  means executable by user, group, and other (the same thing as that  |  of the various  ST_IX*  bits), and  7777  is all bits you're allowed to pass to (f) chmod  (the same thing that  S_IMODE  does). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/9826408)
+  ./script.py  = "Attempt to execute a file called  script.py  in the current shell" 
+
+  python script.py  = "Send  script.py  as an argument to the first  python  executable in the current  $PATH " 
+
+ The first only works if the file has the execute bit set for the user attempting to execute the file  and  it has the so-called http://en.wikipedia.org/wiki/Shebang_%28Unix%29 line, which tells the shell how to run it. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/13534692)
+ You can set the http://docs.python.org/2/library/subprocess#subprocess.CREATE_NEW_CONSOLE flag. For example: 
+
+  import subprocess
+
+p = subprocess.Popen('a.bat', creationflags=subprocess.CREATE_NEW_CONSOLE)
+  
+
+ The docs regarding  shell=True  are inconsistent with the http://hg.python.org/cpython/file/70274d53c1dd/Lib/subprocess.py#l866. If you specify  shell=True , it sets  CREATE_NEW_CONSOLE  only if the platform is either Win9x or uses the 16-bit  COMMAND.COM  shell. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/16249655)
+  os.chmod(path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+  
+
+ http://docs.python.org/2/library/stat.html 
+
+ 
+   The following flags can also be used in the mode argument of
+  os.chmod(): 
+  
+   <code.S_ISUID  Set UID bit. 
+  
+   <code.S_ISGID  Set-group-ID bit. This bit has several special uses. For
+  a directory it indicates that BSD semantics is to be used for that
+  directory: files created there inherit their group ID from the
+  directory, not from the effective group ID of the creating process,
+  and directories created there will also get the S_ISGID bit set. For a
+  file that does not have the group execution bit (S_IXGRP) set, the
+  set-group-ID bit indicates mandatory file/record locking (see also
+  S_ENFMT). 
+  
+   <code.S_ISVTX  Sticky bit. When this bit is set on a directory it means
+  that a file in that directory can be renamed or deleted only by the
+  owner of the file, by the owner of the directory, or by a privileged
+  process. 
+  
+   <code.S_IRWXU  Mask for file owner permissions. 
+  
+   <code.S_IRUSR  Owner has read permission. 
+  
+   <code.S_IWUSR  Owner has write permission. 
+  
+   <code.S_IXUSR  Owner has execute permission. 
+  
+   <code.S_IRWXG  Mask for group permissions. 
+  
+   <code.S_IRGRP  Group has read permission. 
+  
+   <code.S_IWGRP  Group has write permission. 
+  
+   <code.S_IXGRP  Group has execute permission. 
+  
+   <code.S_IRWXO  Mask for permissions for others (not in group). 
+  
+   <code.S_IROTH  Others have read permission. 
+  
+   <code.S_IWOTH  Others have write permission. 
+  
+   <code.S_IXOTH  Others have execute permission. 
+  
+   <code.S_ENFMT  System V file locking enforcement. This flag is shared
+  with S_ISGID: file/record locking is enforced on files that do not
+  have the group execution bit (S_IXGRP) set. 
+  
+   <code.S_IREAD  Unix V7 synonym for S_IRUSR. 
+  
+   <code.S_IWRITE  Unix V7 synonym for S_IWUSR. 
+  
+   <code.S_IEXEC  Unix V7 synonym for S_IXUSR. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/54828058)
+ The problem is that you are manipulating db in a synchronous way. After each  setbit  operation you are waiting for response and only then initiating another request. To avoid such case use  https://redis.io/commands/multi  /  https://pypi.org/project/redis/ . Try creating pipeline, set your all requests into one batch and only  then  execute it. It depends which python redis client you are using but it should be something like this: 
+
+  pipe = r.pipeline()
+
+pipe.set('foo', 'bar')
+pipe.set('baz')
+pipe.execute()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/21826136)
+ Shebang works only for text scripts, not binary files. Nevertheless, you can use  binfmt_misc  to execute  *.pyc  files directly, as reported in https://mail.python.org/pipermail/python-list/2010-January/564393.html: 
+
+ 
+   Linux, you can use binfmt_misc to make executables out of pyc code.  
+
+  import imp,sys,string
+magic = string.join(["\\x%.2x" % ord(c) for c in imp.get_magic()],"") 
+reg = ':pyc:M::%s::%s:' % (magic, sys.executable) 
+open("/proc/sys/fs/binfmt_misc/register","wb").write(reg)
+  
+  
+   once on your Linux system (or, rather, at boot time), and all pyc
+  files become executable (if the x bit is set). 
+  
+    In Debian, installing the binfmt-support package will do that for you.  
+ 
+
+ (emphasis is mine, note that this will apply to all Debian derivatives, including Ubuntu. The same solution works in Fedora too). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/14781343)
+   
+
+  chmod a+x env/tutorial/tutorial/static/pages
+  
+
+ Sets the execute bit on that directory. What you want is to set the write bit on that directory per the user (or possibly group) that rails will be running as. For the current user, do: 
+
+  chmod +w env/tutorial/tutorial/static/pages
+  
+
+ From the chmod manpage -- have a look at the symbolic mode table at the bottom (Mac OSX): 
+
+  MODES
+ Modes may be absolute or symbolic.  An absolute mode is an octal number constructed from the sum of one or more
+ of the following values:
+
+       4000    (the set-user-ID-on-execution bit) Executable files with this bit set will run with effective uid
+               set to the uid of the file owner.  Directories with the set-user-id bit set will force all files
+               and sub-directories created in them to be owned by the directory owner and not by the uid of the
+               creating process, if the underlying file system supports this feature: see chmod(2) and the
+               suiddir option to mount(8).
+       2000    (the set-group-ID-on-execution bit) Executable files with this bit set will run with effective gid
+               set to the gid of the file owner.
+       1000    (the sticky bit) See chmod(2) and sticky(8).
+       0400    Allow read by owner.
+       0200    Allow write by owner.
+       0100    For files, allow execution by owner.  For directories, allow the owner to search in the directory.
+       0040    Allow read by group members.
+       0020    Allow write by group members.
+       0010    For files, allow execution by group members.  For directories, allow group members to search in
+               the directory.
+       0004    Allow read by others.
+       0002    Allow write by others.
+       0001    For files, allow execution by others.  For directories allow others to search in the directory.
+
+ For example, the absolute mode that permits read, write and execute by the owner, read and execute by group mem-
+ bers, read and execute by others, and no set-uid or set-gid behaviour is 755 (400+200+100+040+010+004+001).
+
+ The symbolic mode is described by the following grammar:
+
+       mode         ::= clause [, clause ...]
+       clause       ::= [who ...] [action ...] action
+       action       ::= op [perm ...]
+       who          ::= a | u | g | o
+       op           ::= + | - | =
+       perm         ::= r | s | t | w | x | X | u | g | o
+  
+
+
+

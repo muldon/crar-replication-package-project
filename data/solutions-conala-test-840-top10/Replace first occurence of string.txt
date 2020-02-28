@@ -1,0 +1,234 @@
+Query: Replace first occurence of string
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/42038948)
+ You don't want to replace the  {}  or  , , so you could use http://www.regular-expressions.info/lookaround.html in order to make sure the int is : 
+
+ 
+ after a  {  with :  (?<={)  
+ before a  }  or a  ,  with :  (?=}|,)  
+ 
+
+ If you want to want to replace only the first occurence in the whole string, you can set the 4th argument of https://docs.python.org/2/library/re.html#re.sub to 1. In that case,  {3}{3}  will be converted to  {1}{3} . UPDATE : You don't want it.  
+
+  import re
+
+pattern = '(?<={)\d+(?=}|,)'
+string = 'ab{3,16}'
+print re.sub(pattern, '1', string)
+  
+
+ Here are some tests : 
+
+  import re
+
+def replace_first_int(string):
+  pattern = '(?<={)\d+(?=}|,)'
+  return re.sub(pattern, '1', string)
+
+print replace_first_int('{1}')
+# {1}
+print replace_first_int('{2}')
+# {1}
+print replace_first_int('{3,}')
+# {1,}
+print replace_first_int('{3')
+# {3
+print replace_first_int('{3,16}')
+# {1,16}
+print replace_first_int('{1,4}')
+# {1,4}
+print replace_first_int('{3}{3}')
+# {1}{1}
+print replace_first_int('ab5')
+# ab5
+print replace_first_int('5a4b{3,16}')
+# 5a4b{1,16}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/45173484)
+ If you want to use regex, you can use this one:  (?<=\*)[^\*]+  with https://docs.python.org/3.5/library/re.html#re.sub 
+
+  inputs = ['GSA*HC*11177*NYSfH-EfC*23130303*0313*1*R*033330103298',
+'STEM*333*3001*0030303238',
+'BHAT*3319*33*33377*23330706*031829*RTRCP',
+'NUM4*41*2*My Break Room Place*****6*1133337']
+outputs = [re.sub(r'(?<=\*)[^\*]+', '1', inputline) for inputline in inputs]
+  
+
+ Regex explication https://regex101.com/r/IldUzz/1 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/35803909)
+ You can use  itertools.groupby()  to replace all consecutive runs of characters by only a single occurrence (which seems to be what you are trying to do): 
+
+  >>> "".join(k for k, it in itertools.groupby("bookkeeper"))
+'bokeper'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/50563716)
+  l = [['a', 'word'], ['University', 'org'], ['of', 'org'], ['Michigan', 'org'], ['Michigan', 'country']]
+
+toReplace = 'Michigan'
+for i in l:
+    if i[0].lower() == toReplace.lower():
+        i[0] = "deletedword"    #No need to Pop just replace.
+        break
+print(l)
+  
+
+  Output:  
+
+  [['a', 'word'], ['University', 'org'], ['of', 'org'], ['deletedword', 'org'], ['Michigan', 'country']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/45173575)
+ Fairly simple, use a callback to return group 1 (if matched) unaltered, otherwise 
+return replacement  1     
+
+  Note - this also would work in multi-line strings. 
+If you need that, just add  m)  to the beginning of the regex.  m):(^[^*]*\*)|[^*\s])   
+
+ You'd probably want to test the string for the  *  character first.  
+
+      ( ^ [^*]* \* )           # (1), BOS/BOL up to first *
+ |                         # or,
+    [^*\s]                   # Not a * nor whitespace
+  
+
+    
+
+  import re
+
+def repl(m):
+    if ( m.group(1) ) : return m.group(1)
+    return "1"
+
+str = 'NUM4*41*2*My Break Room Place*****6*1133337'
+
+if ( str.find('*') ) :
+    newstr = re.sub(r'(^[^*]*\*)|[^*\s]', repl, str)
+    print newstr
+else :
+    print '* not found in string'
+  
+
+ Output   
+
+  NUM4*11*1*11 11111 1111 11111*****1*1111111
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51815714)
+ How https://docs.python.org/3/library/stdtypes.html#str.replace works 
+
+ You interpret the method  str.replace  as if it replaced the whole string by the new value. This is not the case. 
+
+ What it does is replace  every occurence  of the first argument by the second argument within the string. 
+
+  'ababc'.replace('ab', 'x') # 'xxc'
+  
+
+ What may be confusing here is that you are replacing every occurence of the  empty string . It turns out the empty string is present everywhere, between every two character is an empty string. 
+
+ If that does not make sense to you just consider that the following is indeed  True  
+
+  '' + '5' + '' + '0' + '' == '50'
+  
+
+ ... 
+
+  s.replace('', '0')
+  
+
+ Is equivalent to inserting  '0'  between all characters. It is equivalent to the following. 
+
+  '0'.join(s.split())
+  
+
+ How to default an empty string to a value 
+
+ What you want to do is strip your string and make it  '0'  if it is empty, here are a few ways to do this. 
+
+  # 1)
+s = emptyString.strip()
+s = s if s else '0'
+
+# 2)
+s = emptyString.strip() or '0'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/50563841)
+ Use a generator expression to find the position of first  "Michigan" . Replace it with required word: 
+
+  lst = [['a', 'word'], ['University', 'org'], ['of', 'org'], ['Michigan', 'org'], ['Michigan', 'country']]
+
+try:
+    pos = next((i, x.index('Michigan')) for i, x in enumerate(lst) if 'Michigan' in x)
+    lst[pos[0]][pos[1]] = 'deleted'
+
+except StopIteration:
+    print('There is no Michigan in the list')
+
+print(lst)
+
+# [['a', 'word'], 
+#  ['University', 'org'], 
+#  ['of', 'org'], 
+#  ['deleted', 'org'], 
+#  ['Michigan', 'country']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/47623143)
+  
+
+  s = 'Python is good prototyping language'
+seen = []
+new_s = ''
+for i in s:
+   if i not in seen:
+       new_s += i
+       seen.append(i)
+   else:
+       if i != ' ':
+           new_s += "@"
+       else:
+           new_s += ' '
+  
+
+ Output: 
+
+  'Python is g@@d pr@@@@@@@@@ la@@u@@e'
+  
+
+  
+
+  new_s = ''.join('@' if a in s[:i] and a != ' ' else a for i, a in enumerate(s))
+  
+
+ Output: 
+
+  'Python is g@@d pr@@@@@@@@@ la@@u@@e'
+  
+
+
+

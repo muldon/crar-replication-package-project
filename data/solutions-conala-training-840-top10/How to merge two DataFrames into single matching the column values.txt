@@ -1,0 +1,225 @@
+Query: How to merge two DataFrames into single matching the column values
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/52503737)
+ You can use pandas merge with outer join 
+
+  df1.merge(df2,on =['first_column'],how='outer')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38731184)
+  files = ['file1', 'file2']
+
+def read(f):
+    f = f + '.csv'
+    df = pd.read_csv(f, usecols=['A', 'B'])
+    return df.drop_duplicates(subset=['A']).set_index('A').B
+
+pd.concat([read(f) for f in files], axis=1, keys=files)
+  
+
+ https://i.stack.imgur.com/vG4XW.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/40076983)
+ There is nothing that ties these dataframes together other than the positional index.  You can accomplish your desired example output with  pd.concat  
+
+  pd.concat([distancesDF, datesDF.dates], axis=1)
+  
+
+ https://i.stack.imgur.com/5YLVN.png 
+
+ 
+
+ To address the edit and @kartik's comment 
+
+ if we create the dfs to match what's displayed. 
+
+  distances = {'names': ['A', 'B','C'] ,'distances':[100, 200, 300]}
+dates = {'flights': ['A', 'B', 'C'] ,'dates':['1/1/16', '1/2/16', '1/3/16']}
+
+distancesDF = pd.DataFrame(distances)
+datesDF = pd.DataFrame(dates)
+  
+
+ then the following two options produce the same and probably desired result. 
+
+   merge   
+
+   distancesDF.merge(datesDF, left_on='names', right_on='flights')[['distances', 'names', 'dates']]
+  
+
+      
+
+  distancesDF.(datesDF.set_index('flights'), on='names')
+  
+
+ both produce 
+
+ https://i.stack.imgur.com/5YLVN.png 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/54796440)
+ If you don't need the extra date column, this is as simple as a single  merge  call. 
+
+  (df1.merge(df2, on='date', how='left', suffixes=('', '_y'))
+    .rename(lambda x: x.replace('_y', ''), axis=1))
+
+         date  magnitude  magnitude
+0  2001-03-06        4.7        NaN
+1  2001-03-20        4.7        4.8
+2  2001-03-30        4.9        5.0
+  
+
+ 
+
+ To match your expected output, use  set_index  and  join  here: 
+
+  u = (df1.set_index('date', drop=0)
+        .join(df2.set_index('date', drop=0), how='left', lsuffix='', rsuffix='_y')
+        .reset_index(drop=1))
+u.columns = u.columns.str.replace('_y', '')
+u
+
+         date  magnitude        date  magnitude
+0  2001-03-06        4.7         NaN        NaN
+1  2001-03-20        4.7  2001-03-20        4.8
+2  2001-03-30        4.9  2001-03-30        5.0
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39302752)
+ There are several ways to do this.  Using the  merge  function off the dataframe is the most efficient. 
+
+  df_both = df_sum.merge(df_mean, how='left', on='keys')
+
+df_both
+
+Out[1]:
+   keys  sums  means
+0     1     1    1.0
+1     2     5    2.5
+2     3    22    5.5
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/31849835)
+ I guess I wrote the answer in a comment already, but let me elaborate. 
+
+ The http://pandas.pydata.org/pandas-docs/stable/merging.html#joining-key-columns-on-an-index takes keyword arguments:  left_index=  and  right_index= . When set to  True , the merge function will use the index/indicies of the dataframe(s) for merging. 
+
+  
+
+  merged = pd.merge(left=df, left_index=True
+                  right=df_annon, right_index=True,
+                  how='inner')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/47370175)
+ If you can load your data into separate  pandas  dataframes, this becomes simple. 
+
+  df
+
+   x  y1
+0  0   0
+1  1   1
+2  2   2
+3  3   3
+4  4   4
+5  5   5
+
+df2
+
+     x   y2
+0  0.5  0.5
+1  1.5  1.5
+2  2.5  2.5
+3  3.5  3.5
+4  4.5  4.5
+5  5.5  5.5
+  
+
+ Perform an outer  merge , and sort on the  x  column. 
+
+  df = df.merge(df2, how='outer').sort_values('x')
+df
+
+      x   y1   y2
+0     0    0  NaN
+6   0.5  NaN  0.5
+1     1    1  NaN
+7   1.5  NaN  1.5
+2     2    2  NaN
+8   2.5  NaN  2.5
+3     3    3  NaN
+9   3.5  NaN  3.5
+4     4    4  NaN
+10  4.5  NaN  4.5
+5     5    5  NaN
+11  5.5  NaN  5.5
+  
+
+ If you want an array, call  .values  on the result: 
+
+  df.values
+
+array([[0.0, 0.0, nan],
+       [0.5, nan, 0.5],
+       [1.0, 1.0, nan],
+       [1.5, nan, 1.5],
+       [2.0, 2.0, nan],
+       [2.5, nan, 2.5],
+       [3.0, 3.0, nan],
+       [3.5, nan, 3.5],
+       [4.0, 4.0, nan],
+       [4.5, nan, 4.5],
+       [5.0, 5.0, nan],
+       [5.5, nan, 5.5]], dtype=object)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/38899384)
+ You can use create new columns with some scalar value and then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.merge.html by these columns: 
+
+  df1['one'] = 1
+df2['one'] = 1
+print (pd.merge(df1, df2, on='one').drop('one', axis=1))
+  column_01  value_01 column_02  value_02
+0       aaa         1       ccc         3
+1       aaa         1       ddd         4
+2       bbb         2       ccc         3
+3       bbb         2       ddd         4
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/39703204)
+ I think you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.merge.html, default parameter  how='inner'  is omited: 
+
+  print (pd.merge(df1,df2,on='id'))
+   cost   id name
+0   100   10    a
+1   300   30    j
+2   400  100    k
+3   140  110    g
+  
+
+
+

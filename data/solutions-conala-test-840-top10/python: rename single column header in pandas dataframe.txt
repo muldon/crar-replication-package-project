@@ -1,0 +1,241 @@
+Query: python: rename single column header in pandas dataframe
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/19758398)
+  data.rename(columns={'gdp':'log(gdp)'}, inplace=True)
+  
+
+ The http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rename.html#pandas.DataFrame.rename show that it accepts a dict as a param for  columns  so you just pass a dict with a single entry. 
+
+ Also see https://stackoverflow.com/questions/11346283/renaming-columns-in-pandas 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29369805)
+ Use  set_levels : 
+
+  >>> df.columns.set_levels(['one','two'], 0, inplace=True)
+>>> print(df)
+        one                 two          
+          A         B         A         B
+0  0.731851  0.489611  0.636441  0.774818
+1  0.996034  0.298914  0.377097  0.404644
+2  0.217106  0.808459  0.588594  0.009408
+3  0.851270  0.799914  0.328863  0.009914
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/37963915)
+ If you want to do the rename using a chained method call, you can use  
+
+  data.rename(
+    columns=unicode.lower
+)
+  
+
+ (Python 2) 
+
+ or 
+
+  data.rename(
+    columns=str.lower
+)
+  
+
+ (Python 3) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/39226046)
+ You can transpose by http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.T.html: 
+
+  import pandas as pd
+
+df = pd.DataFrame({'A': {0: 1}, 'C': {0: 3}, 'B': {0: 2}})
+
+print (df)
+   A  B  C
+0  1  2  3
+
+print (df.T)
+   0
+A  1
+B  2
+C  3
+
+df1 = df.T.reset_index()
+df1.columns = ['cols','vals']
+print (df1)
+  cols  vals
+0    A     1
+1    B     2
+2    C     3
+  
+
+ If  DataFrame  has more rows, you can use: 
+
+  import pandas as pd
+
+df = pd.DataFrame({'A': {0: 1, 1: 9, 2: 1}, 
+                  'C': {0: 3, 1: 6, 2: 7}, 
+                  'B': {0: 2, 1: 4, 2: 8}})
+
+print (df)
+   A  B  C
+0  1  2  3
+1  9  4  6
+2  1  8  7
+
+df.index = 'vals' + df.index.astype(str)
+
+print (df.T)
+   vals0  vals1  vals2
+A      1      9      1
+B      2      4      8
+C      3      6      7
+
+df1 = df.T.reset_index().rename(columns={'index':'cols'})
+print (df1)
+
+  cols  vals0  vals1  vals2
+0    A      1      9      1
+1    B      2      4      8
+2    C      3      6      7
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/39657077)
+ A much faster implementation would be to use  list-comprehension  if you need to rename a single column. 
+
+  df.columns = ['log(gdp)' if x=='gdp' else x for x in df.columns]
+  
+
+ If the need arises to rename multiple columns, either use conditional expressions like: 
+
+  df.columns = ['log(gdp)' if x=='gdp' else 'cap_mod' if x=='cap' else x for x in df.columns]
+  
+
+ Or, construct a mapping using a  dictionary  and perform the  list-comprehension  with it's  get  operation by setting default value as the old name: 
+
+  col_dict = {'gdp': 'log(gdp)', 'cap': 'cap_mod'}   ## key→old name, value→new name
+
+df.columns = [col_dict.get(x, x) for x in df.columns]
+  
+
+    
+
+  %%timeit
+df.rename(columns={'gdp':'log(gdp)'}, inplace=True)
+10000 loops, best of 3: 168 µs per loop
+
+%%timeit
+df.columns = ['log(gdp)' if x=='gdp' else x for x in df.columns]
+10000 loops, best of 3: 58.5 µs per loop
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/51380424)
+ I think need http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.set_index.html with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.rename_axis.html: 
+
+  df1 = df.set_index('B', drop=False).rename_axis(None)
+  
+
+ Solution with  rename  and dictionary: 
+
+  df1 = df.rename(dict(zip(df.index, df['B'])))
+
+print (dict(zip(df.index, df['B'])))
+{0: 'n', 1: 'H', 2: 'He', 3: 'Be'}
+  
+
+ If default  RangeIndex  solution should be: 
+
+  df1 = df.rename(dict(enumerate(df['B'])))
+
+print (dict(enumerate(df['B'])))
+{0: 'n', 1: 'H', 2: 'He', 3: 'Be'}
+  
+
+  Output : 
+
+  print (df1)
+    A   B  C
+n   1   n  1
+H   1   H  0
+He  2  He  1
+Be  3  Be  2
+  
+
+ EDIT: 
+
+ If dont want column  B  solution is with http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html by parameter  index_col : 
+
+  import pandas as pd
+
+temp=u"""1 n 1
+1 H 0
+2 He 1
+3 Be 2"""
+#after testing replace 'pd.compat.StringIO(temp)' to 'filename.csv'
+df = pd.read_csv(pd.compat.StringIO(temp), delim_whitespace=True, header=None, index_col=[1])
+print (df)
+    0  2
+1       
+n   1  1
+H   1  0
+He  2  1
+Be  3  2
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40410201)
+  df.rename_axis({'1':'one', '2':'two'}, axis='columns', inplace=True)  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42821825)
+ This works (pandas v'0.19.2'): 
+
+  df.rename(columns=df.iloc[0])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54693374)
+ I can not find a function can directly doing this so  
+
+  df.columns=df.columns.values
+df
+Out[110]: 
+   (X, a)  (X, b)  (Y, a)  (Y, b)
+0       1       3       4       2
+1       5       7       8       6
+df.rename(columns={('Y', 'b'):('Y', 'b1')})
+Out[111]: 
+   (X, a)  (X, b)  (Y, a)  (Y, b1)
+0       1       3       4        2
+1       5       7       8        6
+df=df.rename(columns={('Y', 'b'):('Y', 'b1')})
+df.columns=pd.MultiIndex.from_tuples(df.columns)
+df
+Out[114]: 
+   X     Y   
+   a  b  a b1
+0  1  3  4  2
+1  5  7  8  6
+  
+
+
+

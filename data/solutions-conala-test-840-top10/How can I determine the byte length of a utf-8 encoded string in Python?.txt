@@ -1,0 +1,315 @@
+Query: How can I determine the byte length of a utf-8 encoded string in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/6714866)
+  def utf8len(s):
+    return len(s.encode('utf-8'))
+  
+
+ Works fine in Python 2 and 3. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/6714872)
+ Use the string 'encode' method to convert from a character-string to a byte-string, then use len() like normal: 
+
+  >>> s = u"¡Hola, mundo!"                                                      
+>>> len(s)                                                                    
+13 # characters                                                                             
+>>> len(s.encode('utf-8'))   
+14 # bytes
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/18964298)
+ Encoding the string and using  len  on the result works great, as other answers have shown. It does need to build a throw-away copy of the string - if you're working with very large strings this might not be optimal (I don't consider 1024 bytes to be  large  though). The structure of UTF-8 allows you to get the length of each character very easily without even encoding it, although it might still be easier to encode a single character. I present both methods here, they should give the same result. 
+
+  def utf8_char_len_1(c):
+    codepoint = ord(c)
+    if codepoint <= 0x7f:
+        return 1
+    if codepoint <= 0x7ff:
+        return 2
+    if codepoint <= 0xffff:
+        return 3
+    if codepoint <= 0x10ffff:
+        return 4
+    raise ValueError('Invalid Unicode character: ' + hex(codepoint))
+
+def utf8_char_len_2(c):
+    return len(c.encode('utf-8'))
+
+utf8_char_len = utf8_char_len_1
+
+def utf8len(s):
+    return sum(utf8_char_len(c) for c in s)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/9017234)
+ If, in "determine the encoding of a unicode", "unicode" is the python data type, then you cannot do it, as  "encoding" refers to the original byte patterns that represented the string when it was input (say, read from a file, a database, you name it). By the time it becomes a python 'unicode' type (an internal representation) the string has either been decoded behind the lines or has thrown a decoding exception because a byte sequence did not jibe with the system encoding.   
+
+ Shadyabhi's answer refers to the (common) case in which you are reading bytes from a file (which you could be very well be stuffing in a  string  - not a python unicode string) and need to guess in what encoding they were saved. Strictly speaking, you cannot have a "latin1 unicode python string": a unicode python string has no encoding (encoding may be defined as the process that translates a character to a byte pattern and decoding as the inverse process; a decoded sring has therfore no encoding  - though it can be encoded in several ways for storage/external representation purposes). 
+
+  
+
+  In [35]: sys.stdin.encoding
+Out[35]: 'UTF-8'
+
+In [36]: a='è'.decode('UTF-8')
+
+In [37]: b='è'.decode('latin-1')
+
+In [38]: a
+Out[38]: u'\xe8'
+
+In [39]: b
+Out[39]: u'\xc3\xa8'
+In [41]: sys.stdout.encoding
+Out[41]: 'UTF-8'
+
+In [42]: print b #it's garbage
+Ã¨
+
+In [43]: print a #it's OK
+è
+  
+
+ Which means that, in your example, latin1_unicode will contain garbage if the default encoding happens to be UTF-8, or UTF-16, or anything different from latin1. 
+
+ So what you (may) want to to do is: 
+
+ 
+ Ascertain the encoding of your data source - perhaps using one of Shadyabhi's methods  
+ Decode the data according to (1), save it in python unicode strings  
+ Encode it using the original encoding (if that's what serves your needs) or some other encoding of your choosing. 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/17578130)
+ In python 2.x there are two types of string: byte string and unicode string. First one contains bytes and last one - unicode code points. It is easy to determine, what type of string it is - unicode string starts with  u : 
+
+  # byte string
+>>> 'abc'
+'abc'
+
+# unicode string:
+>>> u'abc абв'
+u'abc \u0430\u0431\u0432'
+  
+
+ 'abc' chars are the same, because the are in ASCII range.  \u0430  is a unicode code point, it is out of ASCII range. "Code point" is python internal representation of unicode points, they can't be saved to file. It is needed to  encode  them to bytes first. Here how encoded unicode string looks like (as it is encoded, it becomes a byte string): 
+
+  >>> s = u'abc абв'
+>>> s.encode('utf8')
+'abc \xd0\xb0\xd0\xb1\xd0\xb2'
+  
+
+ This encoded string now can be written to file: 
+
+  >>> s = u'abc абв'
+>>> with open('text.txt', 'w+') as f:
+...     f.write(s.encode('utf8'))
+  
+
+ Now, it is important to remember, what encoding we used when writing to file. Because to be able to read the data, we need to decode the content. Here what data looks like without decoding: 
+
+  >>> with open('text.txt', 'r') as f:
+...     content = f.read()
+>>> content
+'abc \xd0\xb0\xd0\xb1\xd0\xb2'
+  
+
+ You see, we've got encoded bytes, exactly the same as in s.encode('utf8'). To decode it is needed to provide coding name: 
+
+  >>> content.decode('utf8')
+u'abc \u0430\u0431\u0432'
+  
+
+ After decode, we've got back our unicode string with unicode code points. 
+
+  >>> print content.decode('utf8')
+abc абв
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/16677624)
+ Not sure if I am missing something, but the longest (unicode) string you can get out of 200 bytes is 200 characters.  
+
+ The minimum length is a different issue, though. 
+
+ Depending on the encoding ('UTF-8', 'UTF-16', 'latin-1',...) you need between 1 and 4 bytes per unicode codepoint ('character', e.g. ). So while a uncode string of length 200 can be encoded in 200 bytes:  
+
+  len(u'a'*200)== 200 == len((u'a'*200).encode('UTF-8'))
+  
+
+ you can get much longer bytestrings too: 
+
+  len(u'a'*200)== 200 < 804 len((u'a'*200).encode('UTF-32'))  # includes a byte-order-mark and 4 bytes per char
+  
+
+ So depending on the encoding used, as a unicode string your 200 bytes should be at least 50 code points.  
+
+ So if you want to specify the field length as a unicode string and have the database handle encoding, 200 is sufficient, in bytes it depends on the source encoding. It's possible that a bytestring in e.g. japanese encoding gets longer if decoded and re-encoded in UTF-8. I think the worst case is going from a ASCII-string in UTF-8 (one char per byte) to UTF-32 (4 bytes per char, plus byte-order-mark), resulting in 804 bytes stated above. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14443797)
+ To decode a byte sequence from latin 1 to Unicode, use the http://docs.python.org/2/library/stdtypes.html#str.decode: 
+
+  >>> '\xe9'.decode('latin1')
+u'\xe9'
+  
+
+ Python uses  \xab  escapes for unicode codepoints below  \u00ff .  
+
+  >>> '\xe9'.decode('latin1') == u'\u00e9'
+True
+  
+
+ The above Latin-1 character can be encoded to UTF-8 as: 
+
+  >>> '\xe9'.decode('latin1').encode('utf8')
+'\xc3\xa9'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46559860)
+ Encoding to UTF-32 usually includes a https://en.wikipedia.org/wiki/Byte_order_mark; you have  two  characters encoded to UTF-32. The BOM is usually required as it lets the decoder know if the data was encoded in little endian or big endian order. The BOM is really just the https://codepoints.net/U+FEFF codepoint, which is encoded to  '11111111111111100000000000000000'  (little-endian) in your example. 
+
+ Encode to one of the two endian-specific variants Python provides ( 'utf-32-le'  or  'utf-32-be' ) to get a single character: 
+
+  >>> Bits(bytes = 'a'.encode('utf-32-le')).bin
+'01100001000000000000000000000000'
+>>> len(Bits(bytes = 'a'.encode('utf-32-le')).bin)
+32
+  
+
+ The  -le  and  -be  variants let you encode or decode UTF-32 without a BOM, because you explicitly set the byte order. 
+
+ Had you encoded more than one character, you'd have noticed that there are always 4 bytes more than the number of characters would require: 
+
+  >>> len('abcd'.encode('utf-32'))  # (BOM + 4 chars) * 4 bytes == 20 bytes
+20
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/45860756)
+ The https://docs.oracle.com/javase/8/docs/api/java/io/DataOutput.html#writeUTF-java.lang.String- and https://docs.oracle.com/javase/8/docs/api/java/io/DataInput.html#readUTF-- methods in Java do not have any direct equivalents in python. As the Javadocs for https://docs.oracle.com/javase/8/docs/api/java/io/DataOutput.html#writeUTF-java.lang.String- state: 
+
+ 
+   Writes two bytes of length information to the output stream, followed
+  by the modified UTF-8 representation of every character in the string
+  s. If s is null, a NullPointerException is thrown. Each character in
+  the string s is converted to a group of one, two, or three bytes,
+  depending on the value of the character. 
+ 
+
+ The two length bytes are in big-endian order. Thus, at a minimum, a python program reading in this information must first read in those two length bytes to determine the length of the subsequent data, then read in that many bytes of specially-encoded character data, and finally decode it. Decoding it on the python side appears to be non-trivial based on the discussion https://docs.oracle.com/javase/8/docs/api/java/io/DataInput.html on the encoding used, called 'modified UTF-8': 
+
+ 
+   The differences between this format and the standard UTF-8 format are
+  the following: 
+  
+   
+   The null byte '\u0000' is encoded in 2-byte format rather than 1-byte,
+  so that the encoded strings never have embedded nulls.    
+   Only the 1-byte, 2-byte, and 3-byte formats are used. 
+   Supplementary characters are represented in the form of surrogate pairs. 
+   
+ 
+
+ As an alternative that I think would be much easier, on the Java side consider abandoning the  readUTf()  and  writeUTF()  methods and replacing them with your own versions like the following: 
+
+<pre class="lang-java prettyprint-override"> public void writeUTF8(String s, DataOutput out) throws IOException {
+    byte [] encoded = s.getBytes(StandardCharsets.UTF_8);
+    out.writeInt(encoded.length);
+    out.write(encoded);
+}
+
+public String readUTF8(DataInput in) throws IOException {
+    int length = in.readInt();
+    byte [] encoded = new byte[length];
+    in.readFully(encoded);
+    return new String(encoded, StandardCharsets.UTF_8);
+}
+  
+
+ And then, on the python side, the equivalent code could be: 
+
+<pre class="lang-py prettyprint-override"> def recvall(sock, size):
+    received_chunks = []
+    buf_size = 4096
+    remaining = size
+    while remaining > 0:
+        received = sock.recv(min(remaining, buf_size))
+        if not received:
+            raise Exception('unexcepted EOF')
+        received_chunks.append(received)
+        remaining -= len(received)
+    return b''.join(received_chunks)
+
+
+def read_utf8(sock):
+    len_bytes = recvall(sock, 4)
+    length = struct.unpack('>i', len_bytes)[0]
+    encoded = recvall(sock, length)
+    return str(encoded, encoding='utf-8')
+
+
+def write_utf8(s: str, sock: socket.socket):
+    encoded = s.encode(encoding='utf-8')
+    sock.sendall(struct.pack('>i', len(encoded)))
+    sock.sendall(encoded)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/50774436)
+  UTF-8 specific interpretation: 
+I assume you have the unicode point represented in hexadecimal in UTF-8 stored as a string in a variable (c). And you want to determine the corresponding character. Then the following code snippet shows how to do it: 
+
+  >>> import binascii
+>>> cp2chr = lambda c: binascii.unhexlify(c.zfill(len(c) + (len(c) & 1))).decode('utf-8')
+>>> cp2chr('C484')
+'Ą'
+  
+
+  Explanation:   zfill  prepends a zero if the number of characters is odd.  binascii.unhexlify  basically takes two characters each, interprets them as hexadecimal numbers and make them one byte. All those bytes are merged to a bytes array. Finally  str.decode('utf-8')  interprets those bytes as UTF-8 encoded data and returns it as string. 
+
+  >>> cp2chr('00C4')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "<stdin>", line 1, in <lambda>
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xc4 in position 1: unexpected end of data
+  
+
+ Your provided example, however, is not valid UTF-8 data. See https://en.wikipedia.org/wiki/UTF-8#Description to identify valid byte sequences.  C4  has bit structure  11000100 , is therefore a continuation byte and requires another character afterwards. 
+
+  Encoding independent interpretation: 
+So you might be looking for interpretation of unicode points independent of the encoding. Then you are looking for the  raw_unicode_escape  encoding: 
+
+  >>> cp2chr = lambda c: (b'\\u' + c.encode('ascii')).decode('raw_unicode_escape') 
+>>> cp2chr('00C4')
+'Ä'
+  
+
+  Explanation:   raw_unicode_escape  convert the unicode escape sequences given in a byte string and returns it as string:  b'\\u00C4'.decode('raw_unicode_escape')  gives  Ä . This is what python does internally if you write  \uSOMETHING  in your source code. 
+
+
+

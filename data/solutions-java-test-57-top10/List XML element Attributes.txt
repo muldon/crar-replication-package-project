@@ -1,0 +1,413 @@
+Query: List XML element Attributes
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/17776302)
+ The  @XmlValue  can be applied to a  List  property.  With this mapping the list items will be represented as a space separated list in the XML.  You can do the following: 
+
+  Element  
+
+  import java.util.List;
+import javax.xml.bind.annotation.*;
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
+public class Element {
+
+    @XmlAttribute
+    private String attribute1;
+
+    @XmlAttribute
+    private String attribute2;
+
+    @XmlAttribute
+    private String attribute3;
+
+    @XmlValue
+    private List<String> value;
+
+}
+  
+
+    
+
+  import java.io.File;
+import javax.xml.bind.*;
+
+public class  {
+
+    public static void main(String[] args) throws Exception {
+        JAXBContext jc = JAXBContext.newInstance(Element.class);
+
+        Unmarshaller unmarshaller = jc.createUnmarshaller();
+        File xml = new File("src/forum17775900/input.xml");
+        Element element = (Element) unmarshaller.unmarshal(xml);
+
+        Marshaller marshaller = jc.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+        marshaller.marshal(element, System.out);
+    }
+
+}
+  
+
+  input.xml/Output  
+
+  <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<element attribute1="a" attribute2="b" attribute3="c">a b c d e f g</element>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/38482173)
+ Use DOM parser to get the attributes 
+
+  import java.io.ByteArrayInputStream;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+
+
+public class GetAttributes {
+
+    public static void main(String[] args) throws Exception {
+        // TODO Auto-generated method stub
+        String xml="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                "<subtests>\n" +
+                "        <subtest id=\"Detect\" name=\"Device detection\" />\n" +
+                "        <subtest id=\"DeviceType\" name=\"Device type\" />\n" +
+                "        <subtest id=\"VendorName\" name=\"Vendor\" />\n" +
+                "        <subtest id=\"VendorModelName\" name=\"Vendor model name\" />\n" +
+                "        <subtest id=\"ModelName\" name=\"Customer model name\" />\n" +
+                "        <subtest id=\"Serial\" name=\"Serial number\" />\n" +
+                "        <subtest id=\"getScannedSerial\" name=\"Scanned serial number value\" />\n" +
+                "        <subtest id=\"ScannedSerial\" name=\"Scanned serial number\" />\n" +
+                "        <subtest id=\"FirmwareVersion\" name=\"Software version\" />\n" +
+                "        <subtest id=\"IR_C\" name=\"IR_C\" customer=\"Rogers\" />\n" +
+                "        <subtest id=\"EchoDct\" name=\"Echo_DCT\" customer=\"Rogers\" />\n" +
+                "        <subtest id=\"FirmwareValidation\" name=\"Firmware validation\" />\n" +
+                "</subtests>";
+
+
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        ByteArrayInputStream bis = new ByteArrayInputStream(xml.getBytes());
+        org.w3c.dom.Document doc = db.parse(bis);
+        NodeList nodeList = doc.getElementsByTagName("subtest");
+        for(int x=0,size= nodeList.getLength(); x<size; x++) 
+        {
+            System.out.println(nodeList.item(x).getAttributes().getNamedItem("id").getNodeValue()+ " ========== "+ nodeList.item(x).getAttributes().getNamedItem("name").getNodeValue());
+        }
+
+
+
+    }
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/6773773)
+ If you use XPath you will have less code, but for a dom base solution I have a suggestion here: 
+
+  public void printElementsAndAttributes() throws Exception {
+    DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+    org.w3c.dom.Document doc = db.parse(new File("test.xml"));
+    NodeList base = doc.getElementsByTagName("base");
+    Node basenode = base.item(0);
+    System.out.println(basenode.getNodeName() + getAttributesAsString(basenode.getAttributes()));
+    NodeList children = basenode.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+        Node item = children.item(i);
+        if (item.getNodeType() == Node.ELEMENT_NODE) {
+            System.out.println(item.getNodeName() + getAttributesAsString(item.getAttributes()));
+
+        }
+    }
+
+
+}
+
+private String getAttributesAsString(NamedNodeMap attributes) {
+    StringBuilder sb = new StringBuilder("\n");
+    for (int j = 0; j < attributes.getLength(); j++) {
+        sb.append("\t- ").append(attributes.item(j).getNodeName()).append(": ").append(attributes.item(j).getNodeValue()).append("\n");
+    }
+    return sb.toString();
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/23950745)
+ The  startElement  method of SaxParser handler has an argument which keeps the list of attributes associated with it. . For example this program prints out all tags with attributes and the attribute names associated with it. 
+
+  import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+public class FindTagWithAttributes {
+
+    public static void main(String argv[]) {
+
+        try {
+
+            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParser saxParser = factory.newSAXParser();
+
+            DefaultHandler handler = new DefaultHandler() {
+
+                public void startElement(String uri, String localName,
+                        String qName, Attributes attributes)
+                        throws SAXException {
+                    if(attributes != null && attributes.getLength() > 0){
+                        System.out.print(qName + " tag has attributes - ");
+                        for(int i=0; i<attributes.getLength(); i++){
+                            System.out.println(attributes.getLocalName(i));
+                        }
+                    }
+                }
+
+                public void endElement(String uri, String localName,
+                        String qName) throws SAXException {
+
+                }
+
+                public void characters(char ch[], int start, int length)
+                        throws SAXException {
+
+                }
+
+            };
+
+            saxParser.parse("data.xml", handler);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/26930591)
+ For attributes, use  Attr#getOwnerElement()  to retrieve the element containing the attribute: 
+
+  NodeList nodeList = (NodeList) xPath.
+             compile(search).evaluate(doc, XPathConstants.NODESET);
+
+Node attrNode = nodeList.item(0);
+if(attrNode.getNodeType() == Node.ATTRIBUTE_NODE) {
+    Attr attr = (Attr) attrNode;
+
+    Element bookElement = attr.getOwnerElement();
+    ...
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/53764741)
+ Can you check the list of attributes in the node? 
+
+  if(node.getAttributes().getNamedItem("determinerCode") != null)
+{
+    // Add your node here...
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25359634)
+ Assuming you want to get the indiviudal attributes of the nodes you need to one of two things (or both depending on your needs)... 
+
+ You need to test if the current node is an  ELEMENT_NODE  or if the current node's name is equal to  item  (assuming all the node names are the same), for example... 
+
+  import java.io.InputStream;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
+
+public class Test {
+
+    public static final String TAG_ITEMS = "items";
+
+    public static void main(String[] args) {
+        try (InputStream is = Test.class.getResourceAsStream("/Test.xml")) {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(is);
+            Element itemsElement = document.getDocumentElement();
+            if (itemsElement.getTagName().equals(TAG_ITEMS)) {
+                NodeList nodeList = itemsElement.getChildNodes();
+                for (int i = 0; i < nodeList.getLength(); i++) {
+                    Node node = nodeList.item(i);
+                    if (node.getNodeType() == Node.ELEMENT_NODE) {
+                        NamedNodeMap attributes = node.getAttributes();
+                        Node idAtt = attributes.getNamedItem("id");
+                        Node nameAtt = attributes.getNamedItem("name");
+                        System.out.println("id = " + idAtt.getNodeValue());
+                        System.out.println("name = " + nameAtt.getNodeValue());
+                    }
+                }
+            }
+        } catch (Exception exp) {
+            exp.printStackTrace();
+        }
+    }
+
+}
+  
+
+ Which will output... 
+
+  id = 0
+name = a
+id = 1
+name = b
+  
+
+ All of this could be greatly reduced by using XPath, for example, if all the  item  nodes are the same name, then you could just use 
+
+  /items/item
+  
+
+ .  If the node names are different, but the attributes are the same, then you could use 
+
+  /items/*[@id]
+  
+
+ which will list all the nodes under  items  which has an  id  attribute, or 
+
+  /items/*[@name]
+  
+
+ which will list all the nodes under  items  which has an  name  attribute... 
+
+  import java.io.InputStream;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+public class Test {
+
+    public static void main(String[] args) {
+        try (InputStream is = Test.class.getResourceAsStream("/Test.xml")) {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(is);
+
+            XPath xpath = XPathFactory.newInstance().newXPath();
+            XPathExpression expression = xpath.compile("/items/item");
+            NodeList nodes = (NodeList) expression.evaluate(document, XPathConstants.NODESET);
+            process(nodes);
+
+            expression = xpath.compile("/items/*[@id]");
+            nodes = (NodeList) expression.evaluate(document, XPathConstants.NODESET);
+            process(nodes);
+
+            expression = xpath.compile("/items/*[@name]");
+            nodes = (NodeList) expression.evaluate(document, XPathConstants.NODESET);
+            process(nodes);
+        } catch (Exception exp) {
+            exp.printStackTrace();
+        }
+    }
+
+    protected static void process(NodeList nodes) {
+        for (int index = 0; index < nodes.getLength(); index++) {
+            Node item = nodes.item(index);
+            NamedNodeMap attributes = item.getAttributes();
+            Node idAtt = attributes.getNamedItem("id");
+            Node nameAtt = attributes.getNamedItem("name");
+            System.out.println("id = " + idAtt.getNodeValue() + "; name = " + nameAtt.getNodeValue());
+        }
+    }
+
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/6773431)
+ You can use this XPath to retrieve all attributes of 1st  element  node: 
+
+  base/element[1]/@*
+  
+
+ To get all attributes of all nodes in your XML yo can use this expression: 
+
+  //@*
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/6927509)
+ If you do know the name of the attribute, then you can use  getAttributeValue  to obtain its value: 
+
+  current.getAttributeValue("att1"); // value1
+  
+
+ If you do not know the name of the attribute(s), then you can use  getAttributes()  and iterate over each  Attribute : 
+
+  List attributes = current.getAttributes();
+Iterator it = attributes.iterator();
+while (it.hasNext()) {
+  Attribute att = (Attribute)it.next();
+  System.out.println(att.getName()); // att1
+  System.out.println(att.getValue()); // value1
+}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/26013020)
+  
+
+  <Click object="hsbc.Personal_Link"  />
+<Click object="hsbc.CreditCard_tab"  />
+  
+
+ have no attribute named "page", only an attribute named "object", so the accessing via 
+
+  ele.getAttributes().getNamedItem("page").getNodeValue();
+  
+
+ has to result in a  NullPointerException . The only element having a "page" attribute is 
+
+  <Open page="hsbc"  ms="5000"  />
+  
+
+
+

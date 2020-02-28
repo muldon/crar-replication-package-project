@@ -1,0 +1,298 @@
+Query: How can I convert Unicode to uppercase to print it?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/727517)
+ I think it's as simple as  not  converting to ASCII first. 
+
+   >>> print u'exámple'.upper()
+ EXÁMPLE
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/727571)
+ In python 2.x, just convert the string to unicode before calling upper(). Using your code, which is in utf-8 format on this webpage: 
+
+  >>> s = 'exámple'
+>>> s
+'ex\xc3\xa1mple'  # my terminal is not utf8. c3a1 is the UTF-8 hex for á
+>>> s.decode('utf-8').upper()
+u'EX\xc1MPLE'  # c1 is the utf-16 aka unicode for á
+  
+
+ The call to  decode  takes it from its current format to unicode. You can then convert it to some other format, like utf-8, by using encode. If the character was in, say, iso-8859-2 (Czech, etc, in this case), you would instead use  s.decode('iso-8859-2').upper() . 
+
+ As in my case, if your terminal is not unicode/utf-8 compliant, the best you can hope for is either a hex representation of the characters (like mine) or to convert it lossily using  s.decode('utf-8').upper().encode('ascii', 'replace') , which results in 'EX?MPLE'. If you can't make your terminal show unicode, write the output to a file in utf-8 format and open that in your favourite editor. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/16494913)
+ If string consists of unicode characters that doesn't support uppercase: 
+
+  >>> "عربية للفوتوشوب".upper().isupper()
+False
+  
+
+  str.upper  makes no sense for numbers: 
+
+  >>> "3432".upper().isupper()
+False
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15052873)
+ You are dealing with encoded strings, not with unicode text. 
+
+   .lower()  method of byte strings can only deal with ASCII values. Decode your string to Unicode or use a  unicode  literal ( u'' ), then lowercase: 
+
+  >>> print u"\xc4AOU".lower()
+äaou
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/31599276)
+ 
+   How to convert string to lowercase in Python? 
+  
+   Is there any way to convert an entire user inputted string from uppercase, or even part uppercase to lowercase?  
+  
+   E.g. Kilometers --> kilometers 
+ 
+
+ The canonical Pythonic way of doing this is  
+
+  >>> 'Kilometers'.lower()
+'kilometers'
+  
+
+ However, if the purpose is to do case insensitive matching, you should use case-folding: 
+
+  >>> 'Kilometers'.casefold()
+'kilometers'
+  
+
+ Here's why: 
+
+  >>> "Maße".casefold()
+'masse'
+>>> "Maße".lower()
+'maße'
+>>> "MASSE" == "Maße"
+False
+>>> "MASSE".lower() == "Maße".lower()
+False
+>>> "MASSE".casefold() == "Maße".casefold()
+True
+  
+
+ This is a str method in Python 3, but in Python 2, you'll want to look at the PyICU or py2casefold - https://stackoverflow.com/q/18271077/541136. 
+
+ Unicode Python 3 
+
+ https://docs.python.org/3/howto/unicode.html handles plain string literals as unicode: 
+
+  >>> string = 'Километр'
+>>> string
+'Километр'
+>>> string.lower()
+'километр'
+  
+
+ Python 2, plain string literals are bytes 
+
+ In Python 2, the below, pasted into a shell, encodes the literal as a string of bytes, using https://docs.python.org/2/library/codecs.html#python-specific-encodings. 
+
+ And  lower  doesn't map any changes that bytes would be aware of, so we get the same string.  
+
+  >>> string = 'Километр'
+>>> string
+'\xd0\x9a\xd0\xb8\xd0\xbb\xd0\xbe\xd0\xbc\xd0\xb5\xd1\x82\xd1\x80'
+>>> string.lower()
+'\xd0\x9a\xd0\xb8\xd0\xbb\xd0\xbe\xd0\xbc\xd0\xb5\xd1\x82\xd1\x80'
+>>> print string.lower()
+Километр
+  
+
+ In scripts, Python will object to non-ascii (as of Python 2.5, and warning in Python 2.4) bytes being in a string with no encoding given, since the intended coding would be ambiguous. For more on that, see the Unicode how-to in the https://docs.python.org/2/howto/unicode.html#unicode-literals-in-python-source-code and https://www.python.org/dev/peps/pep-0263/ 
+
+ Use Unicode literals, not  str  literals</h3>
+
+ So we need a  unicode  string to handle this conversion, accomplished easily with a unicode string literal, which disambiguates with a  u  prefix (and note the  u  prefix also works in Python 3): 
+
+  >>> unicode_literal = u'Километр'
+>>> print(unicode_literal.lower())
+километр
+  
+
+ Note that the bytes are completely different from the  str  bytes - the escape character is  '\u'  followed by the 2-byte width, or 16 bit representation of these  unicode  letters: 
+
+  >>> unicode_literal
+u'\u041a\u0438\u043b\u043e\u043c\u0435\u0442\u0440'
+>>> unicode_literal.lower()
+u'\u043a\u0438\u043b\u043e\u043c\u0435\u0442\u0440'
+  
+
+ Now if we only have it in the form of a  str , we need to convert it to  unicode . Python's Unicode type is a universal encoding format that has many https://en.wikipedia.org/wiki/UTF-8#Advantages_and_disadvantages relative to most other encodings. We can either use the  unicode  constructor or  str.decode  method with the codec to convert the  str  to  unicode : 
+
+  >>> unicode_from_string = unicode(string, 'utf-8') # "encoding" unicode from string
+>>> print(unicode_from_string.lower())
+километр
+>>> string_to_unicode = string.decode('utf-8') 
+>>> print(string_to_unicode.lower())
+километр
+>>> unicode_from_string == string_to_unicode == unicode_literal
+True
+  
+
+ Both methods convert to the unicode type - and same as the unicode_literal. 
+
+ Best Practice, use Unicode 
+
+ It is recommended that you always https://docs.python.org/2/howto/unicode.html#tips-for-writing-unicode-aware-programs. 
+
+ 
+   Software should only work with Unicode strings internally, converting to a particular encoding on output. 
+ 
+
+ Can encode back when necessary 
+
+ However, to get the lowercase back in type  str , encode the python string to  utf-8  again: 
+
+  >>> print string
+Километр
+>>> string
+'\xd0\x9a\xd0\xb8\xd0\xbb\xd0\xbe\xd0\xbc\xd0\xb5\xd1\x82\xd1\x80'
+>>> string.decode('utf-8')
+u'\u041a\u0438\u043b\u043e\u043c\u0435\u0442\u0440'
+>>> string.decode('utf-8').lower()
+u'\u043a\u0438\u043b\u043e\u043c\u0435\u0442\u0440'
+>>> string.decode('utf-8').lower().encode('utf-8')
+'\xd0\xba\xd0\xb8\xd0\xbb\xd0\xbe\xd0\xbc\xd0\xb5\xd1\x82\xd1\x80'
+>>> print string.decode('utf-8').lower().encode('utf-8')
+километр
+  
+
+ So in Python 2, Unicode can encode into Python strings, and Python strings can decode into the Unicode type. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/3691817)
+ first off, i only use python 3.1 these days; its central merit is to have disambiguated byte strings from unicode objects. this makes the vast majority of text manipulations much safer than used to be the case. weighing in the trillions of user questions regarding python 2.x encoding problems, the  u'äbc  convention of python 2.1 was just a mistake; with explicit  bytes  and  bytearray , life becomes so much easier. 
+
+ secondly, if py3k is not your flavor, then try to go with  from __future__ import unicode_literals , as this will mimic py3k's behavior on python 2.6 and 2.7. this thing would have avoided the (easily committed) blunder you did when saying  print 'exámple'.upper()  . essentially, this is the same as in py3k:  print( 'exámple'.encode( 'utf-8' ). . compare these versions (for py3k): 
+
+  print( 'exámple'.encode( 'utf-8' ).
+print( 'exámple'.encode( 'utf-8' ).upper().decode( 'utf-8' ) )
+print( 'exámple'.
+  
+
+ The first one is, basically, what you did when used a bare string  'exámple' , provided you set your default encoding to  utf-8  (according to a BDFL pronouncement, setting the default encoding at run time is a bad idea, so in py2 you'll have to trick it by saying  import sys; reload( sys ); sys.setdefaultencoding( 'utf-8' ) ; i present a better solution for py3k below). when you look at the output of these three lines: 
+
+  b'EX\xc3\xa1MPLE'
+EXáMPLE
+EXÁMPLE
+  
+
+ you can see that when  upper()  got applied to the first text, it acted on bytes, not on characters. python allows the  upper()  method on bytes, but it is only defined on the US-ASCII interpretation of bytes. since utf-8 uses values  within  8 bits but  outside  of US-ASCII (128 up to 255, which are not used by US-ASCII), those won't be affected by  upper() , so when we decode back in the second line, we get that lower-case  á . finally, the third line does it right, and yes, surprise, python seems to be aware that  Á  is the upper case letter corresponding to  á . i ran a quick test to see what characters python 3 does not convert between upper and lower case: 
+
+  for cid in range( 3000 ):
+  my_chr = chr( cid )
+  if my_chr == my_chr.upper() and my_chr == my_chr.lower():
+    say( my_chr )
+  
+
+ perusing the list reveals very few incidences of latin, cyrillic, or greek letters; most of the output is non-european characters and punctuation. the only characters i could find that python got wrong are Ԥ/ԥ (\u0524, \u0525, 'cyrillic {capital|small} letter pe with descender'), so as long as you stay outside of the Latin Extended-X blocks (check out those, they might yield surprises), you might actually use that method. of course, i did not check the correctness of the mappings. 
+
+ lastly, here is what i put into my py3k application boot section: a method that redefines the encoding  sys.stdout  sees, with numerical character references (NCRs) as fallback; this has the effect that printing to standard output will never raise a unicode encoding error. when i work on ubuntu,  _sys.stdout.encoding  is  utf-8 ; when the same program runs on windows, it might be something quaint like  cp850 . the output might looks starnge, but the application runs without raising an exception on those dim-witted terminals. 
+
+  #===========================================================================================================
+# MAKE STDOUT BEHAVE IN A FAILSAFE MANNER
+#-----------------------------------------------------------------------------------------------------------
+def _harden_stdout():
+  """Ensure that unprintable output to STDOUT does not cause encoding errors; use XML character references
+  so any kind of output gets a chance to render in a decipherable way."""
+  global _sys_TRM
+  _sys.stdout       = _sys_TRM = _sys_io.TextIOWrapper(
+    _sys.stdout.buffer,
+    encoding        = _sys.stdout.encoding,
+    errors          = 'xmlcharrefreplace',
+    line_buffering  = true )
+#...........................................................................................................
+_harden_stdout()
+  
+
+ one more piece of advice: when testing, always try to  print repr( x )  or a similar thing that reveals the identity of  x . all kinds of misunderstandings can crop up if you just  print x  in py2 and  x  is either an octet string or a unicode object. it is very puzzling and prone to cause a lot of head-scratching. as i said, try to move at least to py26 with that from future import unicode literals incantation.  
+
+ and to close, quoting a quote: " Glyph Lefkowitz says it best in his article http://glyf.livejournal.com/39250.html: 
+
+ 
+   I believe that in the context of this
+  discussion, the term "string" is
+  meaningless. There is text, and there
+  is byte-oriented data (which may very
+  well represent text, but is not yet
+  converted to it). In Python types,
+  Text is unicode. Data is str. The idea
+  of "non-Unicode text" is just a
+  programming error waiting to happen." 
+ 
+
+ update: just found python 3 correctly converts ſ LATIN SMALL LETTER LONG S to S when uppercasing.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/29459007)
+ For python 2 you need to add a  u , your string is not actually unicode: 
+
+  text = u"Áno"
+  
+
+ You can also write your expression as  count = sum(c.isupper() for c in text) ,  c.isupper()  will return True or False so 1 or 0. 
+
+  In [1]: text = "Áno"
+
+In [2]: count = sum(c.isupper() for c in text)
+
+In [3]: count
+Out[3]: 0    
+In [4]: text = u"Áno"
+In [5]: count = sum(c.isupper() for c in text)    
+In [6]: count
+Out[6]: 1
+In [7]: text = "Áno".decode("utf-8")   
+In [8]: count = sum(c.isupper() for c in text)    
+In [9]: count
+Out[9]: 1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/7861632)
+ Python 2.x:</h3>
+
+  import string
+valid_chars= string.ascii_lowercase + string.ascii_uppercase
+
+def only_lower_ascii_alpha(text):
+    return filter(valid_chars.__contains__, text).lower()
+  
+
+ Works with either  str  or  unicode  arguments. 
+
+  >>> only_lower_ascii_alpha("Hello there 123456!")
+'hellothere'
+>>> only_lower_ascii_alpha(u"435 café")
+u'caf'
+  
+
+
+

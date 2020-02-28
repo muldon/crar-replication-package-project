@@ -1,0 +1,303 @@
+Query: Python: how to get rid of spaces in str(dict)?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39269016)
+ You could build the compact string representation yourself: 
+
+  In [9]: '{' + ','.join('{0!r}:{1!r}'.format(*x) for x in dct.items()) + '}'
+Out[9]: "{'b':'as df','a':1}"
+  
+
+ It will leave extra spaces inside string representations of nested  list s,  dict s etc. 
+
+ A much better idea is to use the https://docs.python.org/3/library/json.html#json.dumps function with appropriate separators: 
+
+  In [15]: import json
+
+In [16]: json.dumps(dct, separators=(',', ':'))
+Out[16]: '{"b":"as df","a":1}'
+  
+
+ This will work correctly regardless of the inner structure of  dct . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/29200267)
+ Just use  dict.get  with a default value of an empty string with  str.join : 
+
+  d = {'a': '1', 'b': '2', 'c': '3', 'd': ' '}
+strg = 'abcd'
+print("".join(d.get(i,"") for i in strg))
+  
+
+ If you use repr you can see the space: 
+
+  print(repr("".join(d.get(i,"") for i in strg)))
+'123 '
+  
+
+ Also avoid using dict as a variable name or something like dict(foo="bar")  will not do what you think it will. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/29200293)
+ Along side the other answers that suggests  join  instead of using loops you can use  str.translate  for get the desire output : 
+
+  >>> 'abcd'.translate(str.maketrans({'a': '1', 'b': '2', 'c': '3', 'd': ' '}))
+'123 '
+  
+
+ And if you are in python 2 you can do the following : 
+
+  >>> 'abcd'.translate(string.maketrans('abcd','123 '))
+'123 '
+  
+
+ or you can extract the input and out put for create your table, from dict : 
+
+  >>> d={'a': '1', 'b': '2', 'c': '3', 'd': ' '}
+>>> inp=''.join(d.keys())
+>>> out=''.join(d.values())
+>>> 'abcd'.translate(string.maketrans(inp,out))
+'123 '
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/12533983)
+ Just use http://docs.python.org/library/stdtypes.html#str.strip, it removes all whitespace for you, including tabs and newlines, while splitting. The splitting itself can then be done with http://docs.python.org/library/stdtypes.html#str.splitlines: 
+
+  [s.strip() for s in data_string.splitlines()]
+  
+
+ Output: 
+
+  >>> [s.strip() for s in data_string.splitlines()]
+['Name: John Smith', 'Home: Anytown USA', 'Phone: 555-555-555', 'Other Home: Somewhere Else', 'Notes: Other data', 'Name: Jane Smith', 'Misc: Data with spaces']
+  
+
+ You can even inline the splitting on  :  as well now: 
+
+  >>> [s.strip().split(': ') for s in data_string.splitlines()]
+[['Name', 'John Smith'], ['Home', 'Anytown USA'], ['Phone', '555-555-555'], ['Other Home', 'Somewhere Else'], ['Notes', 'Other data'], ['Name', 'Jane Smith'], ['Misc', 'Data with spaces']]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/13188275)
+ Use  str()  and  replace()  to remove both  u  and  \r\n : 
+
+  In [21]: strs = u'\r\nFoo\r\nBar'
+
+In [22]: str(strs).replace("\r\n","")
+Out[22]: 'FooBar'
+  
+
+ or just  replace()  to get rid of only  \r\n : 
+
+  In [23]: strs.replace("\r\n","")
+Out[23]: u'FooBar'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/29469358)
+ The default value of  indent  in  pformat  is 1, so that keys appear one under the other.  
+
+ For example,  pformat(d, indent=0, width=1)  would result in this string: 
+
+  {1: 11,
+2: 22,
+3: 33}
+  
+
+  indent=1 :  
+
+  {1: 11,
+ 2: 22,
+ 3: 33}
+  
+
+ and  indent=2 :  
+
+  { 1: 11,
+  2: 22,
+  3: 33}
+  
+
+ .  
+
+ 
+
+ Since the goal was to display dict elements after the first line, and have all elements indented by 4 spaces, adding a single whitespace before the first element and using  indent=4  would work for some dicts (as suggested by @logic).  
+
+ However dicts like  d = {1: {'a': 1, 'b': 2}, 2: 22, 3: 33}  would look rather ugly, since  indent  would affect the appearance of dicts with depth greater than 1 as well:   
+
+  MY_DCT = {
+    1: {   'a': 1,
+           'b': 2},
+    #    ^
+    #    |
+    # ugly
+    2: 22,
+    3: 33}
+  
+
+ 
+
+ The most appealing solution (for the data i m working on) is keeping  indent=1  and adding 3 whitespaces for first element, and 4 whitespaces for the rest.  
+
+  def f(obj_name, given_dct):
+    """
+    Converts given dct (body) to a pretty formatted string.
+    Resulting string used for file writing.
+
+    Args:
+        obj_name: (str) name of the dict
+    Returns:
+        (str)
+    """
+
+    string = pp.pformat(given_dct, width=1)[1:]
+
+    new_str = ''
+    for num, line in enumerate(string.split('\n')):
+        if num == 0:
+            # (pprint module always inserts one less whitespace for first line)
+            # (indent=1 is default, giving everything one extra whitespace)
+            new_str += ' '*4 + line + '\n'
+        else:
+            new_str += ' '*3 + line + '\n'
+
+    return obj_name + ' = {\n' + new_str
+
+
+s = f(obj_name='MY_DCT', given_dct=d)
+  
+
+ Resulting in this string:  
+
+  MY_DCT = {
+    1: {'a': 'aa',
+        'b': [1,
+              2,
+              3]},
+    2: 22,
+    3: 33}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/31363467)
+ Just split and map to int, split will do all the work for you: 
+
+  with open("in.txt") as f:
+    for line in f:
+        print(map(int,line.split())) # list(map(int,line.split())) for py3
+  
+
+ To get a list of lists use a list comprehension: 
+
+  with open("in.txt") as f:
+    data = [map(int,line.split()) for line in f]
+  
+
+ If you use python3 you need to use  list(map...  as map returns and iterator in python3 vs a list in python2. 
+
+ You could also use a dict to access each list by name/key but you can use indexing so a dict would be pointless. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/48248049)
+ First, if you have many sentences, it would be sensible to put it inside a  list : 
+
+  sentences = ["words1 words2 words3 {matrixA} {matrixB}", "words3 words4  {matrixA}"]
+  
+
+ Next, for varying variable names such as  Matrix* , I'd recommend using a  defaultdict  of lists from the  collections  package. 
+
+  from collections import defaultdict
+matrices = defaultdict(list)  
+  
+
+ Now, comes the loop. To get a list of names in each sentence, use  re.findall . Then, for each variable name found, append the words to the list for that variable name in  matrices .  
+
+  import re
+
+for s in sentences:
+    for m in re.findall("{(.*?)}", s):
+        matrices[m].append(s.split('{', 1)[0])
+  
+
+  
+
+  print(dict(matrices))
+{
+    "matrixA": [
+        "words1 words2 words3 ",
+        "words3 words4  "
+    ],
+    "matrixB": [
+        "words1 words2 words3 "
+    ]
+}
+  
+
+ Which seems to be what you're looking for. 
+
+ If you don't want trailing spaces, append  s.split('{', 1)[0].strip() , calling  str.strip  to get rid of leading/trailing whitespace characters. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/30499148)
+ Assuming that you don't have anything in your string more nested than what is in your example, you could first use lookahead/lookbehind assertions to split the string into your key-value pairs, looking for the pattern  } {  (the end of one pair of brackets and the beginning of another.) 
+
+  >>> str = '{key1 value1} {key2 value2} {key3 {value with spaces}}'
+>>> pairs = re.split('(?<=})\s*(?={)', str)
+  
+
+ This says "Match on any  \s*  (whitespace) that has a  }  before it and a  {  after it, but don't include those brackets in the match itself." 
+
+ Then you have your key-value pairs: 
+
+  >>> pairs
+['{key1 value1}', '{key2 value2}', '{key3 {value with spaces}}']
+  
+
+ which can be split on whitespace with the  maxsplit  parameter set to 1, to make sure that it only splits on the first space. In this example I have also used string indexing (the  [1:-1] ) to get rid of the curly braces that I know are at the beginning and end of each pair. 
+
+  >>> simple = pairs[0] 
+>>> complex = pairs[2]  
+>>> simple
+'{key1 value1}'
+>>> complex
+'{key3 {value with spaces}}'
+>>> simple[1:-1]
+'key1 value1'
+>>> kv = re.split('\s+', simple[1:-1], maxsplit=1)
+>>> kv
+['key1', 'value1']
+>>> kv3 = re.split('\s+', complex[1:-1], maxsplit=1)
+>>> kv3
+['key3', '{value with spaces}']
+  
+
+ then just check whether the value is enclosed in curly braces, and remove them if you need to before putting them into your dictionary. 
+
+ If it is guaranteed that the key/value pairs will always be separated by a single space character, then you could use plain old string split instead. 
+
+  >>> kv3 = complex[1:-1].split(' ', maxsplit=1)
+>>> kv3
+['key3', '{value with spaces}']
+  
+
+
+

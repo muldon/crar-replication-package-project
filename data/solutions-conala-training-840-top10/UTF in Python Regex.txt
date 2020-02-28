@@ -1,0 +1,253 @@
+Query: UTF in Python Regex
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/372210)
+ Don't use UTF-8 in a regular expression. UTF-8 is a multibyte encoding where some unicode code points are encoded by 2 or more bytes. You may match parts of your string  that you didn't plan to match. Instead use unicode strings as suggested. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/372128)
+ You have to escape the character in question (–) and put a u in front of the string literal to make it a unicode string.  
+
+ So, for example, this: 
+
+  re.compile("–") 
+  
+
+  
+
+  re.compile(u"\u2013")
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/372193)
+ After a quick test and visit to http://www.python.org/dev/peps/pep-0263/, I see you may need to tell Python the whole file is UTF-8 encoded by adding adding a comment like this to the first line. 
+
+  # encoding: utf-8
+  
+
+ Here's the test file I created and ran on Python 2.5.1 / OS X 10.5.6 
+
+  # encoding: utf-8
+import re
+x = re.compile("–") 
+print x.search("xxx–x").start()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/20175072)
+ Use unicode literals. Otherwise,  [-–—―]  matches  - ,  \xe2 ,  \x80 ,  \x93 ,  \xe2 ,  \x80 ,  \x94 ,  \xe2 ,  \x80 ,  \x95  instead of  - ,  – ,  — ,  ―  
+
+  # -*- coding: utf-8 -*-
+import re
+titles = [
+    u'Spaced (News)',
+    u'Angry Birds [Game]',
+    u'Cheats - for all games', # dash
+    u'Cheats – for all games', # ndash
+    u'Cheats — for all games', # mdash
+    u'Cheats ― for all games'  # horizontal bar
+]
+regex = re.compile(ur'^(?P<name>.+)\s+(([-–—―]\s+(?P<addition_a>.+))|([\(\[](?P<addition_b>.+)[\)\]]))$')
+for title in titles:
+    match = regex.match(title.strip())
+    if match:
+        data = {}
+        data['name'] = match.group('name')
+        data['addition'] = match.group('addition_a') or match.group('addition_b')
+        print data
+  
+
+ Output: 
+
+  {'addition': u'News', 'name': u'Spaced'}
+{'addition': u'Game', 'name': u'Angry Birds'}
+{'addition': u'for all games', 'name': u'Cheats'}
+{'addition': u'for all games', 'name': u'Cheats'}
+{'addition': u'for all games', 'name': u'Cheats'}
+{'addition': u'for all games', 'name': u'Cheats'}
+  
+
+ 
+
+  >>> r'[–]'
+'[\xe2\x80\x93]'
+>>> re.findall(r'[–]', '–')
+['\xe2', '\x80', '\x93']
+>>> re.findall(ur'[–]', u'–')
+[u'\u2013']
+>>> print re.findall(ur'[–]', u'–')[0]
+–
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/19604081)
+ Python solution that use http://docs.python.org/2/library/os.html#os.walk 
+
+  import os
+import re
+
+target_dir = '.'
+pattern = re.compile(r'blah')
+
+for parent, dirnames, filenames in os.walk(target_dir):
+    for fn in filenames:
+        filepath = os.path.join(parent, fn)
+        try:
+            with open(filepath) as f:
+                if any(pattern.search(line) for line in f):
+                    print(filepath)
+        except IOError:
+            pass
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/19964906)
+ You are trying to match encoded values, as bytes, with a regular expression that  most likely  won't match unless your Python source encoding exactly matches that of the input files, and then only if you are not using a multi-byte encoding such as UTF-8. 
+
+ You need to decode the input files to Unicode values, and use a Unicode regular expression. This means you need to  know  the codecs used for the input files. It's easiest to use http://docs.python.org/2/library/io.html#io.open to handle decoding and encoding: 
+
+  import io
+import re
+
+regex_oti = re.compile(ur'^.*\b(ότι|ό,τι)\b.*$')
+regex_tis = re.compile(ur'^.*\b(της|τις)\b.*$')
+regex_ton = re.compile(ur'^.*\b(τον|των)\b.*$')
+
+with io.open('source.txt', 'r', encoding='utf8') as source, \
+     io.open('results_oti.txt', 'w', encoding='utf8') as oti, \
+     io.open('results_tis.txt', 'w', encoding='utf8') as tis, \
+     io.open('results_ton.txt', 'w', encoding='utf8') as ton:
+
+    for line in source:
+        if regex_oti.match(line):
+            oti.write(line)
+        if regex_tis.match(line):
+            tis.write(line)
+        if regex_ton.match(line):
+            ton.write(line)
+  
+
+ Note the  ur'...'  raw unicode strings to define the regular expression patterns; now these are Unicode patterns and match  codepoints , not bytes. 
+
+ The  io.open()  call makes sure you read  unicode , and when you write  unicode  values to the the output files the data is automatically encoded to UTF-8. I picked UTF-8 for the input file as well, but you need to check what the correct codec is for that file and stick to that. 
+
+ I've used a  with  statement here to have the files close automatically, used  source  as an iterable (no need to read all lines into memory in one go), and pre-compiled the regular expressions. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/9446349)
+ According to http://www.python.org/dev/peps/pep-0263/, first you need to tell Python the whole source file is UTF-8 encoded by adding a comment like this to the first line: 
+
+  # -*- coding: utf-8 -*-
+  
+
+ Furthermore, try adding ' ur ' before the string so that it's  raw   and   Unicode : 
+
+  state = re.search(ur'td>([^<]+)</td',s)
+res = state.group(1)
+  
+
+ I've also edited your regex to make it match. Three dots mean "exactly three characters", but since you are using UTF-8, which is a multi-byte encoding, this may not work as expected. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/32868484)
+ You can use the following snippet to solve the issue: 
+
+  #!/usr/bin/python
+# -*- coding: utf-8 -*-
+import re
+str = u'[DMSM-8433] 加護亜依 Kago Ai – 加護亜依 vs. FRIDAY'
+regex = u'[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]+ (?=[A-Za-z ]+–)'
+p = re.compile(regex, re.U)
+match = p.sub("", str)
+print match.encode("UTF-8")
+  
+
+ See http://ideone.com/fN74qX 
+
+ Beside  # -*- coding: utf-8 -*-  declaration, I have added https://stackoverflow.com/questions/15033196/using-javascript-to-check-whether-a-string-contains-japanese-characters-includi/15034560#15034560. 
+
+ Note that the  match   needs to be encoded as UTF-8 string "manually" since Python 2 needs to be "reminded" we are working with Unicode all the time. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31987559)
+  print re.findall(r'\\x.*?[0-9]* ',r'cats\xe2\x80\x99 faces')
+                                 ^^  
+  
+
+ Use  raw mode  flag.Use  findall  as  match  starts matching from beginning 
+
+  print re.sub(ur'\\x.*?[0-9]+','',r'cats\xe2\x80\x99 faces')
+  
+
+ with  re.sub  
+
+  s=r'cats\xe2\x80\x99 faces'
+print re.sub(r'\\x.+?[0-9]*','',s)
+  
+
+ EDIT: 
+
+ The correct way would be to decode to  utf-8  and then apply regex. 
+
+  s='cats\xe2\x80\x99 faces'
+\xe2\x80\x99 is U+2019 
+print re.sub(u'\u2019','',s.decode('utf-8'))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/32882360)
+ Regex with accented characters (diacritics) in Python</h3>
+
+ The http://docs.python.org/2/library/re.html#re.UNICODE allows you to use word characters  \w  and word boundaries  \b  with diacritics (accents and tildes). This is extremely useful to match words in different languages. 
+
+ 
+ Decode your text from UTF-8 to /questions/tagged/unicode 
+ Make sure the pattern and the subject text are passed as /questions/tagged/unicode to the regex functions. 
+ The result is an array of bytes that can be looped/mapped to encode back again to UTF-8 
+ Printing the array shows non-ASCII bytes escaped, but it's safe to print each string independently. 
+ 
+
+  Code:  
+
+  # -*- coding: utf-8 -*-
+# http://stackoverflow.com/q/32872917/5290909
+#python 2.7.9
+
+import re
+
+text = "Solo voy si se sucedierón o se suceden mañana los siguienñes eventos:"
+# Decode to unicode
+unicode_text = text.decode('utf8')
+
+matches = re.findall(ur'\b\w+\b', unicode_text, re.UNICODE)
+
+# Encode back again to UTF-8
+utf8_matches = [ match.encode('utf-8') for match in matches ]
+
+# Print every word
+for utf8_word in utf8_matches:
+    print utf8_word
+  
+
+ <kbd>http://ideone.com/40g5GP</kbd> 
+
+
+

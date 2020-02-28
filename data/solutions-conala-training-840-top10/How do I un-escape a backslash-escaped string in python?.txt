@@ -1,0 +1,169 @@
+Query: How do I un-escape a backslash-escaped string in python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/51457730)
+ Your bug exists earlier. The only acceptable solution is to change the scraping code so that it returns a bytes object and not a text object. Do not to try and "convert" your string  un  into bytes, it can not be done reliably. 
+
+ Do  NOT  do this: 
+
+  >>> un = 'BZh91AY&SYA\xaf\x82\r\x00\x00\x01\x01\x80\x02\xc0\x02\x00 \x00!\x9ah3M\x07<]\xc9\x14\xe1BA\x06\xbe\x084'
+>>> bz2.decompress(un.encode('raw_unicode_escape'))
+b'huge'
+  
+
+ The "raw_unicode_escape" is just a Latin-1 encoding which has a built-in fallback for characters outside of it. This encoding uses \uXXXX and \UXXXXXXXX for other code points. Existing backslashes are not escaped in any way. It is used in the Python pickle protocol.  For Unicode characters that cannot be represented as a \xXX sequence, your data will become corrupted.   
+
+ The web scraping code has no business returning bz2-encoded bytes as a  str , so that's where you need to address the  cause  of the problem, rather than attempting to deal with the symptoms. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/49754538)
+ In python 3,  str  objects don't have a  decode  method and you have to use a  bytes  object. ChristopheD's answer covers python 2. 
+
+  # create a `bytes` object from a `str`
+my_str = "Hello,\\nworld"
+# (pick an encoding suitable for your str, e.g. 'latin1')
+my_bytes = my_str.encode("utf-8")
+
+# or directly
+my_bytes = b"Hello,\\nworld"
+
+print(my_bytes.decode("unicode_escape"))
+# "Hello,
+# world"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/34189780)
+   
+
+  print sql.decode('string_escape')
+  
+
+ Output 
+
+  SELECT {column_specs}
+    FROM {tables}
+    WHERE year = {year} AND game_ref = games.id AND
+        {id_matches} AND
+        EVENT_CD IN ({event_codes})
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/6717476)
+ is this what you want? 
+
+  import re
+Long_string = "some long string \' and \" some escaped strings"
+value_to_change = re.compile( "'|\"" )
+modified = re.sub(value_to_change , 'thevalue' , Long_string )
+print modified 
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/51787311)
+ Your string should use  '\\'  as it is not a raw string and backslashes need to be escaped.  \0  is some kind of escape character I presume 
+
+  x = 'O:\\MAP\\04_Operational Finance\\Billing\\Billings Reconciliation'.replace('\\', '/')
+  
+
+ Or you could prefix your string with r:  r'string'  which denotes a raw string where you don't need to escape the backslashes 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/1885211)
+ You can use  ast.literal_eval  which is safe: 
+
+ 
+   Safely evaluate an expression node or a string containing a Python
+  expression.  The string or node provided may only consist of the
+  following Python literal structures: strings, numbers, tuples, lists,
+  dicts, booleans, and None. (END) 
+ 
+
+ Like this: 
+
+  >>> import ast
+>>> escaped_str = '"Hello,\\nworld!"'
+>>> print ast.literal_eval(escaped_str)
+Hello,
+world!
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/48949919)
+ This will do the magic: 
+
+  re.sub(r"(?<!\\)\\n|\n", " ", string)
+  
+
+ Note: it will replace line breaks ("\n") and escaped line breaks ("\n" or r"\n"). It does not escape "\\n" (or r"\n").
+"\\\n" (backslash + new line) becomes "\\< br>". 
+
+ Maybe, what you really want is: 
+
+  re.sub(r"(?<!\\)(\\\\)*\\n|\n", "\1 ", string)
+  
+
+ This replaces all new lines and all escaped n (r"\n"). r"\\n" is not replaced. r"\\\n" is again replaced (escaped backslash + escaped n). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/43715752)
+  path = "D:\My Stuff\Python\my_script.py"
+escaped_path = path.replace("\\", "\\\\")
+print(escaped_path)
+  
+
+ Will output 
+
+  D:\\My Stuff\\Python\\my_script.py
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/11767472)
+ Check out the documentation for http://docs.python.org/reference/lexical_analysis.html#string-literals. 
+
+ Backslash is an escape character in Python strings, so to include a literal backslash in your string you need to escape them by using two consecutive backslashes.  Alternatively, you can suppress the escaping behavior of backslashes by using a raw string literal, which is done by prefixing the string with  r .  For example: 
+
+ 
+  Escaping the backslash: 
+
+  b = '\\x11'
+   
+  Using a raw string literal: 
+
+  b = r'\x11'
+   
+ 
+
+ If I am misinterpreting your question and  b  should be  '\x11'  or equivalently  chr(17) , but you just want it to display in the escaped format, you can use  repr()  for that: 
+
+  >>> b = '\x11'
+>>> print 'b is: ' + repr(b)
+b is: '\x11'
+  
+
+ If you don't want the quotes, use the http://docs.python.org/library/codecs.html#standard-encodings: 
+
+  >>> print 'b is: ' + b.encode('string_escape')
+b is: \x11
+  
+
+ Or to get  a  to be the same as  b , you can use  a.decode('string_escape') . 
+
+
+

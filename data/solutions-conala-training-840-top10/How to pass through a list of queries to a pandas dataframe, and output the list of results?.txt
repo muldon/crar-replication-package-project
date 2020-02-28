@@ -1,0 +1,386 @@
+Query: How to pass through a list of queries to a pandas dataframe, and output the list of results?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/39989023)
+ The best way to deal with this is by indexing into the rows using a Boolean series as you would in R. 
+
+ Using your df as an example, 
+
+  In [5]: df.Col1 == "what"
+Out[5]:
+0     True
+1    False
+2    False
+3    False
+4    False
+5    False
+6    False
+Name: Col1, dtype: bool
+
+In [6]: df[df.Col1 == "what"]
+Out[6]:
+   Col1 Col2  Col3  Col4
+0  what  the     0     0
+  
+
+ Now we combine this with the pandas isin function. 
+
+  In [8]: df[df.Col1.isin(["men","rocks","mountains"])]
+Out[8]:
+        Col1      Col2  Col3  Col4
+2        men        of     2    16
+4      rocks      lips     4    32
+6  mountains  history.     6    48
+  
+
+ To filter on multiple columns we can chain them together with & and | operators like so. 
+
+  In [10]: df[df.Col1.isin(["men","rocks","mountains"]) | df.Col2.isin(["lips","your"])]
+Out[10]:
+        Col1      Col2  Col3  Col4
+2        men        of     2    16
+3         to      your     3    24
+4      rocks      lips     4    32
+6  mountains  history.     6    48
+
+In [11]: df[df.Col1.isin(["men","rocks","mountains"]) & df.Col2.isin(["lips","your"])]
+Out[11]:
+    Col1  Col2  Col3  Col4
+4  rocks  lips     4    32
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/40004375)
+ If I understood your question correctly you can do it either using boolean indexing as https://stackoverflow.com/a/39989023/5741205 or using http://pandas.pydata.org/pandas-docs/stable/indexing.html#the-query-method-experimental method: 
+
+  In [30]: search_list = ['rocks','mountains']
+
+In [31]: df
+Out[31]:
+        Col1      Col2  Col3  Col4
+0       what       the     0     0
+1        are    curves     1     8
+2        men        of     2    16
+3         to      your     3    24
+4      rocks      lips     4    32
+5        and   rewrite     5    40
+6  mountains  history.     6    48
+  
+
+  .query()  method: 
+
+  In [32]: df.query('Col1 in @search_list and Col4 > 40')
+Out[32]:
+        Col1      Col2  Col3  Col4
+6  mountains  history.     6    48
+
+In [33]: df.query('Col1 in @search_list')
+Out[33]:
+        Col1      Col2  Col3  Col4
+4      rocks      lips     4    32
+6  mountains  history.     6    48
+  
+
+  
+
+  In [34]: df.ix[df.Col1.isin(search_list) & (df.Col4 > 40)]
+Out[34]:
+        Col1      Col2  Col3  Col4
+6  mountains  history.     6    48
+
+In [35]: df.ix[df.Col1.isin(search_list)]
+Out[35]:
+        Col1      Col2  Col3  Col4
+4      rocks      lips     4    32
+6  mountains  history.     6    48
+  
+
+  UPDATE:  using function: 
+
+  def find_queries(df, qry, debug=0, **parms):
+    if debug:
+        print('[DEBUG]: Query:\t' + qry.format(**parms))
+    return df.query(qry.format(**parms))
+
+In [31]: find_queries(df, 'Col1 in {Col1} and Col4 > {Col4}', Col1='@search_list', Col4=40)
+    ...:
+Out[31]:
+        Col1      Col2  Col3  Col4
+6  mountains  history.     6    48
+
+In [32]: find_queries(df, 'Col1 in {Col1} and Col4 > {Col4}', Col1='@search_list', Col4=10)
+Out[32]:
+        Col1      Col2  Col3  Col4
+4      rocks      lips     4    32
+6  mountains  history.     6    48
+  
+
+ including debugging info (print query): 
+
+  In [40]: find_queries(df, 'Col1 in {Col1} and Col4 > {Col4}', Col1='@search_list', Col4=10, debug=1)
+[DEBUG]: Query: Col1 in @search_list and Col4 > 10
+Out[40]:
+        Col1      Col2  Col3  Col4
+4      rocks      lips     4    32
+6  mountains  history.     6    48
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/53836533)
+ for example you can use pandas  
+
+  import pandas as pd
+list_of_dicts = [{'id':1, 'name':'Alice', 'status':0},{'id':2, 'name':'Bob', 'status':0},{'id':3, 'name':'Robert', 'status':1}]
+
+a = pd.DataFrame(list_of_dicts)
+a.loc[a['name'] == 'Robert']
+  
+
+ and play with dataframes its very fast because write on c++ and easy (like sql queries) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/40568946)
+  pivoted = df.groupby(['Name', df.CourseName.str.split().str[0]]) \
+            .CourseId.size().gt(0).unstack(fill_value=False)
+
+pivoted
+  
+
+ https://i.stack.imgur.com/R6QxF.png 
+
+  matches = pivoted.query('Engineering & Mathematics & ~Physics')
+matches
+  
+
+ <a href="https://i.stack.imgur.com/mUbrr.png"  
+
+  df.query('Name in @matches.index')
+  
+
+ <a href="https://i.stack.imgur.com/AA5XX.png"  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/49739545)
+ Simply adjust the  pd.DataFrame()  call as right now  cursor.fetchall()  returns one-length list of tuples. Use  tuple()  or  list  to map child elements into their own columns: 
+
+  df = pd.DataFrame([tuple(row) for row in cur.fetchall()],
+                  columns = [desc[0] for desc in cursor.description])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/48429523)
+ You can construct the  DataFrame  in one fell swoop, passing  new_docs  as the index and  new_term_freq_matrix , the TFIDF values, as your data.  
+
+  df = pd.DataFrame(new_term_freq_matrix.todense(), index=new_docs)
+  
+
+ If you don't want to have  new_docs  as the index, then, create the dataframe and insert  new_docs  in later -  
+
+  df = pd.DataFrame(new_term_freq_matrix.todense())
+df.insert(0, 'docs', new_docs)
+  
+
+ Alternatively, 
+
+  df = pd.DataFrame(new_term_freq_matrix.todense(), index=new_docs).reset_index()
+  
+
+ The former is more performant, because  reset_index  returns a copy of your entire data. 
+
+ One more aside, if you're dealing with sparse data, you might be interested in the https://pandas.pydata.org/pandas-docs/stable/sparse.html#sparse-data-structures API. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/40568487)
+ Use  query  to type more natural math relationships : 
+
+  df.query('CourseId == "P12" or CourseId != "P99"')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/45286848)
+ Indeed there is: 
+
+  type(df.iloc[:,[0]])
+  
+
+ Pass in your column/columns as a list and a dataframe is returned. You can see the difference: 
+
+  In [288]: df = pd.DataFrame({0 : [1, 2, 3], 1: [3, 4, 5], 2:[4, 5, 6]}); df
+Out[288]: 
+   0  1  2
+0  1  3  4
+1  2  4  5
+2  3  5  6
+
+In [289]: df.iloc[:, 0]
+Out[289]: 
+0    1
+1    2
+2    3
+Name: 0, dtype: int64
+
+In [290]: df.iloc[:, [0]]
+Out[290]: 
+   0
+0  1
+1  2
+2  3
+
+In [291]: type(df.iloc[:, [0]])
+Out[291]: pandas.core.frame.DataFrame
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/17913767)
+ Use  N of connections in N threads. Then join theads and procces results. 
+
+  # imports
+import ceODBC
+import numpy as np
+import pandas as pd
+import pandas.io.sql as psql
+from ConfigParser import ConfigParser  
+import os
+import glob
+import threading
+enter code here
+
+
+# db connection string
+cnxn_string = 'DRIVER={SQL Server Native Client 11.0}; SERVER=<servername>; DATABASE=<dname>; Trusted_Connection=Yes'
+
+# directories (also should be moved to config)
+dataDir = os.getcwd() + '\\data\\'
+sqlDir = os.getcwd() + '\\sql\\'
+
+#variable to store results
+responses={}
+responses_lock=threading.Lock()
+
+maxconnections = 8
+pool_sema = BoundedSemaphore(value=maxconnections)
+
+
+def task(fname):
+
+    with open(fname, 'r') as f: sql = f.read()
+
+    # Connect to db, run SQL, assign result into dataframe, close connection. 
+    # to limit connections on DB used semaphore
+    pool_sema.acquire()
+    cnxn = ceODBC.connect(cnxn_string)
+    cursor = cnxn.cursor()
+    # execute the queries and close the connection. Parallelize?
+    df = psql.frame_query(sql, cnxn)
+    # close connection
+    cnxn.close()
+    pool_sema.release()
+
+    # to ensure that only one thread can modify global variable
+    responses_lock.acquire()
+    responses[fname] = df
+    responses_lock.release()
+
+
+pool = []
+
+#find sql files and spawn theads
+for fname im glob.glob( os.path.join(sqlDir,'*sql')):
+    #create new thread with task
+    thread = threading.Thread(target=task,args=(fname,))
+    thread.daemon = True
+    # store thread in pool 
+    pool.append(thread)
+    #thread started
+    thread.start()
+
+#wait for all threads tasks done
+for thread in pool:
+    thread.join()
+
+# results of each execution stored in responses dict
+  
+
+ Each file executes in separate thread. Result stored in one variable. 
+
+ Equivalent for function with  with  statement: 
+
+  def task(fname):
+
+    with open(fname, 'r') as f: sql = f.read()
+
+    # Connect to db, run SQL, assign result into dataframe, close connection. 
+    # to limit connections on DB used semaphore
+    with pool_sema:
+        cnxn = ceODBC.connect(cnxn_string)
+        cursor = cnxn.cursor()
+        # execute the queries and close the connection. Parallelize?
+        df = psql.frame_query(sql, cnxn)
+        # close connection
+        cnxn.close()
+
+
+    # to ensure that only one thread can modify global variable
+    with responses_lock:
+        responses[fname] = df
+  
+
+  multiprocessing.Pool  is easy for distributing heavy tasks, but has more IO operations in it self. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/46806068)
+ It seems you need instead  &  (and) use  |  (or): 
+
+  print (df[(df.a > 4) & ((df.dir != 'abs') | (df.r != 'pr'))])
+    a  dir   r
+0  10  pos  vl
+2  20  abs  vl
+3  30  neg  pr
+4   8  abs  vl
+5  14  pos  pr
+  
+
+  
+
+  print (df.query('a > 4 & dir != "abs" | r != "pr"'))
+
+    a  dir   r
+0  10  pos  vl
+2  20  abs  vl
+3  30  neg  pr
+4   8  abs  vl
+5  14  pos  pr
+  
+
+ Similar output is if use  ==  with inverting boolean mask by  ~ : 
+
+  print (df[(df.a > 4) & ~((df.dir == 'abs') & (df.r == 'pr'))])
+
+    a  dir   r
+0  10  pos  vl
+2  20  abs  vl
+3  30  neg  pr
+4   8  abs  vl
+5  14  pos  pr
+  
+
+
+

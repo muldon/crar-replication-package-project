@@ -1,0 +1,213 @@
+Query: How to erase the file contents of text file in Python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/2769125)
+ You have to overwrite the file.  
+
+  #include <fstream>
+
+std::ofstream("test.txt", std::ios::out).close();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/2769090)
+ In python: 
+
+  open('file.txt', 'w').close()
+  
+
+ Or alternatively, if you have already an opened file: 
+
+  f = open('file.txt', 'r+')
+f.truncate(0) # need '0' when using r+
+  
+
+ In C++, you could use something similar. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/36786045)
+ Use temporary file: 
+
+  import os
+import shutil
+
+
+def writeline(filename, n_line, text):
+    tmp_filename = filename + ".tmp"
+
+    count = 0
+    with open(tmp_filename, 'wt') as tmp:
+        with open(filename, 'rt') as src:
+            for line in src:
+                count += 1
+                if count == n_line:
+                    line = line.replace(str(line), text + '\n')
+                tmp.write(line)
+    shutil.copy(tmp_filename, filename)
+    os.remove(tmp_filename)
+
+
+def create_test(fname):
+    with open(fname,'w') as f:
+        f.write('1 \n2 \n3 \n4 \n5')
+
+if __name__ == "__main__":
+    create_test('writetest.txt')
+    writeline('writetest.txt', 4, 'This is the fourth line')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2769091)
+ Opening a file in "write" mode clears it, you don't specifically have to write to it: 
+
+  open("filename", "w").close()
+  
+
+ (you should close it as the timing of when the file gets closed automatically may be implementation specific) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/43367195)
+ From user @jamylak an alternative form of  open("filename","w").close()  is 
+
+  with open('filename.txt','w'): pass
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/4160463)
+ You should http://docs.python.org/library/stdtypes.html#file.flush the file after you have written to it to ensure that the bytes have been written. Also read the warning: 
+
+ 
+   Note: flush() does not necessarily write the file’s data to disk. Use flush() followed by os.fsync() to ensure this behavior. 
+ 
+
+ You should also close the file if you have finished writing to it and want to open it again with read only access. Note that closing the file also flushes - if you close it then you don't need to flush first. 
+
+ In Python 2.6 or newer you can use the with statement to automatically close the file: 
+
+  with open(filename, 'w') as target:
+    target.write('foo')
+    # etc...
+
+# The file is closed when the control flow leaves the "with" block
+
+with open(filename, 'r') as txt:
+    print txt.read()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45281654)
+ When using  with open("myfile.txt", "r+") as my_file: , I get strange zeros in  myfile.txt , especially since I am reading the file first. For it to work, I had to first change the pointer of  my_file  to the beginning of the file with  my_file.seek(0) . Then I could do  my_file.truncate()  to clear the file. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27497055)
+ The  open()  built-in Python method (https://docs.python.org/2/library/functions.html#) uses normally two arguments: the  file path  and the  mode . You have three principal modes (the most used):  r ,  w  and  a .  
+
+ 
+   r  stands for  read  and will make the  open("/path/to/myFile.txt", 'r')  to open an existing file and to only be able to read it (not editing), with  myFile.readlines()  or other methods you can find in https://docs.python.org/2/tutorial/inputoutput.html.  
+   w  stands for  write  and will not only erase everything the file had (if it existed), but let you write new stuff on it through  myFile.write("stuff I want to write") .  
+   a  stands for  append  and will add content to an existing file without erasing what could have been written on it. This is the argument you should use when adding lines to non empty files.  
+ 
+
+ You must not forget to close the file once you have finished working with it with  myFile.close()  because it is only at that point where all the changes, updates, writings, are done. 
+
+ An small snippet for adding a line: 
+
+  f = open("/path/to/myFile.txt", 'a')
+f.write("This line will be appended at the end")
+f.close()
+  
+
+ If the file contents were something like  
+
+  "Stuff
+Stuff which was created long ago"
+  
+
+ Then the file, after the code, looks like 
+
+  "Stuff
+Stuff which was created long ago
+This line will be appended at the end"
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/2174076)
+ I've used AutoBufferedPaintDC, but I've found doing my own double-buffering with a MemoryDC to be more flexible.  Here's a template for you. 
+
+  import wx
+
+class Frame(wx.Frame):
+    def __init__(self):
+        super(Frame, self).__init__(None, -1, 'CursorTracker')
+        self.mdc = None # memory dc to draw off-screen
+        self.Bind(wx.EVT_SIZE, self.on_size)
+        self.Bind(wx.EVT_ERASE_BACKGROUND, self.on_erase)
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+        w, h = wx.GetDisplaySize()
+        w, h = w * 3 / 4, h * 3 / 4
+        self.SetSize((w, h))
+        self.Center()
+        self.on_timer()
+    def on_size(self, event):
+        # re-create memory dc to fill window
+        w, h = self.GetClientSize()
+        self.mdc = wx.MemoryDC(wx.EmptyBitmap(w, h))
+        self.redraw()
+    def on_erase(self, event):
+        pass # don't do any erasing to avoid flicker
+    def on_paint(self, event):
+        # just blit the memory dc
+        dc = wx.PaintDC(self)
+        if not self.mdc:
+            return
+        w, h = self.mdc.GetSize()
+        dc.Blit(0, 0, w, h, self.mdc, 0, 0)
+    def on_timer(self):
+        # refresh every N milliseconds
+        self.redraw()
+        wx.CallLater(100, self.on_timer)
+    def redraw(self):
+        # do the actual drawing on the memory dc here
+        dc = self.mdc
+        w, h = dc.GetSize()
+        dc.Clear()
+        dc.DrawLine(0, 0, w, h)
+        self.Refresh()
+
+if __name__ == '__main__':
+    app = wx.PySimpleApp()
+    frame = Frame()
+    frame.Show()
+    app.MainLoop()
+  
+
+ The basic approach is: 
+
+ 
+ create a memory dc for off-screen drawing 
+ if the window is resized, resize the memory dc and redraw 
+ when a paint event occurs, just blit the memory dc onto the paint dc 
+ do nothing on a erase background event to avoid flicker 
+ call redraw when and only when you actually need to change what's on the screen 
+ 
+
+ If you store a reference to that EmptyBitmap that's created in on_size, you can even save the window contents to an image file with wxBitmap.SaveFile() 
+
+
+

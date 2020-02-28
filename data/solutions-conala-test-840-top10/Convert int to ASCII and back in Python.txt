@@ -1,0 +1,272 @@
+Query: Convert int to ASCII and back in Python
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/227472)
+ From http://mail.python.org/pipermail/python-win32/2005-April/003100.html: 
+
+ 
+   function ord() would get the int value
+  of the char. And in case you want to
+  convert back after playing with the
+  number, function chr() does the trick. 
+ 
+
+  >>> ord('a')
+97
+>>> chr(97)
+'a'
+>>> chr(ord('a') + 3)
+'d'
+>>>
+  
+
+ In Python 2, there is also the  unichr  function, returning the http://en.wikipedia.org/wiki/Unicode character whose ordinal is the  unichr  argument: 
+
+  >>> unichr(97)
+u'a'
+>>> unichr(1234)
+u'\u04d2'
+  
+
+ In Python 3 you can use  chr  instead of  unichr . 
+
+ 
+
+ https://docs.python.org/3/library/functions.html#ord 
+
+ https://docs.python.org/2/library/functions.html#ord 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/32792026)
+ You can use the ASCII values to do this: 
+
+ ASCII to int: 
+
+  ord('a')  # = 97
+  
+
+ Back to a string: 
+
+  str(unichr(97))  # = 'a'
+  
+
+ From there you could iterate over the string one character at a time and store these in another string. Assuming you are using standard ASCII characters, you would need to zero pad the numbers (because some are two digits and some three) like so: 
+
+  s = 'My string'
+number_string = ''
+
+for c in s:
+    number_string += str(ord(c)).zfill(3)
+  
+
+ To decode this, you will read the new string three characters at a time and decode them into a new string. 
+
+ This assumes a few things: 
+
+ 
+ all characters can be represented by ASCII (you could use Unicode code points if not) 
+ you are storing the numeric value  as a string , not as an actual int type (not a big deal in Python&mdash;saves you from having to deal with maximum values for int on different systems) 
+ you absolutely  must  have a numeric value, i.e. some kind of hexadecimal representation (which could be converted into an int) and cryptographic algorithms won't work 
+ we're not talking about GB+ of text that needs to be converted in this manner 
+ 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/17390211)
+  .encode('hex')  will replace each character of    with its ASCII value using hexadecimal. 
+
+ For instance, knowing that the 'A' letter is 0x41 in ASCII: 
+
+  >>> 'AAAA'.encode('hex')
+'41414141'
+  
+
+ and you can do the other way using  decode : 
+
+  >>> '41414141'.decode('hex')
+'AAAA'
+  
+
+ but that's not what you really want. What you want is 0x12 to be converted into 18 (16 + 2). And to do that, the correct way is to use  int(, 16)  to interpret  as a number encoded in base 16. 
+
+ So, the correct solution is the last one. 
+
+  xor = hex(int(s1, 16) ^ int(s2, 16))
+  
+
+  s1  and  s2  are strings containing the hexadecimal representation of your numbers, you decode them into  int  telling Python it's base 16. Then you do the xor and finally you convert it back into a string using the hexadecimal representation (with  hex ). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/43360772)
+ (Assuming OP meant all the digits) 
+Instead of using numbers and have to manipulate to  str  and back to  int , just start with ascii digits: 
+
+  >>> import string
+>>> ''.join(random.sample(string.digits, 4))
+'4561'
+  
+
+ You can convert to  int()  if necessary. 
+It's unclear what the OP intends to do if the first digit is  0 . 
+
+ For a purely numerical approach you can use  functools.reduce : 
+
+  >>> import functools as ft
+>>> ft.reduce(lambda s, d: 10*s + d, random.sample(range(10), 4))
+2945
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3673447)
+ ASCII to int: 
+
+  ord('a')
+  
+
+ gives  97  
+
+ And back to a string: 
+
+ 
+ in Python2:  str(unichr(97))  
+ in Python3:  str(chr(97))  
+ 
+
+ gives  'a'  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/11599702)
+ Let's take the word 'hello' which is  0110100001100101011011000110110001101111  
+
+ To translate that back to characters we can use  chr  and  int  (with a base of 2) and some list slicing... 
+
+  ''.join(chr(int(bin_text[i:i+8], 2)) for i in xrange(0, len(bin_text), 8))
+  
+
+ If we wanted to take 'hello' and convert it to binary we can use  ord  and string formatting... 
+
+  ''.join('{:08b}'.format(ord(c)) for c in 'hello')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/25409669)
+ I wrote a couple functions to convert ascii to int and back using only builtins.  I may have mixed up the MSB/LSB though, so I'm using  [::-1]  to reverse the input strings.  Easy fix if you don't like the ordering. 
+
+  
+
+  >>> intstr = lambda z : ''.join([str(unichr((z & (255*(256**i)))/(256**i))) for i in range(0,((len(bin(z)) - 2) / 8) + (1 if ((len(bin(z)) - 2) / 8) else 0))])
+>>> strint = lambda z : reduce(lambda x,y: x | y, [ord(str(z)[i])*((2**8)**i) for i in range(len(str(z)))])
+>>> strint('abc'[::-1])
+6382179
+>>> bin(strint('abc'[::-1]) & 63)
+'0b100011'
+>>> bin(strint('abc'[::-1]) << 8)
+'0b1100001011000100110001100000000'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/46646429)
+ Your mistake is converting the characters to their  ASCII codepoints , not to integer values. 
+
+ You can convert them using https://docs.python.org/3/library/functions.html#int and https://docs.python.org/3/library/functions.html#format instead: 
+
+  return ''.join(format(int(a, 16) ^ int(b, 16), 'x') for a,b in zip(s1,s2))
+  
+
+  int(string, 16)  interprets the input string as a hexadecimal value.  format(integer, 'x')  outputs a hexadecimal string for the given integer. 
+
+ You can do this without  zip()  by just taking the whole strings as one big integer number: 
+
+  return '{1:0{0}x}'.format(len(s1), int(s1, 16) ^ int(s2, 16))
+  
+
+ To make sure leading  0  characters are not lost, the above uses  str.format()  to format the resulting integer to the right length of zero-padded hexadecimal. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/12627915)
+ The usual way to convert the Unicode string to  a number  is to convert it to the sequence of bytes. The Unicode characters are pure abstraction, each character has its own number; however, there is more ways to convert the numbers to the stream of bytes. Probably the most versatile way of doing that is to encode the string to the UTF-8 encoding. You can choose many ways to get integer number from it. Here is one (I have borrowed the nice string from Ivella -- I hope no bad words are inside  : 
+
+  Python 3.2.1 (default, Jul 10 2011, 20:02:51) [MSC v.1500 64 bit (AMD64)] on win32
+Type "copyright", "credits" or "license()" for more information.
+>>> s = "Hello, World, عالَم, ދުނިޔެ, जगत, 世界"
+>>> b = s.encode('utf-8')
+>>> b
+b'Hello, World, \xd8\xb9\xd8\xa7\xd9\x84\xd9\x8e\xd9\x85, \xde\x8b\xde\xaa\xde\x82\xde\xa8\xde\x94\xde\xac, \xe0\xa4\x9c\xe0\xa4\x97\xe0\xa4\xa4, \xe4\xb8\x96\xe7\x95\x8c'
+  
+
+ Now we have sequence of bytes where the ones with the number from 128 to 255 are displayed as hex-coded escape sequences. Let's convert all bytes to their hexcodes as a bytestring. 
+
+  >>> import binascii
+>>> h = binascii.hexlify(b)
+>>> h
+b'48656c6c6f2c20576f726c642c20d8b9d8a7d984d98ed9852c20de8bdeaade82dea8de94deac2c20e0a49ce0a497e0a4a42c20e4b896e7958c'
+  
+
+ And we can look at it as at a big number written (as text) in hexadecimal notation. The  int  allows us to convert it to the abstract number that--when printed--is more usually converted to decimal notation. 
+
+  >>> i = int(h, 16)
+>>> i
+52620351230730152682202055464811384749235956796562762198329268116226267262806875102376740945811764490696968801603738907493997296927348108
+  
+
+ Now you can store it as a number, encrypt it (although it is more usual to encrypt the earlier sequence of bytes), and later convert it back to the integer. Beware, there is not many languages (and probably no database) that are able to work with that big integers.  
+
+ Let's go back to the original string. Firstly convert it to the hexadecimal representation (string). 
+
+  >>> h2 = hex(i)
+>>> h2
+'0x48656c6c6f2c20576f726c642c20d8b9d8a7d984d98ed9852c20de8bdeaade82dea8de94deac2c20e0a49ce0a497e0a4a42c20e4b896e7958c'
+>>> h3 = h2[2:]   # remove the 0x from the beginning
+>>> h3
+'48656c6c6f2c20576f726c642c20d8b9d8a7d984d98ed9852c20de8bdeaade82dea8de94deac2c20e0a49ce0a497e0a4a42c20e4b896e7958c'
+>>> type(h3)
+<class 'str'>
+  
+
+ We had to remove the  0x  as it only says that the rest are the hexadecimal characters that represent the number. Notice that the  h3  is of the  str  type. As we are in Python 3 (see the top), the  str  means Unicode string. The next step is to convert the couples of hexa numerals back to bytes. Let's try  unhexlify() : 
+
+  >>> binascii.unhexlify(h3)
+Traceback (most recent call last):
+  File "<pyshell#16>", line 1, in <module>
+    binascii.unhexlify(h3)
+TypeError: 'str' does not support the buffer interface
+  
+
+  it accept only bytestrings. Then, encode each hexa numeral in Unicode to hexa numeral in the bytestring. The way to go is to encode; however, encoding to ASCII is trivial. 
+
+  >>> b2 = h3.encode('ascii')  # character by character; subset of ascii only
+>>> b2
+b'48656c6c6f2c20576f726c642c20d8b9d8a7d984d98ed9852c20de8bdeaade82dea8de94deac2c20e0a49ce0a497e0a4a42c20e4b896e7958c'
+>>> b3 = binascii.unhexlify(b2)
+>>> b3
+b'Hello, World, \xd8\xb9\xd8\xa7\xd9\x84\xd9\x8e\xd9\x85, \xde\x8b\xde\xaa\xde\x82\xde\xa8\xde\x94\xde\xac, \xe0\xa4\x9c\xe0\xa4\x97\xe0\xa4\xa4, \xe4\xb8\x96\xe7\x95\x8c'
+  
+
+ Now we have similar bytestring as after the first  .encode('utf-8') . Let's use the inverse operation -- decode from UTF-8. We should get the same Unicode string that we started with. 
+
+  >>> s2 = b3.decode('utf-8')
+>>> s2
+'Hello, World, عالَم, ދުނިޔެ, जगत, 世界'
+>>> s == s2   # is the original equal to the result?
+True
+  
+
+  
+
+
+

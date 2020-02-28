@@ -1,0 +1,186 @@
+Query: How to find the real user home directory using python?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/34043105)
+  
+
+  import os
+homepath = os.path.expanduser(os.getenv('USERPROFILE'))
+  
+
+ will give you a handle to current user's home directory and  
+
+  filepath = os.path.expanduser(os.getenv('USERPROFILE'))+'\\Documents\\myfile.txt'
+  
+
+ will give you a handle to below file; 
+
+  C:\Users\urUserName\Documents\myfile.txt
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/3195623)
+  home_folder = os.getenv('HOME')  
+
+ This should work on Windows and Mac OS too, works well on Linux. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/41915516)
+  from pathlib import *
+
+str(Path.home())
+  
+
+ works in Python 3.5 and above.  Path.home()  returns a  Path  object providing an https://docs.python.org/3.6/library/pathlib.html#basic-use I find very useful. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/42750492)
+ I realize that this is an old question that has been answered but I thought I would add my two cents. The accepted answer was not working for me. I needed to find the user directory and I wanted it to work with and without  sudo . In Linux, my user directory is "/home/someuser" but my root directory is "/root/". However, on my Mac, the user directory is "/Users/someuser".  
+
+  _USERNAME = os.getenv("SUDO_USER") or os.getenv("USER") 
+_HOME = os.path.expanduser('~'+_USERNAME)
+  
+
+ This worked both with and without  sudo  on Mac and Linux. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/3085545)
+ I think  os.path.expanduser(path)  is the best answer to your question, but there's an alternative that may be worth mentioning in the Unix world: the http://docs.python.org/library/pwd.html package. e.g. 
+
+  import os, pwd
+
+pwd.getpwuid(os.getuid()).pw_dir
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/2668952)
+ I think http://docs.python.org/library/os.path.html#os.path.expanduser could be helpful. 
+
+ 
+   On Unix and Windows, return the argument with an initial component of  ~   or  ~user  replaced by that user‘s home directory. 
+  
+   On Unix, an initial  ~  is replaced by the environment variable HOME if it is set; otherwise the current user’s home directory is looked up in the password directory through the built-in module  pwd .  An initial  ~user  is looked up directly in the password directory . 
+  
+   On Windows, HOME and USERPROFILE will be used if set, otherwise a  combination of HOMEPATH and HOMEDRIVE  will be used.  An initial  ~user  is handled by stripping the last directory component from the created user path derived above . 
+  
+   If the expansion fails or if the path does not begin with a tilde, the path is returned unchanged. 
+ 
+
+  
+
+  os.path.expanduser('~user')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/2668949)
+ Really, a change in environment variable indicates that the home must be changed. So every program/script should have the new home in context; also the consequences are up to the person who changed it. 
+I would still stick with 
+ home = os.getenv('USERPROFILE') or os.getenv('HOME')  
+
+ what exactly is required? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/17806123)
+ The difference between  os.path.abspath  and  os.path.realpath  is that  os.path.abspath  does not resolve symbolic links, so it should be exactly what you are looking for.  
+
+  /home/user$ mkdir test
+/home/user$ mkdir test/real
+/home/user$ mkdir test/link
+/home/user$ touch test/real/file
+/home/user$ ln -s /home/user/test/real/file test/link/file
+/home/user$ ls -lR test
+
+  test:
+  d... link
+  d... real
+
+  test/real:
+  -... file
+
+  test/link:
+  l... file -> /home/user/test/real/file
+
+/home/user$ python
+
+  ... python 3.3.2 ...
+  >>> import os
+  >>> print(os.path.realpath('test/link/file'))
+  /home/user/test/real/file
+  >>> print(os.path.abspath('test/link/file'))
+  /home/user/test/link/file
+  
+
+ So there you go. How are you using  os.path.abspath  that you say it resolves your symbolic link? 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/47729523)
+ Standard method is to find real path to folder with application 
+
+  import os, sys
+
+APP_FOLDER = os.path.dirname(os.path.realpath(sys.argv[0]))
+  
+
+ And later use it to create real path to file 
+
+  full_path = os.path.join(APP_FOLDER, "eating.wav")
+
+pygame.mixer.Sound(full_path).play()
+  
+
+ Or you have to change  "current working directory"  (CWD) to application folder. 
+
+  os.chdir(APP_FOLDER)
+
+pygame.mixer.Sound("eating.wav").play()
+  
+
+ You can check current working directory with  
+
+  print(os.getcwd())
+  
+
+ 
+
+  BTW:  without this method problem is not only when you run on different computer but also when you run from different folder on the same computer - so it makes problem when you create shortcut/icon on desktop which executes program as  python game_folder/game.py  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/41942477)
+ You could check if the Python executable is located in the user's home directory. The location of the home directory is retrieved by using the https://docs.python.org/3/library/os.path.html#os.path.expanduser method. The location of the Python interpreter is retrieved by using the https://docs.python.org/3/library/sys.html#sys.executable method. 
+
+ The following function returns  True  if the Python interpreter was installed within the user's home directory, and  False  otherwise. It works under Linux, and should work under macOS and Windows (but I didn't test those). 
+
+<pre class="lang-py prettyprint-override"> import sys
+import os
+
+def user_python():
+    try:
+        return sys.executable.startswith(os.path.expanduser("~"))
+    except AttributeError:
+        return False
+  
+
+ The exception is needed because according to the documentation of  sys.executable() , it may return  None  under some circumstances. 
+
+ EDIT 2018-12-08: it works on Windows 10. 
+
+
+

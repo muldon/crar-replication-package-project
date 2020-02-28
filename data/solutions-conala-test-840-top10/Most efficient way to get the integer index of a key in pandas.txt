@@ -1,0 +1,235 @@
+Query: Most efficient way to get the integer index of a key in pandas
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/31793537)
+ Not sure if it is the fastest but you can use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_loc.html: 
+
+  df = pd.DataFrame(data=np.asarray([[1,2,3],[4,5,6],[7,8,9]]), index=['alice', 'bob', 'charlie'])
+
+print(df.index.get_loc("bob"))
+1
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/31793552)
+ Use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_loc.html, it was made for this purpose! 
+
+  df.index.get_loc('bob')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/15165894)
+ Here's one way to do it, first grab the integer location of the index key via  get_loc : 
+
+  In [15]: t = pd.Timestamp("2013-02-27 00:00:00+00:00")
+
+In [16]: df1.index.get_loc(t)
+Out[16]: 3
+  
+
+ And then you can use  iloc  (to get the integer location, or slice by integer location): 
+
+  In [17]: loc = df1.index.get_loc(t)
+
+In [18]: df.iloc[loc - 1]
+Out[18]: 
+Date    2013-02-26 00:00:00
+                      -0.15
+Name: 2, Dtype: object
+
+In [19]: df1.iloc[slice(max(0, loc-3), min(loc, len(df)))]
+        # the min and max feel slightly hacky (!) but needed incase it's within top or bottom 3
+Out[19]:                         
+Date                    
+2013-02-22  0.280001
+2013-02-25  0.109999
+2013-02-26 -0.150000
+  
+
+ See the https://pandas.pydata.org/pandas-docs/stable/indexing.html#selection-by-position. 
+
+ 
+
+  I'm not quite sure how you set up your DataFrame, but that doesn't look like a Datetime Index to me.  Here's how I got the DataFrame (with Timestamp index): 
+
+  In [11]: df = pd.read_clipboard(sep='\s\s+', header=None, parse_dates=[0], names=['Date', None])
+
+In [12]: df
+Out[12]: 
+                 Date          
+0 2013-02-22 00:00:00  0.280001
+1 2013-02-25 00:00:00  0.109999
+2 2013-02-26 00:00:00 -0.150000
+3 2013-02-27 00:00:00  0.130001
+4 2013-02-28 00:00:00  0.139999
+
+In [13]: df1 = df.set_index('Date')
+
+In [14]: df1
+Out[14]:                
+Date                
+2013-02-22  0.280001
+2013-02-25  0.109999
+2013-02-26 -0.150000
+2013-02-27  0.130001
+2013-02-28  0.139999
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/29933308)
+ Alternatively, if you have  pandas  installed: 
+
+  import pandas as pd
+
+l = [('dog',12,2), ('cat',15,1), ('dog',11,1), ('cat',15,2), ('dog',10,3), ('cat',16,3)]
+
+pd.DataFrame(data=l, columns=['animal', 'm', 'n']).groupby('animal').agg({'m':'max', 'n':'min'})
+Out[6]: 
+         m  n
+animal       
+cat     16  1
+dog     12  1
+  
+
+ To get the original format: 
+
+  zip(df.index, *df.values.T) # df is the result above
+Out[14]: [('cat', 16, 1), ('dog', 12, 1)]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/41070130)
+  Get dataframe integer index given a date key:  
+
+  >>> import pandas as pd
+
+>>> df = pd.DataFrame(
+    index=pd.date_range(pd.datetime(2008,1,1), pd.datetime(2008,1,5)),
+    columns=("foo", "bar"))
+
+>>> df["foo"] = [10,20,40,15,10]
+
+>>> df["bar"] = [100,200,40,-50,-38]
+
+>>> df
+            foo  bar
+2008-01-01   10  100
+2008-01-02   20  200
+2008-01-03   40   40
+2008-01-04   15  -50
+2008-01-05   10  -38
+
+>>> df.index.get_loc(df["bar"].argmax())
+1
+
+>>> df.index.get_loc(df["foo"].argmax())
+2
+  
+
+ In column bar, the index of the maximum value is 1 
+
+ In column foo, the index of the maximum value is 2 
+
+ http://pandas.pydata.org/pandas-docs/stable/generated/pandas.Index.get_loc.html 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/50160601)
+ Here is another simpler take: 
+
+  df = pd.DataFrame([[0,1,3,4,np.nan,2],[3,5,6,np.nan,3,3]])
+
+inds = np.asarray(df.isnull()).nonzero()
+
+(array([0, 1], dtype=int64), array([4, 3], dtype=int64))
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/14016590)
+ For DataFrame  df : 
+
+  import numpy as np
+index = df['b'].index[df['b'].apply(np.isnan)]
+  
+
+ will give you back the  MultiIndex  that you can use to index back into  df , e.g.: 
+
+  df['a'].ix[index[0]]
+>>> 1.452354
+  
+
+ For the integer index: 
+
+  df_index = df.index.values.tolist()
+[df_index.index(i) for i in index]
+>>> [3, 6]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/11413885)
+ You can use an http://en.wikipedia.org/wiki/Interval_tree. 
+
+ I don't understand Python but I think you are doing a brute force here.  
+
+ Another way would be to sort based on start index; so for your e.g you get 
+
+ 0 3 4 5 7 10 15 18 19 
+
+ Now go through each start index and check where its corresponding end index lies w.r.t following start indices through a binary search i.e. here we take 0, get its end index which is 2 and see where 2 lies. Because 2 lies immediately after 0 it does not overlap anything but let's say 0's end index was 17 then it would mean 0,17 overlaps all start indices until 15 which are 3,4,5,7,10,15. The complexity is nlogn. 
+
+ Edit 
+
+ What I just realized is that you are retaining 4,5 though 4,5 and 5,6 overlap and I guess because 4,5 integer key is 1 which is less than integer key of 5,6 which is 2. So I guess you always retain the lower integer key though it is overlapping. 
+
+ If this is the case, the complexity would be O(n^2) because you can't blindly do a binary search. For e.g. if 4's end index was 10 then you will have to go through 5,7 and 10 to check if their integer key is less than 4's. If it is then 4 and its end index can be filtered otherwise retain 4. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/34004356)
+ I found a faster way to solve the problem, at least on realistically large datasets using:
+ df.set_index(KEY).to_dict()[VALUE]  
+
+ Proof on 50,000 rows: 
+
+  df = pd.DataFrame(np.random.randint(32, 120, 100000).reshape(50000,2),columns=list('AB'))
+df['A'] = df['A'].apply(chr)
+
+%timeit dict(zip(df.A,df.B))
+%timeit pd.Series(df.A.values,index=df.B).to_dict()
+%timeit df.set_index('A').to_dict()['B']
+  
+
+ Output: 
+
+  100 loops, best of 3: 7.04 ms per loop  # WouterOvermeire
+100 loops, best of 3: 9.83 ms per loop  # Jeff
+100 loops, best of 3: 4.28 ms per loop  # Kikohs (me)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/23667105)
+ Try a pandas Series, it was built for this. 
+
+  import pandas as pd
+s = pd.Series({'a':1, 'b':2, 'c':3})
+s.values # a numpy array
+  
+
+
+

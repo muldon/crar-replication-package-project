@@ -1,0 +1,231 @@
+Query: python regex get first part of an email address
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/45082516)
+ This should work : 
+
+  import re
+email = your.email@gmail.com
+regex = re.search(r'([a-zA-Z0-9./-]+)@([a-zA-Z0-9./-]+)\.([a-z]+)', email)
+
+regex.group(1) --> 'your.email'
+
+regex.group(2) --> 'gmail'
+
+regex.group(3) --> 'com'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/15210508)
+ You should just use the http://docs.python.org/2/library/stdtypes.html#str.split method of strings: 
+
+  s.split("@")[0]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/45082300)
+ You can use re.split() 
+
+  import re
+email = 'serebro@gmail.com'
+output = re.split(r'[@.]', email)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/15210681)
+ As others have pointed out, the better solution is to use  split . 
+
+ If you're really keen on using  regex  then this should work: 
+
+  import re
+
+regexStr = r'^([^@]+)@[^@]+$'
+emailStr = 'foo@bar.baz'
+matchobj = re.search(regexStr, emailStr)
+if not matchobj is None:
+    print matchobj.group(1)
+else:
+    print "Did not match"
+  
+
+  
+
+  foo
+  
+
+  NOTE:  This is going to work only with email strings of  SOMEONE@SOMETHING.TLD . If you want to match emails of type  NAME<SOMEONE@SOMETHING.TLD> , you need to adjust the regex. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/34311504)
+   .  in your regex, you need to use  \. , so your code should look like this: 
+
+  company = re.findall('^From:.+@(.*)\.',line)
+#                                  ^ this position was wrong
+  
+
+ See it https://regex101.com/r/gM6aI3/1. 
+
+ Note that this will always match the last occurrence of  .  in your string, because  (.*)  is greedy. If you want to match the  first  occurence, you need to exclude any  .  from your capturing group: 
+
+  company = re.findall('^From:.+@([^\.]*)\.',line)
+  
+
+   
+
+ See a https://www.debuggex.com/r/4tVEr6O4Ka0Gp9C5. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35094475)
+ Here's a simple way to verify emails. This is minimally modified code from https://www.scottbrady91.com/Email-Verification/Python-Email-Verification-Script. The first part will check if the email address is well-formed, the second part will ping the SMTP server with that address and see if it gets a success code (250) back or not. That being said, this isn't failsafe -- depending how this is set up sometimes every email will be returned as valid. So you should still send a verification email. 
+
+  email_address = 'example@example.com'
+
+#Step 1: Check email
+#Check using Regex that an email meets minimum requirements, throw an error if not
+addressToVerify = email_address
+match = re.match('^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,4})$', addressToVerify)
+
+if match == None:
+    print('Bad Syntax in ' + addressToVerify)
+    raise ValueError('Bad Syntax')
+
+#Step 2: Getting MX record
+#Pull domain name from email address
+domain_name = email_address.split('@')[1]
+
+#get the MX record for the domain
+records = dns.resolver.query(domain_name, 'MX')
+mxRecord = records[0].exchange
+mxRecord = str(mxRecord)
+
+#Step 3: ping email server
+#check if the email address exists
+
+# Get local server hostname
+host = socket.gethostname()
+
+# SMTP lib setup (use debug level for full output)
+server = smtplib.SMTP()
+server.set_debuglevel(0)
+
+# SMTP Conversation
+server.connect(mxRecord)
+server.helo(host)
+server.mail('me@domain.com')
+code, message = server.rcpt(str(addressToVerify))
+server.quit()
+
+# Assume 250 as Success
+if code == 250:
+    print('Y')
+else:
+    print('N')
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/45441796)
+ I would definitely clean it up first and simplify the regex. 
+
+ first we have  
+
+  words = re.split(r':|\s', "a.a b.b:c.c d.d@e.e.e")
+  
+
+ then filter out the words that have an  @  in them. 
+
+  words = [re.search(r'^((?!@).)*$', word) for word in words]
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/24441979)
+ This works on your example: 
+
+  >>> txt='''\
+... commit 34343asdfasdf343434asdfasdfas
+... Author: John Doe <john@doe.com>
+... Date:   Wed Jun 25 09:51:49 2014 +0800'''
+>>> json.dumps({k:v for k,v in re.findall(r'^([^\s]+)\s+(.+?)$', txt, re.M)})
+{"commit": "34343asdfasdf343434asdfasdfas", "Date:": "Wed Jun 25 09:51:49 2014 +0800", "Author:": "John Doe <john@doe.com>"}
+  
+
+ If you have the  git...  part, just split it off: 
+
+  >>> json.dumps({k:v for k,v in re.findall(r'^([^\s]+)\s+(.+?)$', 
+                           txt.partition('\n\n')[2], re.M)})
+  
+
+ And if you want to loose the  :  just change the regex capturing group to say so: 
+
+  >>> json.dumps({k:v for k,v in re.findall(r'^(\w+):?\s+(.+?)$', 
+                          txt.partition('\n\n')[2], re.M)})
+{"Date": "Wed Jun 25 09:51:49 2014 +0800", "commit": "34343asdfasdf343434asdfasdfas", "Author": "John Doe <john@doe.com>"}
+  
+
+ And if you want to loose the email address: 
+
+  >>> json.dumps({k:v for k,v in re.findall(r'^(\w+):?\s+(.+?)(?:\s*<[^>]*>)?$', 
+                     txt.partition('\n\n')[2], re.M)})
+{"Date": "Wed Jun 25 09:51:49 2014 +0800", 
+ "commit": "34343asdfasdf343434asdfasdfas", "Author": "John Doe"}
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/26646780)
+ Use the regex  
+
+  (?<=\[)\d{1,3}(?:\.\d{1,3}){3}(?=\])
+  
+
+ to extract the ip 
+
+ see how the regex works: http://regex101.com/r/lI0rU3/1     
+
+  x="""Received: from smtprelay.b.mail.com (smtprelay0225.b.mail.com. [11.11.11.11])
+...     by mx.google.com with ESMTP id g7si12282480pat.225.2014.07.26.06.53.24
+...     for <a@gmail.com>;"""
+>>> re.findall(r'(?<=\[)\d{1,3}(?:\.\d{1,3}){3}(?=\])', x)
+['11.11.11.11']
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/9765160)
+ This will work: 
+
+  >>> regexp = r"[\w\.]+@(\w+)(\.\w+)?(\.\w+)?(\.\w+)?(\.\w+)?(\.\w+)?"
+>>> email_address = "william.adama@galactica.caprica.fleet.mil"
+>>> m = re.match(regexp, email_address)
+>>> m.groups()
+('galactica', '.caprica', '.fleet', '.mil', None, None)
+  
+
+ But it's limited to a maximum of six subgroups. A better way to do this would be: 
+
+  >>> m = re.match(r"[\w\.]+@(.+)", email_address)
+>>> m.groups()
+('galactica.caprica.fleet.mil',)
+>>> m.group(1).split('.')
+['galactica', 'caprica', 'fleet', 'mil']
+  
+
+ Note that regexps are fine so long as the email addresses are simple - but there are all kinds of things that this will break for. See https://stackoverflow.com/questions/201323/how-to-use-a-regular-expression-to-validate-an-email-addresses for a detailed treatment of email address regexes. 
+
+
+

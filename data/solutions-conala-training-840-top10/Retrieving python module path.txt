@@ -1,0 +1,250 @@
+Query: Retrieving python module path
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7141907)
+ You could always use http://docs.python.org/library/string.html#string.split: 
+
+  >>> print '\\' + path.split('\\', 2)[-1]
+\bar\baz\text.txt
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/43506852)
+ Nowadays, you should use the standard libraries  subprocess  module to do such tasks. 
+
+ Also, you should always use context managers with files. These handle automical closing and exception handling. 
+
+ What might also be a problem, is that  readlines()  will return all lines in the file as a list but  with endline character .
+Use  f.read().splitlines()  to remove the endline or call  .strip()  on the individual lines. 
+
+  
+
+  import subprocess as sp
+
+with open('config.txt') as config:
+    lines = config.read().splitlines()
+
+appone = lines[0]
+
+def launch_appone():
+    sp.run([appone])
+  
+
+ Edit: also the python docs mention that os.system should not be used anymore 
+
+ 
+   The subprocess module provides more powerful facilities for spawning new processes and retrieving their results; using that module is preferable to using this function. See the Replacing Older Functions with the subprocess Module section in the subprocess documentation for some helpful recipes. 
+ 
+
+ https://docs.python.org/3/library/os.html#os.system 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/14354523)
+ Just tested on my XP PC, Python 2.7, SMB share  \\myshare  
+
+  os.listdir('\\\\myshare') # Fails with "WindowsError: [Error 53] The network path was not found"
+
+os.listdir('\\\\myshare/folder') # Succeeds
+  
+
+ I think some of the confusion could be caused by WindowsError showing the  repr()  of the path, rather than the actual path -  
+
+  >>> repr(path)
+"'\\\\myshare'"
+>>> str(path)
+'\\myshare'
+  
+
+ If this is a Python 3 & unicode problem, I suggest trying to fix the string first: 
+
+  path = "\\\\myshare\folder"
+path = bytes(path, "utf-8").decode("unicode_escape")
+print os.listdir(path)
+  
+
+ (unfortunately I can't test this since I don't have Python 3 installed, but please let me know if it works and I'll edit my answer) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/17959042)
+ The mtime refers to last time the file's contents were changed. This can be altered on unix systems in various ways. Often, when you restore files from backup, the mtime is altered to indicate the last time the contents were changed before the backup was made. 
+
+ The ctime indicates the last time the inode was altered. This cannot be changed. In the above example with the backup, the ctime will still reflect the time of file restoration. Additionally, ctime is updated when things like file permissions are changed. 
+
+ Unfortunately, there's usually no way to find the original date of file creation. This is a limitation of the underlying filesystem. I believe the ext4 filesystem has added creation date to the inode, and Apple's HFS also supports it, but I'm not sure how you'd go about retrieving it in Python. (The C  stat  function and the corresponding  stat  command should show you that information on filesystems that support it.) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/15146584)
+ You are trying to open the file in the  current  working directory, because you didn't specify a path. You need to use an absolute path instead: 
+
+  import os.path
+BASE = os.path.dirname(os.path.abspath(__file__))
+
+data = open(os.path.join(BASE, "snp_data.txt"))
+  
+
+ because the current working directory is rarely the same as the module directory. 
+
+ Note that I used  open()  instead of  file() ; the former is the recommended method. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/35851955)
+ Correctly locating Windows folders is somewhat of a chore in Python. According to answers covering Microsoft development technologies, such as https://stackoverflow.com/questions/7672774/how-do-i-determine-the-windows-download-folder-path/7672816#7672816, they should be obtained using the Vista https://msdn.microsoft.com/en-us/library/bb776911(v=VS.85).. This API is not wrapped by the Python standard library (though there is https://bugs.python.org/issue1763 requesting it), but one can use the ctypes module to access it anyway. 
+
+ Adapting the above answer to use the folder id for downloads https://stackoverflow.com/questions/7672774/how-do-i-determine-the-windows-download-folder-path/7672816#7672816 and combining it with your existing Unix code should result in code that looks like this: 
+
+  import os
+
+if os.name == 'nt':
+    import ctypes
+    from ctypes import windll, wintypes
+    from uuid import UUID
+
+    # ctypes GUID copied from MSDN sample code
+    class GUID(ctypes.Structure):
+        _fields_ = [
+            ("Data1", wintypes.DWORD),
+            ("Data2", wintypes.WORD),
+            ("Data3", wintypes.WORD),
+            ("Data4", wintypes.BYTE * 8)
+        ] 
+
+        def __init__(self, uuidstr):
+            uuid = UUID(uuidstr)
+            ctypes.Structure.__init__(self)
+            self.Data1, self.Data2, self.Data3, \
+                self.Data4[0], self.Data4[1], rest = uuid.fields
+            for i in range(2, 8):
+                self.Data4[i] = rest>>(8-i-1)*8 & 0xff
+
+    SHGetKnownFolderPath = windll.shell32.SHGetKnownFolderPath
+    SHGetKnownFolderPath.argtypes = [
+        ctypes.POINTER(GUID), wintypes.DWORD,
+        wintypes.HANDLE, ctypes.POINTER(ctypes.c_wchar_p)
+    ]
+
+    def _get_known_folder_path(uuidstr):
+        pathptr = ctypes.c_wchar_p()
+        guid = GUID(uuidstr)
+        if SHGetKnownFolderPath(ctypes.byref(guid), 0, 0, ctypes.byref(pathptr)):
+            raise ctypes.WinError()
+        return pathptr.value
+
+    FOLDERID_Download = '{374DE290-123F-4565-9164-39C4925E467B}'
+
+    def get_download_folder():
+        return _get_known_folder_path(FOLDERID_Download)
+else:
+    def get_download_folder():
+        home = os.path.expanduser("~")
+        return os.path.join(home, "Downloads")
+  
+
+ A more complete module for retrieving known folders from Python is https://gist.github.com/mkropat/7550097. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/33252766)
+ This one worked for me: 
+
+  os.listdir('\\\\server\folder\subfolder\etc')
+  
+
+ (with Python 2.7 32b on Win7 64b) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/36917033)
+ 
+  The file should be opened in  binary  writing mode:  f = open("featuresvmt.txt", "wb") .    
+  The file  featuresvmt.txt  will be created in the current working directory. You can find the current working directory using  os.getcwd() . Or, simply supply an absolute path:  f = open("/path/to/featuresvmt.txt", "wb") .  
+ 
+
+ 
+
+  import pickle as pk
+feature_svmt, out_val = 'foo', 12.34
+
+with open("featuresvmt.txt", "wb") as f:
+    pk.dump(feature_svmt, f)
+    pk.dump(out_val, f)
+
+with open("featuresvmt.txt", "rb") as f:
+    print(pk.load(f))
+    # foo
+    print(pk.load(f))
+    # 12.34
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/20306283)
+ I don't know what you need is, but if it's retrieving filename without extension, you have the  os.path.splitext  http://docs.python.org/3/library/os.path.html#os.path.splitext: 
+
+  >>> import os
+>>> name, extension = os.path.splitext("movies.csv")
+>>> name
+'movies'
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:10 (https://stackoverflow.com/questions/12633621)
+ Oddly enough, I just ran into the same problem! Looking up the file in question ( billiard/forking.py ), I found this function: 
+
+  def _Django_old_layout_hack__save():
+    if 'DJANGO_PROJECT_DIR' not in os.environ:
+        try:
+            settings_name = os.environ['DJANGO_SETTINGS_MODULE']
+        except KeyError:
+            return  # not using Django.
+
+        try:
+            project_name, _ = settings_name.split('.', 1)
+        except ValueError:
+            return  # not modified by setup_environ
+
+        project = __import__(project_name)
+        try:
+            project_dir = os.path.normpath(_module_parent_dir(project))
+        except AttributeError:
+            return  # dynamically generated module (no __file__)
+        warnings.warn(UserWarning(
+            W_OLD_DJANGO_LAYOUT % os.path.realpath(project_dir)
+        ))
+        os.environ['DJANGO_PROJECT_DIR'] = project_dir
+  
+
+ This function apparently does some sanity checks on  os.environ . Notice that, after retrieving  DJANGO_SETTINGS_MODULE , it tries to split the module name by a period. This code seems to assume that, if your  DJANGO_SETTINGS_MODULE  is a top-level module (as it is, by default), then your environment hasn't been modified. 
+
+  Unfortunately , if it isn't a top-level module, it seems to assume that you used  setup_environ , and that it must now add the project directory to the path. 
+
+ In my case, I had simply moved the simple  settings.py  module out into its own  settings  package, splitting it up into the common, and development/production files. Of course, I had to modify  manage.py  and  wsgi.py  to point to the correct settings module. Which, of course, started to trigger this warning. 
+
+ The way I worked around it was by adding the  DJANGO_PROJECT_DIR  variable directly in my  manage.py . I'm not sure if I'll need to add it elsewhere (e.g. in production environments), but that's all I've run into so far. 
+
+ Here's the relevant line in  manage.py : 
+
+  if __name__ == "__main__":
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings.current")
+
+    # Add the project directory to the path, to appease billiard
+    os.environ.setdefault("DJANGO_PROJECT_DIR",
+        os.path.dirname(os.path.realpath(__file__)))
+  
+
+
+

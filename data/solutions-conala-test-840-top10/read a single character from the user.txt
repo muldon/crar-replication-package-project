@@ -1,0 +1,385 @@
+Query: read a single character from the user
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/7259460)
+ An alternative method: 
+
+  import os
+import sys    
+import termios
+import fcntl
+
+def getch():
+  fd = sys.stdin.fileno()
+
+  oldterm = termios.tcgetattr(fd)
+  newattr = termios.tcgetattr(fd)
+  newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
+  termios.tcsetattr(fd, termios.TCSANOW, newattr)
+
+  oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+  fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+
+  try:        
+    while 1:            
+      try:
+        c = sys.stdin.read(1)
+        break
+      except IOError: pass
+  finally:
+    termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
+    fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
+  return c
+  
+
+ From http://love-python.blogspot.com/2010/03/getch-in-python-get-single-character.html. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/510364)
+ Here's a link to a site that says how you can read a single character in Windows, Linux and OSX: http://code.activestate.com/recipes/134892/ 
+
+  class _Getch:
+    """Gets a single character from standard input.  Does not echo to the
+screen."""
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self): return self.impl()
+
+
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+
+
+getch = _Getch()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/28640609)
+ Try this with pygame: 
+
+  import pygame
+pygame.init()             // eliminate error, pygame.error: video system not initialized
+keys = pygame.key.get_pressed()
+
+if keys[pygame.K_SPACE]:
+    d = "space key"
+
+print "You pressed the", d, "."
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/2988281)
+ Just read a single character 
+
+  f.read(1)
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/510404)
+  sys.stdin.read(1)
+  
+
+ will basically read 1 byte from STDIN. 
+
+ If you must use the method which does not wait for the  \n  you can use this code as suggested in previous answer: 
+
+  class _Getch:
+    """Gets a single character from standard input.  Does not echo to the screen."""
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self): return self.impl()
+
+
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+
+
+getch = _Getch()
+  
+
+ ( taken from  http://code.activestate.com/recipes/134892/) 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/21659588)
+ The ActiveState http://code.activestate.com/recipes/134892/ quoted verbatim in two answers is over-engineered.  
+
+  def _find_getch():
+    try:
+        import termios
+    except ImportError:
+        # Non-POSIX. Return msvcrt's (Windows') getch.
+        import msvcrt
+        return msvcrt.getch
+
+    # POSIX system. Create and return a getch that manipulates the tty.
+    import sys, tty
+    def _getch():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+    return _getch
+
+getch = _find_getch()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/26089126)
+ This might be a use case for a context manager.  Leaving aside allowances for Windows OS, here's my suggestion: 
+
+  #!/usr/bin/env python3
+# file: 'readchar.py'
+"""
+Implementation of a way to get a single character of input
+without waiting for the user to hit <Enter>.
+(OS is Linux, Ubuntu 14.04)
+"""
+
+import tty, sys, termios
+
+class ReadChar():
+    def __enter__(self):
+        self.fd = sys.stdin.fileno()
+        self.old_settings = termios.tcgetattr(self.fd)
+        tty.setraw(sys.stdin.fileno())
+        return sys.stdin.read(1)
+    def __exit__(self, type, value, traceback):
+        termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old_settings)
+
+def test():
+    while True:
+        with ReadChar() as rc:
+            char = rc
+        if ord(char) <= 32:
+            print("You entered character with ordinal {}."\
+                        .format(ord(char)))
+        else:
+            print("You entered character '{}'."\
+                        .format(char))
+        if char in "^C^D":
+            sys.exit()
+
+if __name__ == "__main__":
+    test()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/27632003)
+ Depending on the OS, how you get a single character from user input and how to check for the carriage return will be different. 
+
+ See this post: https://stackoverflow.com/questions/510357/python-read-a-single-character-from-the-user 
+
+ On OSX, for example, you could so something like this: 
+
+  import sys, tty, termios
+
+def getch():
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
+
+key = ""
+sys.stdout.write('Password :: ')
+while True:
+    ch = getch()
+    if ch == '\r':
+        break
+    key += ch
+    sys.stdout.write('*')
+print
+print key
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/31550142)
+ Try using this: http://home.wlu.edu/~levys/software/kbhit.py
+It's non-blocking (that means that you can have a while loop and detect a key press without stopping it) and cross-platform. 
+
+  import os
+
+# Windows
+if os.name == 'nt':
+    import msvcrt
+
+# Posix (Linux, OS X)
+else:
+    import sys
+    import termios
+    import atexit
+    from select import select
+
+
+class KBHit:
+
+    def __init__(self):
+        '''Creates a KBHit object that you can call to do various keyboard things.'''
+
+        if os.name == 'nt':
+            pass
+
+        else:
+
+            # Save the terminal settings
+            self.fd = sys.stdin.fileno()
+            self.new_term = termios.tcgetattr(self.fd)
+            self.old_term = termios.tcgetattr(self.fd)
+
+            # New terminal setting unbuffered
+            self.new_term[3] = (self.new_term[3] & ~termios.ICANON & ~termios.ECHO)
+            termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.new_term)
+
+            # Support normal-terminal reset at exit
+            atexit.register(self.set_normal_term)
+
+
+    def set_normal_term(self):
+        ''' Resets to normal terminal.  On Windows this is a no-op.
+        '''
+
+        if os.name == 'nt':
+            pass
+
+        else:
+            termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old_term)
+
+
+    def getch(self):
+        ''' Returns a keyboard character after kbhit() has been called.
+            Should not be called in the same program as getarrow().
+        '''
+
+        s = ''
+
+        if os.name == 'nt':
+            return msvcrt.getch().decode('utf-8')
+
+        else:
+            return sys.stdin.read(1)
+
+
+    def getarrow(self):
+        ''' Returns an arrow-key code after kbhit() has been called. Codes are
+        0 : up
+        1 : right
+        2 : down
+        3 : left
+        Should not be called in the same program as getch().
+        '''
+
+        if os.name == 'nt':
+            msvcrt.getch() # skip 0xE0
+            c = msvcrt.getch()
+            vals = [72, 77, 80, 75]
+
+        else:
+            c = sys.stdin.read(3)[2]
+            vals = [65, 67, 66, 68]
+
+        return vals.index(ord(c.decode('utf-8')))
+
+
+    def kbhit(self):
+        ''' Returns True if keyboard character was hit, False otherwise.
+        '''
+        if os.name == 'nt':
+            return msvcrt.kbhit()
+
+        else:
+            dr,dw,de = select([sys.stdin], [], [], 0)
+            return dr != []
+  
+
+ An example to use this: 
+
+  import kbhit
+
+kb = kbhit.KBHit()
+
+while(True): 
+    print("Key not pressed") #Do something
+    if kb.kbhit(): #If a key is pressed:
+        k_in = kb.getch() #Detect what key was pressed
+        print("You pressed ", k_in, "!") #Do something
+kb.set_normal_term()
+  
+
+ Or you could use the https://pypi.python.org/pypi/getch. But this would block the while loop 
+
+
+

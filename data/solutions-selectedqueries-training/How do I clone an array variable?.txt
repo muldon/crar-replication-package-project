@@ -1,0 +1,101 @@
+Query: How do I clone an array variable?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/47773245)
+ 
+   Is there any issue of cloning of an interface object or any other
+  issue? 
+ 
+
+ Conceptually, it is not right. 
+You don't clone interfaces. 
+You clone only instances. 
+So it means that in your case you want also to clone the interface implementations.  
+
+ 
+   My question is I have five variables other than interface variable
+  while cloning all five variables is getting but not this interface
+  variable. 
+ 
+
+ These variables are very probably primitives and the default  clone()  behavior is "fine" as primitives copy means primitive assignments such as  clone.myInt = original.myInt  and this doesn't result to a shared  myInt   variable between the original and the cloned object.  
+
+ But this one :  
+
+  private ValueChangeObserver observer = null;
+  
+
+ .  
+
+ So as you clone a  BaseModelItem  instance, the  observer  field will reference exactly the same object in the original and the cloned object.  
+
+ So you should specify how to clone that variable. 
+You should rather write something like : 
+
+  private ValueChangeObserver observer = null;
+...
+@Override
+public WiSeConBaseModelItem clone() {
+    WiSeConBaseModelItem clonedItem = (WiSeConBaseModelItem) super.clone();
+    cloneItem.observer = observer.clone();
+    return clonedItem;
+}
+  
+
+ So it means you will have to override  clone()  in each implementation of  ValueChangeObserver  but you will also have to defined  clone()  in  ValueChangeObserver  as it doesn't declare it :  
+
+  public interface ValueChangeObserver {
+   onChanged(Object obj);
+}
+  
+
+ In fact, you should not even use  clone()  and  Cloneable() . 
+All that should make you realize that overriding  clone()  is complicate, error prone (and it has also a important limitation for  final  fields contained by mutable class as you cannot reassigned a  final  field). 
+
+ So just forget  clone()  and favor rather the use of a copy constructor : 
+
+  public WiSeConBaseModelItem copy() {
+     WiSeConBaseModelItem copy = new WiSeConBaseModelItem(primitiveOne, primitiveTwo, primitiveThree, observer.copy() ...);
+     return copy;
+}
+  
+
+ You may also use reflection libraries to perform copies. 
+It avoids writing boiler plate code. 
+Note that the processing time may be a little more important. . 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/9942358)
+ You need to use array's  clone()  method to make its copy: 
+
+  //for example
+int[][] copy = (int[][])arraySource.clone();
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/27357042)
+ It is possible to use streams in Java 8 to copy a 2D array. 
+
+  @Test
+public void testCopy2DArray() {
+   int[][] data = {{1, 2}, {3, 4}};
+   int[][] dataCopy = Arrays.stream(data)
+             .map((int[] row) -> row.clone())
+             .toArray((int length) -> new int[length][]);
+
+   assertNotSame(data, dataCopy);
+   assertNotSame(data[0], dataCopy[0]);
+   assertNotSame(data[1], dataCopy[1]);
+
+   dataCopy[0][1] = 5;
+   assertEquals(2, data[0][1]);
+   assertEquals(5, dataCopy[0][1]);
+}
+  
+
+
+

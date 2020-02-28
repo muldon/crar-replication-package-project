@@ -1,0 +1,275 @@
+Query: How to gracefully fallback to `NaN` value while reading integers from a CSV with Pandas?
+-----------------------------------------------------------------------
+
+Rank:1 (https://stackoverflow.com/questions/30193359)
+ Thanks to the comments i realised that http://pandas.pydata.org/pandas-docs/stable/gotchas.html#support-for-integer-na, which was very surprising to me. Thus i switched to converting to float: 
+
+  import pandas as pd
+import numpy as np
+
+
+df = pd.read_csv('my.csv', dtype={ 'my_column': np.float64 })
+  
+
+ This gave me an understandable error message with the value of the failing conversion, so that i could add the failing value to the  na_values : 
+
+  df = pd.read_csv('my.csv', dtype={ 'my_column': np.float64 }, na_values=['n/a'])
+  
+
+ This way i could finally import the CSV in a way which works with visualisation and statistical functions: 
+
+  >>>> df['session_planned_os'].dtype
+dtype('float64')
+  
+
+ Once you are able to spot the right  na_values , you can remove the  dtype  argument from  read_csv . Type inference will now happen correctly: 
+
+  df = pd.read_csv('my.csv', na_values=['n/a'])
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:2 (https://stackoverflow.com/questions/53536044)
+ Expanding on the https://stackoverflow.com/a/24962970/4873972 It is now possbile to use  pandas  without actually reading any rows. 
+
+  In [1]: import pandas as pd
+In [2]: import numpy as np
+In [3]: pd.DataFrame(np.random.randn(10, 4), columns=list('abcd')).to_csv('test.csv', mode='w')
+
+In [4]: pd.read_csv('test.csv', index_col=0, nrows=0).columns.tolist()
+Out[4]: ['a', 'b', 'c', 'd']
+  
+
+  pandas  can have the advantage that it deals more gracefully with CSV encodings. 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:3 (https://stackoverflow.com/questions/39666666)
+ As https://stackoverflow.com/questions/39666308/pd-read-csv-by-default-treats-integers-like-floats#comment66634324_39666308 mentioned in the comments, this is a limitation of Pandas (and Numpy).  NaN  is a float and the empty values you have in your CSV are NaN. 
+
+ This is listed in the http://pandas.pydata.org/pandas-docs/stable/gotchas.html#na-type-promotions of pandas as well.  
+
+ You can work around this in a few ways.  
+
+ For the examples below I used the following to import the data - note that I added a row with an empty value in columns  a  and  b  
+
+  import pandas as pd
+from StringIO import StringIO
+
+data = """name,a,a1,b,b1
+arnold,300311,arnld01,300311,arnld01
+sam,300713,sam01,300713,sam01
+test,,test01,,test01"""
+
+df = pd.read_csv(StringIO(data), sep=",")
+  
+
+ Drop NaN rows</h3>
+
+ Your first option is to drop rows that contain this  NaN  value. The downside of this, is that you lose the entire row. After getting your data into a dataframe, run this: 
+
+  df.dropna(inplace=True)
+df.a = df.a.astype(int)
+df.b = df.b.astype(int)
+  
+
+ This drops all  NaN  rows from the dataframe, then it converts column  a  and column  b  to an  int  
+
+  >>> df.dtypes
+name    object
+a        int32
+a1      object
+b        int32
+b1      object
+dtype: object
+
+>>> df
+     name       a       a1       b       b1
+0  arnold  300311  arnld01  300311  arnld01
+1     sam  300713    sam01  300713    sam01
+  
+
+ Fill  NaN  with placeholder data</h3>
+
+ This option will replace all your  NaN  values with a throw away value. That value is something you need to determine. For this test, I made it  -999999 . This will allow use to keep the rest of the data, convert it to an int, and make it obvious what data is invalid. You'll be able to filter these rows out if you are making calculations based on the columns later.  
+
+  df.fillna(-999999, inplace=True)
+df.a = df.a.astype(int)
+df.b = df.b.astype(int)
+  
+
+ This produces a dataframe like so: 
+
+  >>> df.dtypes
+name    object
+a        int32
+a1      object
+b        int32
+b1      object
+dtype: object
+
+>>> df
+     name       a       a1       b       b1
+0  arnold  300311  arnld01  300311  arnld01
+1     sam  300713    sam01  300713    sam01
+2    test -999999   test01 -999999   test01
+  
+
+ Leave the float values</h3>
+
+ Finally, another choice is to leave the float values (and  NaN ) and not worry about the non-integer data type.  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:4 (https://stackoverflow.com/questions/36685497)
+ You could use http://pandas.pydata.org/pandas-docs/stable/generated/pandas.to_numeric.html with  errors=coerce  to substitute your non numeric values with  NaN  and apply it the each column. Then you could use  dropna  or  fillna  whatever you prefer. 
+
+  df = pd.read_csv('file.csv')
+df = df.apply(pd.to_numeric, errors='coerce')
+df = df.dropna()
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:5 (https://stackoverflow.com/questions/52311772)
+ You could use  .dropna()  if it is OK to drop the rows with the NaN values. 
+
+  df = df.dropna(subset=['id'])
+  
+
+ Alternatively,
+use  .fillna()  and  .astype()  to replace the NaN with values and convert them to int. 
+
+ I ran into this problem when processing a CSV file with large integers, while some of them were missing (NaN). Using float as the type was not an option, because I might loose the precision. 
+
+ My solution was to  use str as the intermediate type . 
+Then you can convert the string to int as you please later in the code. I replaced NaN with 0, but you could choose any value. 
+
+  df = pd.read_csv(filename, dtype={'id':str})
+df["id"] = df["id"].fillna("0").astype(int)
+  
+
+ For the illustration, here is an example how floats may loose the precision: 
+
+  s = "12345678901234567890"
+f = float(s)
+i = int(f)
+i2 = int(s)
+print (f, i, i2)
+  
+
+ And the output is: 
+
+  1.2345678901234567e+19 12345678901234567168 12345678901234567890
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:6 (https://stackoverflow.com/questions/28043401)
+ Rather than replacing after loading, just set the param  na_values  when reading the csv in and it will convert them to  NaN  values when the df is created: 
+
+  df = pd.read_csv('2013AllData.csv', na_values=['#VALUE!', '#DIV/0!'])
+  
+
+ Check the docs: http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html#pandas.read_csv 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:7 (https://stackoverflow.com/questions/37932740)
+ The  int()  function doesn't work on empty strings, but you can easily fix it by having a fallback in case the value is falsy (and empty strings are indeed falsy): 
+
+  df['Col1'] = df['Col1'].apply(lambda x: int(x or 0))
+  
+
+  int(x)  will be called when the value is non empty, and  int(0)  when it is (assuming you want zeros in place of empty values). 
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:8 (https://stackoverflow.com/questions/42027948)
+ You can use parameter  keep_default_na  and  na_values  in http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html and then http://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.replace.html strings  None  to values  None : 
+
+  import pandas as pd
+from pandas.compat import StringIO
+
+temp=u"""a,b
+None,NaN
+a,8"""
+#after testing replace 'StringIO(temp)' to 'filename.csv'
+df = pd.read_csv(StringIO(temp),keep_default_na=False,na_values=['NaN'])
+
+print (df)
+      a    b
+0  None  NaN
+1     a  8.0
+
+print (type(df.a.iloc[0]))
+<class 'str'>
+
+df = df.replace({'None':None})
+print (df)
+      a    b
+0  None  NaN
+1     a  8.0
+
+print (type(df.a.iloc[0]))
+<class 'NoneType'>
+  
+
+
+-------------------------------------next answer-------------------------------------
+
+Rank:9 (https://stackoverflow.com/questions/54194635)
+ Use parameters  thousands  and  na_values , but converting to integers is not possible with missing values, because now at least one  NaN  value cast column to  float s, see https://stackoverflow.com/a/21290084/2901002. So possible solution is replace them to int, e.g.  -1  and then cast to integer: 
+
+  Notice - In new version of pandas (0.24.0, coming soon) pandas has gained the ability to hold integer dtypes with missing values, http://pandas.pydata.org/pandas-docs/version/0.24.0rc1/integer_na.html#integer-na.  
+
+  import pandas as pd
+
+temp=u'''A
+2254
+"1,234"
+"3,385"
+nan
+-
+-
+nan'''
+#after testing replace 'pd.compat.StringIO(temp)' to 'data.csv'
+df = pd.read_csv(pd.compat.StringIO(temp), 
+                 encoding = "ISO-8859-1", 
+                 thousands=',', 
+                 na_values='-')
+
+print (df)
+        A
+0  2254.0
+1  1234.0
+2  3385.0
+3     NaN
+4     NaN
+5     NaN
+6     NaN
+  
+
+ 
+
+  df['A'] = df['A'].fillna(-1).astype(int)
+print (df)
+      A
+0  2254
+1  1234
+2  3385
+3    -1
+4    -1
+5    -1
+6    -1
+  
+
+
+
