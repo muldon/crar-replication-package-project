@@ -2826,7 +2826,9 @@ public class AppAuxSolutionBuilder {
 			int tagId = TagEnum.getTagIdByTagEnum(language);
 			System.out.println("loading word vectors for tag:"+tagId+"...");
 			Map<String, SoContentWordVector> wordVectorsMap = new LinkedHashMap<>();
+			System.gc();
 			crarService.findAllWordVectorsByTagId(tagId,wordVectorsMap);
+			System.gc();
 			wordVectorsMapByTag.put(tagId, wordVectorsMap);
 			CrarUtils.reportElapsedTime(initTime,"loading word vectors for tag "+tagId);
 		}

@@ -71,7 +71,7 @@ public class TokensEmbedder {
 		}
 		
 		StringBuilder zeroVector = new StringBuilder();
-		int size = CrarApp.SIZE_EMBEDDING - 1;
+		int size = 300 - 1;
 		for (int i = 0; i < size; i ++) {
 			zeroVector.append("0,");
 		}
