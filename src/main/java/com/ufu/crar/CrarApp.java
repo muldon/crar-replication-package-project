@@ -127,7 +127,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				builder.append(CrarUtils.getVectorsFromDouble(CrarUtils.vectorizeDouble(methodBodyTokens, embMap, SIZE_TOKENS, SIZE_EMBEDDING))).append("\n");
 
 				if (counter % 5000 == 0) {
-					System.out.println("writing to file " + counter);
+					//System.out.println("writing to file " + counter);
 					FileHelper.outputToFile(DL_CNN_INTPUT_TRAINING, builder, true);
 					builder.setLength(0);
 				}
@@ -166,7 +166,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			Set<Integer> threadsIds = allValidThreadsMapByTag.get(language).keySet();
 			for (Integer threadId : threadsIds) {
 				counter++;
-				if (counter % 10000 == 0) {
+				if (counter % 100000 == 0) {
 					System.out.println("CNN processed for " + counter + " threads");
 				}
 				ThreadContent t = allValidThreadsMapByTag.get(language).get(threadId);
@@ -191,7 +191,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 	private void compareAllBaselines() throws Exception {
 		Map<String, Set<Integer>> groundTruthThreadsMap = new LinkedHashMap<>();
 		Map<String, Set<Integer>> groundTruthAnswersMap = new LinkedHashMap<>();
-
+		Map<String, Set<String>> antonymsMap = crarUtils.loadAntonyms();
+		
 		// long initTime = System.currentTimeMillis();
 		// Map<String, Set<Integer>> crokageRecommendedResults = null;
 		// Map<Integer,List<Baseline>> baselinesMap = new LinkedHashMap<>();
@@ -236,82 +237,45 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			/*
 			 * Como no baseline do EMSE-REPLICATION-PACKAGE com API class factor
 			 */
-			 baselines.add(new Baseline("CROKAGE", language, true, "None", "", false,
-			 CrarParameters.roundsOnlyTRM));
+			baselines.add(new Baseline("CROKAGE", language, true, "None", "", false, CrarParameters.roundsOnlyTRM));
 
 			// Temp
-			 baselines.add(new Baseline(templateName, language, false, "None", "", false,
-			 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName, language, false, "None", "", false, CrarParameters.roundsWithSocialFactors));
 
 			// TempWithoutSF: without social factors
-			 baselines.add(new Baseline(templateName + "WithoutSF", language, false,
-			 "None", "", false,
-			 CrarParameters.roundsWithoutSocialFactors));
+			baselines.add(new Baseline(templateName + "WithoutSF", language, false, "None", "", false, CrarParameters.roundsWithoutSocialFactors));
 
 			// TempCC: Code Coverage or queryCoverageScoreMinThreshold>0
-			 baselines.add(new Baseline(templateName + "CC", language, false, "None", "",
-			 true,
-			 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "CC", language, false, "None", "", true, CrarParameters.roundsWithSocialFactors));
 
 			// Ant-POS-Place: antonyms threads&answers
-			 baselines.add(new Baseline(templateName + "Ant-NN_VB-TR_ANS", language,
-			 false, "All", "threads&answers",
-			 false, CrarParameters.roundsWithSocialFactors));
-			 baselines.add(new Baseline(templateName + "Ant-VB-TR_ANS", language, false,
-			 "VB", "threads&answers", false,
-			 CrarParameters.roundsWithSocialFactors));
-			 baselines.add(new Baseline(templateName + "Ant-NN-TR_ANS", language, false,
-			 "NN", "threads&answers", false,
-			 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-NN_VB-TR_ANS", language, false, "All", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-VB-TR_ANS", language, false, "VB", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-NN-TR_ANS", language, false, "NN", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
 
 			// antonyms threads
-			 baselines.add(new Baseline(templateName + "Ant-NN_VB-TR", language, false,
-			 "All", "threads", false,
-			 CrarParameters.roundsWithSocialFactors));
-			 baselines.add(new Baseline(templateName + "Ant-VB-TR", language, false, "VB",
-			 "threads", false,
-			 CrarParameters.roundsWithSocialFactors));
-			 baselines.add(new Baseline(templateName + "Ant-NN-TR", language, false, "NN",
-			 "threads", false,
-			 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-NN_VB-TR", language, false, "All", "threads", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-VB-TR", language, false, "VB", "threads", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-NN-TR", language, false, "NN", "threads", false, CrarParameters.roundsWithSocialFactors));
 
 			// antonyms answers
 			// Temp
-			 baselines.add(new Baseline(templateName + "Ant-NN_VB-ANS", language, false,
-			 "All", "answers", false,
-			 CrarParameters.roundsWithSocialFactors));
-			 baselines.add(new Baseline(templateName + "Ant-VB-ANS", language, false,
-			 "VB", "answers", false,
-			 CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-NN_VB-ANS", language, false, "All", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-VB-ANS", language, false, "VB", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
 
 			// tCCAnt-NN_VB - threads&answers: ant All - threads&answers +
 			// queryCoverageScoreMinThreshold>0
-			 baselines.add(new Baseline(templateName + "CCAnt-NN_VB-TR_ANS", language,
-			 false, "All", "threads&answers",
-			 true, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline(templateName + "CCAnt-NN_VB-TR_ANS", language, false, "All", "threads&answers", true, CrarParameters.roundsWithSocialFactors));
 
-			 baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language,
-			 false, "NN", "answers", false,
-			 CrarParameters.roundsWithSocialFactors));
-			
-			baselines.add(new Baseline("BM25+CNN", language,
-			 false, "NN", "answers", false,
-					 CrarParameters.roundsWithSocialFactors));
-			 
-			baselines.add(new Baseline("SENT2VEC", language,
-					 false, "NN", "answers", false,
-							 CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ASSIMETRIC", language,
-					 false, "NN", "answers", false,
-							 CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("BODYASS", language,
-					 false, "NN", "answers", false,
-							 CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("TFIDFCOS", language,
-					 false, "NN", "answers", false,
-							 CrarParameters.roundsWithSocialFactors));							
+			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+
+			baselines.add(new Baseline("BM25+CNN", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+
+			baselines.add(new Baseline("SENT2VEC", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("ASSIMETRIC", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("BODYASS", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("TFIDFCOS", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
 		}
 
 		if (baselines.stream().anyMatch(e -> e.getIsCrokage() == true)) {// contains CRAR - load API class factor
@@ -331,7 +295,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 		//
 
-		Map<String, Set<String>> antonymsMap = crarUtils.loadAntonyms();
+		
 
 		long initTime2 = 0l;
 		String languageDataSet = "";
@@ -422,6 +386,136 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		String firstObs;
 		Set<String> queryAntonyms = new LinkedHashSet<>();
 		Map<String, Set<String>> queryAntonymsMap = new LinkedHashMap<>();
+		Map<String, Set<Integer>> groundTruth = groundTruthAnswersMap;
+
+		try {
+
+			initTime = System.currentTimeMillis();
+			queries = new ArrayList(groundTruthThreadsMap.keySet());
+			recommendedResults.clear();
+			int count = 0;
+			for (String rawQuery : queries) { // for each query
+				long initTime2 = System.currentTimeMillis();
+				count++;
+				processedQuery = CrarUtils.processQuery(rawQuery, useLemma);
+
+				boolean processAntonyms = CrarUtils.fillQueryAntonymsMap(queryAntonymsMap, antonymsMap, rawQuery,
+						processedQuery, baseline.getAntonymsFor(), queryAntonyms, baseline);
+
+				if (baseline.getIsCrokage()) {
+					if (luceneSearchAsClient) {
+						candidateBuckets = getCandidadeAnswersClient(processedQuery, baseline.getTrmLimitAnswers(),	tagId);
+					} else {
+						Query query = new Query();
+						query.setTagId(tagId);
+						query.setQueryText(processedQuery);
+						query.setTrmLimit1(baseline.getTrmLimitAnswers());
+						candidateBuckets = getCandidadeAnswersServer(query);
+						query = null;
+					}
+					
+				} else { //all baselines, except CROKAGE
+					if (luceneSearchAsClient) {
+						candidateThreads = getCandidadeThreadsClient(processedQuery, baseline.getTrmLimit1Threads(),tagId);
+					} else {
+						Query query = new Query();
+						query.setTagId(tagId);
+						query.setQueryText(processedQuery);
+						query.setTrmLimit1(baseline.getTrmLimit1Threads());
+						candidateThreads = getCandidadeThreadsServer(query);
+						query = null;
+					}
+
+					filteredCandidateThreadsMap = reduceThreads(candidateThreads, processedQuery, tagId, rawQuery,
+							baseline.getTopRelevantThreadsLimit1(), baseline.getTopRelevantThreadsLimit2(),
+							baseline.getNumberOfRoundsInReducingThreads(), CrarParameters.generateFeaturesFile, bw,
+							CrarParameters.evaluationOf, groundTruthThreadsMap, queryAntonymsMap, queryAntonyms,
+							processAntonyms, baseline, queriesAndSent2Vectors);
+		
+				
+					candidateBuckets = crarService.getUpvotedAnswersWithCodeForThreadsIds(filteredCandidateThreadsMap.keySet(), useLemma);
+					// index and use BM25
+					luceneSearcher = new LuceneSearcher();
+					luceneSearcher.buildSearchManager(candidateBuckets, baseline.getSearchParam());
+					Set<Integer> luceneSmallSetIds = luceneSearcher.search(processedQuery,				baseline.getTrmLimitAnswers(), bm25ScoreAnswerIdMap);
+					candidateBuckets.removeIf(e -> !luceneSmallSetIds.contains(e.getId()));
+			
+				}
+
+				CrokageComposer.filterAnswersWithAntonyms(rawQuery, groundTruthAnswersMap, candidateBuckets,
+						queryAntonymsMap, queryAntonyms, processAntonyms, baseline);
+
+				if (baseline.isCrokage) {
+					topClasses.addAll(recommendedApis.get(count));
+					CrarUtils.setLimitV2(topClasses, numberOfAPIClasses);
+				}
+
+				Set<Integer> topKRelevantAnswersIds = getTopKRelevantBuckets(candidateBuckets, processedQuery,
+						tagId, rawQuery, filteredCandidateThreadsMap, bm25ScoreAnswerIdMap, bw,
+						CrarParameters.generateFeaturesFile, groundTruthAnswersMap, baseline);
+
+				recommendedResults.put(rawQuery, topKRelevantAnswersIds);
+				luceneSearcher = null;
+			}
+			
+			candidateBuckets = null;
+			String obsComp = null;
+			MetricResult metricResult = null;
+			boolean saveAll = false;
+			// String searchParamsStr = baseline.toString();
+
+			for (int topk : CrarParameters.topkArr) {
+
+				Map<String, Set<Integer>> recommendedResultsTmp = CrarUtils.copy(recommendedResults);
+				obsComp = "tagId=" + tagId + " -" + languageDataSet + " -limits:" + baseline.getTrmLimit1Threads() + "-" + baseline.getTopRelevantThreadsLimit1() + "-"
+						+ baseline.getTopRelevantThreadsLimit2() + "-Ans:" + baseline.getTrmLimitAnswers() + "-withSocfac?:" + baseline.getUseSocialFactors() + " -isCrokage:"
+						+ baseline.getIsCrokage();
+				String approachName = "Baseline: " + baseline.getName();
+				if (saveQueryMetric) {
+					approachName = "saveQueryMetric - Baseline: " + baseline.getName();
+				}
+				metricResult = new MetricResult(approachName, baseline.getTrmLimit1Threads(), null, null, null, cutoff, topk, obsComp, 0, languageDataSet, tagId);
+				metricResult.setVectorsType(baseline.getVectorsTypeId());
+				analyzeResults(recommendedResultsTmp, groundTruth, metricResult, approachName);
+
+				crarService.saveMetricResult(metricResult);
+				recommendedResultsTmp = null;
+				metricResult = null;
+			}
+
+			CrarUtils.reportElapsedTime(initTime, "for run");
+			queries = null;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (bw != null)
+				bw.close();
+		}
+
+		return recommendedResults;
+	}
+	
+	
+	
+	private Map<String, Set<Integer>> dynamicRankInnerOld(Baseline baseline,
+			Map<String, Set<Integer>> groundTruthThreadsMap, Map<String, Set<Integer>> groundTruthAnswersMap,
+			Integer tagId, String languageDataSet, Map<String, Set<String>> antonymsMap,
+			Map<String, double[]> queriesAndSent2Vectors) throws Exception {
+		BufferedWriter bw = null;
+		List<String> queries = null;
+		String processedQuery;
+		Set<ThreadContent> candidateThreads = null;
+		Set<ThreadContent> filteredCandidateThreads = null;
+		Map<String, Set<Integer>> recommendedResults = new LinkedHashMap<>();
+		Map<Integer, ThreadContent> filteredCandidateThreadsMap = new LinkedHashMap<>();
+		Set<Integer> thredsIds = null;
+		Set<Bucket> candidateBuckets = new LinkedHashSet<>();
+		int run = 0;
+		String obsTmp;
+		String firstObs;
+		Set<String> queryAntonyms = new LinkedHashSet<>();
+		Map<String, Set<String>> queryAntonymsMap = new LinkedHashMap<>();
 		Map<String, Set<Integer>> groundTruth;
 
 		try {
@@ -454,23 +548,17 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			}
 
 			queries = new ArrayList(groundTruthThreadsMap.keySet());
-			// luceneTopIdsMap.clear();
 			recommendedResults.clear();
 			int count = 0;
-			// System.out.println("Running "+baseline);
 			for (String rawQuery : queries) { // for each query
-				// Map<Integer, Double> threadSimMap = new LinkedHashMap<>();
 				long initTime2 = System.currentTimeMillis();
 				count++;
-				// System.out.println("Evaluating query "+count+" of "+queries.size()+" :
-				// "+rawQuery);
 				processedQuery = CrarUtils.processQuery(rawQuery, useLemma);
 
 				boolean processAntonyms = CrarUtils.fillQueryAntonymsMap(queryAntonymsMap, antonymsMap, rawQuery,
 						processedQuery, baseline.getAntonymsFor(), queryAntonyms, baseline);
 
-				if (CrarParameters.evaluationOf.equals("Threads")
-						|| (CrarParameters.evaluationOf.equals("Answers") && baseline.getReduceThreads())) {
+				if (CrarParameters.evaluationOf.equals("Threads") || (CrarParameters.evaluationOf.equals("Answers") && baseline.getReduceThreads())) {
 					if (luceneSearchAsClient) {
 						candidateThreads = getCandidadeThreadsClient(processedQuery, baseline.getTrmLimit1Threads(),
 								tagId);
@@ -610,61 +698,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		return recommendedResults;
 	}
 
-	/*
-	 * 
-	 * private void generateRemainingFeaturesForThreads(Map<String, Set<Integer>>
-	 * groundTruthMap, Set<ThreadContent> candidateThreads, String rawQuery, String
-	 * processedQuery, BufferedWriter bw, String postType) throws IOException {
-	 * 
-	 * String comparingContent; documents.clear(); Document queryDocument = new
-	 * Document(processedQuery, 0); documents.add(queryDocument);
-	 * 
-	 * List<ThreadContent> candidateThreadsList = new ArrayList<>(candidateThreads);
-	 * for(ThreadContent bucket:candidateThreads) { comparingContent =
-	 * loadThreadContent(bucket,ContentTypeEnum.title_questionBody_body_code.getId()
-	 * ); Document document = new Document(comparingContent, bucket.getId());
-	 * documents.add(document); bucket.setDocument(document); }
-	 * 
-	 * Corpus corpus = new Corpus(documents); VectorSpaceModel vectorSpace = new
-	 * VectorSpaceModel(corpus);
-	 * 
-	 * 
-	 * bw.write(rawQuery+";");
-	 * 
-	 * Set<Integer> groundTruthThreadsIds = groundTruthMap.get(rawQuery);
-	 * 
-	 * for(Integer groundTruthThreadId: groundTruthThreadsIds) {
-	 * bw.write(groundTruthThreadId+";;;;;;"); //System.out.println(threadId);
-	 * 
-	 * boolean groundTruthThreadFoundInCandidates =
-	 * candidateThreads.stream().anyMatch(item -> threadId.equals(item.getId()));
-	 * if(groundTruthThreadFoundInCandidates) { ThreadContent groundTruthThread =
-	 * candidateThreads.stream() .filter((thread) ->
-	 * thread.getId().equals(threadId)).findAny().get(); double tfIdfCosineSimScore
-	 * = vectorSpace.cosineSimilarity(queryDocument,
-	 * groundTruthThread.getDocument());
-	 * 
-	 * } boolean found = false; for(ThreadContent candidateThread:candidateThreads)
-	 * { if(candidateThread.getId().equals(groundTruthThreadId)) { found=true;
-	 * double tfIdfCosineSimScore =
-	 * CrarUtils.round(vectorSpace.cosineSimilarity(queryDocument,
-	 * candidateThread.getDocument()),2); bw.write(tfIdfCosineSimScore+";"); }
-	 * if(found) { break; } } if(found==false) { //ground truth not found in
-	 * candidates bw.write("0;"); } //parei aqui, pq o bm25 ta zero ?
-	 * 
-	 * //BM25 score for(ThreadContent candidateThread:candidateThreads) {
-	 * if(candidateThread.getId().equals(groundTruthThreadId)) { found=true; double
-	 * bm25Score = CrarUtils.round(candidateThread.getBm25Score(),2);
-	 * bw.write(bm25Score+";"); } if(found) { break; } } if(found==false) { //ground
-	 * truth not found in candidates bw.write("0;"); } bw.write("\n;");
-	 * 
-	 * 
-	 * }
-	 * 
-	 * 
-	 * 
-	 * }
-	 */
+	
 
 	private Map<Integer, ThreadContent> reduceThreads(Set<ThreadContent> candidateThreads, String processedQuery,
 			Integer tagId, String rawQuery, int topRelevantThreadsLimit1, int topRelevantThreadsLimit2, int rounds,
@@ -673,15 +707,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			Set<String> queryAntonyms, boolean processAntonyms, Baseline baseline,
 			Map<String, double[]> queriesAndSent2Vectors) throws Exception {
 
-		// System.out.println("-"+processedQuery);
-		/*
-		 * if(processedQuery.equals("compare contents streams determine equal")) {
-		 * System.out.println("-here"); }
-		 */
-
-		// CrokageComposer.filterBadCandidateThreads(candidateThreads,queryAntonymsMap,queryAntonyms,rawQuery,groundTruthThreadsMap,processAntonyms,
-		// baseline);
-
+	
 		CrokageComposer.filterThreadsWithAntonyms(candidateThreads, queryAntonymsMap, queryAntonyms, rawQuery,
 				groundTruthThreadsMap, processAntonyms, baseline);
 
@@ -705,48 +731,50 @@ public class CrarApp extends AppAuxSolutionBuilder {
 					.collect(Collectors.toMap(ThreadContent::getId, c -> c, (e1, e2) -> e1, LinkedHashMap::new));
 			// .collect(Collectors.toMap(ThreadContent::getId, c -> c));
 
-			if (evaluationOf.equals("Threads") && generateFeaturesFile) {
+			/*if (evaluationOf.equals("Threads") && generateFeaturesFile) {
 				generateThreadsCoverage(topThreads, groundTruthThreadsMap, rawQuery, processedQuery, bw, topThreadsMap,
 						rounds, tagId, maxFeaturesThread, baseline);
-			}
+			}*/
 			return topThreadsMap;
 		}
 
+		//herein we get the top topRelevantThreadsLimit1 threads, without considering the social features. The ThreadFinalScore 
+		// score is determined according to round1 weights
 		Set<ThreadContent> topThreads = candidateThreads.stream()
 				.sorted(Comparator.comparingDouble(ThreadContent::getThreadFinalScore).reversed())
 				.limit(topRelevantThreadsLimit1).collect(Collectors.toCollection(LinkedHashSet::new));
 
-		if (rounds == 1) {
+		if (rounds == 1) { //baseline without SF only
 			Map<Integer, ThreadContent> topThreadsMap = topThreads.stream()
 					.sorted(Comparator.comparingDouble(ThreadContent::getThreadFinalScore).reversed())
 					.limit(topRelevantThreadsLimit2)
 					.collect(Collectors.toMap(ThreadContent::getId, c -> c, (e1, e2) -> e1, LinkedHashMap::new));
 			// .collect(Collectors.toMap(ThreadContent::getId, c -> c));
 
-			if (evaluationOf.equals("Threads") && generateFeaturesFile) {
+			/*if (evaluationOf.equals("Threads") && generateFeaturesFile) {
 				generateThreadsCoverage(topThreads, groundTruthThreadsMap, rawQuery, processedQuery, bw, topThreadsMap,
 						rounds, tagId, maxFeaturesThread, baseline);
-			}
+			}*/
 
 			return topThreadsMap;
 		}
-
-		// round 2
-		calculateFeatures(topThreads, processedQuery, maxFeaturesThread, true, tagId, baseline.getVectorsTypeId(), null,
-				baseline);
-
+		//all other baselines
+		
+		// round 2 - the non SF features have been already calculated, now we calculate the social features (SF)
+		calculateFeatures(topThreads, processedQuery, maxFeaturesThread, true, tagId, baseline.getVectorsTypeId(), null,baseline);
+		// round 2 - calculate all round 2 features and final score - including the SF
 		calculateFeaturesNormalizedAndFinalScore(topThreads, rawQuery, processedQuery, maxFeaturesThread, 2, baseline);
 
+		//now we consider round2 weights 
 		Map<Integer, ThreadContent> topThreadsMap = topThreads.stream()
 				.sorted(Comparator.comparingDouble(ThreadContent::getThreadFinalScore).reversed())
 				.limit(topRelevantThreadsLimit2)
 				.collect(Collectors.toMap(ThreadContent::getId, c -> c, (e1, e2) -> e1, LinkedHashMap::new));
-		// .collect(Collectors.toMap(ThreadContent::getId, c -> c));
-
-		if (evaluationOf.equals("Threads") && generateFeaturesFile) {
+		
+		/*if (evaluationOf.equals("Threads") && generateFeaturesFile) {
 			generateThreadsCoverage(new LinkedHashSet(topThreadsMap.values()), groundTruthThreadsMap, rawQuery,
 					processedQuery, bw, topThreadsMap, rounds, tagId, maxFeaturesThread, baseline);
-		}
+		}*/
 
 		return topThreadsMap;
 	}
