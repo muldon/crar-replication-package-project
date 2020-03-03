@@ -3301,10 +3301,49 @@ public static String removeSpecialSymbolsTitles(String finalContent) {
 		return doubleValues;
 	}		
 	
+	public static String getVectorsFromDouble(double[] vector) {
+		StringBuilder s = new StringBuilder();
+		for (double d: vector) {
+			s.append(d+",");
+		}
+		return s.toString().substring(0,s.toString().length()-1);
+	}
+	
 	public static double[] getVectorsFromString(String line,String space) {
 		double[] doubleValues = Arrays.stream(line.split(space)).mapToDouble(Double::parseDouble).toArray();
 		return doubleValues;
-	}		
+	}
+	
+	public static double[] vectorizeDouble(List<String> tokenVector, Map<String, SoContentWordVector> embMap, int sizeTokens,
+			int sizeEmbedding) {
+		int pos = 0;
+		double[] vector = new double[sizeTokens * sizeEmbedding];
+
+		for (int i = 0; i < tokenVector.size(); i++) {
+			if (i >= sizeTokens) {
+				break;
+			}
+			if (embMap.get(tokenVector.get(i)) != null) {
+				double[] vectors = embMap.get(tokenVector.get(i)).getFastTextVectorsValues();
+				for (int j = 0; j < sizeEmbedding; j++) {
+					vector[pos] = vectors[j];
+					pos++;
+				}
+			} else {
+				for (int j = 0; j < sizeEmbedding; j++) {
+					vector[pos] = 0.0;
+					pos++;
+				}
+			}
+		}
+		for (int i = pos; i < vector.length; i++) {
+			vector[pos] = 0.0;
+			pos++;
+		}
+
+		return vector;
+	}
+
 
 	
 	public static void addCountToMap(int count, Map<Integer, Integer> map, int max) {

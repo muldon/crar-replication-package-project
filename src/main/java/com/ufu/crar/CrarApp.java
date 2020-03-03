@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -54,7 +55,7 @@ import com.ufu.crar.util.SearcherParams;
 public class CrarApp extends AppAuxSolutionBuilder {
 	protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-	private static final int SIZE_TOKENS = 20;
+	private static final int SIZE_TOKENS = 7;
 	public static final int SIZE_EMBEDDING = 300;
 	private static final int SIZE_VECTOR = 300;
 	private static final int EPOCHS = 10;
@@ -136,6 +137,10 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 		case "processSent2vec":
 			processSent2Vec();
+			break;
+			
+		case "processThreadBaseLines":
+			processThreadBaseLines();
 			break;
 
 		default:
@@ -220,24 +225,6 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		 * 
 		 * initTime = System.currentTimeMillis();
 		 */
-	}
-
-	class ThreadNota {
-		Integer id;
-		Double nota;
-		double[] embeddings;
-
-		public ThreadNota(Integer id, double[] embeddings) {
-			super();
-			this.id = id;
-			this.embeddings = embeddings;
-		}
-		
-		public ThreadNota(Integer id, Double nota) {
-			super();
-			this.id = id;
-			this.nota = nota;
-		}
 	}
 
 	public void analyseDL() throws Exception {
@@ -387,36 +374,6 @@ public class CrarApp extends AppAuxSolutionBuilder {
 	 * }
 	 */
 
-	public double[] vectorizeDouble(List<String> tokenVector, Map<String, SoContentWordVector> embMap, int sizeTokens,
-			int sizeEmbedding) {
-		int pos = 0;
-		double[] vector = new double[sizeTokens * sizeEmbedding];
-
-		for (int i = 0; i < tokenVector.size(); i++) {
-			if (i >= sizeTokens) {
-				break;
-			}
-			if (embMap.get(tokenVector.get(i)) != null) {
-				double[] vectors = embMap.get(tokenVector.get(i)).getFastTextVectorsValues();
-				for (int j = 0; j < sizeEmbedding; j++) {
-					vector[pos] = vectors[j];
-					pos++;
-				}
-			} else {
-				for (int j = 0; j < sizeEmbedding; j++) {
-					vector[pos] = 0.0;
-					pos++;
-				}
-			}
-		}
-		for (int i = pos; i < vector.length; i++) {
-			vector[pos] = 0.0;
-			pos++;
-		}
-
-		return vector;
-	}
-
 	public void trainRnn() throws Exception {
 		String cnninput = "/home/rodrigo/cnninput.txt";
 		String cnnoutput = "/home/rodrigo/cnnouput.zip";
@@ -436,9 +393,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			for (Integer threadId : threadsIds) {
 				ThreadContent tc = allValidThreadsMapByTag.get(language).get(threadId);
 				List<String> methodBodyTokens = Arrays
-						.asList((tc.getTitle()+ " "+tc.getQuestionBody() + " ").split(" "));
-				StringBuilder vectorizedTokenVector = vectorize(methodBodyTokens, embMap, 20, 100);
-				builder.append(vectorizedTokenVector).append("\n");
+						.asList((tc.getTitle()).split(" "));
+				builder.append(CrarUtils.getVectorsFromDouble(CrarUtils.vectorizeDouble(methodBodyTokens, embMap, SIZE_TOKENS, 100))).append("\n");
 
 				if (counter % 5000 == 0) {
 					System.out.println("writing to file " + counter);
@@ -454,8 +410,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 		int batchSize = 1024;
 
-		learner = new CnnFeatureExtractor(20, 100, batchSize, 100);
-		learner.setNumberOfEpochs(10);
+		learner = new CnnFeatureExtractor(SIZE_TOKENS, 100, batchSize, 100);
+		learner.setNumberOfEpochs(20);
 		learner.setSeed(123);
 		learner.setNumOfOutOfLayer1(20);
 		learner.setNumOfOutOfLayer2(50);
@@ -469,7 +425,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		System.gc();
 		int counter = 0;
 
-		learner = new CnnFeatureExtractor(10, 100, 1, 100);
+		learner = new CnnFeatureExtractor(SIZE_TOKENS, 100, 1, 100);
 		learner.setNumberOfEpochs(10);
 		learner.setSeed(123);
 		learner.setNumOfOutOfLayer1(20);
@@ -487,7 +443,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				ThreadContent t = allValidThreadsMapByTag.get(language).get(threadId);
 				List<String> queryBodyTokens = Arrays
 						.asList((t.getTitle()).split(" "));
-				double[] vectorizedTokenVector = vectorizeDouble(queryBodyTokens, embMap, 10, 100);
+				double[] vectorizedTokenVector = CrarUtils.vectorizeDouble(queryBodyTokens, embMap, SIZE_TOKENS, 100);
 				double[] output = learner.getOutput(this.model, vectorizedTokenVector);
 				t.setEmbeddedDLOutput(output);
 			}
@@ -497,49 +453,10 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 	public double[] getCnnOutput(String query, int sizeTokens, int sizeEmbedding) {
 		Map<String, SoContentWordVector> embMap = wordVectorsMapByTag.get(1);
-		double[] vectorizedTokenVector = vectorizeDouble(Arrays.asList(query.split(" ")), embMap, sizeTokens,
+		double[] vectorizedTokenVector = CrarUtils.vectorizeDouble(Arrays.asList(query.split(" ")), embMap, sizeTokens,
 				sizeEmbedding);
 		return learner.getOutput(this.model, vectorizedTokenVector);
 
-	}
-
-	public StringBuilder vectorize(List<String> tokenVector, Map<String, SoContentWordVector> embMap, int sizeTokens,
-			int sizeEmbedding) {
-		int i = 0;
-
-		StringBuilder numericVector = new StringBuilder();
-		int size = tokenVector.size();
-		if (size > sizeTokens) {
-			size = sizeTokens;
-		}
-		for (;i < size; i++) {			
-			if (embMap.get(tokenVector.get(i)) != null) {
-				double[] vectors = embMap.get(tokenVector.get(i)).getFastTextVectorsValues();
-				for (int j = 0; j < sizeEmbedding - 1; j++) {
-					numericVector.append(vectors[j] + ",");
-				}
-				numericVector.append(vectors.length - 1);
-			} else {
-				for (int j = 0; j < sizeEmbedding - 1; j++) {
-					numericVector.append("0.0,");
-				}
-				numericVector.append("0.0");
-			}
-			if (i < sizeTokens - 1) {
-				numericVector.append(",");
-			}
-		}
-		for (; i < sizeTokens; i++) {
-			for (int j = 0; j < sizeEmbedding - 1; j++) {
-				numericVector.append("0.0,");
-			}
-			numericVector.append("0.0");
-			if (i < sizeTokens - 1) {
-				numericVector.append(",");
-			}
-		}
-
-		return numericVector;
 	}
 
 	private void generateCnnOnlyResult() throws Exception {
@@ -563,7 +480,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		 * crarService.getThreadContentsByIds(answersIds)); }
 		 */
 
-		learner = new CnnFeatureExtractor(20, 100, 1, 100);
+		learner = new CnnFeatureExtractor(SIZE_TOKENS, 100, 1, 100);
 
 		List<ThreadNota> notas = new ArrayList();
 
@@ -578,8 +495,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				}
 				ThreadContent t = allValidThreadsMapByTag.get(language).get(threadId);
 				List<String> queryBodyTokens = Arrays
-						.asList((t.getTitle() + " " + t.getQuestionBody()).split(" "));
-				double[] vectorizedTokenVector = vectorizeDouble(queryBodyTokens, embMap, 20, 100);
+						.asList((t.getTitle()).split(" "));
+				double[] vectorizedTokenVector = CrarUtils.vectorizeDouble(queryBodyTokens, embMap, SIZE_TOKENS, 100);
 				double[] output = learner.getOutput(this.model, vectorizedTokenVector);
 				// t.setEmbeddedDLOutput(output);
 				notas.add(new ThreadNota(threadId, output));
@@ -591,7 +508,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		
 		for (String query : groundTruthThreadsMap.keySet()) {
 			System.out.println("query "+query);
-			double[] outputCnn = getCnnOutput(CrarUtils.processQuery(query, false), 20, 100);			
+			double[] outputCnn = getCnnOutput(CrarUtils.processQuery(query, false), SIZE_TOKENS, 100);			
 			for (ThreadNota thread : notas) {
 				thread.nota = CosineMeasure.getCosineSimilarity(outputCnn, thread.embeddings);
 			}
@@ -610,14 +527,13 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				null, null);
 		analyzeResults(recommendedResults, groundTruthThreadsMap, metricResult, approachName);
 		crarService.saveMetricResult(metricResult);
-	}
+	}		
 
 	public void processSent2Vec() throws Exception {
 		String languageDataSet = "java" + "-" + "test";
 		Map<String, Set<Integer>> groundTruthThreadsMap = new LinkedHashMap<>();
 		loadGroundTruthSelectedQueriesForQuestions(languageDataSet, groundTruthThreadsMap);
 		
-		String cnnoutput = "/home/rodrigo/cnnouput.zip";
 		TagEnum languages[] = { TagEnum.Java };
 		List<TagEnum> languagesList = Arrays.asList(languages);
 		readSOContentWordAndVectorsForTags(languages);
@@ -655,6 +571,208 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		MetricResult metricResult = new MetricResult(approachName, 0, 0, 0, 0, 0, 10, "approach RNN for top 10", 0,
 				null, null);
 		analyzeResults(recommendedResults, groundTruthThreadsMap, metricResult, approachName);
+		crarService.saveMetricResult(metricResult);
+	}
+	
+	public void processAsymmetricSimilarity() throws Exception {
+		String languageDataSet = "java" + "-" + "test";
+		Map<String, Set<Integer>> groundTruthThreadsMap = new LinkedHashMap<>();
+		loadGroundTruthSelectedQueriesForQuestions(languageDataSet, groundTruthThreadsMap);
+		
+		TagEnum languages[] = { TagEnum.Java };
+		List<TagEnum> languagesList = Arrays.asList(languages);
+		readSOContentWordAndVectorsForTags(languages);
+		Map<String, SoContentWordVector> embMap = wordVectorsMapByTag.get(1);
+		loadValidThreadsForLanguages(languagesList);
+		System.gc();				
+		
+
+		Map<String, double[]> queriesAndSent2Vectors = CrarUtils
+				.readQueriesAndVectors(CRAR_HOME + "/data/groundTruthSentenceQueriesAndVectors1" + ".txt");
+
+		Map<String, Set<Integer>> recommendedResults = new LinkedHashMap<>();		
+		for (String query : groundTruthThreadsMap.keySet()) {
+			List<ThreadNota> notas = new ArrayList();
+			Set<Integer> languagesDLL = allValidThreadsMapByTag.keySet();
+			for (Integer language : languagesDLL) {
+				Set<Integer> threadsIds = allValidThreadsMapByTag.get(language).keySet();
+				for (Integer threadId : threadsIds) {
+					ThreadContent t = allValidThreadsMapByTag.get(language).get(threadId);
+					double threadTitleAsymmetricSim = getAsymmetricSimilarity(CrarUtils.processQuery(query, false), t.getTitle(), 1,
+							null);
+					notas.add(new ThreadNota(threadId,threadTitleAsymmetricSim));
+				}
+			}
+
+			Comparator<ThreadNota> compareById = (ThreadNota o1, ThreadNota o2) -> o2.nota
+					.compareTo(o1.nota);
+			Collections.sort(notas, compareById);
+			Set<Integer> bestAnswers = new LinkedHashSet();
+			for (int i = 0; i < 10; i++) {
+				bestAnswers.add(notas.get(i).id);
+			}
+			recommendedResults.put(query, bestAnswers);
+		}
+
+		String approachName = "RNN by CADU";
+		MetricResult metricResult = new MetricResult(approachName, 0, 0, 0, 0, 0, 10, "approach RNN for top 10", 0,
+				null, null);
+		analyzeResults(recommendedResults, groundTruthThreadsMap, metricResult, approachName);
+		crarService.saveMetricResult(metricResult);
+	}
+	
+	class ThreadNota {
+		Integer id;
+		Double nota;
+		double[] embeddings;
+		Double titleSentenceVectors;
+		Double titleAssimetricSimilarity;
+		Double bodyAssimetricSimilarity;		
+		Double tfCosineSimScore;		
+		Double bm25;
+		
+
+		public ThreadNota(Integer id, double[] embeddings) {
+			super();
+			this.id = id;
+			this.embeddings = embeddings;
+		}
+		
+		
+		
+		public ThreadNota(Integer id, Double titleSentenceVectors, Double titleAssimetricSimilarity,
+				Double bodyAssimetricSimilarity, Double tfCosineSimScore, Double bm25) {
+			super();
+			this.id = id;
+			this.titleSentenceVectors = titleSentenceVectors;
+			this.titleAssimetricSimilarity = titleAssimetricSimilarity;
+			this.bodyAssimetricSimilarity = bodyAssimetricSimilarity;
+			this.tfCosineSimScore = tfCosineSimScore;
+			this.bm25 = bm25;
+		}
+
+
+
+		public ThreadNota(Integer id, Double nota) {
+			super();
+			this.id = id;
+			this.nota = nota;
+		}
+	}
+	
+	private void processCrarThreads() throws Exception {
+		PrintWriter pw = new PrintWriter(new File("/home/rodrigo/box.txt"));
+		Set<ThreadContent> threads = getAllThreadsClient(1);
+		for (ThreadContent t: threads) {
+			int size = t.getTitle().split(" ").length;
+			pw.write(size+"\n");
+		}
+		pw.close();
+	}
+	
+	public void processThreadBaseLines() throws Exception {
+		String languageDataSet = "java" + "-" + "test";
+		Map<String, Set<Integer>> groundTruthThreadsMap = new LinkedHashMap<>();
+		loadGroundTruthSelectedQueriesForQuestions(languageDataSet, groundTruthThreadsMap);
+		
+		TagEnum languages[] = { TagEnum.Java };
+		List<TagEnum> languagesList = Arrays.asList(languages);
+		readSOContentWordAndVectorsForTags(languages);
+		Map<String, SoContentWordVector> embMap = wordVectorsMapByTag.get(1);
+		loadValidThreadsForLanguages(languagesList);
+		System.gc();				
+		
+
+		Map<String, double[]> queriesAndSent2Vectors = CrarUtils
+				.readQueriesAndVectors(CRAR_HOME + "/data/groundTruthSentenceQueriesAndVectors1" + ".txt");
+
+		Map<String, Set<Integer>> recommendedResults1 = new LinkedHashMap<>();		
+		Map<String, Set<Integer>> recommendedResults2 = new LinkedHashMap<>();
+		Map<String, Set<Integer>> recommendedResults3 = new LinkedHashMap<>();
+		Map<String, Set<Integer>> recommendedResults4 = new LinkedHashMap<>();
+		Map<String, Set<Integer>> recommendedResults5 = new LinkedHashMap<>();
+		for (String query : groundTruthThreadsMap.keySet()) {
+			List<ThreadNota> notas = new ArrayList();
+			double[] outputCnn = queriesAndSent2Vectors.get(CrarUtils.processQuery(query, false));
+			Set<Integer> languagesDLL = allValidThreadsMapByTag.keySet();
+			for (Integer language : languagesDLL) {
+				Set<Integer> threadsIds = allValidThreadsMapByTag.get(language).keySet();
+				for (Integer threadId : threadsIds) {
+					ThreadContent t = allValidThreadsMapByTag.get(language).get(threadId);
+					
+					double titleSentenceVectors = CosineMeasure.getCosineSimilarity(outputCnn,t.getSentenceVectors());
+					
+					double threadTitleAsymmetricSim = getAsymmetricSimilarity(CrarUtils.processQuery(query, false), t.getTitle(), 1,
+							null);
+					
+					double bodyAssimetricSimilarity = getAsymmetricSimilarity(query, loadThreadContent(t,
+							ContentTypeEnum.question_body_answers_body.getId()), 1,
+							null);					
+					
+					double tfCosineSimScore = CosineSimilarity.cosineSimilarity(query,
+							loadThreadContent(t, ContentTypeEnum.title_questionBody_body_code.getId()));
+					
+					double bm25Score = 0d;//t.getBm25Score();										
+					
+					notas.add(new ThreadNota(threadId,titleSentenceVectors,threadTitleAsymmetricSim,bodyAssimetricSimilarity,tfCosineSimScore,bm25Score));
+				}
+			}
+
+			Comparator<ThreadNota> compareBy1 = (ThreadNota o1, ThreadNota o2) -> o2.titleSentenceVectors
+					.compareTo(o1.titleSentenceVectors);
+			Comparator<ThreadNota> compareBy2 = (ThreadNota o1, ThreadNota o2) -> o2.titleAssimetricSimilarity
+					.compareTo(o1.titleAssimetricSimilarity);
+			Comparator<ThreadNota> compareBy3 = (ThreadNota o1, ThreadNota o2) -> o2.bodyAssimetricSimilarity
+					.compareTo(o1.bodyAssimetricSimilarity);
+			Comparator<ThreadNota> compareBy4 = (ThreadNota o1, ThreadNota o2) -> o2.tfCosineSimScore
+					.compareTo(o1.tfCosineSimScore);
+			Comparator<ThreadNota> compareBy5 = (ThreadNota o1, ThreadNota o2) -> o2.bm25
+					.compareTo(o1.bm25);
+			
+			Collections.sort(notas, compareBy1);
+			Set<Integer> bestAnswers1 = new LinkedHashSet();
+			for (int i = 0; i < 10; i++) {
+				bestAnswers1.add(notas.get(i).id);
+			}
+			recommendedResults1.put(query, bestAnswers1);
+			
+			Collections.sort(notas, compareBy2);
+			Set<Integer> bestAnswers2 = new LinkedHashSet();
+			for (int i = 0; i < 10; i++) {
+				bestAnswers2.add(notas.get(i).id);
+			}
+			recommendedResults2.put(query, bestAnswers2);
+			
+			Collections.sort(notas, compareBy3);
+			Set<Integer> bestAnswers3 = new LinkedHashSet();
+			for (int i = 0; i < 10; i++) {
+				bestAnswers3.add(notas.get(i).id);
+			}
+			recommendedResults3.put(query, bestAnswers3);
+			
+			Collections.sort(notas, compareBy4);
+			Set<Integer> bestAnswers4 = new LinkedHashSet();
+			for (int i = 0; i < 10; i++) {
+				bestAnswers4.add(notas.get(i).id);
+			}
+			recommendedResults4.put(query, bestAnswers4);
+			
+			Collections.sort(notas, compareBy5);
+			Set<Integer> bestAnswers5 = new LinkedHashSet();
+			for (int i = 0; i < 10; i++) {
+				bestAnswers5.add(notas.get(i).id);
+			}
+			recommendedResults5.put(query, bestAnswers5);
+		}
+
+		String approachName = "RNN by CADU";
+		MetricResult metricResult = new MetricResult(approachName, 0, 0, 0, 0, 0, 10, "approach for top 10", 0,
+				null, null);
+		analyzeResults(recommendedResults1, groundTruthThreadsMap, metricResult, "titleSentenceVectors");
+		analyzeResults(recommendedResults2, groundTruthThreadsMap, metricResult, "titleAssimetricSimilarity");
+		analyzeResults(recommendedResults3, groundTruthThreadsMap, metricResult, "bodyAssimetricSimilarity");
+		analyzeResults(recommendedResults4, groundTruthThreadsMap, metricResult, "tfCosineSimScore");
+		analyzeResults(recommendedResults5, groundTruthThreadsMap, metricResult, "bm25");
 		crarService.saveMetricResult(metricResult);
 	}
 
@@ -753,8 +871,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			// baselines.add(new Baseline(templateName + "Ant-VB-ANS", language, false,
 			// "VB", "answers", false,
 			// CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
+			//baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false,
+				//	CrarParameters.roundsWithSocialFactors));
 
 			// tCCAnt-NN_VB - threads&answers: ant All - threads&answers +
 			// queryCoverageScoreMinThreshold>0
@@ -762,9 +880,35 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			// false, "All", "threads&answers",
 			// true, CrarParameters.roundsWithSocialFactors));
 
-			 //baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language,
-			 //false, "NN", "answers", false,
-			 //CrarParameters.roundsWithSocialFactors));
+			// baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language,
+			// false, "NN", "answers", false,
+			// CrarParameters.roundsWithSocialFactors));
+			
+			baselines.add(new Baseline("BM25+CNN", language,
+			 false, "NN", "answers", false,
+					 CrarParameters.roundsWithSocialFactors));
+			 
+			/*baselines.add(new Baseline("SENT2VEC", language,
+					 false, "NN", "answers", false,
+							 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("ASSIMETRIC", language,
+					 false, "NN", "answers", false,
+							 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("BODYASS", language,
+					 false, "NN", "answers", false,
+							 CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("TFIDFCOS", language,
+					 false, "NN", "answers", false,
+							 CrarParameters.roundsWithSocialFactors));
+			
+			baselines.add(new Baseline("JACCARD", language,
+					 false, "NN", "answers", false,
+							 CrarParameters.roundsWithSocialFactors));
+			
+			baselines.add(new Baseline("BM25", language,
+					 false, "NN", "answers", false,
+							 CrarParameters.roundsWithSocialFactors));*/
+					
 
 		}
 
@@ -783,7 +927,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 		readSOContentWordAndVectorsForTags(languages);
 
-		//generateMetricsForRNN();
+		//
 
 		Map<String, Set<String>> antonymsMap = crarUtils.loadAntonyms();
 
@@ -816,6 +960,9 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 				for (Baseline baseline : baselinesToEvaluate) {
 					
+					if (baseline.getName().contains("CNN")) {
+						generateMetricsForRNN();
+					}
 					System.out.println("compareAllBaselines baseline "+baseline);
 
 					// initTime = System.currentTimeMillis();
@@ -1320,9 +1467,10 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				if (queriesAndSent2Vectors != null && !queriesAndSent2Vectors.isEmpty()) {
 					double[] querySent2vectors = queriesAndSent2Vectors.get(processedQuery);
 					double[] bucketSent2vectors = candidateThread.getSentenceVectors();
-					if (baseline.getName().equals("TempAnt-NN-ANS (CRAR-CNN)")) {
+					
+					if (baseline.getName().contains("CNN")) {
 						bucketSent2vectors = candidateThread.getEmbeddedDLOutput();
-						querySent2vectors = getCnnOutput(processedQuery, 10, 100);
+						querySent2vectors = getCnnOutput(processedQuery, SIZE_TOKENS, 100);
 					}
 					if (querySent2vectors == null) {
 						System.out.println("Query null for " + processedQuery);
@@ -1560,8 +1708,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				candidateThread.setThreeGramsScoreNormalized(0d);
 
 				double finalScoreStage1 = CrokageComposer.calculateThreadsRankingScoreRound1(candidateThread, baseline);
-				candidateThread.setThreadFinalScore(candidateThread.getSent2VecScore());
-				System.out.println("modificado");
+				candidateThread.setThreadFinalScore(finalScoreStage1);
 			}
 		} else { // round 2
 			for (ThreadContent candidateThread : candidateThreads) {

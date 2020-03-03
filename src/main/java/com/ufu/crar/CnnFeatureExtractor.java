@@ -100,7 +100,7 @@ public class CnnFeatureExtractor {
 				 * Some simple advice is to start by trying three different learning rates –
 				 * 1e-1, 1e-3, and 1e-6
 				 */
-				.learningRate(.01)
+				.learningRate(.0001)
 				/**
 				 * XAVIER weight initialization is usually a good choice for this. For networks
 				 * with rectified linear (relu) or leaky relu activations, RELU weight
@@ -135,7 +135,7 @@ public class CnnFeatureExtractor {
 
 		model.setListeners(new ScoreIterationListener(1));
 
-		StringBuilder features = new StringBuilder();
+		//StringBuilder features = new StringBuilder();
 		for (int i = 0; i < nEpochs; i++) {
 			int batchers = 0;
 			while (trainingDataIter.hasNext()) {
@@ -144,20 +144,17 @@ public class CnnFeatureExtractor {
 					// During the process of fitting, each training instance is used to calibrate
 					// the parameters of neural network.
 					model.fit(next);
-					INDArray input = model.getOutputLayer().input();
-					features.append(input.toString().replace("[[", "").replaceAll("\\],", "").replaceAll(" \\[", "")
-							.replace("]]", "") + "\n");
+					//INDArray input = model.getOutputLayer().input();
+					//features.append(input.toString().replace("[[", "").replaceAll("\\],", "").replaceAll(" \\[", "")
+					//		.replace("]]", "") + "\n");
 				} catch(Exception e) {
 					System.out.println("deu pau ");
 				}
 				
-
-				
-
 				batchers++;
 				System.out.println("batch: " + batchers);
 			}
-			features.setLength(0);
+			//features.setLength(0);
 			System.out.println("*** Completed epoch {} ***" + i);
 
 			trainingDataIter.reset();

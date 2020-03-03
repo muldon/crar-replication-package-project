@@ -23,7 +23,7 @@ public class Baseline {
 	public Boolean onlyTrm;
 	public Boolean isCrokage;
 
-	public Integer vectorsTypeId;
+	private Integer vectorsTypeId;
 	/*
 	 * Crokage's extension params
 	 */
@@ -280,6 +280,132 @@ public class Baseline {
 			}
 		}
 		
+		if (name.equals("BM25+CNN")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  =0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 1;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 0;
+			this.threadRound2JaccardScoreWeight         = 0;
+			this.threadRound2BodyAsymmetricSimWeight    = 0;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 0;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 1;
+		}
+		
+		if (name.equals("SENT2VEC")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 1;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 0;
+			this.threadRound2JaccardScoreWeight         = 0;
+			this.threadRound2BodyAsymmetricSimWeight    = 0;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 0;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 1;
+		}
+		
+		if (name.equals("ASSIMETRIC")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 1;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 1;
+			this.threadRound2JaccardScoreWeight         = 0;
+			this.threadRound2BodyAsymmetricSimWeight    = 0;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 0;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 0;
+		}
+		
+		if (name.equals("BODYASS")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 1;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 0;
+			this.threadRound2JaccardScoreWeight         = 0;
+			this.threadRound2BodyAsymmetricSimWeight    = 1;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 0;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 0;
+		}
+		
+		if (name.equals("TFIDFCOS")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 1;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 0;
+			this.threadRound2JaccardScoreWeight         = 0;
+			this.threadRound2BodyAsymmetricSimWeight    = 0;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 1;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 0;
+		}
+		
+		if (name.equals("JACCARD")) {
+			this.threadRound1JaccardScoreWeight        = 1;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 0;
+			this.threadRound2JaccardScoreWeight         = 1;
+			this.threadRound2BodyAsymmetricSimWeight    = 0;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 0;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 0;
+		}
+		
+		if (name.equals("BM25")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 1;
+			this.threadRound1Sent2VecWeight            = 0;
+			
+			this.threadRound2TitleAsymmetricSimWeight   = 0;
+			this.threadRound2JaccardScoreWeight         = 0;
+			this.threadRound2BodyAsymmetricSimWeight    = 0;
+			this.threadRound2TfIdfCosineSimScoreWeight  = 0;
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;
+			this.threadRound2Sent2VecWeight             = 0;
+		}
+		
 		
 	}
 
@@ -298,6 +424,7 @@ public class Baseline {
 		this.methodFreqWeight = methodFreqWeight;
 		this.semWeight = semWeight;
 		this.bm25SmallLimit = bm25SmallLimit;
+		this.isCrokage = false;
 		
 		/*if(semWeight==0d && methodFreqWeight==0d && tfIdfWeight==0 && classFreqWeight==0d) {
 			this.onlyTrm=true;

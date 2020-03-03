@@ -575,7 +575,7 @@ public class CrokageComposer {
 	}
 	
 	
-	public static double calculateThreadsRankingScoreRound1(ThreadContent candidateThread, Baseline baseline) {
+	public static double calculateThreadsRankingScoreRound1(ThreadContent candidateThread, Baseline baseline) {						
 		double finalScore = 
 				(baseline.getThreadRound1TitleAsymmetricSimWeight()		  * candidateThread.getThreadTitleAsymmetricSimNormalized())+
 		        (baseline.getThreadRound1BodyAsymmetricSimWeight() 	 	  * candidateThread.getThreadQuestionBodyAnswersBodyAsymmetricSimNormalized())+
