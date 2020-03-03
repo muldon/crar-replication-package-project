@@ -360,7 +360,16 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				loadGroundTruthSelectedQueriesForQuestions(languageDataSet, groundTruthThreadsMap);
 				loadGroundTruthSelectedQueries(languageDataSet, groundTruthAnswersMap);
 				
-				containsCNNBaselines(baselinesToEvaluate);
+				if (baselines.stream().anyMatch(e -> e.getName().contains("CNN"))) {// contains CNN
+					System.out.println("We have a CNN here... so, let's train it ! ");
+					long initTime3 = System.currentTimeMillis();
+					trainDL();
+					CrarUtils.reportElapsedTime(initTime3, "training CNN");
+					generateMetricsForRNN();
+					
+				}
+				
+				//containsCNNBaselines(baselinesToEvaluate);
 
 				for (Baseline baseline : baselinesToEvaluate) {										
 					System.out.println("compareAllBaselines baseline "+baseline);
