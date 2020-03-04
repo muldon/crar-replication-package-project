@@ -133,28 +133,25 @@ public class CnnFeatureExtractor {
 		MultiLayerNetwork model = new MultiLayerNetwork(conf);
 		model.init();
 
-		model.setListeners(new ScoreIterationListener(1));
+		// model.setListeners(new ScoreIterationListener(1));
 
-		//StringBuilder features = new StringBuilder();
+		// StringBuilder features = new StringBuilder();
 		for (int i = 0; i < nEpochs; i++) {
 			int batchers = 0;
 			while (trainingDataIter.hasNext()) {
-				try {
-					DataSet next = trainingDataIter.next();
-					// During the process of fitting, each training instance is used to calibrate
-					// the parameters of neural network.
-					model.fit(next);
-					//INDArray input = model.getOutputLayer().input();
-					//features.append(input.toString().replace("[[", "").replaceAll("\\],", "").replaceAll(" \\[", "")
-					//		.replace("]]", "") + "\n");
-				} catch(Exception e) {
-					System.out.println("deu pau ");
-				}
-				
+				DataSet next = trainingDataIter.next();
+				// During the process of fitting, each training instance is used to calibrate
+				// the parameters of neural network.
+				model.fit(next);
+				// INDArray input = model.getOutputLayer().input();
+				// features.append(input.toString().replace("[[", "").replaceAll("\\],",
+				// "").replaceAll(" \\[", "")
+				// .replace("]]", "") + "\n");
+
 				batchers++;
 				System.out.println("batch: " + batchers);
 			}
-			//features.setLength(0);
+			// features.setLength(0);
 			System.out.println("*** Completed epoch {} ***" + i);
 
 			trainingDataIter.reset();
@@ -168,7 +165,22 @@ public class CnnFeatureExtractor {
 									// want to train your network more in the future
 		ModelSerializer.writeModel(model, locationToSave, saveUpdater);
 	}
+	
+	public MultiLayerNetwork getModel(String DL_OUTPUT_TRAINING) throws IOException, InterruptedException {
+		MultiLayerNetwork restored = ModelSerializer.restoreMultiLayerNetwork(DL_OUTPUT_TRAINING);
+		return restored.clone();
+	}
 
+	public double[] getOutput(MultiLayerNetwork model, double[] input) {
+		INDArray id = Nd4j.create(input);
+		List<INDArray> outputs = model.feedForward(id, false);
+		INDArray testingFeatures = outputs.get(5);
+		DataBuffer buff = testingFeatures.data();
+		return buff.asDouble();
+	}
+	
+	/*
+	 * 
 	public void extracteFeaturesWithCNNByLoadingModel(String DL_OUTPUT_TRAINING, String DL_INPUT_TESTING,
 			String DL_OUTPUT_TESTING) throws IOException, InterruptedException {
 		RecordReader testingDataReader = new CSVRecordReader();
@@ -198,18 +210,7 @@ public class CnnFeatureExtractor {
 		FileHelper.outputToFile(DL_OUTPUT_TESTING, featuresOfTestingData, false);
 
 	}
-
-	public MultiLayerNetwork getModel(String DL_OUTPUT_TRAINING) throws IOException, InterruptedException {
-		MultiLayerNetwork restored = ModelSerializer.restoreMultiLayerNetwork(DL_OUTPUT_TRAINING);
-		return restored.clone();
-	}
-
-	public double[] getOutput(MultiLayerNetwork model, double[] input) {
-		INDArray id = Nd4j.create(input);
-		List<INDArray> outputs = model.feedForward(id, false);
-		INDArray testingFeatures = outputs.get(5);
-		DataBuffer buff = testingFeatures.data();
-		return buff.asDouble();
-	}
+*/
+	 
 
 }
