@@ -505,7 +505,7 @@ public class AppAuxSolutionBuilder {
 	/*
 	 * the lower, the better. It is the effort to find the relevant document for the query.   
 	 */
-	public double getQueryEffectiveness(List<Integer> recommendedIds, List<Integer> goldSetIds) {
+	public int getQueryEffectiveness(List<Integer> recommendedIds, List<Integer> goldSetIds) {
 		int pos = 0;
 		for(Integer recommendedId: recommendedIds) {
 			pos++;
@@ -515,7 +515,29 @@ public class AppAuxSolutionBuilder {
 			
 		}
 		if(pos==0) { //not found
-			pos=recommendedIds.size(); //set max value
+			//pos=recommendedIds.size(); //set max value
+			pos = -1;
+		}
+		return pos;
+	}
+	
+	
+	/*
+	 * the lower, the better. It is the effort to find the relevant document for the query.   
+	 */
+	public int getQueryEffectiveness2(List<Integer> recommendedIds, List<Integer> goldSetIds, BufferedWriter bw2, String keyQuery) throws IOException {
+		int pos = 0;
+		for(Integer recommendedId: recommendedIds) {
+			pos++;
+			if(goldSetIds.contains(recommendedId)) {
+				bw2.write(keyQuery+"\t"+pos+"\t"+"https://stackoverflow.com/questions/"+recommendedId+"\n");
+				break;
+			}
+			
+		}
+		if(pos==0) { //not found
+			//pos=recommendedIds.size(); //set max value
+			pos = -1;
 		}
 		return pos;
 	}
@@ -2616,7 +2638,7 @@ public class AppAuxSolutionBuilder {
 	
 
 	
-	public String analyzeResults(Map<String, Set<Integer>> recommended,Map<String, Set<Integer>> goldSet, MetricResult metricResult, String approach) {
+	public String analyzeResults(Map<String, Set<Integer>> recommended,Map<String, Set<Integer>> goldSet, MetricResult metricResult, String approach) throws Exception {
 		int accuracy_k = 0;
 		int correct_sum = 0;
 		double rrank_sum = 0;
@@ -2634,6 +2656,7 @@ public class AppAuxSolutionBuilder {
 			topk=1; //save in top1 
 		}
 		int maxSize = 0;
+		
 		
 		
 		try {
@@ -2662,6 +2685,9 @@ public class AppAuxSolutionBuilder {
 				double recall = 0;
 				recall = getRecallKV3(rapis, gapis);
 				recall_sum = recall_sum + recall;
+				
+				//int qe = getQueryEffectiveness2(rapis, gapis,bw2,keyQuery);
+				
 				
 				rrank = CrarUtils.round(rrank,2);
 				preck = CrarUtils.round(preck,2);

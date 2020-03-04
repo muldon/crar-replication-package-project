@@ -223,93 +223,147 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 		List<Baseline> baselines = new ArrayList();
 
-		if (!luceneSearchAsClient) {
-			loadModelsMapsAndIndices();
-		}
+		
 
 		for (TagEnum language : languages) {
 
 			// Temp = template baseline
-			String templateName = "Temp";
-
-			// CROKAGE
-			/*
-			 * Como no baseline do EMSE-REPLICATION-PACKAGE com API class factor
-			 */
-			baselines.add(new Baseline("CROKAGE", language, true, "None", "", false, CrarParameters.roundsOnlyTRM));
-
-			// Temp
-			baselines.add(new Baseline(templateName, language, false, "None", "", false,
-					CrarParameters.roundsWithSocialFactors));
-
-			// TempWithoutSF: without social factors
-			baselines.add(new Baseline(templateName + "WithoutSF", language, false, "None", "", false,
-					CrarParameters.roundsWithoutSocialFactors));
-
-			// TempCC: Code Coverage or queryCoverageScoreMinThreshold>0
-			baselines.add(new Baseline(templateName + "CC", language, false, "None", "", true,
-					CrarParameters.roundsWithSocialFactors));
-
-			// Ant-POS-Place: antonyms threads&answers
-			baselines.add(new Baseline(templateName + "Ant-NN_VB-TR_ANS", language, false, "All", "threads&answers",
-					false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-VB-TR_ANS", language, false, "VB", "threads&answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-NN-TR_ANS", language, false, "NN", "threads&answers", false,
-					CrarParameters.roundsWithSocialFactors));
-
-			// antonyms threads
-			baselines.add(new Baseline(templateName + "Ant-NN_VB-TR", language, false, "All", "threads", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-VB-TR", language, false, "VB", "threads", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-NN-TR", language, false, "NN", "threads", false,
-					CrarParameters.roundsWithSocialFactors));
-
-			// antonyms answers
-			// Temp
-			baselines.add(new Baseline(templateName + "Ant-NN_VB-ANS", language, false, "All", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline(templateName + "Ant-VB-ANS", language, false, "VB", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
+			//String templateName = "Temp";
+			String templateName = "";
+			
 			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false,
 					CrarParameters.roundsWithSocialFactors));
+			
+			
+			baselines.add(new Baseline(templateName + "Threads-round1-Sent2vec", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithoutSocialFactors));
+			
+			baselines.add(new Baseline(templateName + "Threads-round1-CNN", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithoutSocialFactors));
+			
+			
+			baselines.add(new Baseline(templateName + "Threads-round1-Asym-Title", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithoutSocialFactors));
+			
+			
+			baselines.add(new Baseline(templateName + "Threads-round1-Asym-Body", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithoutSocialFactors));
+			
+			baselines.add(new Baseline(templateName + "Threads-round1-TF", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithoutSocialFactors));
+			
+			
+			baselines.add(new Baseline(templateName + "Threads-round2-NumAnswers", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			
+			baselines.add(new Baseline(templateName + "Threads-round2-UpVotes", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			
+			baselines.add(new Baseline(templateName + "Threads-round2-TotalUpvotes", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			
+			
+			baselines.add(new Baseline(templateName + "Answers-Asym-Title+AnswerBody", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			baselines.add(new Baseline(templateName + "Answers-TF-IDF", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			baselines.add(new Baseline(templateName + "Answers-Method", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			baselines.add(new Baseline(templateName + "Answers-TreadScore", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));
+			
+			
 
-			// tCCAnt-NN_VB - threads&answers: ant All - threads&answers +
-			// queryCoverageScoreMinThreshold>0
-			baselines.add(new Baseline(templateName + "CCAnt-NN_VB-TR_ANS", language, false, "All", "threads&answers",
-					true, CrarParameters.roundsWithSocialFactors));
-
-			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-
-			baselines.add(new Baseline("TEMP-CNN", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-
-			baselines.add(new Baseline("SEN-SIM-TIT", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ASY-SIM-TIT", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ASY-SIM-BOD", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("TF-ANS-BOD", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("SF-AC", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("SF-TTC", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("SF-QS", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ANS-ASY-TIT", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ANS-TF-IDF", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ANS-TOP-MET", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("ANS-THR-SCO", language, false, "NN", "answers", false,
-					CrarParameters.roundsWithSocialFactors));
+			// CROKAGE
+//			
+//			/*
+//			 * Como no baseline do EMSE-REPLICATION-PACKAGE com API class factor
+//			 */
+//			baselines.add(new Baseline("CROKAGE", language, true, "None", "", false, CrarParameters.roundsOnlyTRM));
+//
+//			// Temp
+//			baselines.add(new Baseline(templateName, language, false, "None", "", false,
+//					CrarParameters.roundsWithSocialFactors));
+//
+//			// TempWithoutSF: without social factors
+//			baselines.add(new Baseline(templateName + "WithoutSF", language, false, "None", "", false,
+//					CrarParameters.roundsWithoutSocialFactors));
+//
+//			// TempCC: Code Coverage or queryCoverageScoreMinThreshold>0
+//			baselines.add(new Baseline(templateName + "CC", language, false, "None", "", true,
+//					CrarParameters.roundsWithSocialFactors));
+//
+//			// Ant-POS-Place: antonyms threads&answers
+//			baselines.add(new Baseline(templateName + "Ant-NN_VB-TR_ANS", language, false, "All", "threads&answers",
+//					false, CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline(templateName + "Ant-VB-TR_ANS", language, false, "VB", "threads&answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline(templateName + "Ant-NN-TR_ANS", language, false, "NN", "threads&answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//
+//			// antonyms threads
+//			baselines.add(new Baseline(templateName + "Ant-NN_VB-TR", language, false, "All", "threads", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline(templateName + "Ant-VB-TR", language, false, "VB", "threads", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline(templateName + "Ant-NN-TR", language, false, "NN", "threads", false,
+//					CrarParameters.roundsWithSocialFactors));
+//
+//			// antonyms answers
+//			// Temp
+//			baselines.add(new Baseline(templateName + "Ant-NN_VB-ANS", language, false, "All", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline(templateName + "Ant-VB-ANS", language, false, "VB", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			
+//
+//			// tCCAnt-NN_VB - threads&answers: ant All - threads&answers +
+//			// queryCoverageScoreMinThreshold>0
+//			baselines.add(new Baseline(templateName + "CCAnt-NN_VB-TR_ANS", language, false, "All", "threads&answers",
+//					true, CrarParameters.roundsWithSocialFactors));
+//
+//			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//
+//			baselines.add(new Baseline("TEMP-CNN", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//
+//			baselines.add(new Baseline("SEN-SIM-TIT", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("ASY-SIM-TIT", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("ASY-SIM-BOD", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("TF-ANS-BOD", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("SF-AC", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("SF-TTC", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("SF-QS", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("ANS-ASY-TIT", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("ANS-TF-IDF", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("ANS-TOP-MET", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
+//			baselines.add(new Baseline("ANS-THR-SCO", language, false, "NN", "answers", false,
+//					CrarParameters.roundsWithSocialFactors));
 		}
 
+		
+		/*if (!luceneSearchAsClient) {
+			loadModelsMapsAndIndices();
+		}*/
+		loadModelsMapsAndIndices();
+		
 		if (baselines.stream().anyMatch(e -> e.getIsCrokage() == true)) {// contains CRAR - load API class factor
 																			// dependencies
 			configureTagIdByDataSet();
@@ -389,6 +443,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			Integer tagId, String languageDataSet, Map<String, Set<String>> antonymsMap,
 			Map<String, double[]> queriesAndSent2Vectors) throws Exception {
 		BufferedWriter bw = null;
+		//BufferedWriter bw2 = new BufferedWriter(new FileWriter(CRAR_HOME_DATA_FOLDER+"queriesAndEffectiveness.txt"));
+		
 		List<String> queries = null;
 		String processedQuery;
 		Set<ThreadContent> candidateThreads = null;
@@ -445,13 +501,11 @@ public class CrarApp extends AppAuxSolutionBuilder {
 					}
 
 					filteredCandidateThreadsMap = reduceThreads(candidateThreads, processedQuery, tagId, rawQuery,
-							baseline.getTopRelevantThreadsLimit1(), baseline.getTopRelevantThreadsLimit2(),
-							baseline.getNumberOfRoundsInReducingThreads(), CrarParameters.generateFeaturesFile, bw,
+							CrarParameters.generateFeaturesFile, bw,
 							CrarParameters.evaluationOf, groundTruthThreadsMap, queryAntonymsMap, queryAntonyms,
 							processAntonyms, baseline, queriesAndSent2Vectors);
 
-					candidateBuckets = crarService
-							.getUpvotedAnswersWithCodeForThreadsIds(filteredCandidateThreadsMap.keySet(), useLemma);
+					candidateBuckets = crarService.getUpvotedAnswersWithCodeForThreadsIds(filteredCandidateThreadsMap.keySet(), useLemma);
 					// index and use BM25
 					luceneSearcher = new LuceneSearcher();
 					luceneSearcher.buildSearchManager(candidateBuckets, baseline.getSearchParam());
@@ -483,6 +537,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			boolean saveAll = false;
 			// String searchParamsStr = baseline.toString();
 
+			
 			for (int topk : CrarParameters.topkArr) {
 
 				Map<String, Set<Integer>> recommendedResultsTmp = CrarUtils.copy(recommendedResults);
@@ -497,6 +552,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				metricResult = new MetricResult(approachName, baseline.getTrmLimit1Threads(), null, null, null, cutoff,
 						topk, obsComp, 0, languageDataSet, tagId);
 				metricResult.setVectorsType(baseline.getVectorsTypeId());
+				//analyzeResults(recommendedResultsTmp, groundTruth, metricResult, approachName,bw2);
 				analyzeResults(recommendedResultsTmp, groundTruth, metricResult, approachName);
 
 				crarService.saveMetricResult(metricResult);
@@ -512,11 +568,14 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		} finally {
 			if (bw != null)
 				bw.close();
+			/*if (bw2 != null)
+				bw2.close();*/
 		}
 
 		return recommendedResults;
 	}
 
+	
 	private Map<String, Set<Integer>> dynamicRankInnerOld(Baseline baseline,
 			Map<String, Set<Integer>> groundTruthThreadsMap, Map<String, Set<Integer>> groundTruthAnswersMap,
 			Integer tagId, String languageDataSet, Map<String, Set<String>> antonymsMap,
@@ -592,8 +651,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 					}
 
 					filteredCandidateThreadsMap = reduceThreads(candidateThreads, processedQuery, tagId, rawQuery,
-							baseline.getTopRelevantThreadsLimit1(), baseline.getTopRelevantThreadsLimit2(),
-							baseline.getNumberOfRoundsInReducingThreads(), CrarParameters.generateFeaturesFile, bw,
+							CrarParameters.generateFeaturesFile, bw,
 							CrarParameters.evaluationOf, groundTruthThreadsMap, queryAntonymsMap, queryAntonyms,
 							processAntonyms, baseline, queriesAndSent2Vectors);
 				}
@@ -698,8 +756,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				metricResult = new MetricResult(approachName, baseline.getTrmLimit1Threads(), null, null, null, cutoff,
 						topk, obsComp, 0, languageDataSet, tagId);
 				metricResult.setVectorsType(baseline.getVectorsTypeId());
-				analyzeResults(recommendedResultsTmp, groundTruth, metricResult, approachName);
-
+				//analyzeResults(recommendedResultsTmp, groundTruth, metricResult, approachName);
+				System.out.println("xxxxxxxxxxxxxxxxxxxx not calling analyzeResults..");
 				crarService.saveMetricResult(metricResult);
 				recommendedResultsTmp = null;
 				metricResult = null;
@@ -719,12 +777,16 @@ public class CrarApp extends AppAuxSolutionBuilder {
 	}
 
 	private Map<Integer, ThreadContent> reduceThreads(Set<ThreadContent> candidateThreads, String processedQuery,
-			Integer tagId, String rawQuery, int topRelevantThreadsLimit1, int topRelevantThreadsLimit2, int rounds,
+			Integer tagId, String rawQuery,  
 			Boolean generateFeaturesFile, BufferedWriter bw, String evaluationOf,
 			Map<String, Set<Integer>> groundTruthThreadsMap, Map<String, Set<String>> queryAntonymsMap,
 			Set<String> queryAntonyms, boolean processAntonyms, Baseline baseline,
 			Map<String, double[]> queriesAndSent2Vectors) throws Exception {
 
+		int rounds = baseline.getNumberOfRoundsInReducingThreads();
+		int topRelevantThreadsLimit1 = baseline.getTopRelevantThreadsLimit1();  
+		int topRelevantThreadsLimit2 = baseline.getTopRelevantThreadsLimit2();
+				
 		CrokageComposer.filterThreadsWithAntonyms(candidateThreads, queryAntonymsMap, queryAntonyms, rawQuery,
 				groundTruthThreadsMap, processAntonyms, baseline);
 
@@ -764,7 +826,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				.sorted(Comparator.comparingDouble(ThreadContent::getThreadFinalScore).reversed())
 				.limit(topRelevantThreadsLimit1).collect(Collectors.toCollection(LinkedHashSet::new));
 
-		if (rounds == 1) { // baseline without SF only
+		if (rounds == 1) { // baselines without SF only
 			Map<Integer, ThreadContent> topThreadsMap = topThreads.stream()
 					.sorted(Comparator.comparingDouble(ThreadContent::getThreadFinalScore).reversed())
 					.limit(topRelevantThreadsLimit2)

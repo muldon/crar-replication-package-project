@@ -278,9 +278,102 @@ public class Baseline {
 			}else { //python
 				this.trmLimitAnswers=60;
 			}
-		}
+			
+		}else if (name.equals("Threads-round1-Sent2vec") || name.equals("Threads-round1-CNN")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 1;
 		
-		if (name.equals("TEMP-CNN")) {
+		}else if (name.equals("Threads-round1-Asym-Title")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 1;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;
+			
+		
+		}else if (name.equals("Threads-round1-Asym-Body")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 1;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;	
+			
+		}else if (name.equals("Threads-round1-TF")) {
+			this.threadRound1JaccardScoreWeight        = 0;
+			this.threadRound1TitleAsymmetricSimWeight  = 0;
+			this.threadRound1BodyAsymmetricSimWeight   = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 1;
+			this.threadRound1BM25ScoreWeight           = 0;
+			this.threadRound1Sent2VecWeight            = 0;		
+			
+		}else if (name.equals("Threads-round2-NumAnswers")) {
+			this.threadRound2AnswerCountScoreWeight     = 1;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;	
+					
+		
+		}else if (name.equals("Threads-round2-UpVotes")) {
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 1;
+			this.threadRound2TotalUpvotesScoreWeight    = 0;	
+		
+		}else if (name.equals("Threads-round2-TotalUpvotes")) {
+			this.threadRound2AnswerCountScoreWeight     = 0;
+			this.threadRound2UpVotesScoreScoreWeight    = 0;
+			this.threadRound2TotalUpvotesScoreWeight    = 1;	
+			
+			
+		}else if (name.equals("Answers-Asym-Title+AnswerBody")) {
+			this.answersThreadScoreWeight               = 0;
+			this.answersAsymmScoreWeight                = 1;
+			this.answersTfIdfScoreWeight                = 0;
+			this.answersMethodFreqScoreWeight           = 0;
+			this.answersBM25ScoreWeight                 = 0;
+			this.answersJaccardScoreWeight              = 0;
+			this.answersQueryCoverageScoreWeight        = 0;
+			this.answersCodeCoverageScoreWeight         = 0;
+			this.answersAPIClassScoreWeight             = 0;
+				
+		}else if (name.equals("Answers-TF-IDF")) {
+			this.answersThreadScoreWeight               = 0;
+			this.answersAsymmScoreWeight                = 0;
+			this.answersTfIdfScoreWeight                = 1;
+			this.answersMethodFreqScoreWeight           = 0;
+			this.answersBM25ScoreWeight                 = 0;
+			this.answersJaccardScoreWeight              = 0;
+			this.answersQueryCoverageScoreWeight        = 0;
+			this.answersCodeCoverageScoreWeight         = 0;
+			this.answersAPIClassScoreWeight             = 0;	
+			
+		}else if (name.equals("Answers-Method")) {
+			this.answersThreadScoreWeight               = 0;
+			this.answersAsymmScoreWeight                = 0;
+			this.answersTfIdfScoreWeight                = 0;
+			this.answersMethodFreqScoreWeight           = 1;
+			this.answersBM25ScoreWeight                 = 0;
+			this.answersJaccardScoreWeight              = 0;
+			this.answersQueryCoverageScoreWeight        = 0;
+			this.answersCodeCoverageScoreWeight         = 0;
+			this.answersAPIClassScoreWeight             = 0;	
+			
+		}else if (name.equals("Answers-TreadScore")) {
+			this.answersThreadScoreWeight               = 1;
+			this.answersAsymmScoreWeight                = 0;
+			this.answersTfIdfScoreWeight                = 0;
+			this.answersMethodFreqScoreWeight           = 0;
+			this.answersBM25ScoreWeight                 = 0;
+			this.answersJaccardScoreWeight              = 0;
+			this.answersQueryCoverageScoreWeight        = 0;
+			this.answersCodeCoverageScoreWeight         = 0;
+			this.answersAPIClassScoreWeight             = 0;		
+			
+		}else if (name.equals("TEMP-CNN")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  =0;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -296,9 +389,8 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 1;
-		}
 		
-		if (name.equals("SEN-SIM-TIT")) {
+		}else if (name.equals("SEN-SIM-TIT")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 0;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -314,9 +406,9 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 1;
-		}
 		
-		if (name.equals("ASY-SIM-TIT")) {
+		
+		}else if (name.equals("ASY-SIM-TIT")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -332,9 +424,9 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 0;
-		}
 		
-		if (name.equals("ASY-SIM-BOD")) {
+		
+		}else if (name.equals("ASY-SIM-BOD")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 0;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -350,9 +442,9 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 0;
-		}
 		
-		if (name.equals("TF-ANS-BOD")) {
+		
+		}else if (name.equals("TF-ANS-BOD")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 0;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -368,10 +460,10 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 0;
-		}
+		
 		
 
-		if (name.equals("SF-AC")) {
+		}else if (name.equals("SF-AC")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -387,9 +479,9 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 0;
-		}
 		
-		if (name.equals("SF-TTC")) {
+		
+		}else if (name.equals("SF-TTC")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -405,9 +497,9 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 1;
 			this.threadRound2TotalUpvotesScoreWeight    = 0;
 			this.threadRound2Sent2VecWeight             = 0;
-		}
 		
-		if (name.equals("SF-QS")) {
+		
+		}else if (name.equals("SF-QS")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -423,10 +515,10 @@ public class Baseline {
 			this.threadRound2UpVotesScoreScoreWeight    = 0;
 			this.threadRound2TotalUpvotesScoreWeight    = 1;
 			this.threadRound2Sent2VecWeight             = 0;
-		}
+		
 		
 
-		if (name.equals("ANS-ASY-TIT")) {
+		}else if (name.equals("ANS-ASY-TIT")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -452,9 +544,9 @@ public class Baseline {
 			this.answersQueryCoverageScoreWeight        = 0;
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;
-		}
 		
-		if (name.equals("ANS-TF-IDF")) {
+		
+		}else if (name.equals("ANS-TF-IDF")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -480,9 +572,9 @@ public class Baseline {
 			this.answersQueryCoverageScoreWeight        = 0;
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;
-		}
 		
-		if (name.equals("ANS-TOP-MET")) {
+		
+		}else if (name.equals("ANS-TOP-MET")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -508,9 +600,9 @@ public class Baseline {
 			this.answersQueryCoverageScoreWeight        = 0;
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;
-		}
 		
-		if (name.equals("ANS-THR-SCO")) {
+		
+		}else if (name.equals("ANS-THR-SCO")) {
 			this.threadRound1JaccardScoreWeight        = 1;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -536,6 +628,7 @@ public class Baseline {
 			this.answersQueryCoverageScoreWeight        = 0;
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;
+		
 		}
 		
 
