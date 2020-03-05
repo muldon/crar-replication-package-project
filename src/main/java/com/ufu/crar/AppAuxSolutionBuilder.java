@@ -538,6 +538,7 @@ public class AppAuxSolutionBuilder {
 		if(pos==0) { //not found
 			//pos=recommendedIds.size(); //set max value
 			pos = -1;
+			bw2.write(keyQuery+"\t"+pos+"\tnot found\thttps://stackoverflow.com/questions/"+recommendedIds.get(0)+ "\n");
 		}
 		return pos;
 	}

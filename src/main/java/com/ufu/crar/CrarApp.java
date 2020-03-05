@@ -238,6 +238,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false,
 					CrarParameters.roundsWithSocialFactors));
 			
+			
 			baselines.add(new Baseline(templateName + "CNN", language, false, "NN", "answers", false,
 					CrarParameters.roundsWithSocialFactors));			
 			
@@ -269,7 +270,6 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			
 			baselines.add(new Baseline(templateName + "Threads-round2-TotalUpvotes", language, false, "NN", "answers", false,
 					CrarParameters.roundsWithSocialFactors));
-			
 			
 			
 			baselines.add(new Baseline(templateName + "Answers-Asym-Title+AnswerBody", language, false, "NN", "answers", false,
@@ -365,10 +365,11 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		}
 
 		
-		/*if (!luceneSearchAsClient) {
+		if (!luceneSearchAsClient || baselines.stream().anyMatch(e -> e.getName().contains("CNN"))) {
 			loadModelsMapsAndIndices();
-		}*/
-		loadModelsMapsAndIndices();
+		}
+		
+		//loadModelsMapsAndIndices();
 		
 		if (baselines.stream().anyMatch(e -> e.getIsCrokage() == true)) {// contains CRAR - load API class factor
 																			// dependencies
@@ -398,7 +399,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 				// System.out.println("\n\n\nLoading ground truth for
 				// "+language.name().toLowerCase()+ " and "+dataSetType);
 				languageDataSet = language.name().toLowerCase() + "-" + dataSetType;
-				System.out.println("compareAllBaselines para " + language);
+				System.out.println("compareAllBaselines to " + language);
 				int tagId = TagEnum.getTagIdByTagEnum(language);
 				Map<String, double[]> queriesAndSent2Vectors = CrarUtils.readQueriesAndVectors(
 						CRAR_HOME + "/data/groundTruthSentenceQueriesAndVectors" + tagId + ".txt");
@@ -449,7 +450,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			Integer tagId, String languageDataSet, Map<String, Set<String>> antonymsMap,
 			Map<String, double[]> queriesAndSent2Vectors) throws Exception {
 		BufferedWriter bw = null;
-		//BufferedWriter bw2 = new BufferedWriter(new FileWriter(CRAR_HOME_DATA_FOLDER+"queriesAndEffectiveness.txt"));
+		//BufferedWriter bw2 = new BufferedWriter(new FileWriter(CRAR_HOME_DATA_FOLDER+"queriesAndEffectiveness.csv"));
 		
 		List<String> queries = null;
 		String processedQuery;
@@ -545,7 +546,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 
 			
 			for (int topk : CrarParameters.topkArr) {
-
+				//topk = 500;
+				
 				Map<String, Set<Integer>> recommendedResultsTmp = CrarUtils.copy(recommendedResults);
 				obsComp = "tagId=" + tagId + " -" + languageDataSet + " -limits:" + baseline.getTrmLimit1Threads() + "-"
 						+ baseline.getTopRelevantThreadsLimit1() + "-" + baseline.getTopRelevantThreadsLimit2()
