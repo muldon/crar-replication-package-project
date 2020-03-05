@@ -530,7 +530,7 @@ public class AppAuxSolutionBuilder {
 		for(Integer recommendedId: recommendedIds) {
 			pos++;
 			if(goldSetIds.contains(recommendedId)) {
-				bw2.write(keyQuery+"\t"+pos+"\t"+"https://stackoverflow.com/questions/"+recommendedId+"\n");
+				bw2.write(keyQuery+"\t"+pos+"\t"+"https://stackoverflow.com/questions/"+recommendedId+ "\thttps://stackoverflow.com/questions/"+recommendedIds.get(0)+ "\n");
 				break;
 			}
 			
