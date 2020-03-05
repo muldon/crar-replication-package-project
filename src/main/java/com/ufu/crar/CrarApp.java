@@ -184,8 +184,12 @@ public class CrarApp extends AppAuxSolutionBuilder {
 		double[] vectorizedTokenVector = CrarUtils.vectorizeDouble(Arrays.asList(query.split(" ")), embMap, sizeTokens,
 				sizeEmbedding);
 		return learner.getOutput(this.model, vectorizedTokenVector);
-
 	}
+	
+	private double[] getEmbeddedOutput(Integer id) {
+		//1 - Java
+		return allValidThreadsMapByTag.get(1).get(id).getEmbeddedDLOutput();
+	}	
 
 	private void compareAllBaselines() throws Exception {
 		Map<String, Set<Integer>> groundTruthThreadsMap = new LinkedHashMap<>();
@@ -234,6 +238,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false,
 					CrarParameters.roundsWithSocialFactors));
 			
+			baselines.add(new Baseline(templateName + "CNN", language, false, "NN", "answers", false,
+					CrarParameters.roundsWithSocialFactors));			
 			
 			baselines.add(new Baseline(templateName + "Threads-round1-Sent2vec", language, false, "NN", "answers", false,
 					CrarParameters.roundsWithoutSocialFactors));
@@ -1006,8 +1012,8 @@ public class CrarApp extends AppAuxSolutionBuilder {
 					double[] bucketSent2vectors = candidateThread.getSentenceVectors();
 
 					if (baseline.getName().contains("CNN")) {
-						bucketSent2vectors = candidateThread.getEmbeddedDLOutput();
-						querySent2vectors = getCnnOutput(processedQuery, SIZE_TOKENS, 100);
+						bucketSent2vectors = getEmbeddedOutput(candidateThread.getId());
+						querySent2vectors = getCnnOutput(processedQuery, SIZE_TOKENS, SIZE_EMBEDDING);
 					}
 					if (querySent2vectors == null) {
 						System.out.println("Query null for " + processedQuery);
