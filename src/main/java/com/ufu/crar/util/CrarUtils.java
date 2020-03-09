@@ -3206,10 +3206,15 @@ public static String removeSpecialSymbolsTitles(String finalContent) {
 		 * taikuukaits
 		 */
 		resourceName = "antonyms.txt";
-		input = getClass().getClassLoader().getResourceAsStream(resourceName);
-        lines = IOUtils.readLines(input, StandardCharsets.UTF_8);
-		
-		for(String line:lines) {
+		//input = getClass().getClassLoader().getResourceAsStream(resourceName);
+		input = getClass().getResourceAsStream("/resources/" + resourceName);
+        if (input == null) {
+            // this is how we load file within editor (eg eclipse)
+            input = getClass().getClassLoader().getResourceAsStream(resourceName);
+        }
+		lines = IOUtils.readLines(input, StandardCharsets.UTF_8);
+        
+        for(String line:lines) {
 			parts = line.split("\\|");
 			String word = parts[0].trim();
 			Set<String> antonyms = Arrays.stream(parts[1].split(",")).map(String::trim).collect(Collectors.toSet());
@@ -3268,7 +3273,7 @@ public static String removeSpecialSymbolsTitles(String finalContent) {
 		}
 		SetView<String> intersection = Sets.intersection(queryWordsToGetAntonyms, queryAntonyms); 
 		if(intersection.size()>0) {
-			System.out.println("Query has antonyms in its own, disconsidering: "+rawQuery);
+			//System.out.println("Query has antonyms in its own, disconsidering: "+rawQuery);
 			return false;
 		}
 		
