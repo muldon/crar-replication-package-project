@@ -279,7 +279,7 @@ public class Baseline {
 				this.trmLimitAnswers=60;
 			}
 			
-		}else if (name.equals("Threads-round1-Sent2vec") || name.equals("Threads-round1-CNN")) {
+		}else if (name.equals("Sent2Vec") || name.equals("CNN")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 0;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -287,7 +287,7 @@ public class Baseline {
 			this.threadRound1BM25ScoreWeight           = 0;
 			this.threadRound1Sent2VecWeight            = 1;
 		
-		}else if (name.equals("Threads-round1-Asym-Title")) {
+		}else if (name.equals("Asym.Sim.Title")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 1;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -296,7 +296,7 @@ public class Baseline {
 			this.threadRound1Sent2VecWeight            = 0;
 			
 		
-		}else if (name.equals("Threads-round1-Asym-Body")) {
+		}else if (name.equals("Asym.Sim.Body+Ans.Body")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 0;
 			this.threadRound1BodyAsymmetricSimWeight   = 1;
@@ -304,7 +304,7 @@ public class Baseline {
 			this.threadRound1BM25ScoreWeight           = 0;
 			this.threadRound1Sent2VecWeight            = 0;	
 			
-		}else if (name.equals("Threads-round1-TF")) {
+		}else if (name.equals("TF")) {
 			this.threadRound1JaccardScoreWeight        = 0;
 			this.threadRound1TitleAsymmetricSimWeight  = 0;
 			this.threadRound1BodyAsymmetricSimWeight   = 0;
@@ -329,7 +329,7 @@ public class Baseline {
 			this.threadRound2TotalUpvotesScoreWeight    = 1;	
 			
 			
-		}else if (name.equals("Answers-Asym-Title+AnswerBody")) {
+		}else if (name.equals("Asymmetric Similarity")) {
 			this.answersThreadScoreWeight               = 0;
 			this.answersAsymmScoreWeight                = 1;
 			this.answersTfIdfScoreWeight                = 0;
@@ -340,7 +340,7 @@ public class Baseline {
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;
 				
-		}else if (name.equals("Answers-TF-IDF")) {
+		}else if (name.equals("TF-IDF")) {
 			this.answersThreadScoreWeight               = 0;
 			this.answersAsymmScoreWeight                = 0;
 			this.answersTfIdfScoreWeight                = 1;
@@ -351,7 +351,7 @@ public class Baseline {
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;	
 			
-		}else if (name.equals("Answers-Method")) {
+		}else if (name.equals("Top Method")) {
 			this.answersThreadScoreWeight               = 0;
 			this.answersAsymmScoreWeight                = 0;
 			this.answersTfIdfScoreWeight                = 0;
@@ -362,7 +362,7 @@ public class Baseline {
 			this.answersCodeCoverageScoreWeight         = 0;
 			this.answersAPIClassScoreWeight             = 0;	
 			
-		}else if (name.equals("Answers-TreadScore")) {
+		}else if (name.equals("Thread Score")) {
 			this.answersThreadScoreWeight               = 1;
 			this.answersAsymmScoreWeight                = 0;
 			this.answersTfIdfScoreWeight                = 0;
@@ -630,8 +630,67 @@ public class Baseline {
 			this.answersAPIClassScoreWeight             = 0;
 		
 		}
+		else if (name.equals("Template-SF-TAS-AC")) {
+			this.threadRound2UpVotesScoreScoreWeight    = 0;	
+		}
+		else if (name.equals("Template-SF-QS-AC")) {	
+			this.threadRound2TotalUpvotesScoreWeight    = 0;		
+		}
+		else if (name.equals("Template-SF-QS-TAS")) {
+			this.threadRound2AnswerCountScoreWeight     = 0;
+		}
+		else if (name.equals("Template-SF-AC")) {
+			this.threadRound2TotalUpvotesScoreWeight = 0;
+			this.threadRound2UpVotesScoreScoreWeight = 0;		
+		}
+		else if (name.equals("Template-SF-TAS")) {
+			this.threadRound2AnswerCountScoreWeight = 0;
+			this.threadRound2UpVotesScoreScoreWeight = 0;		
+		}
+		else if (name.equals("Template-SF-QS")) {
+			this.threadRound2AnswerCountScoreWeight = 0;
+			this.threadRound2TotalUpvotesScoreWeight = 0;		
+		} 
+		else if (name.equals("Template-Ant-NN-ANS|SF-QS-AC")) { //|| name.equals("CRAR-CNN")) {
+			this.threadRound2TotalUpvotesScoreWeight = 0;
+		}
 		
-
+		else if (name.equals("CRAR Without Asym.Sim.Title")) {
+			this.threadRound2TitleAsymmetricSimWeight    = 0;	
+			this.threadRound1TitleAsymmetricSimWeight = 0;
+			//this.threadRound2TotalUpvotesScoreWeight = 0;
+		}
+		else if (name.equals("CRAR Without Asym.Sim.Body+Ans.Body")) {	
+			this.threadRound2BodyAsymmetricSimWeight = 0;
+			this.threadRound1BodyAsymmetricSimWeight = 0;
+			//this.threadRound2TotalUpvotesScoreWeight = 0;
+		}
+		else if (name.equals("CRAR Without TF")) {
+			this.threadRound2TfIdfCosineSimScoreWeight     = 0;
+			this.threadRound1TfIdfCosineSimScoreWeight = 0;		
+			//this.threadRound2TotalUpvotesScoreWeight = 0;
+		}
+		else if (name.equals("CRAR Without Sent2Vec/CNN")) {
+			this.threadRound2Sent2VecWeight     = 0;
+			this.threadRound1Sent2VecWeight = 0;
+			//this.threadRound2TotalUpvotesScoreWeight = 0;
+		} 
+		else if (name.equals("CRAR Without Thread Score")) {
+			this.answersThreadScoreWeight               = 0;
+			//this.threadRound2TotalUpvotesScoreWeight	= 0;
+		}
+		else if (name.equals("CRAR Without Top Method")) {
+			this.answersMethodFreqScoreWeight               = 0;
+			//this.threadRound2TotalUpvotesScoreWeight	= 0;
+		}
+		else if (name.equals("CRAR Without TF-IDF")) {
+			this.answersTfIdfScoreWeight               = 0;
+			//this.threadRound2TotalUpvotesScoreWeight	= 0;
+		}
+		else if (name.equals("CRAR Without Asymmetric Similarity")) {
+			this.answersAsymmScoreWeight               = 0;
+			//this.threadRound2TotalUpvotesScoreWeight	= 0;
+		}
 		
 		
 	}
