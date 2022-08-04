@@ -214,50 +214,59 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			// Temp = template baseline
 			//String templateName = "Temp";
 			//String templateName = "";
+						
+			//RQ1 - Table 4 - SF = Social Feature. TAS = Total Answer Score. AC = Answers Count. QS = Question Score.
+			baselines.add(new Baseline("Template-Without-SF", language, false, "None", "", false,	CrarParameters.roundsWithoutSocialFactors));
+			baselines.add(new Baseline("Template-SF-TAS", language, false, "None", "", false,CrarParameters.roundsWithSocialFactors));
+   		    baselines.add(new Baseline("Template-SF-TAS-AC", language, false, "None", "", false,CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-SF-QS", language, false, "None", "", false,CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-SF-AC", language, false, "None", "", false,CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-SF-QS-TAS", language, false, "None", "", false,CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template (SF-ALL)", language, false, "None", "", false, CrarParameters.roundsWithSocialFactors));
+	      	baselines.add(new Baseline("Template-SF-QS-AC", language, false, "None", "", false,CrarParameters.roundsWithSocialFactors));			
+												
+			//RQ1 - Table 5 - Ant = Antonimo. NN = Nouns. VB = Verbs. TR = Threads. ANS = Answers
+			baselines.add(new Baseline("Template-Ant-NN_VB-TR_ANS", language, false, "All", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-VB-ANS", language, false, "VB", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-VB-TR_ANS", language, false, "VB", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-NN_VB-TR", language, false, "All", "threads", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-NN-TR_ANS", language, false, "NN", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-NN_VB-ANS", language, false, "All", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template", language, false, "None", "", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-VB-TR", language, false, "VB", "threads", false, CrarParameters.roundsWithSocialFactors));			
+			baselines.add(new Baseline("Template-Ant-NN-TR", language, false, "NN", "threads", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-NN-ANS", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
 			
-			//Showing the baselines as in the paper
-			//Begin table 3
+			//RQ1 - Table 6 - CRAR
+			baselines.add(new Baseline("Template (SF-ALL)", language, false, "None", "", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-NN-ANS|SF-QS-AC", language, false, "NN", "answers", false,CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("Template-Ant-NN-ANS|SF-All (CRAR)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
 			
-			// TempWithoutSF: without social factors
-			baselines.add(new Baseline("WithoutSF", language, false, "None", "", false,	CrarParameters.roundsWithoutSocialFactors));
-			baselines.add(new Baseline("Ant-NN_VB-TR_ANS", language, false, "All", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-VB-ANS", language, false, "VB", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-VB-TR_ANS", language, false, "VB", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN_VB-TR", language, false, "All", "threads", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN-TR_ANS", language, false, "NN", "threads&answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN_VB-ANS", language, false, "All", "answers", false, CrarParameters.roundsWithSocialFactors));
-			
-			// Temp
-			baselines.add(new Baseline("Temp", language, false, "None", "", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-VB-TR", language, false, "VB", "threads", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN-TR", language, false, "NN", "threads", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			
-			//End of table 3
-			//Begin o table 4
-			baselines.add(new Baseline("Threads-round1-Sent2vec", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors));
-			baselines.add(new Baseline("Threads-round1-CNN", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors));
-			baselines.add(new Baseline("Threads-round1-Asym-Title", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors));
-			baselines.add(new Baseline("Threads-round1-Asym-Body", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors));
-			baselines.add(new Baseline("Threads-round1-TF", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors));
-			baselines.add(new Baseline("Threads-round2-NumAnswers", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Threads-round2-UpVotes", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Threads-round2-TotalUpvotes", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+			//RQ2 - Table 7
+			baselines.add(new Baseline("TF", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors)); //Threads-round1-TF
+  		    baselines.add(new Baseline("Sent2Vec", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors)); //Threads-round1-Sent2vec
+	        baselines.add(new Baseline("CNN", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors)); //Threads-round1-CNN
+	        baselines.add(new Baseline("Asym.Sim.Body+Ans.Body", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors)); //Threads-round1-Asym-Body
+	        baselines.add(new Baseline("Asym.Sim.Title", language, false, "NN", "answers", false, CrarParameters.roundsWithoutSocialFactors)); //Threads-round1-Asym-Title
+	        baselines.add(new Baseline("CRAR Without TF", language, false, "NN", "answers", false,CrarParameters.roundsWithSocialFactors));
+	        baselines.add(new Baseline("CRAR Without Sent2Vec/CNN", language, false, "NN", "answers", false,CrarParameters.roundsWithSocialFactors));			
+	        baselines.add(new Baseline("CRAR Without Asym.Sim.Body+Ans.Body", language, false, "NN", "answers", false,CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("CRAR Without Asym.Sim.Title", language, false, "NN", "answers", false,CrarParameters.roundsWithSocialFactors));		    						  			
 			baselines.add(new Baseline("CRAR-CNN", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
 			
-			//End of table 4
-			//Begin o table 5
-			baselines.add(new Baseline("Answers-Asym-Title+AnswerBody", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Answers-TF-IDF", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Answers-Method", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Answers-TreadScore", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			baselines.add(new Baseline("Ant-NN-ANS (CRAR)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
-			
-			/*
-//			 * CROKAGE - Como no baseline do EMSE-REPLICATION-PACKAGE com API class factor
-//			 */
-			baselines.add(new Baseline("CROKAGE", language, true, "None", "", false, CrarParameters.roundsOnlyTRM));
+			//RQ3 - Table 8
+			baselines.add(new Baseline("Top Method", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors)); //Answers-Method
+			baselines.add(new Baseline("TF-IDF", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors)); //Answers-TF-IDF
+			baselines.add(new Baseline("Thread Score", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors)); //Answers-TreadScore			
+ 	        baselines.add(new Baseline("Asymmetric Similarity", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors)); //Answers-Asym-Title+AnswerBody
+ 	        baselines.add(new Baseline("CRAR Without TF-IDF", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+			baselines.add(new Baseline("CRAR Without Asymmetric Similarity", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));			   	              	 		        	        	        	        
+	        baselines.add(new Baseline("CRAR Without Thread Score", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+	        baselines.add(new Baseline("CRAR Without Top Method", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+	        
+			//RQ4 - Table 9 - CROKAGE - Como no baseline do EMSE-REPLICATION-PACKAGE com API class factor
+	    	baselines.add(new Baseline("CROKAGE", language, true, "None", "", false, CrarParameters.roundsOnlyTRM));	        
+ 					
 			
 			// tCCAnt-NN_VB - threads&answers: ant All - threads&answers +
 			// queryCoverageScoreMinThreshold>0
@@ -266,6 +275,10 @@ public class CrarApp extends AppAuxSolutionBuilder {
 			
 			// TempCC: Code Coverage or queryCoverageScoreMinThreshold>0
 			//baselines.add(new Baseline(templateName + "CC", language, false, "None", "", true, CrarParameters.roundsWithSocialFactors));
+		
+	//	baselines.add(new Baseline("Threads-round2-NumAnswers", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+	//	baselines.add(new Baseline("Threads-round2-UpVotes", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
+	//	baselines.add(new Baseline("Threads-round2-TotalUpvotes", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
 
 			
 			//baselines.add(new Baseline(templateName + "Ant-NN-ANS (CRAR-CNN)", language, false, "NN", "answers", false, CrarParameters.roundsWithSocialFactors));
@@ -274,7 +287,7 @@ public class CrarApp extends AppAuxSolutionBuilder {
 //
 			
 //
-//			baselines.add(new Baseline("TEMP-CNN", language, false, "NN", "answers", false,
+//			baselines.add(new Baseline("TEMP-CNN", language, false, "NN", "answers", false,dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 //					CrarParameters.roundsWithSocialFactors));
 //
 //			baselines.add(new Baseline("SEN-SIM-TIT", language, false, "NN", "answers", false,
